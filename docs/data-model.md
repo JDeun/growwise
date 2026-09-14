@@ -8,16 +8,22 @@
 > 채우며, 저장소에는 스키마와 예시(값 없는 형태)만 둔다.
 > ([privacy-and-safety.md](privacy-and-safety.md))
 
+> **다자녀**: `child_profile`은 **다중 인스턴스**(홈스쿨링 아이 2명 이상)다. 아이별
+> 엔티티(`book`·`activity_plan`·`generated_material`·`learning_log`·`competency`·
+> `parent_review`)는 모두 **`child_id`로 연결**되고, 성장 지도·퀘스트·기록은 아이별로
+> 분리된다. 앱은 아이 전환(switcher)을 제공한다([product-spec.md](product-spec.md)).
+
 ## 엔티티
 
 | 엔티티 | 설명 | 주요 필드(초안) |
 | --- | --- | --- |
 | `child_profile` | 학습자 프로필(로컬 전용) | 연령, 관심사, 언어 수준, 주의할 점, **발달 단계(`stage` ∈ 영아0-2·유아3-5·초등·중등·고등), AI 노출 수준(`ai_exposure_level`)** |
 | `book` | 도서 | 제목, 저자, 난이도, 주제, 읽은 날짜 |
-| `activity` | 활동 정의 | 활동 유형, 목표, 소요 시간, 자료 |
+| `activity` | 활동 정의(템플릿) | 활동 유형, 목표, 소요 시간, 자료 |
+| `activity_plan` | **계획된 활동(퀘스트)** | `child_id`, `activity_id`, 상태(제안/진행/완료), 일정(선택), 완료→`learning_log` |
 | `generated_material` | 생성 산출물 | 활동지, 카드, 질문, 수업안 |
 | `learning_log` | **학습 대화 로그(핵심)** | 질문·풀이 과정·AI 힌트·부모 관찰·검증 근거·자기 언어 재구성·흥미·다음 활동(아래 상세) |
-| `competency` | 역량 | 읽기, 말하기, 쓰기, 수학, 탐구, 사회성 |
+| `competency` | 역량(방사형 성장 지도의 축) | 읽기, 말하기, 쓰기, 수학, 탐구, 사회성 — **관찰 기반, 점수 아님** |
 | `parent_review` | 검토 결과 | 부모/교사의 검토 결과와 수정 사항 |
 | `institution_profile` | 기관 프로필 | 기관명, 연령대, 수업 유형, 출력 포맷 |
 | `classroom_context` | 학급 맥락 | 반 수준, 인원, 수업 시간, 주제 |
@@ -26,8 +32,10 @@
 
 - `activity` → `generated_material`: 하나의 활동 정의로 여러 산출물이 생성될 수 있다.
 - `generated_material` → `parent_review`: 산출물은 노출 전 검토를 거친다.
-- `activity` / `book` → `learning_log`: 활동·도서 수행 후 기록이 남는다.
-- `learning_log` → `competency`: 기록은 역량 관찰로 요약될 수 있다(점수화가 아님).
+- `activity` → `activity_plan`: 활동 템플릿에서 아이별 퀘스트(계획 인스턴스)가 만들어진다.
+- `activity_plan` / `book` → `learning_log`: 퀘스트 완료·도서 수행 후 기록이 남는다.
+- `learning_log` → `competency`: 기록은 역량 관찰로 요약돼 **방사형 성장 지도**를 채운다
+  (점수화가 아니라 관찰·경험 기반).
 - `institution_profile` + `classroom_context`: 기관용에서 반 단위 맥락을 담는다.
 
 ## 개인용 ↔ 기관용
