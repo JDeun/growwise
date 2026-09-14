@@ -165,7 +165,17 @@ Return concise Korean when the input is Korean."""
                 schema=InfantObservationHints,
             )
             allowed = set(InfantCurriculumDomain)
-            by_domain = {hint.domain: hint for hint in result.hints if hint.domain in allowed}
+            forbidden = (
+                "adhd", "autism", "diagnos", "자폐", "발달장애", "진단",
+                "비정상", "또래보다", "또래 평균", "상위 ", "하위 ", "퍼센타일",
+            )
+            by_domain = {}
+            for hint in result.hints:
+                text_value = f"{hint.cue} {hint.rationale}".casefold()
+                if hint.domain in allowed and not any(
+                    marker in text_value for marker in forbidden
+                ):
+                    by_domain[hint.domain] = hint
             result.hints = [by_domain.get(hint.domain, hint) for hint in fallback.hints]
             result.source = CURRICULUM_SOURCE
             result.effective_date = CURRICULUM_EFFECTIVE_DATE
