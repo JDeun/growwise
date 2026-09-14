@@ -16,13 +16,17 @@ from growwise.config import Settings
 from growwise.domain import (
     ChildProfile,
     ExperienceAxis,
+    GeneratedMaterial,
     LearningLog,
+    MaterialKind,
+    MaterialStatus,
     ResourceKind,
     ResourceRecord,
     Stage,
     WorkflowRun,
     WorkflowStatus,
 )
+from growwise.generators import MaterialGenerationService
 from growwise.model import ModelProvider, create_model_provider
 from growwise.rag import (
     GroundedRagService,
@@ -30,6 +34,7 @@ from growwise.rag import (
     OllamaEmbeddingProvider,
     ResourceIngestor,
 )
+from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
     ChildContextService,
     ConversationService,
@@ -91,6 +96,18 @@ class ConversationCreateRequest(BaseModel):
 class ConversationTurnRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     limit: int = Field(default=8, ge=1, le=20)
+
+
+class MaterialGenerateRequest(BaseModel):
+    kind: MaterialKind = MaterialKind.ACTIVITY_GUIDE
+    topic: str = Field(min_length=1, max_length=500)
+    goal: str | None = Field(default=None, max_length=1000)
+    source_refs: list[str] = Field(default_factory=list)
+
+
+class MaterialReviewRequest(BaseModel):
+    status: MaterialStatus
+    note: str | None = Field(default=None, max_length=2000)
 
 
 @lru_cache
@@ -288,6 +305,64 @@ def append_conversation_turn(
 @app.delete("/v1/conversations/{session_id}")
 def delete_conversation(session_id: str) -> dict[str, bool]:
     return {"deleted": get_conversation_store().delete(session_id)}
+
+
+@app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
+def generate_material(
+    child_id: UUID,
+    request: MaterialGenerateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+    material = MaterialGenerationService(provider=get_model_provider()).generate(
+        child=child,
+        kind=request.kind,
+        topic=request.topic,
+        goal=request.goal,
+        source_refs=request.source_refs,
+    )
+    store.save(material)
+    return material
+
+
+@app.get("/v1/children/{child_id}/materials")
+def list_materials(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[dict]:
+    return store.index.list_entities(entity_type="generated_material", child_id=str(child_id))
+
+
+@app.get("/v1/materials/{material_id}", response_model=GeneratedMaterial)
+def get_material(
+    material_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    return GeneratedMaterial.model_validate(payload)
+
+
+@app.post("/v1/materials/{material_id}/review", response_model=GeneratedMaterial)
+def review_material(
+    material_id: UUID,
+    request: MaterialReviewRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    try:
+        MaterialReviewService().transition(material, request.status, note=request.note)
+    except InvalidMaterialTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(material)
+    return material
 
 
 @app.post("/v1/observations", response_model=LearningLog)
