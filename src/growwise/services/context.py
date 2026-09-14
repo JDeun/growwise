@@ -69,7 +69,9 @@ Use only source IDs included in the context. Return concise Korean for Korean qu
                 schema=ContextAnswer,
             )
             allowed = {source_id for source_id, _ in sources}
-            answer.source_ids = [source_id for source_id in answer.source_ids if source_id in allowed]
+            answer.source_ids = [
+                source_id for source_id in answer.source_ids if source_id in allowed
+            ]
             if not answer.source_ids and not answer.insufficient_evidence:
                 answer.insufficient_evidence = True
             return answer
