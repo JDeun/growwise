@@ -126,3 +126,33 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
 @media (max-width: 900px) { .status-grid { grid-template-columns: repeat(2,1fr); } .skeleton-grid, .observation-panel, .resource-grid { grid-template-columns: 1fr; } .activity-grid { grid-template-columns: 1fr; } .child-switcher { align-items: stretch; flex-direction: column; } }
 @media (max-width: 600px) { .app-shell { width: min(100% - 28px,1180px); padding-top: 18px; } .topbar { align-items: flex-start; } .brand > div span, .topbar > .quiet-button { display: none; } .hero { padding: 64px 0 42px; } .status-grid { grid-template-columns: 1fr; } .workspace { padding: 20px; } .verification-list { grid-template-columns: 1fr; } .activity-heading { align-items: stretch; flex-direction: column; } .search-form { grid-template-columns: 1fr; } .review-actions { flex-direction: column; } .quest-card > div:first-child { align-items: flex-start; flex-direction: column; } }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; transition-duration: .01ms !important; animation-duration: .01ms !important; animation-iteration-count: 1 !important; } }
+
+.data-management-section {
+  margin: var(--space-6) auto;
+  max-width: 1180px;
+  padding: var(--space-6);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-16);
+  background: var(--surface);
+}
+
+.print-material { display: none; }
+
+@media print {
+  body * { visibility: hidden !important; }
+  .print-material,
+  .print-material * { visibility: visible !important; }
+  .print-material {
+    display: block !important;
+    position: absolute;
+    inset: 0;
+    padding: 24mm;
+    background: white;
+    color: black;
+  }
+  .print-material pre {
+    white-space: pre-wrap;
+    font-family: inherit;
+    line-height: 1.7;
+  }
+}
