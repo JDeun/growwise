@@ -3,12 +3,20 @@ from __future__ import annotations
 import os
 import tempfile
 from pathlib import Path
-from typing import TypeVar
+from typing import Protocol, TypeVar, runtime_checkable
 
 import frontmatter
 from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
+
+
+@runtime_checkable
+class StoredEntity(Protocol):
+    entity_type: str
+    id: object
+
+    def model_dump(self, *, mode: str = "python") -> dict: ...
 
 
 class MarkdownRepository:
@@ -22,12 +30,10 @@ class MarkdownRepository:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def _path_for(self, entity: BaseModel) -> Path:
-        entity_type = str(getattr(entity, "entity_type"))
-        entity_id = str(getattr(entity, "id"))
-        return self.root / entity_type / f"{entity_id}.md"
+    def _path_for(self, entity: StoredEntity) -> Path:
+        return self.root / entity.entity_type / f"{entity.id}.md"
 
-    def save(self, entity: BaseModel, body: str = "") -> Path:
+    def save(self, entity: StoredEntity, body: str = "") -> Path:
         target = self._path_for(entity)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = entity.model_dump(mode="json")
