@@ -19,11 +19,12 @@ class SearchResponse(BaseModel):
 
 
 class NaturalLanguageSearch:
-    SYSTEM = """Convert a parent's natural-language GrowWise search request into a conservative local search plan.
+    SYSTEM = """Convert a parent's natural-language GrowWise search request
+into a conservative local search plan.
 Do not answer the question. Extract only search keywords and relevant entity types.
 Never remove child scoping: child isolation is enforced outside the model.
 Allowed entity types: learning_log, activity_plan.
-Prefer a few concrete Korean or English content keywords over generic words such as 'recent' or 'record'."""
+Prefer a few concrete Korean or English content keywords over generic temporal words."""
 
     def __init__(self, index: SQLiteProjection, provider: ModelProvider | None = None) -> None:
         self.index = index
