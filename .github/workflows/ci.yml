@@ -35,8 +35,24 @@ jobs:
           cache: pip
       - name: Install
         run: python -m pip install ".[hygiene]"
+      - name: Build third-party audit requirement set
+        run: |
+          python -m pip freeze > /tmp/growwise-freeze.txt
+          python - <<'PY'
+          from pathlib import Path
+
+          source = Path("/tmp/growwise-freeze.txt")
+          target = Path("/tmp/growwise-audit-requirements.txt")
+          lines = []
+          for line in source.read_text(encoding="utf-8").splitlines():
+              normalized = line.casefold()
+              if normalized.startswith(("growwise==", "growwise @", "-e file:")):
+                  continue
+              lines.append(line)
+          target.write_text("\n".join(lines) + "\n", encoding="utf-8")
+          PY
       - name: Python vulnerability audit
-        run: pip-audit --strict
+        run: pip-audit --strict -r /tmp/growwise-audit-requirements.txt
       - name: Python license inventory
         run: pip-licenses --format=markdown --with-urls
 
