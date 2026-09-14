@@ -8,6 +8,8 @@ import {
   getGrowthMap,
   getHealth,
   getInfantActivities,
+  listChildren,
+  listObservations,
   type ChildProfile,
   type CoreRuntimeStatus,
   type ExperienceAxis,
@@ -22,6 +24,8 @@ type ConnectionState =
   | { kind: "connected"; health: HealthResponse; runtime: CoreRuntimeStatus }
   | { kind: "offline"; message: string };
 
+const LAST_CHILD_KEY = "growwise:last-child-id";
+
 const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
   { value: "physical", label: "신체" },
   { value: "emotional_character", label: "정서·인성" },
@@ -35,26 +39,52 @@ const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
 
 function App() {
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
+  const [children, setChildren] = useState<ChildProfile[]>([]);
+  const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
+  const [growthMap, setGrowthMap] = useState<GrowthMap | null>(null);
+  const [timeline, setTimeline] = useState<LearningLog[]>([]);
   const [nickname, setNickname] = useState("");
   const [ageMonths, setAgeMonths] = useState("9");
-  const [createdChild, setCreatedChild] = useState<ChildProfile | null>(null);
-  const [growthMap, setGrowthMap] = useState<GrowthMap | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [observation, setObservation] = useState("");
   const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationError, setObservationError] = useState<string | null>(null);
-  const [lastLog, setLastLog] = useState<LearningLog | null>(null);
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
+  const loadChildContext = useCallback(async (child: ChildProfile) => {
+    const [map, logs] = await Promise.all([getGrowthMap(child.id), listObservations(child.id)]);
+    setActiveChild(child);
+    setGrowthMap(map);
+    setTimeline(logs);
+    setActivities(null);
+    localStorage.setItem(LAST_CHILD_KEY, child.id);
+  }, []);
+
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
     try {
-      const [health, runtime] = await Promise.all([getHealth(), getCoreRuntimeStatus()]);
+      const [health, runtime, storedChildren] = await Promise.all([
+        getHealth(),
+        getCoreRuntimeStatus(),
+        listChildren(),
+      ]);
       setConnection({ kind: "connected", health, runtime });
+      setChildren(storedChildren);
+
+      if (storedChildren.length > 0) {
+        const rememberedId = localStorage.getItem(LAST_CHILD_KEY);
+        const selected =
+          storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
+        await loadChildContext(selected);
+      } else {
+        setActiveChild(null);
+        setGrowthMap(null);
+        setTimeline([]);
+      }
     } catch (error) {
       const message =
         error instanceof CoreApiError || error instanceof Error
@@ -62,7 +92,7 @@ function App() {
           : "GrowWise Core 상태를 확인할 수 없습니다.";
       setConnection({ kind: "offline", message });
     }
-  }, []);
+  }, [loadChildContext]);
 
   useEffect(() => {
     void refresh();
@@ -91,11 +121,9 @@ function App() {
         age_months: parsedAge,
         interests: [],
       });
-      const map = await getGrowthMap(child.id);
-      setCreatedChild(child);
-      setGrowthMap(map);
-      setLastLog(null);
-      setActivities(null);
+      setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
+      await loadChildContext(child);
+      setNickname("");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
     } finally {
@@ -103,9 +131,19 @@ function App() {
     }
   }
 
+  async function handleSelectChild(childId: string) {
+    const child = children.find((item) => item.id === childId);
+    if (!child) return;
+    try {
+      await loadChildContext(child);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "아이 정보를 불러오지 못했습니다.");
+    }
+  }
+
   async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!createdChild) return;
+    if (!activeChild) return;
 
     const text = observation.trim();
     if (!text) {
@@ -116,14 +154,17 @@ function App() {
     setObservationSaving(true);
     setObservationError(null);
     try {
-      const log = await createObservation({
-        child_id: createdChild.id,
+      await createObservation({
+        child_id: activeChild.id,
         observation: text,
         experience_axes: selectedAxes,
       });
-      const map = await getGrowthMap(createdChild.id);
-      setLastLog(log);
+      const [map, logs] = await Promise.all([
+        getGrowthMap(activeChild.id),
+        listObservations(activeChild.id),
+      ]);
       setGrowthMap(map);
+      setTimeline(logs);
       setObservation("");
       setSelectedAxes([]);
       setActivities(null);
@@ -135,11 +176,11 @@ function App() {
   }
 
   async function handleLoadActivities() {
-    if (!createdChild) return;
+    if (!activeChild) return;
     setActivitiesLoading(true);
     setActivitiesError(null);
     try {
-      setActivities(await getInfantActivities(createdChild.id));
+      setActivities(await getInfantActivities(activeChild.id));
     } catch (error) {
       setActivitiesError(error instanceof Error ? error.message : "활동 후보를 불러오지 못했습니다.");
     } finally {
@@ -167,7 +208,7 @@ function App() {
           </div>
         </div>
         <button className="quiet-button" type="button" onClick={() => void refresh()}>
-          상태 새로고침
+          새로고침
         </button>
       </header>
 
@@ -175,8 +216,8 @@ function App() {
         <p className="eyebrow">LOCAL-FIRST · PARENT-LED</p>
         <h1 id="home-title">아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
         <p className="hero-copy">
-          GrowWise의 핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델이 준비되면
-          정리, 검색 보강, 자료 생성을 선택적으로 더합니다.
+          핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을
+          선택적으로 보강합니다.
         </p>
       </section>
 
@@ -187,24 +228,18 @@ function App() {
             <h2>GrowWise Core</h2>
           </div>
           {connection.kind === "loading" && <p>로컬 코어 상태를 확인하고 있습니다.</p>}
-          {connection.kind === "offline" && (
-            <>
-              <p className="status-title">연결되지 않음</p>
-              <p className="muted">{connection.message}</p>
-            </>
-          )}
+          {connection.kind === "offline" && <p className="muted">{connection.message}</p>}
           {connection.kind === "connected" && (
             <>
               <p className="status-title">정상 연결</p>
               <p className="muted">
                 {connection.runtime.started_by_desktop
-                  ? "Desktop이 Python Core를 자동 기동했습니다."
-                  : "이미 실행 중인 Python Core에 연결했습니다."}
+                  ? "Desktop이 Core를 자동 기동했습니다."
+                  : "이미 실행 중인 Core에 연결했습니다."}
               </p>
             </>
           )}
         </article>
-
         <article className="status-card">
           <p className="card-label">운영 모드</p>
           <p className="status-title">
@@ -214,207 +249,87 @@ function App() {
                 ? "Core-only"
                 : "확인 대기"}
           </p>
-          <p className="muted">LLM 장애가 기록·검색·자료 관리의 중단으로 이어지지 않습니다.</p>
+          <p className="muted">LLM 장애가 핵심 기능 중단으로 이어지지 않습니다.</p>
         </article>
-
         <article className="status-card">
-          <p className="card-label">로컬 모델</p>
-          <p className="status-title">
-            {isConnected && connection.health.llm_features_enabled
-              ? connection.health.model_provider
-              : "선택 사항"}
-          </p>
-          <p className="muted">AI는 deterministic core를 보강하며 필수 런타임이 아닙니다.</p>
+          <p className="card-label">현재 아이</p>
+          <p className="status-title">{activeChild?.nickname ?? "선택 안 됨"}</p>
+          <p className="muted">저장된 아이 {children.length}명 · child scope를 엄격히 분리합니다.</p>
         </article>
       </section>
 
       <section className="workspace">
         <div className="section-heading">
           <div>
-            <p className="eyebrow">WALKING SKELETON</p>
-            <h2>프로필 → 관찰 → 성장 맥락 → 활동 후보</h2>
+            <p className="eyebrow">CHILD CONTEXT</p>
+            <h2>기존 기록을 이어서 사용합니다.</h2>
           </div>
           <span className="badge">Pre-alpha</span>
         </div>
 
+        {children.length > 0 && (
+          <div className="child-switcher">
+            <label>
+              <span>아이 선택</span>
+              <select
+                value={activeChild?.id ?? ""}
+                onChange={(event) => void handleSelectChild(event.target.value)}
+              >
+                {children.map((child) => (
+                  <option key={child.id} value={child.id}>
+                    {child.nickname} · {child.age_months ?? "-"}개월
+                  </option>
+                ))}
+              </select>
+            </label>
+            <p className="muted">앱을 다시 열면 마지막 선택을 기억하고 Core에서 데이터를 재조회합니다.</p>
+          </div>
+        )}
+
         <div className="skeleton-grid">
           <form className="profile-form" onSubmit={handleCreateChild}>
-            <p className="card-label">01 · CHILD PROFILE</p>
-            <label>
-              <span>아이 닉네임</span>
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                placeholder="예: 수아"
-                maxLength={40}
-                disabled={!isConnected || saving}
-              />
-            </label>
-            <label>
-              <span>월령</span>
-              <input
-                type="number"
-                min="0"
-                max="24"
-                value={ageMonths}
-                onChange={(event) => setAgeMonths(event.target.value)}
-                disabled={!isConnected || saving}
-              />
-            </label>
-            <button className="primary-button" type="submit" disabled={!isConnected || saving}>
-              {saving ? "저장 및 확인 중…" : "로컬에 프로필 저장"}
-            </button>
+            <p className="card-label">NEW CHILD</p>
+            <label><span>아이 닉네임</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="예: 수아" maxLength={40} disabled={!isConnected || saving} /></label>
+            <label><span>월령</span><input type="number" min="0" max="24" value={ageMonths} onChange={(event) => setAgeMonths(event.target.value)} disabled={!isConnected || saving} /></label>
+            <button className="primary-button" type="submit" disabled={!isConnected || saving}>{saving ? "저장 중…" : "새 프로필 저장"}</button>
             {formError && <p className="form-error">{formError}</p>}
           </form>
 
-          <article className="verification-card" aria-live="polite">
-            {createdChild && growthMap ? (
-              <>
-                <p className="card-label">ROUND TRIP VERIFIED</p>
-                <h3>{createdChild.nickname}</h3>
-                <p className="muted">
-                  프로필 ID <code>{createdChild.id}</code>가 저장되었고 같은 ID로 성장 맥락을 다시
-                  조회했습니다.
-                </p>
-                <dl className="verification-list">
-                  <div>
-                    <dt>월령</dt>
-                    <dd>{createdChild.age_months}개월</dd>
-                  </div>
-                  <div>
-                    <dt>최근 기록</dt>
-                    <dd>{growthMap.total_logs_in_period}건</dd>
-                  </div>
-                  <div>
-                    <dt>축 태깅 기록</dt>
-                    <dd>{growthMap.tagged_logs_in_period}건</dd>
-                  </div>
-                </dl>
-              </>
+          <article className="verification-card">
+            {activeChild && growthMap ? (
+              <><p className="card-label">ACTIVE CONTEXT</p><h3>{activeChild.nickname}</h3><p className="muted">프로필과 장기 기록은 Core 저장소에서 다시 불러왔습니다.</p><dl className="verification-list"><div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div><div><dt>최근 기록</dt><dd>{growthMap.total_logs_in_period}건</dd></div><div><dt>축 연결</dt><dd>{growthMap.tagged_logs_in_period}건</dd></div></dl></>
             ) : (
-              <>
-                <p className="card-label">DATA PATH</p>
-                <h3>아직 검증 전입니다.</h3>
-                <p className="muted">
-                  프로필을 저장하면 React → Tauri IPC → FastAPI → Markdown/SQLite → FastAPI →
-                  Tauri IPC → React 경로를 확인합니다.
-                </p>
-              </>
+              <><p className="card-label">EMPTY</p><h3>아이 프로필을 만들어 주세요.</h3></>
             )}
           </article>
         </div>
 
-        {createdChild && (
+        {activeChild && (
           <>
             <div className="observation-panel">
               <form className="observation-form" onSubmit={handleCreateObservation}>
-                <div>
-                  <p className="card-label">02 · OBSERVATION</p>
-                  <h3>의미 있는 관찰만 기록합니다.</h3>
-                  <p className="muted">
-                    축 선택은 선택 사항입니다. LLM이 없어도 부모가 지정한 축으로 성장 맥락을
-                    계산합니다.
-                  </p>
-                </div>
-                <textarea
-                  value={observation}
-                  onChange={(event) => setObservation(event.target.value)}
-                  placeholder="예: 그림책의 고양이 그림을 오래 바라보고 손으로 여러 번 가리켰다."
-                  maxLength={10000}
-                  disabled={observationSaving}
-                />
-                <div className="axis-picker" aria-label="경험 축">
-                  {AXIS_OPTIONS.map((option) => {
-                    const active = selectedAxes.includes(option.value);
-                    return (
-                      <button
-                        key={option.value}
-                        type="button"
-                        className={`axis-chip ${active ? "active" : ""}`}
-                        aria-pressed={active}
-                        onClick={() => toggleAxis(option.value)}
-                      >
-                        {option.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <button className="primary-button" type="submit" disabled={observationSaving}>
-                  {observationSaving ? "기록 중…" : "관찰 저장"}
-                </button>
+                <div><p className="card-label">OBSERVATION</p><h3>의미 있는 관찰만 기록합니다.</h3><p className="muted">축 선택은 선택 사항이며 AI 없이도 projection이 계산됩니다.</p></div>
+                <textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="예: 그림책의 고양이 그림을 오래 바라보고 여러 번 손으로 가리켰다." maxLength={10000} disabled={observationSaving} />
+                <div className="axis-picker" aria-label="경험 축">{AXIS_OPTIONS.map((option) => { const active = selectedAxes.includes(option.value); return <button key={option.value} type="button" className={`axis-chip ${active ? "active" : ""}`} aria-pressed={active} onClick={() => toggleAxis(option.value)}>{option.label}</button>; })}</div>
+                <button className="primary-button" type="submit" disabled={observationSaving}>{observationSaving ? "기록 중…" : "관찰 저장"}</button>
                 {observationError && <p className="form-error">{observationError}</p>}
               </form>
 
-              <article className="observation-result" aria-live="polite">
-                <p className="card-label">03 · PROJECTION</p>
-                {lastLog && growthMap ? (
-                  <>
-                    <h3>관찰이 원본 그대로 저장됐습니다.</h3>
-                    <blockquote>{lastLog.parent_observation}</blockquote>
-                    <p className="muted">
-                      최근 {growthMap.period_days}일 기록 {growthMap.total_logs_in_period}건 · 경험 축
-                      연결 {growthMap.tagged_logs_in_period}건
-                    </p>
-                    <div className="axis-summary">
-                      {growthMap.axes
-                        .filter((axis) => axis.observation_count > 0)
-                        .map((axis) => (
-                          <span key={axis.axis}>
-                            {AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} ·{" "}
-                            {axis.observation_count}
-                          </span>
-                        ))}
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <h3>첫 관찰을 기다리고 있습니다.</h3>
-                    <p className="muted">
-                      저장 후 원본 LearningLog와 deterministic 성장 지도 projection을 다시 조회합니다.
-                    </p>
-                  </>
-                )}
+              <article className="observation-result">
+                <p className="card-label">GROWTH CONTEXT</p><h3>최근 {growthMap?.period_days ?? 30}일</h3><p className="muted">기록 {growthMap?.total_logs_in_period ?? 0}건 · 경험 축 연결 {growthMap?.tagged_logs_in_period ?? 0}건</p>
+                <div className="axis-summary">{growthMap?.axes.filter((axis) => axis.observation_count > 0).map((axis) => <span key={axis.axis}>{AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} · {axis.observation_count}</span>)}</div>
               </article>
             </div>
 
+            <section className="timeline-section">
+              <div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>
+              {timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => <article key={log.id} className="timeline-card"><p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>)}</div>}
+            </section>
+
             <section className="activity-section" aria-labelledby="activity-title">
-              <div className="activity-heading">
-                <div>
-                  <p className="card-label">04 · ACTIVITY INVITATIONS</p>
-                  <h3 id="activity-title">다음 활동 후보</h3>
-                  <p className="muted">
-                    AI가 가능하면 최근 맥락을 반영하고, 사용할 수 없으면 안전한 기본 후보를
-                    즉시 제공합니다. 활동은 과제가 아니라 선택 가능한 초대입니다.
-                  </p>
-                </div>
-                <button
-                  className="quiet-button activity-button"
-                  type="button"
-                  disabled={activitiesLoading}
-                  onClick={() => void handleLoadActivities()}
-                >
-                  {activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}
-                </button>
-              </div>
+              <div className="activity-heading"><div><p className="card-label">ACTIVITY INVITATIONS</p><h3 id="activity-title">다음 활동 후보</h3><p className="muted">AI가 가능하면 최근 맥락을 반영하고, 아니면 deterministic fallback을 사용합니다.</p></div><button className="quiet-button" type="button" onClick={() => void handleLoadActivities()} disabled={activitiesLoading}>{activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}</button></div>
               {activitiesError && <p className="form-error">{activitiesError}</p>}
-              {activities && (
-                <div className="activity-grid">
-                  {activities.suggestions.map((item) => (
-                    <article className="activity-card" key={`${item.title}-${item.description}`}>
-                      <h4>{item.title}</h4>
-                      <p>{item.description}</p>
-                      {item.observation_cue && <small>{item.observation_cue}</small>}
-                      {item.tags.length > 0 && (
-                        <div className="activity-tags">
-                          {item.tags.map((tag) => (
-                            <span key={tag}>{tag}</span>
-                          ))}
-                        </div>
-                      )}
-                    </article>
-                  ))}
-                </div>
-              )}
+              {activities && <div className="activity-grid">{activities.suggestions.map((suggestion) => <article className="activity-card" key={`${suggestion.title}-${suggestion.description}`}><h4>{suggestion.title}</h4><p>{suggestion.description}</p>{suggestion.observation_cue && <small>{suggestion.observation_cue}</small>}</article>)}</div>}
             </section>
           </>
         )}
