@@ -2,9 +2,10 @@
 
 **AI 기반 아동 학습자료 생성 · 학습기록 시스템**
 
-부모와 교사가 아이의 관심사와 성장 기록을 바탕으로 집·교실에서 바로 쓸 수 있는
-학습자료를 만드는 보조 도구다. 개인용 홈서버 도구로 작게 시작하되, 구조는 처음부터
-유치원·어린이집·학원용 교사 자료 제작 플랫폼으로 확장될 수 있게 설계한다.
+부모가 아이의 관심사와 성장 기록을 바탕으로 집에서 바로 쓸 수 있는 학습자료를 만드는
+보조 도구다. **개인이 운영하는 홈스쿨링용 데스크탑 앱**으로 작게 시작하는 것이 현재
+목표이며(홈서버·상시 백엔드 불요, 오프라인 우선), 구조는 나중에 유치원·어린이집·학원용
+교사 자료 제작으로 확장될 수 있게 설계한다.
 
 > 핵심 방향: growwise는 **문제지 생성기가 아니라 학습 대화 기록장**에 가깝다.
 > 중요한 데이터는 정답이 아니라 아이의 질문, 풀이 과정, 부모의 관찰,
@@ -51,7 +52,7 @@
 | **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심. 먼저 읽을 것** |
 | [docs/vision.md](docs/vision.md) | 제품 비전 요약 — 왜 만드는가 |
 | [docs/product-spec.md](docs/product-spec.md) | 개인용 MVP·핵심 기능·기관용 확장 |
-| [docs/architecture.md](docs/architecture.md) | 홈서버 아키텍처·모듈·기술 스택 후보 |
+| [docs/architecture.md](docs/architecture.md) | 데스크탑 앱 아키텍처·모듈·기술 스택 후보 |
 | [docs/data-model.md](docs/data-model.md) | 데이터 모델(엔티티) 초안 |
 | [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스와 어댑터 설계 |
 | [docs/references.md](docs/references.md) | 선행 사례 분석과 빌려오는 점(PAIDEIA·DeepTutor·TutorMoments 등) |

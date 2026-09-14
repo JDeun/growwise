@@ -1,27 +1,32 @@
 # 아키텍처 (초안)
 
+> **형태: 로컬 데스크탑 앱 (개인용 우선).** 홈서버·Docker·상시 백엔드 배포는 목표가
+> 아니다. 한 대의 데스크탑에 설치해 오프라인 우선으로 동작하는 개인 홈스쿨링 앱이
+> 1차 목표다. 기관용 확장은 나중 단계로 미뤄 둔다([roadmap.md](roadmap.md)).
+
 ## 파이프라인
 
 ```
-Parent Web UI
-    ->  API Server
+Desktop UI
+    ->  App Core (로컬, 인프로세스 또는 로컬 사이드카)
         ->  Request Router
             ->  Generator Modules
                 ->  Local RAG
-                    ->  Markdown / SQLite Storage
+                    ->  Markdown / SQLite Storage (로컬)
                         ->  PDF Export
-                            ->  External API Adapters
+                            ->  External API Adapters (선택적, 오프라인 시 우회)
 ```
 
 입력 유형을 라우터가 분류해 적절한 생성 모듈로 보내고, 생성 모듈은 로컬 RAG로
-근거 자료를 참고해 결과를 만든다. 결과와 학습 로그는 로컬 저장소에 남고, 필요 시
-PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑터를 통해서만 접근한다.
+근거 자료를 참고해 결과를 만든다. 결과와 학습 로그는 **데스크탑 로컬 저장소**에 남고,
+필요 시 PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑터를 통해서만
+접근하며, 외부 연결이 없어도 기본 생성·기록·조회는 동작한다.
 
 ## 모듈
 
 | 모듈 | 책임 | 소스 경로 |
 | --- | --- | --- |
-| API Server | HTTP 진입점, 요청/응답, 세션 | `src/growwise/api/` |
+| App Core | 데스크탑 UI ↔ 코어 연결(로컬 인프로세스 또는 로컬 API), 세션 | `src/growwise/api/` |
 | Request Router | 입력 유형 분류 → 생성 모듈 라우팅 | `src/growwise/router/` |
 | Reading Material Generator | 독서 활동지 생성 | `src/growwise/generators/` |
 | English Card Generator | 영어 대화 카드 생성 | `src/growwise/generators/` |
@@ -53,8 +58,8 @@ PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑
 ### 콘텐츠 생성과 RAG
 
 - LangChain / LlamaIndex / LangGraph
-- 벡터 저장소: Chroma / Qdrant
-- 데이터: SQLite 또는 Postgres, Markdown 파일 저장
+- 벡터 저장소: Chroma / Qdrant (로컬 임베디드 모드)
+- 데이터: SQLite(로컬), Markdown 파일 저장
 
 > 초기에는 복잡한 멀티에이전트보다 단순한 라우터가 적합하다.
 
@@ -79,11 +84,19 @@ PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑
 
 > 아이 음성 데이터는 외부 전송을 기본값으로 삼지 않는다.
 
-### 홈서버 배포
+### 데스크탑 앱 패키징
 
-- Docker Compose
-- 백엔드: FastAPI 또는 Node
-- 데이터: SQLite 또는 Postgres
-- 로컬 파일 스토리지, 로컬 임베딩 모델, 간단한 웹 대시보드
+목표는 홈서버가 아니라 **한 대의 데스크탑에 설치하는 앱**이다. 생성·RAG·PDF·음성 등
+핵심 처리가 대부분 Python 생태계라, 폴리글랏 빌드를 피하려면 Python 코어를 중심으로
+두는 편이 유리하다. 후보(첫 마일스톤에서 하나로 고정):
 
-> 홈서버에서는 인터넷 연결 없이도 기본 자료 생성과 기록 조회가 가능해야 한다.
+- **UI 셸 후보**: Tauri(경량, 시스템 웹뷰) / Electron(친숙, 무거움) / pywebview(순수
+  파이썬·시스템 웹뷰) / PySide·Qt
+- **코어**: 로컬 Python(FastAPI 로컬 사이드카 또는 인프로세스 호출)
+- **데이터**: SQLite + 로컬 파일(Markdown). Postgres·서버 DB 불요.
+- **로컬 모델**: 로컬 임베딩·STT/TTS(가능한 CPU 실행), 필요 자원은 앱에 번들 또는
+  최초 실행 시 내려받기
+- **패키징**: PyInstaller / Briefcase / Tauri·Electron 번들러 등
+
+> 인터넷 연결 없이도 기본 자료 생성과 기록 조회가 가능해야 한다(오프라인 우선).
+> 구체적 프레임워크 선택은 [roadmap.md](roadmap.md) 미해결 질문에서 확정한다.

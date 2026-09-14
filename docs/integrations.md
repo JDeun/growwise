@@ -68,9 +68,10 @@ Claude Tour Skill을 원형으로 한 탐방 활동 생성의 외부 소스다
 [architecture.md](architecture.md).
 
 - RAG/생성: LangChain, LlamaIndex, LangGraph, Chroma/Qdrant
-- 저장: SQLite/Postgres, Markdown 파일
+- 저장: SQLite(로컬), Markdown 파일
 - 문서 출력(PDF): Pandoc, WeasyPrint, Playwright — 인쇄 품질이 중요
-- 배포: Docker Compose, FastAPI 또는 Node, 로컬 임베딩 모델
+- 배포: **데스크탑 앱 패키징**(Tauri/Electron/pywebview + Python 코어), 로컬 임베딩 모델.
+  홈서버·Docker는 목표가 아니다([architecture.md](architecture.md) 데스크탑 앱 패키징)
 
 ## 어댑터 설계 원칙
 
