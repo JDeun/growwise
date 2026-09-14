@@ -1,5 +1,6 @@
 use std::env;
 use std::net::{SocketAddr, TcpStream};
+use std::path::Path;
 use std::process::{Child, Command, Stdio};
 use std::str::FromStr;
 use std::sync::Mutex;
@@ -15,14 +16,14 @@ pub struct CoreProcessManager {
 }
 
 impl CoreProcessManager {
-    pub fn ensure_started() -> Result<Self, String> {
+    pub fn ensure_started(resource_dir: &Path) -> Result<Self, String> {
         if core_is_reachable() {
             return Ok(Self {
                 child: Mutex::new(None),
             });
         }
 
-        let mut command = core_command()?;
+        let mut command = core_command(resource_dir)?;
         command.stdin(Stdio::null());
 
         if cfg!(debug_assertions) {
@@ -79,7 +80,7 @@ impl Drop for CoreProcessManager {
     }
 }
 
-fn core_command() -> Result<Command, String> {
+fn core_command(resource_dir: &Path) -> Result<Command, String> {
     if let Ok(executable) = env::var("GROWWISE_CORE_EXECUTABLE") {
         if executable.trim().is_empty() {
             return Err("GROWWISE_CORE_EXECUTABLE이 비어 있습니다.".to_string());
@@ -87,17 +88,29 @@ fn core_command() -> Result<Command, String> {
         return Ok(Command::new(executable));
     }
 
-    if !cfg!(debug_assertions) {
-        return Err(
-            "배포 빌드에는 GROWWISE_CORE_EXECUTABLE로 번들 Core 실행 파일을 지정해야 합니다."
-                .to_string(),
-        );
+    if cfg!(debug_assertions) {
+        let python = env::var("GROWWISE_PYTHON").unwrap_or_else(|_| default_python().to_string());
+        let mut command = Command::new(python);
+        command.args(["-m", "growwise.api.main"]);
+        return Ok(command);
     }
 
-    let python = env::var("GROWWISE_PYTHON").unwrap_or_else(|_| default_python().to_string());
-    let mut command = Command::new(python);
-    command.args(["-m", "growwise.api.main"]);
-    Ok(command)
+    let executable = resource_dir.join("binaries").join(core_binary_name());
+    if !executable.is_file() {
+        return Err(format!(
+            "번들 GrowWise Core 실행 파일을 찾을 수 없습니다: {}",
+            executable.display()
+        ));
+    }
+    Ok(Command::new(executable))
+}
+
+fn core_binary_name() -> &'static str {
+    if cfg!(windows) {
+        "growwise-core.exe"
+    } else {
+        "growwise-core"
+    }
 }
 
 fn default_python() -> &'static str {
@@ -117,14 +130,16 @@ fn core_is_reachable() -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::default_python;
+    use super::{core_binary_name, default_python};
 
     #[test]
-    fn default_python_is_platform_specific() {
+    fn platform_names_are_stable() {
         if cfg!(windows) {
             assert_eq!(default_python(), "python");
+            assert_eq!(core_binary_name(), "growwise-core.exe");
         } else {
             assert_eq!(default_python(), "python3");
+            assert_eq!(core_binary_name(), "growwise-core");
         }
     }
 }
