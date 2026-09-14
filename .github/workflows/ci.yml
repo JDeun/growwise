@@ -36,7 +36,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[hygiene]"
       - name: Python vulnerability audit
-        run: pip-audit --strict
+        run: pip-audit --strict --skip-editable
       - name: Python license inventory
         run: pip-licenses --format=markdown --with-urls
 
