@@ -7,11 +7,13 @@ import {
   getCoreRuntimeStatus,
   getGrowthMap,
   getHealth,
+  getInfantActivities,
   type ChildProfile,
   type CoreRuntimeStatus,
   type ExperienceAxis,
   type GrowthMap,
   type HealthResponse,
+  type InfantActivitySuggestions,
   type LearningLog,
 } from "./api";
 
@@ -44,6 +46,9 @@ function App() {
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationError, setObservationError] = useState<string | null>(null);
   const [lastLog, setLastLog] = useState<LearningLog | null>(null);
+  const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
+  const [activitiesLoading, setActivitiesLoading] = useState(false);
+  const [activitiesError, setActivitiesError] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
@@ -90,6 +95,7 @@ function App() {
       setCreatedChild(child);
       setGrowthMap(map);
       setLastLog(null);
+      setActivities(null);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
     } finally {
@@ -120,10 +126,24 @@ function App() {
       setGrowthMap(map);
       setObservation("");
       setSelectedAxes([]);
+      setActivities(null);
     } catch (error) {
       setObservationError(error instanceof Error ? error.message : "관찰 기록 저장에 실패했습니다.");
     } finally {
       setObservationSaving(false);
+    }
+  }
+
+  async function handleLoadActivities() {
+    if (!createdChild) return;
+    setActivitiesLoading(true);
+    setActivitiesError(null);
+    try {
+      setActivities(await getInfantActivities(createdChild.id));
+    } catch (error) {
+      setActivitiesError(error instanceof Error ? error.message : "활동 후보를 불러오지 못했습니다.");
+    } finally {
+      setActivitiesLoading(false);
     }
   }
 
@@ -212,7 +232,7 @@ function App() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">WALKING SKELETON</p>
-            <h2>프로필 → 관찰 → 성장 맥락</h2>
+            <h2>프로필 → 관찰 → 성장 맥락 → 활동 후보</h2>
           </div>
           <span className="badge">Pre-alpha</span>
         </div>
@@ -285,76 +305,118 @@ function App() {
         </div>
 
         {createdChild && (
-          <div className="observation-panel">
-            <form className="observation-form" onSubmit={handleCreateObservation}>
-              <div>
-                <p className="card-label">02 · OBSERVATION</p>
-                <h3>의미 있는 관찰만 기록합니다.</h3>
-                <p className="muted">
-                  축 선택은 선택 사항입니다. LLM이 없어도 부모가 지정한 축으로 성장 맥락을
-                  계산합니다.
-                </p>
-              </div>
-              <textarea
-                value={observation}
-                onChange={(event) => setObservation(event.target.value)}
-                placeholder="예: 그림책의 고양이 그림을 오래 바라보고 손으로 여러 번 가리켰다."
-                maxLength={10000}
-                disabled={observationSaving}
-              />
-              <div className="axis-picker" aria-label="경험 축">
-                {AXIS_OPTIONS.map((option) => {
-                  const active = selectedAxes.includes(option.value);
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      className={`axis-chip ${active ? "active" : ""}`}
-                      aria-pressed={active}
-                      onClick={() => toggleAxis(option.value)}
-                    >
-                      {option.label}
-                    </button>
-                  );
-                })}
-              </div>
-              <button className="primary-button" type="submit" disabled={observationSaving}>
-                {observationSaving ? "기록 중…" : "관찰 저장"}
-              </button>
-              {observationError && <p className="form-error">{observationError}</p>}
-            </form>
+          <>
+            <div className="observation-panel">
+              <form className="observation-form" onSubmit={handleCreateObservation}>
+                <div>
+                  <p className="card-label">02 · OBSERVATION</p>
+                  <h3>의미 있는 관찰만 기록합니다.</h3>
+                  <p className="muted">
+                    축 선택은 선택 사항입니다. LLM이 없어도 부모가 지정한 축으로 성장 맥락을
+                    계산합니다.
+                  </p>
+                </div>
+                <textarea
+                  value={observation}
+                  onChange={(event) => setObservation(event.target.value)}
+                  placeholder="예: 그림책의 고양이 그림을 오래 바라보고 손으로 여러 번 가리켰다."
+                  maxLength={10000}
+                  disabled={observationSaving}
+                />
+                <div className="axis-picker" aria-label="경험 축">
+                  {AXIS_OPTIONS.map((option) => {
+                    const active = selectedAxes.includes(option.value);
+                    return (
+                      <button
+                        key={option.value}
+                        type="button"
+                        className={`axis-chip ${active ? "active" : ""}`}
+                        aria-pressed={active}
+                        onClick={() => toggleAxis(option.value)}
+                      >
+                        {option.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <button className="primary-button" type="submit" disabled={observationSaving}>
+                  {observationSaving ? "기록 중…" : "관찰 저장"}
+                </button>
+                {observationError && <p className="form-error">{observationError}</p>}
+              </form>
 
-            <article className="observation-result" aria-live="polite">
-              <p className="card-label">03 · PROJECTION</p>
-              {lastLog && growthMap ? (
-                <>
-                  <h3>관찰이 원본 그대로 저장됐습니다.</h3>
-                  <blockquote>{lastLog.parent_observation}</blockquote>
+              <article className="observation-result" aria-live="polite">
+                <p className="card-label">03 · PROJECTION</p>
+                {lastLog && growthMap ? (
+                  <>
+                    <h3>관찰이 원본 그대로 저장됐습니다.</h3>
+                    <blockquote>{lastLog.parent_observation}</blockquote>
+                    <p className="muted">
+                      최근 {growthMap.period_days}일 기록 {growthMap.total_logs_in_period}건 · 경험 축
+                      연결 {growthMap.tagged_logs_in_period}건
+                    </p>
+                    <div className="axis-summary">
+                      {growthMap.axes
+                        .filter((axis) => axis.observation_count > 0)
+                        .map((axis) => (
+                          <span key={axis.axis}>
+                            {AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} ·{" "}
+                            {axis.observation_count}
+                          </span>
+                        ))}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <h3>첫 관찰을 기다리고 있습니다.</h3>
+                    <p className="muted">
+                      저장 후 원본 LearningLog와 deterministic 성장 지도 projection을 다시 조회합니다.
+                    </p>
+                  </>
+                )}
+              </article>
+            </div>
+
+            <section className="activity-section" aria-labelledby="activity-title">
+              <div className="activity-heading">
+                <div>
+                  <p className="card-label">04 · ACTIVITY INVITATIONS</p>
+                  <h3 id="activity-title">다음 활동 후보</h3>
                   <p className="muted">
-                    최근 {growthMap.period_days}일 기록 {growthMap.total_logs_in_period}건 · 경험 축
-                    연결 {growthMap.tagged_logs_in_period}건
+                    AI가 가능하면 최근 맥락을 반영하고, 사용할 수 없으면 안전한 기본 후보를
+                    즉시 제공합니다. 활동은 과제가 아니라 선택 가능한 초대입니다.
                   </p>
-                  <div className="axis-summary">
-                    {growthMap.axes
-                      .filter((axis) => axis.observation_count > 0)
-                      .map((axis) => (
-                        <span key={axis.axis}>
-                          {AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} ·{" "}
-                          {axis.observation_count}
-                        </span>
-                      ))}
-                  </div>
-                </>
-              ) : (
-                <>
-                  <h3>첫 관찰을 기다리고 있습니다.</h3>
-                  <p className="muted">
-                    저장 후 원본 LearningLog와 deterministic 성장 지도 projection을 다시 조회합니다.
-                  </p>
-                </>
+                </div>
+                <button
+                  className="quiet-button activity-button"
+                  type="button"
+                  disabled={activitiesLoading}
+                  onClick={() => void handleLoadActivities()}
+                >
+                  {activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}
+                </button>
+              </div>
+              {activitiesError && <p className="form-error">{activitiesError}</p>}
+              {activities && (
+                <div className="activity-grid">
+                  {activities.suggestions.map((item) => (
+                    <article className="activity-card" key={`${item.title}-${item.description}`}>
+                      <h4>{item.title}</h4>
+                      <p>{item.description}</p>
+                      {item.observation_cue && <small>{item.observation_cue}</small>}
+                      {item.tags.length > 0 && (
+                        <div className="activity-tags">
+                          {item.tags.map((tag) => (
+                            <span key={tag}>{tag}</span>
+                          ))}
+                        </div>
+                      )}
+                    </article>
+                  ))}
+                </div>
               )}
-            </article>
-          </div>
+            </section>
+          </>
         )}
       </section>
     </main>
