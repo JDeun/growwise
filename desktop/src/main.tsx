@@ -5,6 +5,7 @@ import App from "./App";
 import PrintApprovedMaterials from "./PrintApprovedMaterials";
 import "./styles.css";
 import "./brand.css";
+import "./activity-provenance.css";
 import "./print.css";
 
 createRoot(document.getElementById("root")!).render(
