@@ -1,0 +1,34 @@
+name: Refresh rustls lock once
+
+on:
+  push:
+    branches: [codex/finish-growwise]
+    paths:
+      - .github/workflows/refresh-rustls-lock.yml
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: codex/finish-growwise
+      - name: Update patched rustls
+        working-directory: desktop/src-tauri
+        run: |
+          cargo update -p rustls --precise 0.23.45
+          cargo metadata --locked --format-version=1 --no-deps > /dev/null
+      - name: Commit lockfile
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add desktop/src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Cargo.lock already contains the patched version"
+            exit 0
+          fi
+          git commit -m "chore: update rustls for RUSTSEC-2026-0285"
+          git push origin HEAD:codex/finish-growwise
