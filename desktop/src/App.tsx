@@ -3,19 +3,33 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 import {
   CoreApiError,
   createChild,
+  createObservation,
   getCoreRuntimeStatus,
   getGrowthMap,
   getHealth,
   type ChildProfile,
   type CoreRuntimeStatus,
+  type ExperienceAxis,
   type GrowthMap,
   type HealthResponse,
+  type LearningLog,
 } from "./api";
 
 type ConnectionState =
   | { kind: "loading" }
   | { kind: "connected"; health: HealthResponse; runtime: CoreRuntimeStatus }
   | { kind: "offline"; message: string };
+
+const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
+  { value: "physical", label: "신체" },
+  { value: "emotional_character", label: "정서·인성" },
+  { value: "expression_art", label: "표현·예술" },
+  { value: "thinking_inquiry", label: "사고·탐구" },
+  { value: "social", label: "사회성" },
+  { value: "reading", label: "읽기" },
+  { value: "speaking", label: "말하기" },
+  { value: "exploration", label: "탐색" },
+];
 
 function App() {
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
@@ -25,6 +39,11 @@ function App() {
   const [growthMap, setGrowthMap] = useState<GrowthMap | null>(null);
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+  const [observation, setObservation] = useState("");
+  const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
+  const [observationSaving, setObservationSaving] = useState(false);
+  const [observationError, setObservationError] = useState<string | null>(null);
+  const [lastLog, setLastLog] = useState<LearningLog | null>(null);
 
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
@@ -70,11 +89,48 @@ function App() {
       const map = await getGrowthMap(child.id);
       setCreatedChild(child);
       setGrowthMap(map);
+      setLastLog(null);
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
     } finally {
       setSaving(false);
     }
+  }
+
+  async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!createdChild) return;
+
+    const text = observation.trim();
+    if (!text) {
+      setObservationError("기억할 가치가 있는 관찰을 짧게 적어 주세요.");
+      return;
+    }
+
+    setObservationSaving(true);
+    setObservationError(null);
+    try {
+      const log = await createObservation({
+        child_id: createdChild.id,
+        observation: text,
+        experience_axes: selectedAxes,
+      });
+      const map = await getGrowthMap(createdChild.id);
+      setLastLog(log);
+      setGrowthMap(map);
+      setObservation("");
+      setSelectedAxes([]);
+    } catch (error) {
+      setObservationError(error instanceof Error ? error.message : "관찰 기록 저장에 실패했습니다.");
+    } finally {
+      setObservationSaving(false);
+    }
+  }
+
+  function toggleAxis(axis: ExperienceAxis) {
+    setSelectedAxes((current) =>
+      current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
+    );
   }
 
   const isConnected = connection.kind === "connected";
@@ -156,13 +212,14 @@ function App() {
         <div className="section-heading">
           <div>
             <p className="eyebrow">WALKING SKELETON</p>
-            <h2>프로필 저장 → 재조회 검증</h2>
+            <h2>프로필 → 관찰 → 성장 맥락</h2>
           </div>
           <span className="badge">Pre-alpha</span>
         </div>
 
         <div className="skeleton-grid">
           <form className="profile-form" onSubmit={handleCreateChild}>
+            <p className="card-label">01 · CHILD PROFILE</p>
             <label>
               <span>아이 닉네임</span>
               <input
@@ -196,8 +253,8 @@ function App() {
                 <p className="card-label">ROUND TRIP VERIFIED</p>
                 <h3>{createdChild.nickname}</h3>
                 <p className="muted">
-                  프로필 ID <code>{createdChild.id}</code>가 저장되었고, 같은 ID로 성장 맥락을
-                  다시 조회했습니다.
+                  프로필 ID <code>{createdChild.id}</code>가 저장되었고 같은 ID로 성장 맥락을 다시
+                  조회했습니다.
                 </p>
                 <dl className="verification-list">
                   <div>
@@ -209,8 +266,8 @@ function App() {
                     <dd>{growthMap.total_logs_in_period}건</dd>
                   </div>
                   <div>
-                    <dt>조회 기간</dt>
-                    <dd>{growthMap.period_days}일</dd>
+                    <dt>축 태깅 기록</dt>
+                    <dd>{growthMap.tagged_logs_in_period}건</dd>
                   </div>
                 </dl>
               </>
@@ -226,6 +283,79 @@ function App() {
             )}
           </article>
         </div>
+
+        {createdChild && (
+          <div className="observation-panel">
+            <form className="observation-form" onSubmit={handleCreateObservation}>
+              <div>
+                <p className="card-label">02 · OBSERVATION</p>
+                <h3>의미 있는 관찰만 기록합니다.</h3>
+                <p className="muted">
+                  축 선택은 선택 사항입니다. LLM이 없어도 부모가 지정한 축으로 성장 맥락을
+                  계산합니다.
+                </p>
+              </div>
+              <textarea
+                value={observation}
+                onChange={(event) => setObservation(event.target.value)}
+                placeholder="예: 그림책의 고양이 그림을 오래 바라보고 손으로 여러 번 가리켰다."
+                maxLength={10000}
+                disabled={observationSaving}
+              />
+              <div className="axis-picker" aria-label="경험 축">
+                {AXIS_OPTIONS.map((option) => {
+                  const active = selectedAxes.includes(option.value);
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`axis-chip ${active ? "active" : ""}`}
+                      aria-pressed={active}
+                      onClick={() => toggleAxis(option.value)}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <button className="primary-button" type="submit" disabled={observationSaving}>
+                {observationSaving ? "기록 중…" : "관찰 저장"}
+              </button>
+              {observationError && <p className="form-error">{observationError}</p>}
+            </form>
+
+            <article className="observation-result" aria-live="polite">
+              <p className="card-label">03 · PROJECTION</p>
+              {lastLog && growthMap ? (
+                <>
+                  <h3>관찰이 원본 그대로 저장됐습니다.</h3>
+                  <blockquote>{lastLog.parent_observation}</blockquote>
+                  <p className="muted">
+                    최근 {growthMap.period_days}일 기록 {growthMap.total_logs_in_period}건 · 경험 축
+                    연결 {growthMap.tagged_logs_in_period}건
+                  </p>
+                  <div className="axis-summary">
+                    {growthMap.axes
+                      .filter((axis) => axis.observation_count > 0)
+                      .map((axis) => (
+                        <span key={axis.axis}>
+                          {AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} ·{" "}
+                          {axis.observation_count}
+                        </span>
+                      ))}
+                  </div>
+                </>
+              ) : (
+                <>
+                  <h3>첫 관찰을 기다리고 있습니다.</h3>
+                  <p className="muted">
+                    저장 후 원본 LearningLog와 deterministic 성장 지도 projection을 다시 조회합니다.
+                  </p>
+                </>
+              )}
+            </article>
+          </div>
+        )}
       </section>
     </main>
   );
