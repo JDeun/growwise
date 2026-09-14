@@ -1,5 +1,7 @@
 # growwise
 
+![GrowWise](assets/brand/growwise-logo.svg)
+
 **AI-assisted child learning tracking, knowledge organization, and learning-material generation system**
 
 GrowWise는 챗봇 제품이 아니다. 핵심은 부모의 교육 철학에 맞춰 **아이의 성장과 학습을
@@ -83,27 +85,37 @@ Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족
 ## 현재 상태
 
 **pre-alpha / implementation start.** 제품 철학·데이터 모델·아키텍처·안전·평가 설계는
-정리되어 있으며, 이제 walking skeleton부터 실제 구현에 들어간다.
+정리되어 있으며, walking skeleton부터 실제 구현을 시작했다.
+
+현재 구현된 기반:
+
+- Python package / test scaffold
+- Pydantic domain model v0
+- Markdown atomic Source-of-Truth repository
+- LangGraph observation workflow skeleton
+- FastAPI sidecar health/observation endpoint
+- GrowWise brand SVG assets
 
 ## 문서
 
 | 문서 | 내용 |
 | --- | --- |
-| **[docs/pedagogy.md](docs/pedagogy.md)** | 교육 원칙과 사상 — 제품의 중심 |
-| [docs/vision.md](docs/vision.md) | 왜 만드는가, LLM의 역할 |
-| [docs/product-spec.md](docs/product-spec.md) | 전 연령 기능과 사용자 흐름 |
-| [docs/architecture.md](docs/architecture.md) | LangChain/LangGraph 기반 실행 구조 |
-| [docs/data-model.md](docs/data-model.md) | 도메인 모델과 상태 머신 |
-| [docs/integrations.md](docs/integrations.md) | 외부 데이터·API 어댑터 |
-| [docs/references.md](docs/references.md) | 선행 사례와 설계 근거 |
-| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 개인정보·안전 원칙 |
-| [docs/threat-model.md](docs/threat-model.md) | 위협 모델 |
-| [docs/evaluation.md](docs/evaluation.md) | 품질·안전 평가 하니스 |
+| **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심** |
+| [docs/vision.md](docs/vision.md) | 제품 비전·LLM 역할·성공 기준 |
+| [docs/product-spec.md](docs/product-spec.md) | 전 연령 제품 사양·트래킹·자료·검색·생성 |
+| [docs/architecture.md](docs/architecture.md) | Tauri/Python/LangChain/LangGraph 실행 구조 |
+| [docs/data-model.md](docs/data-model.md) | Markdown SoT·SQLite projection·상태 머신 |
+| [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스·Model Provider |
+| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 프라이버시·비감시·비진단·해석 안전성 |
+| [docs/threat-model.md](docs/threat-model.md) | 위협 모델·데이터 보존/삭제 |
+| [docs/evaluation.md](docs/evaluation.md) | 생성/RAG/장기해석/발달 안전 평가 하니스 |
 | [docs/attribution.md](docs/attribution.md) | 라이선스·provenance·NOTICE |
-| [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·공개자료 소스 |
-| [docs/design-system.md](docs/design-system.md) | UI/UX 원칙 |
+| [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·과목별 공개 자료 후보 |
+| [docs/design-system.md](docs/design-system.md) | 브랜드·UI·성장지도·자연어 검색 디자인 규칙 |
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
-| [docs/roadmap.md](docs/roadmap.md) | 전 기능 완성 로드맵 |
+| [docs/roadmap.md](docs/roadmap.md) | 전체 기능 완성 로드맵 |
+
+브랜드 자산은 [assets/brand](assets/brand)를 참고한다.
 
 ## 라이선스
 
