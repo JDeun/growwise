@@ -89,6 +89,7 @@ function App() {
 
   const [observation, setObservation] = useState("");
   const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
+  const [selectedActivityId, setSelectedActivityId] = useState("");
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationError, setObservationError] = useState<string | null>(null);
 
@@ -136,6 +137,7 @@ function App() {
     setMaterials(childMaterials);
     setActivityPlans(childActivities);
     setSelectedResourceRefs([]);
+    setSelectedActivityId("");
     setActivities(null);
     setSearchResult(null);
     setConversation(null);
@@ -147,13 +149,16 @@ function App() {
     setConnection({ kind: "loading" });
     try {
       const [health, runtime, storedChildren] = await Promise.all([
-        getHealth(), getCoreRuntimeStatus(), listChildren(),
+        getHealth(),
+        getCoreRuntimeStatus(),
+        listChildren(),
       ]);
       setConnection({ kind: "connected", health, runtime });
       setChildren(storedChildren);
       if (storedChildren.length > 0) {
         const rememberedId = localStorage.getItem(LAST_CHILD_KEY);
-        const selected = storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
+        const selected =
+          storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
         await loadChildContext(selected);
       } else {
         setActiveChild(null);
@@ -162,38 +167,56 @@ function App() {
         setResources([]);
         setMaterials([]);
         setActivityPlans([]);
+        setSelectedActivityId("");
       }
     } catch (error) {
       setConnection({
         kind: "offline",
-        message: error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다.",
+        message:
+          error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다.",
       });
     }
   }, [loadChildContext]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    void refresh();
+  }, [refresh]);
 
   async function handleCreateChild(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedNickname = nickname.trim();
     const parsedAge = Number.parseInt(ageMonths, 10);
     if (!trimmedNickname) return setFormError("아이를 구분할 닉네임을 입력해 주세요.");
-    if (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 24) return setFormError("월령은 0~24개월로 입력해 주세요.");
-    setSaving(true); setFormError(null);
+    if (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 24) {
+      return setFormError("월령은 0~24개월로 입력해 주세요.");
+    }
+    setSaving(true);
+    setFormError(null);
     try {
-      const child = await createChild({ nickname: trimmedNickname, stage: "infant_0_2", age_months: parsedAge, interests: [] });
+      const child = await createChild({
+        nickname: trimmedNickname,
+        stage: "infant_0_2",
+        age_months: parsedAge,
+        interests: [],
+      });
       setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
       await loadChildContext(child);
       setNickname("");
-    } catch (error) { setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다."); }
-    finally { setSaving(false); }
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handleSelectChild(childId: string) {
     const child = children.find((item) => item.id === childId);
     if (!child) return;
-    try { await loadChildContext(child); }
-    catch (error) { setFormError(error instanceof Error ? error.message : "아이 정보를 불러오지 못했습니다."); }
+    try {
+      await loadChildContext(child);
+    } catch (error) {
+      setFormError(error instanceof Error ? error.message : "아이 정보를 불러오지 못했습니다.");
+    }
   }
 
   async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
@@ -201,13 +224,33 @@ function App() {
     if (!activeChild) return;
     const text = observation.trim();
     if (!text) return setObservationError("기억할 가치가 있는 관찰을 짧게 적어 주세요.");
-    setObservationSaving(true); setObservationError(null);
+    setObservationSaving(true);
+    setObservationError(null);
     try {
-      await createObservation({ child_id: activeChild.id, observation: text, experience_axes: selectedAxes });
-      const [map, logs] = await Promise.all([getGrowthMap(activeChild.id), listObservations(activeChild.id)]);
-      setGrowthMap(map); setTimeline(logs); setObservation(""); setSelectedAxes([]); setActivities(null); setSearchResult(null);
-    } catch (error) { setObservationError(error instanceof Error ? error.message : "관찰 기록 저장에 실패했습니다."); }
-    finally { setObservationSaving(false); }
+      await createObservation({
+        child_id: activeChild.id,
+        observation: text,
+        experience_axes: selectedAxes,
+        activity_plan_id: selectedActivityId || null,
+      });
+      const [map, logs] = await Promise.all([
+        getGrowthMap(activeChild.id),
+        listObservations(activeChild.id),
+      ]);
+      setGrowthMap(map);
+      setTimeline(logs);
+      setObservation("");
+      setSelectedAxes([]);
+      setSelectedActivityId("");
+      setActivities(null);
+      setSearchResult(null);
+    } catch (error) {
+      setObservationError(
+        error instanceof Error ? error.message : "관찰 기록 저장에 실패했습니다.",
+      );
+    } finally {
+      setObservationSaving(false);
+    }
   }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
@@ -215,10 +258,15 @@ function App() {
     if (!activeChild) return;
     const query = searchQuery.trim();
     if (query.length < 2) return setSearchError("두 글자 이상으로 검색해 주세요.");
-    setSearching(true); setSearchError(null);
-    try { setSearchResult(await searchChildContext(activeChild.id, query)); }
-    catch (error) { setSearchError(error instanceof Error ? error.message : "검색에 실패했습니다."); }
-    finally { setSearching(false); }
+    setSearching(true);
+    setSearchError(null);
+    try {
+      setSearchResult(await searchChildContext(activeChild.id, query));
+    } catch (error) {
+      setSearchError(error instanceof Error ? error.message : "검색에 실패했습니다.");
+    } finally {
+      setSearching(false);
+    }
   }
 
   async function handleConversation(event: FormEvent<HTMLFormElement>) {
@@ -226,15 +274,22 @@ function App() {
     if (!activeChild) return;
     const question = conversationQuestion.trim();
     if (question.length < 2) return setConversationError("두 글자 이상으로 질문해 주세요.");
-    setConversationBusy(true); setConversationError(null);
+    setConversationBusy(true);
+    setConversationError(null);
     try {
       let session = conversation;
-      if (!session) { session = await createConversation(activeChild.id); setConversation(session); }
+      if (!session) {
+        session = await createConversation(activeChild.id);
+        setConversation(session);
+      }
       const answer = await appendConversationTurn(session.id, question);
       setConversationAnswers((current) => [...current, answer]);
       setConversationQuestion("");
-    } catch (error) { setConversationError(error instanceof Error ? error.message : "후속 질문 처리에 실패했습니다."); }
-    finally { setConversationBusy(false); }
+    } catch (error) {
+      setConversationError(error instanceof Error ? error.message : "후속 질문 처리에 실패했습니다.");
+    } finally {
+      setConversationBusy(false);
+    }
   }
 
   async function handleCreateResource(event: FormEvent<HTMLFormElement>) {
@@ -243,13 +298,30 @@ function App() {
     const title = resourceTitle.trim();
     const content = resourceContent.trim();
     if (!title) return setResourceError("자료 제목을 입력해 주세요.");
-    setResourceSaving(true); setResourceError(null);
+    setResourceSaving(true);
+    setResourceError(null);
     try {
-      await createResource({ kind: resourceKind, title, child_id: activeChild.id, summary: null, content: content || null, source_url: null, source_name: "parent", author: null, tags: [], stage_tags: [activeChild.stage], provenance: { origin: "desktop_manual" } });
+      await createResource({
+        kind: resourceKind,
+        title,
+        child_id: activeChild.id,
+        summary: null,
+        content: content || null,
+        source_url: null,
+        source_name: "parent",
+        author: null,
+        tags: [],
+        stage_tags: [activeChild.stage],
+        provenance: { origin: "desktop_manual" },
+      });
       setResources(await listResources(activeChild.id));
-      setResourceTitle(""); setResourceContent("");
-    } catch (error) { setResourceError(error instanceof Error ? error.message : "자료 저장에 실패했습니다."); }
-    finally { setResourceSaving(false); }
+      setResourceTitle("");
+      setResourceContent("");
+    } catch (error) {
+      setResourceError(error instanceof Error ? error.message : "자료 저장에 실패했습니다.");
+    } finally {
+      setResourceSaving(false);
+    }
   }
 
   async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
@@ -257,58 +329,93 @@ function App() {
     if (!activeChild) return;
     const topic = materialTopic.trim();
     if (!topic) return setMaterialError("자료 주제를 입력해 주세요.");
-    setMaterialBusy(true); setMaterialError(null);
+    setMaterialBusy(true);
+    setMaterialError(null);
     try {
-      await generateMaterial(activeChild.id, materialKind, topic, materialGoal.trim() || undefined, selectedResourceRefs);
+      await generateMaterial(
+        activeChild.id,
+        materialKind,
+        topic,
+        materialGoal.trim() || undefined,
+        selectedResourceRefs,
+      );
       setMaterials(await listMaterials(activeChild.id));
-      setMaterialTopic(""); setMaterialGoal(""); setSelectedResourceRefs([]);
-    } catch (error) { setMaterialError(error instanceof Error ? error.message : "자료 생성에 실패했습니다."); }
-    finally { setMaterialBusy(false); }
+      setMaterialTopic("");
+      setMaterialGoal("");
+      setSelectedResourceRefs([]);
+    } catch (error) {
+      setMaterialError(error instanceof Error ? error.message : "자료 생성에 실패했습니다.");
+    } finally {
+      setMaterialBusy(false);
+    }
   }
 
   async function handleReviewMaterial(materialId: string, status: MaterialStatus) {
     if (!activeChild) return;
-    setMaterialBusy(true); setMaterialError(null);
-    try { await reviewMaterial(materialId, status); setMaterials(await listMaterials(activeChild.id)); }
-    catch (error) { setMaterialError(error instanceof Error ? error.message : "자료 검토 상태 변경에 실패했습니다."); }
-    finally { setMaterialBusy(false); }
+    setMaterialBusy(true);
+    setMaterialError(null);
+    try {
+      await reviewMaterial(materialId, status);
+      setMaterials(await listMaterials(activeChild.id));
+    } catch (error) {
+      setMaterialError(error instanceof Error ? error.message : "자료 검토 상태 변경에 실패했습니다.");
+    } finally {
+      setMaterialBusy(false);
+    }
   }
 
   async function handleLoadActivities() {
     if (!activeChild) return;
-    setActivitiesLoading(true); setActivitiesError(null);
-    try { setActivities(await getInfantActivities(activeChild.id)); }
-    catch (error) { setActivitiesError(error instanceof Error ? error.message : "활동 후보를 불러오지 못했습니다."); }
-    finally { setActivitiesLoading(false); }
+    setActivitiesLoading(true);
+    setActivitiesError(null);
+    try {
+      setActivities(await getInfantActivities(activeChild.id));
+    } catch (error) {
+      setActivitiesError(error instanceof Error ? error.message : "활동 후보를 불러오지 못했습니다.");
+    } finally {
+      setActivitiesLoading(false);
+    }
   }
 
   async function handleSaveActivity(title: string) {
     if (!activeChild) return;
-    setActivityPlanBusy(true); setActivitiesError(null);
+    setActivityPlanBusy(true);
+    setActivitiesError(null);
     try {
       await createActivity(activeChild.id, title);
       setActivityPlans(await listActivities(activeChild.id));
-    } catch (error) { setActivitiesError(error instanceof Error ? error.message : "활동 저장에 실패했습니다."); }
-    finally { setActivityPlanBusy(false); }
+    } catch (error) {
+      setActivitiesError(error instanceof Error ? error.message : "활동 저장에 실패했습니다.");
+    } finally {
+      setActivityPlanBusy(false);
+    }
   }
 
   async function handleActivityTransition(activityId: string, status: ActivityStatus) {
     if (!activeChild) return;
-    setActivityPlanBusy(true); setActivitiesError(null);
+    setActivityPlanBusy(true);
+    setActivitiesError(null);
     try {
       await transitionActivity(activityId, status);
       setActivityPlans(await listActivities(activeChild.id));
-    } catch (error) { setActivitiesError(error instanceof Error ? error.message : "활동 상태 변경에 실패했습니다."); }
-    finally { setActivityPlanBusy(false); }
+    } catch (error) {
+      setActivitiesError(error instanceof Error ? error.message : "활동 상태 변경에 실패했습니다.");
+    } finally {
+      setActivityPlanBusy(false);
+    }
   }
 
   function toggleAxis(axis: ExperienceAxis) {
-    setSelectedAxes((current) => current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis]);
+    setSelectedAxes((current) =>
+      current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
+    );
   }
 
   function toggleResourceRef(resourceId: string) {
     const ref = `resource:${resourceId}`;
-    setSelectedResourceRefs((current) => current.includes(ref) ? current.filter((item) => item !== ref) : [...current, ref]);
+    setSelectedResourceRefs((current) =>
+      current.includes(ref) ? current.filter((item) => item !== ref) : [...current, ref],
+    );
   }
 
   const isConnected = connection.kind === "connected";
@@ -316,13 +423,35 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar"><div className="brand"><img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" /><div><strong>GrowWise</strong><span>Personal Education OS</span></div></div><button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button></header>
-      <section className="hero"><p className="eyebrow">LOCAL-FIRST · PARENT-LED</p><h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1><p className="hero-copy">핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을 선택적으로 보강합니다.</p></section>
+      <header className="topbar">
+        <div className="brand">
+          <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
+          <div><strong>GrowWise</strong><span>Personal Education OS</span></div>
+        </div>
+        <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
+      </header>
+
+      <section className="hero">
+        <p className="eyebrow">LOCAL-FIRST · PARENT-LED</p>
+        <h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
+        <p className="hero-copy">핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을 선택적으로 보강합니다.</p>
+      </section>
 
       <section className="status-grid" aria-label="시스템 상태">
-        <article className="status-card primary-card"><div className="card-heading"><span className={`status-dot ${isConnected ? "ok" : "warning"}`} /><h2>GrowWise Core</h2></div>{connection.kind === "loading" && <p>확인 중입니다.</p>}{connection.kind === "offline" && <p className="muted">{connection.message}</p>}{connection.kind === "connected" && <><p className="status-title">정상 연결</p><p className="muted">{connection.runtime.started_by_desktop ? "Desktop이 Core를 자동 기동했습니다." : "실행 중인 Core에 연결했습니다."}</p></>}</article>
-        <article className="status-card"><p className="card-label">운영 모드</p><p className="status-title">{mode === "ai_enhanced_with_core_fallback" ? "AI 보강 + Core fallback" : mode === "core_only" ? "Core-only" : "확인 대기"}</p>{connection.kind === "connected" && <p className="muted">{connection.health.llm_configured ? connection.health.llm_reachable ? `${connection.health.model_provider} 연결됨` : `${connection.health.model_provider} 설정됨 · 현재 미도달` : "LLM 기능 꺼짐"}</p>}</article>
-        <article className="status-card"><p className="card-label">현재 아이</p><p className="status-title">{activeChild?.nickname ?? "선택 안 됨"}</p><p className="muted">저장된 아이 {children.length}명 · child scope를 엄격히 분리합니다.</p></article>
+        <article className="status-card primary-card">
+          <div className="card-heading"><span className={`status-dot ${isConnected ? "ok" : "warning"}`} /><h2>GrowWise Core</h2></div>
+          {connection.kind === "loading" && <p>확인 중입니다.</p>}
+          {connection.kind === "offline" && <p className="muted">{connection.message}</p>}
+          {connection.kind === "connected" && <><p className="status-title">정상 연결</p><p className="muted">{connection.runtime.started_by_desktop ? "Desktop이 Core를 자동 기동했습니다." : "실행 중인 Core에 연결했습니다."}</p></>}
+        </article>
+        <article className="status-card">
+          <p className="card-label">운영 모드</p>
+          <p className="status-title">{mode === "ai_enhanced_with_core_fallback" ? "AI 보강 + Core fallback" : mode === "core_only" ? "Core-only" : "확인 대기"}</p>
+          {connection.kind === "connected" && <p className="muted">{connection.health.llm_configured ? connection.health.llm_reachable ? `${connection.health.model_provider} 연결됨` : `${connection.health.model_provider} 설정됨 · 현재 미도달` : "LLM 기능 꺼짐"}</p>}
+        </article>
+        <article className="status-card">
+          <p className="card-label">현재 아이</p><p className="status-title">{activeChild?.nickname ?? "선택 안 됨"}</p><p className="muted">저장된 아이 {children.length}명 · child scope를 엄격히 분리합니다.</p>
+        </article>
       </section>
 
       <section className="workspace">
@@ -336,7 +465,14 @@ function App() {
 
         {activeChild && <>
           <div className="observation-panel">
-            <form className="observation-form" onSubmit={handleCreateObservation}><div><p className="card-label">OBSERVATION</p><h3>의미 있는 관찰만 기록합니다.</h3><p className="muted">축 선택은 선택 사항이며 AI 없이도 projection이 계산됩니다.</p></div><textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="예: 그림책의 고양이 그림을 오래 바라보고 여러 번 손으로 가리켰다." maxLength={10000} disabled={observationSaving} /><div className="axis-picker">{AXIS_OPTIONS.map((option) => { const active = selectedAxes.includes(option.value); return <button key={option.value} type="button" className={`axis-chip ${active ? "active" : ""}`} aria-pressed={active} onClick={() => toggleAxis(option.value)}>{option.label}</button>; })}</div><button className="primary-button" type="submit" disabled={observationSaving}>{observationSaving ? "기록 중…" : "관찰 저장"}</button>{observationError && <p className="form-error">{observationError}</p>}</form>
+            <form className="observation-form" onSubmit={handleCreateObservation}>
+              <div><p className="card-label">OBSERVATION</p><h3>의미 있는 관찰만 기록합니다.</h3><p className="muted">관련 활동과 경험 축은 선택 사항입니다. 연결한 경우에만 활동의 후속 관찰로 기록됩니다.</p></div>
+              <textarea value={observation} onChange={(event) => setObservation(event.target.value)} placeholder="예: 그림책의 고양이 그림을 오래 바라보고 여러 번 손으로 가리켰다." maxLength={10000} disabled={observationSaving} />
+              {activityPlans.length > 0 && <label className="observation-activity-link"><span>관련 활동(선택)</span><select value={selectedActivityId} onChange={(event) => setSelectedActivityId(event.target.value)} disabled={observationSaving}><option value="">일반 관찰 기록</option>{activityPlans.filter((activity) => activity.status !== "archived").map((activity) => <option key={activity.id} value={activity.id}>{activity.title} · {activityStatusLabel(activity.status)}</option>)}</select></label>}
+              <div className="axis-picker">{AXIS_OPTIONS.map((option) => { const active = selectedAxes.includes(option.value); return <button key={option.value} type="button" className={`axis-chip ${active ? "active" : ""}`} aria-pressed={active} onClick={() => toggleAxis(option.value)}>{option.label}</button>; })}</div>
+              <button className="primary-button" type="submit" disabled={observationSaving}>{observationSaving ? "기록 중…" : "관찰 저장"}</button>
+              {observationError && <p className="form-error">{observationError}</p>}
+            </form>
             <article className="observation-result"><p className="card-label">GROWTH CONTEXT</p><h3>최근 {growthMap?.period_days ?? 30}일</h3><p className="muted">기록 {growthMap?.total_logs_in_period ?? 0}건 · 경험 축 연결 {growthMap?.tagged_logs_in_period ?? 0}건</p><div className="axis-summary">{growthMap?.axes.filter((axis) => axis.observation_count > 0).map((axis) => <span key={axis.axis}>{AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} · {axis.observation_count}</span>)}</div></article>
           </div>
 
@@ -352,7 +488,7 @@ function App() {
 
           <section className="quest-section"><div className="activity-heading"><div><p className="card-label">ACTIVITY QUESTS</p><h3>선택한 활동</h3><p className="muted">건너뜀은 실패가 아니며, 나중에 다시 시작할 수 있습니다.</p></div><span className="badge">{activityPlans.length}건</span></div>{activityPlans.length === 0 ? <p className="muted quest-empty">저장한 활동이 없습니다.</p> : <div className="quest-list">{activityPlans.map((activity) => <article className="quest-card" key={activity.id}><div><strong>{activity.title}</strong><span className={`status-badge status-${activity.status}`}>{activityStatusLabel(activity.status)}</span></div>{activity.parent_note && <p>{activity.parent_note}</p>}<div className="review-actions">{activity.status === "suggested" && <button type="button" className="primary-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "active")}>시작</button>}{activity.status === "active" && <button type="button" className="primary-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "completed")}>완료</button>}{(activity.status === "suggested" || activity.status === "active") && <button type="button" className="quiet-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "skipped")}>건너뜀</button>}{activity.status === "skipped" && <button type="button" className="quiet-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "active")}>다시 시작</button>}</div></article>)}</div>}</section>
 
-          <section className="timeline-section"><div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>{timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => <article key={log.id} className="timeline-card"><p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>)}</div>}</section>
+          <section className="timeline-section"><div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>{timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => { const linkedActivity = log.activity_plan_id ? activityPlans.find((item) => item.id === log.activity_plan_id) : null; return <article key={log.id} className="timeline-card">{linkedActivity && <small className="timeline-activity">활동 · {linkedActivity.title}</small>}<p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>; })}</div>}</section>
         </>}
       </section>
     </main>
