@@ -1,0 +1,47 @@
+name: Infant API Once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire infant curriculum and book endpoints
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/growwise/api/main.py")
+          text = path.read_text()
+          old_import = '''    ActivityPlanService,\n    ChildContextService,\n'''
+          new_import = '''    ActivityPlanService,\n    BoardBookRecommendationService,\n    ChildContextService,\n'''
+          if old_import not in text:
+              raise SystemExit("service import marker 1 not found")
+          text = text.replace(old_import, new_import, 1)
+          old_import2 = '''    InfantActivityService,\n    InvalidActivityTransition,\n'''
+          new_import2 = '''    InfantActivityService,\n    InfantObservationHintService,\n    InvalidActivityTransition,\n'''
+          if old_import2 not in text:
+              raise SystemExit("service import marker 2 not found")
+          text = text.replace(old_import2, new_import2, 1)
+
+          marker = '''    return result.model_dump(mode="json")\n\n\ndef run() -> None:\n'''
+          endpoints = '''    return result.model_dump(mode="json")\n\n\n@app.get("/v1/children/{child_id}/infant-observation-hints")\ndef suggest_infant_observation_hints(\n    child_id: UUID,\n    store: Annotated[EntityStore, Depends(get_store)],\n) -> dict:\n    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")\n    if child_payload is None:\n        raise HTTPException(status_code=404, detail="child_not_found")\n    child = ChildProfile.model_validate(child_payload)\n    if child.stage is not Stage.INFANT_0_2:\n        raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")\n\n    logs = store.index.list_entities(entity_type="learning_log", child_id=str(child_id))\n    recent_observations = [\n        str(item.get("parent_observation", ""))\n        for item in logs[:8]\n        if item.get("parent_observation")\n    ]\n    result = InfantObservationHintService(provider=get_model_provider()).suggest(\n        age_months=child.age_months,\n        recent_observations=recent_observations,\n        interests=child.interests,\n    )\n    return result.model_dump(mode="json")\n\n\n@app.get("/v1/children/{child_id}/board-books")\ndef recommend_board_books(\n    child_id: UUID,\n    store: Annotated[EntityStore, Depends(get_store)],\n    limit: Annotated[int, Query(ge=1, le=5)] = 3,\n) -> dict:\n    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")\n    if child_payload is None:\n        raise HTTPException(status_code=404, detail="child_not_found")\n    child = ChildProfile.model_validate(child_payload)\n    if child.stage is not Stage.INFANT_0_2:\n        raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")\n\n    resource_payloads = store.index.list_entities(entity_type="resource")\n    resources = [\n        ResourceRecord.model_validate(payload)\n        for payload in resource_payloads\n        if payload.get("child_id") in (None, str(child_id))\n    ]\n    result = BoardBookRecommendationService().recommend(\n        resources=resources,\n        interests=child.interests,\n        limit=limit,\n    )\n    return result.model_dump(mode="json")\n\n\ndef run() -> None:\n'''
+          if marker not in text:
+              raise SystemExit("infant endpoint insertion marker not found")
+          path.write_text(text.replace(marker, endpoints, 1))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/growwise/api/main.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: expose infant observation hints and board books"
+          git push origin HEAD:main
