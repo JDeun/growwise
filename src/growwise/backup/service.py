@@ -110,6 +110,7 @@ class BackupService:
                     shutil.rmtree(records_root, ignore_errors=True)
                 if moved_previous and previous.exists():
                     previous.replace(records_root)
+                    SQLiteProjection(index_path).rebuild(records_root)
                 raise
 
         return manifest
