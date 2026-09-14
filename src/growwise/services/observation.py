@@ -17,7 +17,8 @@ class ObservationEnricher:
 
     SYSTEM = """You organize a parent's observation about a child for GrowWise.
 Return only conservative metadata grounded in the observation.
-Do not diagnose development, infer disorders, rank against peers, or infer stable personality traits.
+Do not diagnose development, infer disorders, rank against peers,
+or infer stable personality traits.
 Use short Korean tags when the observation is Korean. Keep uncertainty explicit.
 The parent's original observation remains authoritative; you are only producing metadata."""
 
