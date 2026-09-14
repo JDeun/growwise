@@ -195,6 +195,16 @@ def create_child(
     return profile
 
 
+@app.get("/v1/children", response_model=list[ChildProfile])
+def list_children(
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[ChildProfile]:
+    return [
+        ChildProfile.model_validate(payload)
+        for payload in store.index.list_entities(entity_type="child_profile")
+    ]
+
+
 @app.post("/v1/resources", response_model=ResourceRecord)
 def create_resource(
     request: ResourceCreateRequest,
