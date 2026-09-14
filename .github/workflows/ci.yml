@@ -21,7 +21,7 @@ jobs:
       - name: Install
         run: python -m pip install -e ".[dev]"
       - name: Ruff
-        run: ruff check src tests
+        run: ruff check src tests desktop/scripts
       - name: Test
         run: pytest
 
@@ -54,3 +54,39 @@ jobs:
             libxdo-dev
       - name: Check Rust shell
         run: cargo check --manifest-path desktop/src-tauri/Cargo.toml
+
+  core-sidecar-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install sidecar build dependencies
+        run: python -m pip install -e ".[desktop-build]"
+      - name: Build Core executable
+        run: python desktop/scripts/build_core_sidecar.py
+      - name: Start bundled Core
+        env:
+          GROWWISE_DATA_DIR: ${{ runner.temp }}/growwise-smoke
+          GROWWISE_LLM_FEATURES_ENABLED: "false"
+          GROWWISE_EMBEDDING_FEATURES_ENABLED: "false"
+        run: |
+          ./desktop/src-tauri/binaries/growwise-core > /tmp/growwise-core.log 2>&1 &
+          echo $! > /tmp/growwise-core.pid
+          for attempt in {1..40}; do
+            if curl --fail --silent http://127.0.0.1:8765/health > /tmp/growwise-health.json; then
+              cat /tmp/growwise-health.json
+              exit 0
+            fi
+            sleep 0.25
+          done
+          cat /tmp/growwise-core.log
+          exit 1
+      - name: Stop bundled Core
+        if: always()
+        run: |
+          if [ -f /tmp/growwise-core.pid ]; then
+            kill "$(cat /tmp/growwise-core.pid)" 2>/dev/null || true
+          fi
