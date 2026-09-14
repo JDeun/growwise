@@ -64,12 +64,28 @@ struct GrowthAxisDto {
     observation_count: u32,
 }
 #[derive(Debug, Serialize, Deserialize)]
+struct GrowthLayerDto {
+    key: String,
+    label: String,
+    axes: Vec<GrowthAxisDto>,
+}
+#[derive(Debug, Serialize, Deserialize)]
+struct CoverageDiversityDto {
+    state: String,
+    observed_axis_count: u32,
+    focus_axes: Vec<String>,
+    note: String,
+}
+#[derive(Debug, Serialize, Deserialize)]
 struct GrowthMapDto {
     child_id: String,
     period_days: u32,
+    stage: Option<String>,
     total_logs_in_period: u32,
     tagged_logs_in_period: u32,
     axes: Vec<GrowthAxisDto>,
+    layers: Vec<GrowthLayerDto>,
+    diversity: CoverageDiversityDto,
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct ActivitySuggestionDto {
