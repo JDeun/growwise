@@ -88,6 +88,9 @@ jobs:
         run: cargo audit
 
   lockfile-snapshot:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: write
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -99,15 +102,17 @@ jobs:
         run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Resolve Rust dependency graph
         run: cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml
-      - name: Upload lockfile snapshot
-        uses: actions/upload-artifact@v4
-        with:
-          name: dependency-lockfiles
-          path: |
-            desktop/package-lock.json
-            desktop/src-tauri/Cargo.lock
-          if-no-files-found: error
-          retention-days: 1
+      - name: Commit lockfiles when absent or changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add desktop/package-lock.json desktop/src-tauri/Cargo.lock
+          if git diff --cached --quiet; then
+            echo "Lockfiles are already current."
+            exit 0
+          fi
+          git commit -m "chore: lock desktop dependencies"
+          git push origin HEAD:main
 
   desktop-tauri:
     runs-on: ubuntu-latest
