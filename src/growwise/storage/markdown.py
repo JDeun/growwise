@@ -4,10 +4,12 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
-from typing import Protocol, TypeVar, runtime_checkable
+from typing import TypeVar
 
 import frontmatter
 from pydantic import BaseModel
+
+from growwise.domain.models import EntityBase
 
 from .schema import validate_schema_version
 
@@ -20,14 +22,6 @@ _RESERVED_METADATA_KEYS = {
 _REVERSE_RESERVED_METADATA_KEYS = {
     encoded: original for original, encoded in _RESERVED_METADATA_KEYS.items()
 }
-
-
-@runtime_checkable
-class StoredEntity(Protocol):
-    entity_type: str
-    id: object
-
-    def model_dump(self, *, mode: str = "python") -> dict: ...
 
 
 def _encode_metadata(payload: dict) -> dict:
@@ -57,14 +51,15 @@ class MarkdownRepository:
         self.root = root
         self.root.mkdir(parents=True, exist_ok=True)
 
-    def _path_for(self, entity: StoredEntity) -> Path:
-        return self.root / entity.entity_type / f"{entity.id}.md"
+    def _path_for(self, entity: EntityBase) -> Path:
+        entity_type = getattr(entity, "entity_type")
+        return self.root / str(entity_type) / f"{entity.id}.md"
 
     @staticmethod
     def backup_path(path: Path) -> Path:
         return path.with_suffix(path.suffix + ".bak")
 
-    def save(self, entity: StoredEntity, body: str = "") -> Path:
+    def save(self, entity: EntityBase, body: str = "") -> Path:
         target = self._path_for(entity)
         target.parent.mkdir(parents=True, exist_ok=True)
         raw_payload = entity.model_dump(mode="json")
