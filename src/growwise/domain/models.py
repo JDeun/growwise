@@ -102,7 +102,9 @@ class ActivityPlan(EntityBase):
     source_refs: list[str] = Field(default_factory=list)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list)
     parent_note: str | None = None
+    started_at: datetime | None = None
     completed_at: datetime | None = None
+    skipped_at: datetime | None = None
 
 
 class LearningLog(EntityBase):
