@@ -25,6 +25,9 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 마일스톤은 위험을 관리하기 위해 작게 자르지만 **기능 범위를 포기하기 위한 v1 축소는 하지
 않는다.** 각 단계는 다음 단계를 위한 기반이며 최종 체크리스트가 모두 닫힐 때까지 계속한다.
 
+> 체크 표시는 코드가 존재하는지만 보지 않고 현재 Definition of Done을 보수적으로 적용한다.
+> 부분 구현은 `[ ]`로 유지하고 현재 상태를 괄호로 기록한다.
+
 ## 왜 0~2세부터 시작하는가
 
 첫 실사용 대상은 **현재 생후 9개월 아이를 둔 부모가 실제 일상에서 사용할 수 있는 영아
@@ -50,8 +53,9 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 - Markdown = Source of Truth, SQLite = 재생성 가능한 projection/index
 - UUIDv7 계열 안정 ID + schema versioning
 - 모델 독립성: local default, provider adapter로 교체
+- **LLM-enhanced, not LLM-dependent**: LLM/임베딩 장애 시에도 핵심 CRUD·검색·트래킹·템플릿 생성은 동작
 - 아이 대면 챗봇 없음
-- Parent Review 승인 전 노출/export 금지
+- Parent Review 승인 전 최종 사용/export 금지
 - 다자녀 `child_id` 분리
 - 성장 지도는 성취 점수가 아니라 self-vs-self 경험/관찰 커버리지
 - permissive/commercial-safe dependency 우선
@@ -61,53 +65,56 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 
 ### 프로젝트 기반
 
-- [ ] `pyproject.toml` + uv dependency management
-- [ ] Tauri 2 + React/TypeScript/Vite shell
-- [ ] Python FastAPI sidecar + health/version endpoint
-- [ ] typed IPC contract
-- [ ] Windows/macOS GitHub Actions
-- [ ] Ruff/mypy/pytest + ESLint/TypeScript/Vitest
-- [ ] pre-commit / dependency audit / license audit
+- [ ] `pyproject.toml` + uv dependency management (`pyproject.toml`은 완료, uv 고정 workflow는 미완료)
+- [x] Tauri 2 + React/TypeScript/Vite shell
+- [x] Python FastAPI sidecar + health/runtime endpoint
+- [x] typed IPC contract
+- [x] Windows/macOS GitHub Actions
+- [ ] Ruff/mypy/pytest + ESLint/TypeScript/Vitest (Ruff/mypy/pytest/TypeScript build 완료, ESLint/Vitest 미완료)
+- [x] pre-commit / dependency audit / license inventory
 
 ### Domain/Storage
 
-- [ ] UUIDv7 entity IDs
-- [ ] schema version
-- [ ] Pydantic domain entities
-- [ ] `MaterialStatus` state machine
-- [ ] Markdown YAML-frontmatter repository
-- [ ] atomic write + backup/recovery
-- [ ] SQLite projection
-- [ ] Markdown → SQLite deterministic rebuild
-- [ ] migration/version compatibility tests
+- [x] UUIDv7 entity IDs
+- [x] schema version
+- [x] Pydantic domain entities
+- [x] `MaterialStatus` state machine
+- [x] Markdown YAML-frontmatter repository
+- [x] atomic write + backup/recovery
+- [x] SQLite projection
+- [x] Markdown → SQLite deterministic rebuild
+- [x] migration/version compatibility tests
 
 ### LangGraph runtime
 
-- [ ] typed graph state
+- [x] typed graph state
 - [ ] node registry
-- [ ] checkpoint persistence
+- [x] checkpoint persistence
 - [ ] retry/timeout/cancellation policy
 - [ ] idempotency
-- [ ] interrupt/resume parent review skeleton
-- [ ] provider abstraction + Ollama adapter
+- [ ] interrupt/resume parent review skeleton (Parent Review 상태 머신은 구현, LangGraph interrupt/resume 미완료)
+- [x] provider abstraction + Ollama adapter
 
 **완료 조건:** 빈 앱이 아니라 `UI → Python → LangGraph → storage → UI`가 한 번 완주하고,
 프로세스 재시작 후 checkpoint/rebuild가 검증된다.
 
+현재 walking skeleton과 sidecar smoke는 구현됐다. Phase 0 전체 완료 선언은 위 미완료 항목까지
+닫은 뒤 한다.
+
 ## Phase 1 — 영아(0~2) 실사용 모드
 
-- [ ] 다자녀 프로필/아이 전환
-- [ ] 월령/단계 기반 놀이·상호작용 제안
+- [x] 다자녀 프로필/아이 전환
+- [x] 월령/단계 기반 놀이·상호작용 제안
 - [ ] 표준보육과정 기반 관찰 힌트
-- [ ] 비진단/비비교 가드레일
+- [x] 비진단/비비교 가드레일
 - [ ] 보드북/책 읽어주기 추천
-- [ ] 활동 퀘스트(제안/진행/완료/건너뜀)
-- [ ] 부모 자유 관찰 기록
-- [ ] learning log
-- [ ] 경험 커버리지 태깅
-- [ ] 3층 성장 지도 기초
-- [ ] 오프라인 완전 동작
-- [ ] export/import/backup
+- [x] 활동 퀘스트(제안/진행/완료/건너뜀)
+- [x] 부모 자유 관찰 기록
+- [x] learning log
+- [x] 경험 커버리지 태깅
+- [x] 3층 성장 지도 기초
+- [x] LLM 없이 핵심 기능 동작(Core-only degraded mode)
+- [ ] export/import/backup (portable backup/restore와 인쇄 export는 구현, 통합 UX/import 범위 미완료)
 
 **실사용 검증:** 실제 9개월 아이의 일상 사용에서 제안 품질, 기록 부담, 성장 지도 유용성,
 반복 제안, 부적절한 발달 판단 여부를 관찰하고 수정한다. 개인 실사용 데이터는 저장소에 넣지
@@ -121,24 +128,24 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 input
  → router
  → RAG/context
- → local LLM
+ → local LLM (optional enhancement)
  → structured material
  → automated review
  → parent review
  → Markdown/SQLite
  → HTML/CSS
- → PDF
+ → PDF/print
  → learning log
 ```
 
-- [ ] 독서 또는 수학 1종 end-to-end
-- [ ] LangChain structured output
-- [ ] grounding/citation provenance
+- [ ] 독서 또는 수학 1종 end-to-end (범용 자료 생성 vertical slice는 구현, 도메인 1종 완성 검증 미완료)
+- [x] LangChain structured output
+- [x] grounding/citation provenance 기초
 - [ ] scaffold guard
-- [ ] prompt injection defense
-- [ ] Parent Review interrupt/resume
-- [ ] revision loop
-- [ ] WeasyPrint packaging spike
+- [ ] prompt injection defense 회귀 세트
+- [ ] Parent Review interrupt/resume (상태 머신/UI는 구현, LangGraph interrupt/resume 미완료)
+- [ ] revision loop (revision 상태는 구현, 자동 재생성 loop 미완료)
+- [ ] WeasyPrint packaging spike (현재 OS print/PDF 경로)
 - [ ] local model latency/quality benchmark
 - [ ] 최소/권장 하드웨어 benchmark
 
@@ -157,20 +164,20 @@ input
 - [ ] 활동 템플릿 라이브러리
 - [ ] 생성물 편집/재생성/버전 관리
 - [ ] 인쇄 레이아웃 설정
-- [ ] source/citation 표시
+- [ ] source/citation 표시 완성
 
 탐방은 지도/장소 adapter, 캐싱, attribution을 포함한다.
 
 ## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
 
-- [ ] 전인 고정축
-- [ ] 학습 6축
+- [x] 전인 고정축 기초
+- [x] 학습 6축 기초
 - [ ] 연령 적응형 축
-- [ ] 기간별 경험 커버리지
+- [x] 기간별 경험 커버리지
 - [ ] 활동 다양성/편중 탐지
-- [ ] 다음 활동 추천
-- [ ] 퀘스트 추천/보류/완료/회고
-- [ ] 검색/필터/타임라인
+- [x] 다음 활동 추천 기초(영아)
+- [x] 퀘스트 추천/보류/완료/회고 상태 기반
+- [x] 검색/필터/타임라인 기초
 - [ ] Markdown 묶음 portable export
 
 랭킹·레벨·또래 비교·강제 streak는 넣지 않는다.
@@ -204,23 +211,24 @@ input
 - [ ] Tauri updater
 - [ ] 모델 다운로드/삭제/무결성 검증
 - [ ] storage location 관리
-- [ ] backup/restore UX
-- [ ] crash recovery
+- [ ] backup/restore UX (Core 서비스/CLI는 구현, Desktop UX 미완료)
+- [x] Core sidecar package/smoke + crash-safe start/stop 기초
+- [ ] crash recovery 전체
 - [ ] accessibility
 - [ ] keyboard navigation
 - [ ] localization 기반
 
 ## Phase 8 — 완성도 강화
 
-모든 기능 구현 후 별도 안정화 라운드를 반복한다.
+모든 기능 구현 후 별도 안정화 라운드를 반복한다. 일부 기반 테스트/위생 게이트는 이미 선행
+도입했지만 전체 Phase가 완료됐다는 의미는 아니다.
 
 ### 안정화
 
-- [ ] unit/integration/e2e/property tests
+- [ ] unit/integration/e2e/property tests (unit/integration 다수 존재, e2e/property 범위 미완료)
 - [ ] workflow replay tests
-- [ ] offline tests
-- [ ] provider failure tests
-- [ ] corrupt DB/Markdown recovery
+- [x] Core-only / provider failure fallback tests 기초
+- [x] corrupt Markdown/DB recovery 기초
 - [ ] interrupted export/review recovery
 - [ ] long-running soak tests
 - [ ] performance/memory profiling
@@ -232,24 +240,23 @@ input
 - [ ] citation fabrication
 - [ ] PII leakage
 - [ ] age-inappropriate generation
-- [ ] diagnostic/medical-like developmental claims
+- [ ] diagnostic/medical-like developmental claims 자동 회귀 세트
 - [ ] stereotype/bias
 - [ ] answer-giving/scaffold violations
 - [ ] malformed structured output
-- [ ] path traversal/file corruption attempts
+- [x] path traversal/file corruption attempts 기초
 - [ ] external API poisoning/failure
 
 ### 위생
 
-- [ ] dead code 제거
-- [ ] TODO/FIXME audit
-- [ ] dependency pin/update policy
-- [ ] CVE audit
+- [x] TODO/FIXME audit (현재 코드 검색 기준 잔여 없음)
+- [x] dependency lock/update policy 기초(`package-lock.json`, `Cargo.lock`, Dependabot)
+- [x] Python/Node/Rust CVE audit CI
 - [ ] secret scan
-- [ ] license/NOTICE audit
-- [ ] docs/code consistency audit
+- [x] Python license inventory CI
+- [ ] docs/code consistency audit 전체
 - [ ] sample/test data privacy audit
-- [ ] reproducible builds where practical
+- [x] reproducible dependency resolution where practical (`npm ci`, Cargo `--locked`)
 
 ## Definition of Done
 
