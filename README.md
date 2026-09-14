@@ -50,6 +50,23 @@ LLM은 적극적인 대화 상대가 아니라 다음 백그라운드 작업을 
 Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족 교육 데이터와 워크플로우에
 특화된 시스템**에 집중한다.
 
+## LLM 없이도 동작한다
+
+GrowWise는 **LLM-enhanced이지 LLM-dependent가 아니다.** 로컬 모델이 설치되지 않았거나
+Ollama가 중단되어도 다음 핵심 기능은 계속 사용할 수 있어야 한다.
+
+- 아이 프로필과 기록 CRUD
+- Markdown SoT / SQLite projection
+- 자료 지식베이스와 lexical 검색
+- 경험 축 기반 성장 지도
+- 활동/자료 상태 관리
+- 대화 세션 저장
+- Parent Review
+- deterministic 자료 템플릿과 영아 활동 fallback
+
+LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounded synthesis, 개인화
+생성 같은 **보강 기능**으로만 동작한다. 각 AI 경로에는 deterministic fallback을 둔다.
+
 ## 무엇이 아닌가
 
 - 아이를 대신해 답을 주는 자율 튜터가 아니다.
@@ -67,44 +84,58 @@ Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족
 5. **비점수화** — 성장 지도는 성취 점수 대신 경험/관찰 커버리지를 표현한다.
 6. **검토 후 노출** — 생성 자료는 Parent Review 승인 후 사용한다.
 7. **모델 독립성** — LangChain + LangGraph 기반으로 로컬/원격 모델을 교체 가능하게 한다.
-8. **완성형 목표** — 작은 MVP에서 멈추지 않고 전 연령·전 기능 완성을 목표로 한다.
+8. **LLM 비의존성** — AI 장애가 핵심 데이터/관리 기능 장애로 전파되지 않는다.
+9. **완성형 목표** — 작은 MVP에서 멈추지 않고 전 연령·전 기능 완성을 목표로 한다.
 
 ## 기술 방향
 
 - Desktop: Tauri 2 + React/TypeScript
 - Core: Python 3.12+ / FastAPI sidecar
+- Desktop IPC: React → typed Tauri commands → Rust → localhost Core
 - Orchestration: **LangChain + LangGraph**
 - Workflow persistence: LangGraph `SqliteSaver` + `workflow_run`
 - Storage: Markdown(Source of Truth) + SQLite projection/index
 - Model: local-first provider abstraction, 현재 Ollama adapter
-- RAG: 교육과정·도서·기록·외부 자료를 provenance와 함께 검색
-- Export: HTML/CSS → PDF
+- RAG: lexical + optional embedding hybrid retrieval
+- Background jobs: SQLite durable job queue
+- Desktop packaging: PyInstaller one-file Core bundled as Tauri resource
+- Export: HTML/CSS → PDF (planned)
 - Platforms: Windows + macOS
 
 자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
 
 ## 현재 구현 상태
 
-**pre-alpha / active implementation.** 설계 전용 저장소를 지나 실제 local-first core의 첫
-vertical slices가 동작하도록 구현 중이다.
+**pre-alpha / active implementation.** 설계 전용 저장소를 지나 local-first core와 desktop
+walking skeleton을 구현하는 단계다.
 
 현재 구현된 기반:
 
-- Python 3.12 package / FastAPI sidecar
+- Python 3.12 package / FastAPI local Core
 - Pydantic domain model + UUIDv7
-- `ChildProfile`, `LearningLog`, `ActivityPlan`, `WorkflowRun`
+- `ChildProfile`, `LearningLog`, `ActivityPlan`, `ResourceRecord`, `GeneratedMaterial`, `WorkflowRun`
 - Markdown atomic Source-of-Truth repository
-- SQLite disposable projection + Markdown 전체 rebuild
+- SQLite disposable projection + deterministic Markdown rebuild
+- frontmatter 예약 키 codec과 rebuild 회귀 테스트
 - child-scoped lexical retrieval
+- Resource chunking / hybrid RAG index / optional Ollama embedding
+- 저장 기록 + Resource KB 통합 child context 질의
 - 자연어 검색 plan 생성 + deterministic fallback
-- LangChain ModelProvider abstraction
-- Ollama / `ChatOllama` adapter
+- bounded multi-turn conversation session + SQLite persistence
+- LangChain ModelProvider abstraction + Ollama `ChatOllama` adapter
 - 관찰 원문을 보존하는 선택적 LLM 태깅·메타데이터 보강
-- LangGraph observation workflow
-- LangGraph SQLite durable checkpoint + `thread_id`
+- LangGraph observation workflow + SQLite durable checkpoint + `thread_id`
 - workflow 실행 상태/출력 참조 저장
-- 영아 활동 추천 + 오프라인 deterministic fallback
-- Windows / macOS / Linux Python CI
+- SQLite durable background job queue
+- 영아 활동 추천 + deterministic fallback
+- 경험 축 기반 deterministic 성장 지도
+- template-first 자료 생성 + optional LLM enhancement
+- Parent Review 상태 머신
+- Tauri 2 + React/TypeScript desktop shell
+- Tauri IPC를 통한 Core health / profile create / growth-map 조회
+- Rust `CoreProcessManager`: 개발 Core 자동 기동·소유 프로세스 종료
+- PyInstaller one-file Core sidecar build + Tauri resource packaging 경로
+- Windows/macOS/Linux Python CI, React build, Rust `cargo check`, packaged-Core smoke test
 - GrowWise brand SVG assets
 
 ## 로컬 코어 실행
@@ -128,19 +159,65 @@ GROWWISE_MODEL_PROVIDER=ollama
 GROWWISE_MODEL_ID=qwen3.5:9b
 GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
 GROWWISE_LLM_FEATURES_ENABLED=true
+GROWWISE_EMBEDDING_FEATURES_ENABLED=true
 ```
 
-LLM 기능이 비활성화되거나 Ollama를 사용할 수 없어도 **기록 저장과 deterministic 검색/활동
-fallback은 계속 동작**하도록 설계한다. 원본 기록은 LLM 가용성에 의존하지 않는다.
+AI 기능을 완전히 끄려면:
 
-현재 API vertical slice:
+```bash
+GROWWISE_LLM_FEATURES_ENABLED=false
+GROWWISE_EMBEDDING_FEATURES_ENABLED=false
+```
+
+## Desktop 개발 실행
+
+먼저 Python 개발 환경에 GrowWise를 설치한 뒤:
+
+```bash
+python -m pip install -e ".[dev]"
+cd desktop
+npm install
+npm run tauri:dev
+```
+
+Tauri가 `127.0.0.1:8765`에서 기존 Core를 발견하지 못하면 개발 환경의 Python으로
+`growwise.api.main`을 자동 기동한다. 앱 종료 시 GrowWise가 직접 시작한 Core만 종료한다.
+
+## Desktop Core sidecar 빌드
+
+사용자 PC에 Python 설치를 요구하지 않도록 release 앱은 독립 실행 Core를 bundle resource로
+포함한다.
+
+```bash
+python -m pip install -e ".[desktop-build]"
+python desktop/scripts/build_core_sidecar.py
+```
+
+결과는 플랫폼에 따라 다음 위치에 생성된다.
+
+```text
+desktop/src-tauri/binaries/growwise-core
+desktop/src-tauri/binaries/growwise-core.exe
+```
+
+실행 파일은 Git에 커밋하지 않고 CI/릴리스 과정에서 플랫폼별로 생성한다.
+
+현재 주요 API vertical slices:
 
 ```text
 POST /v1/children
 POST /v1/observations
 GET  /v1/children/{child_id}/observations
 GET  /v1/children/{child_id}/search?q=...
+GET  /v1/children/{child_id}/growth-map
 GET  /v1/children/{child_id}/infant-activities
+POST /v1/resources
+POST /v1/rag/ask
+POST /v1/children/{child_id}/ask
+POST /v1/children/{child_id}/conversations
+POST /v1/conversations/{session_id}/turns
+POST /v1/children/{child_id}/materials
+POST /v1/materials/{material_id}/review
 GET  /health
 ```
 
