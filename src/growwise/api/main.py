@@ -31,9 +31,12 @@ from growwise.rag import (
 )
 from growwise.services import (
     ChildContextService,
+    ConversationService,
+    ConversationSession,
     InfantActivityService,
     NaturalLanguageSearch,
     ObservationEnricher,
+    SQLiteConversationStore,
 )
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
@@ -78,6 +81,15 @@ class ChildQuestionRequest(BaseModel):
     limit: int = Field(default=8, ge=1, le=20)
 
 
+class ConversationCreateRequest(BaseModel):
+    title: str | None = Field(default=None, max_length=200)
+
+
+class ConversationTurnRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
+    limit: int = Field(default=8, ge=1, le=20)
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
@@ -92,7 +104,10 @@ def get_model_provider() -> ModelProvider | None:
     settings = get_settings()
     if not settings.llm_features_enabled:
         return None
-    return create_model_provider(settings)
+    try:
+        return create_model_provider(settings)
+    except Exception:
+        return None
 
 
 @lru_cache
@@ -100,11 +115,19 @@ def get_rag_index() -> HybridRagIndex:
     settings = get_settings()
     embedding = None
     if settings.embedding_features_enabled:
-        embedding = OllamaEmbeddingProvider(
-            model=settings.embedding_model_id,
-            base_url=settings.model_base_url,
-        )
+        try:
+            embedding = OllamaEmbeddingProvider(
+                model=settings.embedding_model_id,
+                base_url=settings.model_base_url,
+            )
+        except Exception:
+            embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
+
+
+@lru_cache
+def get_conversation_store() -> SQLiteConversationStore:
+    return SQLiteConversationStore(get_settings().conversations_path)
 
 
 @lru_cache
@@ -115,6 +138,14 @@ def get_observation_graph():
     checkpointer = SqliteSaver(connection)
     checkpointer.setup()
     return build_observation_graph(checkpointer=checkpointer)
+
+
+def build_child_context_service(store: EntityStore) -> ChildContextService:
+    return ChildContextService(
+        entity_index=store.index,
+        rag_index=get_rag_index(),
+        provider=get_model_provider(),
+    )
 
 
 @app.get("/health")
@@ -181,16 +212,73 @@ def ask_child_context(
 ) -> dict:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
-    service = ChildContextService(
-        entity_index=store.index,
-        rag_index=get_rag_index(),
-        provider=get_model_provider(),
-    )
-    return service.ask(
+    return build_child_context_service(store).ask(
         child_id=str(child_id),
         query=request.question,
         limit=request.limit,
     ).model_dump(mode="json")
+
+
+@app.post("/v1/children/{child_id}/conversations", response_model=ConversationSession)
+def create_conversation(
+    child_id: UUID,
+    request: ConversationCreateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> ConversationSession:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    session = ConversationSession(child_id=str(child_id), title=request.title)
+    get_conversation_store().save(session)
+    return session
+
+
+@app.get("/v1/children/{child_id}/conversations")
+def list_conversations(
+    child_id: UUID,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[dict]:
+    sessions = get_conversation_store().list_for_child(str(child_id), limit=limit)
+    return [session.model_dump(mode="json") for session in sessions]
+
+
+@app.get("/v1/conversations/{session_id}", response_model=ConversationSession)
+def get_conversation(session_id: str) -> ConversationSession:
+    session = get_conversation_store().get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="conversation_not_found")
+    return session
+
+
+@app.post("/v1/conversations/{session_id}/turns")
+def append_conversation_turn(
+    session_id: str,
+    request: ConversationTurnRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    conversation_store = get_conversation_store()
+    session = conversation_store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="conversation_not_found")
+    if store.index.get_entity(session.child_id, entity_type="child_profile") is None:
+        raise HTTPException(status_code=409, detail="conversation_child_not_found")
+
+    service = ConversationService(
+        context_service=build_child_context_service(store),
+        provider=get_model_provider(),
+    )
+    answer = service.ask(session=session, question=request.question, limit=request.limit)
+    conversation_store.save(session)
+    return {
+        "session_id": session.id,
+        "thread_id": session.id,
+        "answer": answer.model_dump(mode="json"),
+        "turn_count": len(session.turns),
+    }
+
+
+@app.delete("/v1/conversations/{session_id}")
+def delete_conversation(session_id: str) -> dict[str, bool]:
+    return {"deleted": get_conversation_store().delete(session_id)}
 
 
 @app.post("/v1/observations", response_model=LearningLog)
