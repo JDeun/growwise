@@ -7,9 +7,8 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import frontmatter
-from pydantic import BaseModel
 
-from .markdown import _decode_metadata
+from .markdown import StoredEntity, _decode_metadata
 from .schema import validate_schema_version
 
 
@@ -59,7 +58,7 @@ class SQLiteProjection:
                 "ON entities(entity_type, child_id)"
             )
 
-    def upsert(self, entity: BaseModel, source_path: Path) -> None:
+    def upsert(self, entity: StoredEntity, source_path: Path) -> None:
         payload = entity.model_dump(mode="json")
         validate_schema_version(payload)
         self._upsert_payload(payload, source_path)
@@ -99,73 +98,45 @@ class SQLiteProjection:
             params.append(entity_type)
         with self._connection() as connection:
             row = connection.execute(sql, params).fetchone()
-        if row is None:
-            return None
-        payload = json.loads(row["payload_json"])
-        validate_schema_version(payload)
-        return payload
+        return json.loads(row["payload_json"]) if row else None
 
-    def list_entities(self, *, entity_type: str, child_id: str | None = None) -> list[dict]:
-        query = "SELECT payload_json FROM entities WHERE entity_type = ?"
-        params: list[str] = [entity_type]
-        if child_id is not None:
-            query += " AND child_id = ?"
-            params.append(child_id)
-        query += " ORDER BY created_at DESC"
-        with self._connection() as connection:
-            rows = connection.execute(query, params).fetchall()
-        payloads = [json.loads(row["payload_json"]) for row in rows]
-        for payload in payloads:
-            validate_schema_version(payload)
-        return payloads
-
-    def search_entities(
+    def list_entities(
         self,
         *,
-        child_id: str,
-        query_text: str,
-        entity_types: tuple[str, ...] = ("learning_log", "activity_plan"),
-        limit: int = 20,
+        entity_type: str | None = None,
+        child_id: str | None = None,
+        limit: int | None = None,
     ) -> list[dict]:
-        """Simple local lexical retrieval with mandatory child isolation."""
-        terms = [term.casefold() for term in query_text.split() if len(term.strip()) >= 2]
-        if not terms:
-            return []
+        clauses: list[str] = []
+        params: list[str | int] = []
+        if entity_type is not None:
+            clauses.append("entity_type = ?")
+            params.append(entity_type)
+        if child_id is not None:
+            clauses.append("child_id = ?")
+            params.append(child_id)
 
-        placeholders = ",".join("?" for _ in entity_types)
-        sql = (
-            "SELECT payload_json FROM entities "
-            f"WHERE child_id = ? AND entity_type IN ({placeholders}) "
-            "ORDER BY created_at DESC"
-        )
-        params: list[str] = [child_id, *entity_types]
+        sql = "SELECT payload_json FROM entities"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY updated_at DESC"
+        if limit is not None:
+            sql += " LIMIT ?"
+            params.append(limit)
+
         with self._connection() as connection:
             rows = connection.execute(sql, params).fetchall()
-
-        ranked: list[tuple[int, dict]] = []
-        for row in rows:
-            payload = json.loads(row["payload_json"])
-            validate_schema_version(payload)
-            haystack = json.dumps(payload, ensure_ascii=False).casefold()
-            score = sum(haystack.count(term) for term in terms)
-            if score:
-                ranked.append((score, payload))
-
-        ranked.sort(key=lambda item: (item[0], item[1].get("created_at", "")), reverse=True)
-        return [payload for _, payload in ranked[:limit]]
+        return [json.loads(row["payload_json"]) for row in rows]
 
     def rebuild(self, records_root: Path) -> int:
         with self._connection() as connection:
             connection.execute("DELETE FROM entities")
 
-        count = 0
+        indexed = 0
         for path in sorted(records_root.rglob("*.md")):
             post = frontmatter.load(path)
             payload = _decode_metadata(dict(post.metadata))
-            required = {"id", "entity_type", "created_at", "updated_at"}
-            if not required.issubset(payload):
-                continue
             validate_schema_version(payload)
             self._upsert_payload(payload, path)
-            count += 1
-        return count
+            indexed += 1
+        return indexed
