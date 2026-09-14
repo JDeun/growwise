@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel
@@ -35,5 +37,5 @@ class OllamaProvider(ModelProvider):
             [SystemMessage(content=system), HumanMessage(content=user)]
         )
         if isinstance(result, BaseModel):
-            return result
+            return cast(T, result)
         return schema.model_validate(result)
