@@ -16,6 +16,7 @@ dependencies = [
   "pydantic>=2.11,<3",
   "pydantic-settings>=2.10,<3",
   "langchain>=0.3,<1",
+  "langchain-ollama>=0.3,<1",
   "langgraph>=0.6,<1",
   "python-frontmatter>=1.1,<2",
   "uuid6>=2025.0.1,<2027",
@@ -42,6 +43,9 @@ line-length = 100
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.per-file-ignores]
+"src/growwise/api/*.py" = ["B008"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src"]
