@@ -8,6 +8,9 @@ from pathlib import Path
 
 from growwise.backup import BackupService
 from growwise.config import Settings
+from growwise.domain import ResourceRecord
+from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.storage import EntityStore
 
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.zip$")
 
@@ -60,6 +63,24 @@ def list_backups(settings: Settings) -> list[dict[str, object]]:
     return results
 
 
+def rebuild_rag_projection(settings: Settings) -> int:
+    """Rebuild the lexical RAG projection from restored ResourceRecord source documents."""
+    for path in (
+        settings.rag_index_path,
+        settings.rag_index_path.with_name(f"{settings.rag_index_path.name}-wal"),
+        settings.rag_index_path.with_name(f"{settings.rag_index_path.name}-shm"),
+    ):
+        path.unlink(missing_ok=True)
+
+    store = EntityStore(settings.records_dir, settings.index_path)
+    index = HybridRagIndex(settings.rag_index_path, embedding=None)
+    ingestor = ResourceIngestor(index)
+    count = 0
+    for payload in store.index.list_entities(entity_type="resource"):
+        count += ingestor.ingest(ResourceRecord.model_validate(payload))
+    return count
+
+
 def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[str, object]:
     if not confirmed:
         raise ValueError("restore requires --yes because it replaces the active record set")
@@ -69,9 +90,11 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         records_root=settings.records_dir,
         index_path=settings.index_path,
     )
+    rag_chunk_count = rebuild_rag_projection(settings)
     return {
         "archive": archive.name,
         "restored": True,
+        "rag_chunk_count": rag_chunk_count,
         "manifest": manifest.model_dump(mode="json"),
     }
 
