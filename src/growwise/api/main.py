@@ -13,6 +13,7 @@ from langgraph.types import Command
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
+from growwise.api.backup_routes import router as backup_router
 from growwise.config import Settings
 from growwise.domain import (
     ActivityPlan,
@@ -63,6 +64,7 @@ from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph, build_observation_graph
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
+app.include_router(backup_router)
 
 
 class ChildCreateRequest(BaseModel):
