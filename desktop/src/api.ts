@@ -83,6 +83,18 @@ export interface InfantActivitySuggestions {
   suggestions: ActivitySuggestion[];
 }
 
+export interface SearchPlan {
+  keywords: string[];
+  entity_types: string[];
+  limit: number;
+}
+
+export interface SearchResponse {
+  query: string;
+  plan: SearchPlan;
+  results: Array<Record<string, unknown>>;
+}
+
 export class CoreApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -126,6 +138,10 @@ export function createObservation(request: ObservationCreateInput): Promise<Lear
 
 export function listObservations(childId: string): Promise<LearningLog[]> {
   return call<LearningLog[]>("list_observations", { childId });
+}
+
+export function searchChildContext(childId: string, query: string): Promise<SearchResponse> {
+  return call<SearchResponse>("search_child_context", { childId, query });
 }
 
 export function getGrowthMap(childId: string): Promise<GrowthMap> {
