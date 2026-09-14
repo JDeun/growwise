@@ -11,6 +11,37 @@ export interface HealthResponse {
   model_provider: string;
 }
 
+export interface CoreRuntimeStatus {
+  started_by_desktop: boolean;
+}
+
+export interface ChildCreateInput {
+  nickname: string;
+  stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high";
+  age_months: number | null;
+  interests: string[];
+}
+
+export interface ChildProfile {
+  id: string;
+  nickname: string;
+  stage: string;
+  age_months: number | null;
+  interests: string[];
+}
+
+export interface GrowthMap {
+  child_id: string;
+  period_days: number;
+  total_logs_in_period: number;
+  tagged_logs_in_period: number;
+  axes: Array<{
+    axis: string;
+    state: string;
+    observation_count: number;
+  }>;
+}
+
 export class CoreApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -18,16 +49,32 @@ export class CoreApiError extends Error {
   }
 }
 
-export async function getHealth(): Promise<HealthResponse> {
+async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
   try {
-    return await invoke<HealthResponse>("core_health");
+    return await invoke<T>(command, args);
   } catch (error) {
     throw new CoreApiError(
       typeof error === "string"
         ? error
         : error instanceof Error
           ? error.message
-          : "GrowWise Core에 연결할 수 없습니다.",
+          : "GrowWise Core 요청에 실패했습니다.",
     );
   }
+}
+
+export function getHealth(): Promise<HealthResponse> {
+  return call<HealthResponse>("core_health");
+}
+
+export function getCoreRuntimeStatus(): Promise<CoreRuntimeStatus> {
+  return call<CoreRuntimeStatus>("core_runtime_status");
+}
+
+export function createChild(request: ChildCreateInput): Promise<ChildProfile> {
+  return call<ChildProfile>("create_child", { request });
+}
+
+export function getGrowthMap(childId: string): Promise<GrowthMap> {
+  return call<GrowthMap>("get_growth_map", { childId });
 }
