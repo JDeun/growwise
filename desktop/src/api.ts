@@ -11,8 +11,8 @@ export interface HealthResponse { status: string; operation_mode: OperationMode;
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput { nickname: string; stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high"; age_months: number | null; interests: string[]; }
 export interface ChildProfile { id: string; nickname: string; stage: string; age_months: number | null; interests: string[]; }
-export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; }
-export interface LearningLog { id: string; child_id: string; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
+export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; activity_plan_id?: string | null; }
+export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
 export interface GrowthMap { child_id: string; period_days: number; total_logs_in_period: number; tagged_logs_in_period: number; axes: Array<{ axis: ExperienceAxis; state: string; observation_count: number; }>; }
 export interface ActivitySuggestion { title: string; description: string; materials: string[]; observation_cue: string | null; tags: string[]; }
 export interface InfantActivitySuggestions { suggestions: ActivitySuggestion[]; }
@@ -43,6 +43,7 @@ export const listObservations = (childId: string) => call<LearningLog[]>("list_o
 export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs });
 export const listActivities = (childId: string) => call<ActivityPlan[]>("list_activities", { childId });
 export const transitionActivity = (activityId: string, status: ActivityStatus, parentNote?: string) => call<ActivityPlan>("transition_activity", { activityId, status, parentNote: parentNote ?? null });
+export const listActivityObservations = (activityId: string) => call<LearningLog[]>("list_activity_observations", { activityId });
 export const searchChildContext = (childId: string, query: string) => call<SearchResponse>("search_child_context", { childId, query });
 export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
