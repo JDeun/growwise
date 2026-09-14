@@ -21,6 +21,19 @@ class Stage(StrEnum):
     HIGH = "high"
 
 
+class ExperienceAxis(StrEnum):
+    PHYSICAL = "physical"
+    EMOTIONAL_CHARACTER = "emotional_character"
+    EXPRESSION_ART = "expression_art"
+    THINKING_INQUIRY = "thinking_inquiry"
+    SOCIAL = "social"
+    READING = "reading"
+    SPEAKING = "speaking"
+    WRITING = "writing"
+    MATH = "math"
+    EXPLORATION = "exploration"
+
+
 class MaterialStatus(StrEnum):
     DRAFT = "draft"
     REVIEW_PENDING = "review_pending"
@@ -81,6 +94,7 @@ class LearningLog(EntityBase):
     difficulty_note: str | None = None
     next_activity: str | None = None
     tags: list[str] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
 
 
 class ResourceRecord(EntityBase):
