@@ -18,16 +18,18 @@
 이미 정해진 것:
 
 - ✅ **개인용 우선** — 개인이 운영하는 홈스쿨링용을 먼저 만든다(기관용 확장은 나중).
-- ✅ **데스크탑 앱** — 홈서버·상시 백엔드가 아니라 한 대의 데스크탑에 설치하는 앱.
+- ✅ **데스크탑 앱** — 홈서버·상시 백엔드가 아니라 데스크탑에 설치하는 앱.
+- ✅ **크로스플랫폼(Windows·macOS)** — 처음부터 양 OS 지원(CI 동시 빌드).
+- ✅ **UI 셸 = Tauri** — Rust + 시스템 웹뷰 + Python 사이드카([architecture.md](architecture.md)).
+- ✅ **상업-안전 라이선스만** — 의존성은 상용/기관 확장에 걸리지 않도록 permissive
+  (MIT/BSD/Apache/CC0/CC-BY)만 채택. 비상업·독점·AGPL은 배제([integrations.md](integrations.md)).
 
 아직 결정할 것:
 
-1. **데스크탑 UI 프레임워크** — Tauri / Electron / pywebview / PySide(Qt) 중 무엇으로
-   할 것인가? (생성·RAG·PDF·음성이 Python 중심이라 Python 코어와의 결합 방식이 관건)
-2. **기록 저장 방식** — 학습 기록을 Markdown 중심으로 둘 것인가, SQLite 기반 앱
+1. **기록 저장 방식** — 학습 기록을 Markdown 중심으로 둘 것인가, SQLite 기반 앱
    데이터로 둘 것인가? (둘 다 로컬)
-3. **첫 활동지 카테고리** — 독서, 영어, 탐방 중 무엇으로 시작할 것인가?
-4. **로컬/외부 경계** — 외부 API를 어디까지 허용하고, 어떤 데이터는 반드시 로컬에만
+2. **첫 활동지 카테고리** — 독서, 영어, 탐방 중 무엇으로 시작할 것인가?
+3. **로컬/외부 경계** — 외부 API를 어디까지 허용하고, 어떤 데이터는 반드시 로컬에만
    둘 것인가? ([integrations.md](integrations.md))
 
 ## 첫 마일스톤 제안 (M0)
@@ -35,7 +37,8 @@
 설계를 코드로 바꾸기 위한 최소 목표를 다음과 같이 제안한다. (확정 아님 — 위 질문을
 먼저 정한 뒤 조정)
 
-- [ ] 기술 스택 고정: 데스크탑 셸(Tauri/Electron/pywebview/Qt) + Python 코어, 저장(SQLite vs Markdown), RAG 여부
+- [ ] 프로젝트 스캐폴딩: Tauri 앱 + Python 사이드카(Win/macOS CI 동시 빌드) 골격
+- [ ] 저장 방식 확정(SQLite vs Markdown), RAG 사용 여부
 - [ ] 데이터 모델 v0 스키마 확정([data-model.md](data-model.md))
 - [ ] 첫 생성 모듈 1종 구현(예: 독서 활동지) — 라우터 → 생성 → 저장 → PDF 출력 end-to-end
 - [ ] Parent Review Layer 최소 구현(노출 전 체크리스트)
