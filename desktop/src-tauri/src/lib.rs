@@ -53,6 +53,21 @@ struct ActivitySuggestionDto { title: String, description: String, materials: Ve
 #[derive(Debug, Serialize, Deserialize)]
 struct InfantActivitySuggestionsDto { suggestions: Vec<ActivitySuggestionDto> }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct ResourceCreateInput {
+    kind: String,
+    title: String,
+    child_id: Option<String>,
+    summary: Option<String>,
+    content: Option<String>,
+    source_url: Option<String>,
+    source_name: Option<String>,
+    author: Option<String>,
+    tags: Vec<String>,
+    stage_tags: Vec<String>,
+    provenance: serde_json::Value,
+}
+
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder().timeout(std::time::Duration::from_millis(8000)).build().map_err(|error| error.to_string())
 }
@@ -122,6 +137,25 @@ async fn append_conversation_turn(session_id: String, question: String) -> Resul
 }
 
 #[tauri::command]
+async fn create_resource(request: ResourceCreateInput) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/resources"))
+        .json(&request)
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 저장 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn list_resources(child_id: Option<String>) -> Result<serde_json::Value, String> {
+    let mut request = client()?.get(format!("{CORE_BASE_URL}/v1/resources"));
+    if let Some(id) = child_id.as_deref() {
+        request = request.query(&[("child_id", id)]);
+    }
+    let response = request.send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 목록 조회 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
     let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/growth-map?days=30")).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "성장 맥락 조회 실패").await?.json::<GrowthMapDto>().await.map_err(|error| error.to_string())
@@ -152,6 +186,8 @@ pub fn run() {
             search_child_context,
             create_conversation,
             append_conversation_turn,
+            create_resource,
+            list_resources,
             get_growth_map,
             get_infant_activities
         ])
