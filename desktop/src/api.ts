@@ -1,6 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type OperationMode = "ai_enhanced_with_core_fallback" | "core_only";
+export type Stage = "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high";
 export type ExperienceAxis = "physical" | "emotional_character" | "expression_art" | "thinking_inquiry" | "social" | "reading" | "speaking" | "writing" | "math" | "exploration";
 export type ActivityStatus = "suggested" | "active" | "completed" | "skipped" | "archived";
 export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
@@ -9,11 +10,15 @@ export type MaterialStatus = "draft" | "review_pending" | "revision_requested" |
 
 export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_configured: boolean; llm_reachable: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
-export interface ChildCreateInput { nickname: string; stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high"; age_months: number | null; interests: string[]; }
-export interface ChildProfile { id: string; nickname: string; stage: string; age_months: number | null; interests: string[]; }
+export interface ChildCreateInput { nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
+export interface ChildProfile { id: string; nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
 export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; activity_plan_id?: string | null; }
 export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
-export interface GrowthMap { child_id: string; period_days: number; total_logs_in_period: number; tagged_logs_in_period: number; axes: Array<{ axis: ExperienceAxis; state: string; observation_count: number; }>; }
+export interface GrowthAxis { axis: ExperienceAxis; state: string; observation_count: number; }
+export interface GrowthLayer { key: "whole_person" | "learning" | "stage_focus"; label: string; axes: GrowthAxis[]; }
+export type DiversityState = "insufficient_data" | "varied" | "mixed" | "concentrated";
+export interface CoverageDiversity { state: DiversityState; observed_axis_count: number; focus_axes: ExperienceAxis[]; note: string; }
+export interface GrowthMap { child_id: string; period_days: number; stage: Stage | null; total_logs_in_period: number; tagged_logs_in_period: number; axes: GrowthAxis[]; layers: GrowthLayer[]; diversity: CoverageDiversity; }
 export interface ActivitySuggestion { title: string; description: string; materials: string[]; observation_cue: string | null; tags: string[]; }
 export interface InfantActivitySuggestions { suggestions: ActivitySuggestion[]; }
 export interface ObservationHint { domain: string; cue: string; rationale: string; }
