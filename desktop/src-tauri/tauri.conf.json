@@ -29,6 +29,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "icon": [],
     "resources": ["binaries"],
     "shortDescription": "Parent-led, local-first Personal Education OS",
     "longDescription": "GrowWise organizes learning records, resources, growth context and parent-reviewed learning materials."
