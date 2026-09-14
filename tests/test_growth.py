@@ -33,7 +33,7 @@ def test_growth_map_uses_explicit_axes_without_llm(tmp_path) -> None:
     assert projection.total_logs_in_period == 3
     assert projection.tagged_logs_in_period == 3
     assert by_axis[ExperienceAxis.READING].observation_count == 3
-    assert by_axis[ExperienceAxis.READING].state is CoverageState.VARIED_EXPERIENCE
+    assert by_axis[ExperienceAxis.READING].state is CoverageState.REPEATED_EXPERIENCE
     assert by_axis[ExperienceAxis.MATH].state is CoverageState.NOT_OBSERVED
 
 
