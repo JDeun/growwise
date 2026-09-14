@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from contextlib import contextmanager
 from pathlib import Path
+from typing import Iterator
 
 import frontmatter
 from pydantic import BaseModel
@@ -23,8 +25,26 @@ class SQLiteProjection:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Yield a transaction-scoped connection and always release the file handle.
+
+        sqlite3.Connection's own context manager commits or rolls back but does not close the
+        connection. Explicit close is required so projection files can be replaced/rebuilt on
+        Windows as well as POSIX platforms.
+        """
+        connection = self._connect()
+        try:
+            yield connection
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
+
     def _ensure_schema(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS entities (
@@ -48,7 +68,7 @@ class SQLiteProjection:
         self._upsert_payload(payload, source_path)
 
     def _upsert_payload(self, payload: dict, source_path: Path) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO entities (
@@ -79,7 +99,7 @@ class SQLiteProjection:
         if entity_type is not None:
             sql += " AND entity_type = ?"
             params.append(entity_type)
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(sql, params).fetchone()
         if row is None:
             return None
@@ -92,7 +112,7 @@ class SQLiteProjection:
             query += " AND child_id = ?"
             params.append(child_id)
         query += " ORDER BY created_at DESC"
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(query, params).fetchall()
         return [json.loads(row["payload_json"]) for row in rows]
 
@@ -120,7 +140,7 @@ class SQLiteProjection:
             "ORDER BY created_at DESC"
         )
         params: list[str] = [child_id, *entity_types]
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute(sql, params).fetchall()
 
         ranked: list[tuple[int, dict]] = []
@@ -135,7 +155,7 @@ class SQLiteProjection:
         return [payload for _, payload in ranked[:limit]]
 
     def rebuild(self, records_root: Path) -> int:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("DELETE FROM entities")
 
         count = 0
