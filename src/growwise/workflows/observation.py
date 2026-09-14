@@ -16,9 +16,8 @@ class ObservationState(TypedDict, total=False):
 
 
 def normalize(state: ObservationState) -> ObservationState:
-    # Parent-authored observation text is Source of Truth and must not be rewritten.
-    # Downstream AI may derive metadata from this value, but persistence keeps it exact.
-    return {"normalized_observation": state["observation"]}
+    text = " ".join(state["observation"].split())
+    return {"normalized_observation": text}
 
 
 def safety_check(state: ObservationState) -> ObservationState:
