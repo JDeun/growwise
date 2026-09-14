@@ -95,6 +95,15 @@ fn client() -> Result<reqwest::Client, String> {
         .map_err(|error| error.to_string())
 }
 
+async fn ensure_success(response: reqwest::Response, label: &str) -> Result<reqwest::Response, String> {
+    if response.status().is_success() {
+        return Ok(response);
+    }
+    let status = response.status();
+    let body = response.text().await.unwrap_or_default();
+    Err(format!("{label} ({status}): {body}"))
+}
+
 #[tauri::command]
 async fn core_health() -> Result<CoreHealth, String> {
     let response = client()?
@@ -102,12 +111,8 @@ async fn core_health() -> Result<CoreHealth, String> {
         .send()
         .await
         .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        return Err(format!("GrowWise Core health check failed: {}", response.status()));
-    }
-
-    response
+    ensure_success(response, "GrowWise Core health check failed")
+        .await?
         .json::<CoreHealth>()
         .await
         .map_err(|error| error.to_string())
@@ -115,135 +120,58 @@ async fn core_health() -> Result<CoreHealth, String> {
 
 #[tauri::command]
 fn core_runtime_status(manager: tauri::State<'_, CoreProcessManager>) -> CoreRuntimeStatus {
-    CoreRuntimeStatus {
-        started_by_desktop: manager.started_by_desktop(),
-    }
+    CoreRuntimeStatus { started_by_desktop: manager.started_by_desktop() }
 }
 
 #[tauri::command]
 async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("아이 프로필 저장 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<ChildProfileDto>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children")).json(&request).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 프로필 저장 실패").await?.json::<ChildProfileDto>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
-    let response = client()?
-        .get(format!("{CORE_BASE_URL}/v1/children"))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("아이 목록 조회 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<Vec<ChildProfileDto>>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 목록 조회 실패").await?.json::<Vec<ChildProfileDto>>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/observations"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("관찰 기록 저장 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<LearningLogDto>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/observations")).json(&request).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "관찰 기록 저장 실패").await?.json::<LearningLogDto>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn list_observations(child_id: String) -> Result<Vec<LearningLogDto>, String> {
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/observations")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "관찰 기록 조회 실패").await?.json::<Vec<LearningLogDto>>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn search_child_context(child_id: String, query: String) -> Result<serde_json::Value, String> {
     let response = client()?
-        .get(format!("{CORE_BASE_URL}/v1/children/{child_id}/observations"))
+        .get(format!("{CORE_BASE_URL}/v1/children/{child_id}/search"))
+        .query(&[("q", query.as_str()), ("limit", "20")])
         .send()
         .await
         .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("관찰 기록 조회 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<Vec<LearningLogDto>>()
+    ensure_success(response, "자연어 검색 실패")
+        .await?
+        .json::<serde_json::Value>()
         .await
         .map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
-    let response = client()?
-        .get(format!(
-            "{CORE_BASE_URL}/v1/children/{child_id}/growth-map?days=30"
-        ))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("성장 맥락 조회 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<GrowthMapDto>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/growth-map?days=30")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "성장 맥락 조회 실패").await?.json::<GrowthMapDto>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn get_infant_activities(child_id: String) -> Result<InfantActivitySuggestionsDto, String> {
-    let response = client()?
-        .get(format!(
-            "{CORE_BASE_URL}/v1/children/{child_id}/infant-activities?limit=3"
-        ))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-
-    if !response.status().is_success() {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        return Err(format!("영아 활동 추천 조회 실패 ({status}): {body}"));
-    }
-
-    response
-        .json::<InfantActivitySuggestionsDto>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/infant-activities?limit=3")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "영아 활동 추천 조회 실패").await?.json::<InfantActivitySuggestionsDto>().await.map_err(|error| error.to_string())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -251,8 +179,7 @@ pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
-            let manager =
-                CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
+            let manager = CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
             app.manage(manager);
             Ok(())
         })
@@ -263,6 +190,7 @@ pub fn run() {
             list_children,
             create_observation,
             list_observations,
+            search_child_context,
             get_growth_map,
             get_infant_activities
         ])
