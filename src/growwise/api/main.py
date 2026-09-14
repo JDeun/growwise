@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sqlite3
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
@@ -7,6 +8,7 @@ from uuid import UUID
 
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query
+from langgraph.checkpoint.sqlite import SqliteSaver
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
@@ -24,7 +26,6 @@ from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
-observation_graph = build_observation_graph()
 
 
 class ChildCreateRequest(BaseModel):
@@ -54,6 +55,16 @@ def get_model_provider() -> ModelProvider | None:
     if not settings.llm_features_enabled:
         return None
     return create_model_provider(settings)
+
+
+@lru_cache
+def get_observation_graph():
+    settings = get_settings()
+    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+    checkpointer = SqliteSaver(connection)
+    checkpointer.setup()
+    return build_observation_graph(checkpointer=checkpointer)
 
 
 @app.get("/health")
@@ -89,8 +100,10 @@ def create_observation(
     store.save(workflow)
 
     try:
-        state = observation_graph.invoke(
-            {"child_id": str(request.child_id), "observation": request.observation}
+        graph = get_observation_graph()
+        state = graph.invoke(
+            {"child_id": str(request.child_id), "observation": request.observation},
+            config={"configurable": {"thread_id": workflow.thread_id}},
         )
         if state.get("safety_flags"):
             workflow.status = WorkflowStatus.FAILED
