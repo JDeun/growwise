@@ -65,6 +65,8 @@ yarn-error.log*
 # --- Rust / Tauri ---
 target/
 **/src-tauri/target/
+/desktop/src-tauri/binaries/growwise-core
+/desktop/src-tauri/binaries/growwise-core.exe
 
 # --- OS / 에디터 ---
 .DS_Store
