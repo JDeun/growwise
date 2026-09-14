@@ -30,7 +30,11 @@ from growwise.domain import (
     WorkflowRun,
     WorkflowStatus,
 )
-from growwise.generators import MaterialGenerationService
+from growwise.generators import (
+    MaterialGenerationService,
+    MaterialRevisionError,
+    MaterialRevisionService,
+)
 from growwise.idempotency import (
     IdempotencyConflict,
     IdempotencyStatus,
@@ -135,6 +139,10 @@ class MaterialGenerateRequest(BaseModel):
 
 class MaterialReviewRequest(BaseModel):
     status: MaterialStatus
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class MaterialRevisionRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -502,6 +510,8 @@ def generate_material(
         goal=request.goal,
         source_refs=request.source_refs,
     )
+    material.request_topic = request.topic
+    material.request_goal = request.goal
     store.save(material)
     review_config = {
         "configurable": {"thread_id": f"material-review:{material.id}"}
@@ -573,6 +583,59 @@ def review_material(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     store.save(material)
     return material
+
+
+@app.post("/v1/materials/{material_id}/revise", response_model=GeneratedMaterial)
+def revise_material(
+    material_id: UUID,
+    request: MaterialRevisionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    if material.status is not MaterialStatus.REVISION_REQUESTED:
+        raise HTTPException(
+            status_code=409,
+            detail="material must be revision_requested before regeneration",
+        )
+
+    child_payload = store.index.get_entity(str(material.child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=409, detail="material_child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+
+    # Revision history is intentionally linear. Retrying the same parent revision must not
+    # create sibling versions; the already-persisted child version is the idempotent result.
+    existing_revisions = store.index.list_entities(
+        entity_type="generated_material",
+        child_id=str(material.child_id),
+    )
+    for candidate in existing_revisions:
+        if candidate.get("parent_material_id") == str(material.id):
+            return GeneratedMaterial.model_validate(candidate)
+
+    try:
+        revised = MaterialRevisionService(
+            MaterialGenerationService(provider=get_model_provider())
+        ).revise(material=material, child=child, note=request.note)
+    except MaterialRevisionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    store.save(revised)
+    review_config = {
+        "configurable": {"thread_id": f"material-review:{revised.id}"}
+    }
+    get_material_review_graph().invoke(
+        {
+            "material_id": str(revised.id),
+            "child_id": str(child.id),
+            "title": revised.title,
+        },
+        config=review_config,
+    )
+    return revised
 
 
 @app.post("/v1/observations", response_model=LearningLog)
