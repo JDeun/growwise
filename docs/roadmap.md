@@ -65,12 +65,12 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 
 ### 프로젝트 기반
 
-- [ ] `pyproject.toml` + uv dependency management (`pyproject.toml`은 완료, uv 고정 workflow는 미완료)
+- [x] `pyproject.toml` + uv dependency management (`uv.lock`, uv 0.12.13, CI `uv sync --locked`/`uv lock --check`)
 - [x] Tauri 2 + React/TypeScript/Vite shell
 - [x] Python FastAPI sidecar + health/runtime endpoint
 - [x] typed IPC contract
 - [x] Windows/macOS GitHub Actions
-- [ ] Ruff/mypy/pytest + ESLint/TypeScript/Vitest (Ruff/mypy/pytest/TypeScript build 완료, ESLint/Vitest 미완료)
+- [x] Ruff/mypy/pytest + ESLint/TypeScript/Vitest
 - [x] pre-commit / dependency audit / license inventory
 
 ### Domain/Storage
@@ -88,18 +88,19 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 ### LangGraph runtime
 
 - [x] typed graph state
-- [ ] node registry
+- [x] node registry
 - [x] checkpoint persistence
-- [ ] retry/timeout/cancellation policy
-- [ ] idempotency
-- [ ] interrupt/resume parent review skeleton (Parent Review 상태 머신은 구현, LangGraph interrupt/resume 미완료)
+- [x] retry/timeout/cancellation policy
+- [x] idempotency (SQLite claim/complete/release + schema migration + observation API `Idempotency-Key` 회귀 테스트)
+- [x] interrupt/resume parent review skeleton (SQLite checkpoint 기반 LangGraph interrupt/resume 회귀 테스트)
 - [x] provider abstraction + Ollama adapter
 
 **완료 조건:** 빈 앱이 아니라 `UI → Python → LangGraph → storage → UI`가 한 번 완주하고,
 프로세스 재시작 후 checkpoint/rebuild가 검증된다.
 
-현재 walking skeleton과 sidecar smoke는 구현됐다. Phase 0 전체 완료 선언은 위 미완료 항목까지
-닫은 뒤 한다.
+**Phase 0 상태: 완료.** Walking skeleton, sidecar smoke, Windows/macOS Python 검증, frontend
+lint/test/build, Tauri check/clippy, dependency lock 및 기본 실행 하네스까지 기반 범위를 닫았다.
+이후 단계의 도메인 기능·실사용 검증·제품 배포 완성은 각 Phase에서 별도로 완료한다.
 
 ## Phase 1 — 영아(0~2) 실사용 모드
 
@@ -143,7 +144,7 @@ input
 - [x] grounding/citation provenance 기초
 - [ ] scaffold guard
 - [ ] prompt injection defense 회귀 세트
-- [ ] Parent Review interrupt/resume (상태 머신/UI는 구현, LangGraph interrupt/resume 미완료)
+- [ ] Parent Review interrupt/resume (LangGraph skeleton/회귀 테스트는 완료, material 생성·review API와 동일 thread로 연결하는 실제 흐름 미완료)
 - [ ] revision loop (revision 상태는 구현, 자동 재생성 loop 미완료)
 - [ ] WeasyPrint packaging spike (현재 OS print/PDF 경로)
 - [ ] local model latency/quality benchmark
@@ -250,13 +251,13 @@ input
 ### 위생
 
 - [x] TODO/FIXME audit (현재 코드 검색 기준 잔여 없음)
-- [x] dependency lock/update policy 기초(`package-lock.json`, `Cargo.lock`, Dependabot)
+- [x] dependency lock/update policy 기초(`uv.lock`, `package-lock.json`, `Cargo.lock`, Dependabot)
 - [x] Python/Node/Rust CVE audit CI
 - [ ] secret scan
 - [x] Python license inventory CI
 - [ ] docs/code consistency audit 전체
 - [ ] sample/test data privacy audit
-- [x] reproducible dependency resolution where practical (`npm ci`, Cargo `--locked`)
+- [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
 
 ## Definition of Done
 
