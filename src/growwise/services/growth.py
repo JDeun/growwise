@@ -13,7 +13,7 @@ from growwise.storage import SQLiteProjection
 class CoverageState(StrEnum):
     NOT_OBSERVED = "not_observed"
     RECENTLY_OBSERVED = "recently_observed"
-    VARIED_EXPERIENCE = "varied_experience"
+    REPEATED_EXPERIENCE = "repeated_experience"
     FREQUENT_EXPERIENCE = "frequent_experience"
 
 
@@ -98,7 +98,7 @@ class GrowthMapService:
         if count <= 2:
             return CoverageState.RECENTLY_OBSERVED
         if count <= 5:
-            return CoverageState.VARIED_EXPERIENCE
+            return CoverageState.REPEATED_EXPERIENCE
         return CoverageState.FREQUENT_EXPERIENCE
 
     @staticmethod
