@@ -34,9 +34,10 @@ class RewrittenQuery(BaseModel):
 class ConversationService:
     """Bounded-memory query workspace; conversation history is never treated as evidence."""
 
-    REWRITE_SYSTEM = """Rewrite the latest GrowWise follow-up question as a standalone retrieval query.
-Use conversation history only to resolve references such as '그중', '그거', or omitted subjects.
-Do not add facts that were not present in the user's turns. Return only the rewritten query."""
+    REWRITE_SYSTEM = """Rewrite the latest GrowWise follow-up question as a standalone
+retrieval query. Use conversation history only to resolve references such as '그중',
+'그거', or omitted subjects. Do not add facts that were not present in the user's turns.
+Return only the rewritten query."""
 
     def __init__(
         self,
