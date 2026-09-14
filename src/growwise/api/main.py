@@ -260,17 +260,72 @@ def create_activity(
     child_id: UUID,
     request: ActivityCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
+    idempotency_key: Annotated[
+        str | None, Header(alias="Idempotency-Key", max_length=200)
+    ] = None,
 ) -> ActivityPlan:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
+
+    idempotency_store = get_idempotency_store()
+    request_hash = request_fingerprint(
+        {"child_id": str(child_id), **request.model_dump(mode="json")}
+    )
+    reserved_activity_id: UUID = uuid7()
+    claim = None
+    if idempotency_key is not None:
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type="activity_plan",
+                resource_id=str(reserved_activity_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        reserved_activity_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id, entity_type="activity_plan"
+            )
+            if existing is not None:
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return ActivityPlan.model_validate(existing)
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(
+                    status_code=409, detail="idempotency_resource_missing"
+                )
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
     activity = ActivityPlan(
+        id=reserved_activity_id,
         child_id=child_id,
         title=request.title,
         source_refs=request.source_refs,
         parent_note=request.parent_note,
     )
-    store.save(activity)
-    return activity
+    try:
+        store.save(activity)
+        if claim is not None and claim.acquired:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+        return activity
+    except Exception:
+        if claim is not None and claim.acquired:
+            idempotency_store.release(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+        raise
 
 
 @app.get("/v1/children/{child_id}/activities")
