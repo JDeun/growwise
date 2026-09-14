@@ -187,7 +187,10 @@ Windows·macOS 공통 동작을 기준으로 고른다.
 ## 5. 콘텐츠 생성 · RAG 내부 스택
 
 - RAG/생성: LangChain, LlamaIndex, LangGraph, Chroma/Qdrant(로컬 임베디드)
-- 저장: SQLite(로컬), Markdown 파일
+- **모델 실행/공급자(교체 가능)**: 로컬 기본 — llama.cpp/GGUF(MIT), Ollama(MIT), MLX(Apple);
+  원격은 선택(OpenAI/Anthropic 등 호환 API). **Model Provider 추상화**로 언제든 교체·이식
+  ([architecture.md](architecture.md)). 특정 모델/공급자에 종속 금지.
+- 저장: SQLite(로컬 인덱스), Markdown 파일(SoT)
 - 앱 셸/패키징: **Tauri + Python 사이드카**(Win/macOS). 상세 [architecture.md](architecture.md)
 
 ---

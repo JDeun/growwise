@@ -37,9 +37,10 @@ Desktop UI
 | Learning Log Writer | 학습 로그 기록 | `src/growwise/storage/` |
 | Parent Review Layer | 노출 전 검토(난이도·민감성·PII) | `src/growwise/review/` |
 | Local RAG | 로컬 근거 자료 검색 | `src/growwise/rag/` |
-| Storage | Markdown/SQLite 저장·조회 | `src/growwise/storage/` |
+| Storage | Markdown(SoT)/SQLite(인덱스) 저장·조회 | `src/growwise/storage/` |
 | PDF Export | 인쇄 품질 문서 출력 | `src/growwise/export/` |
 | External API Adapters | 외부 자료 접근(경계 통제) | `src/growwise/adapters/` |
+| **Model Provider** | **LLM 추상화 — 모델·공급자 교체·이식** | `src/growwise/model/` |
 
 ## 설계 원칙
 
@@ -48,6 +49,24 @@ Desktop UI
 - **로컬 우선**: 기본 자료 생성·기록 조회는 오프라인에서 동작한다. 외부 API는 어댑터
   계층으로 격리해 경계를 통제한다([privacy-and-safety.md](privacy-and-safety.md)).
 - **검토 계층 분리**: 생성과 노출 사이에 Parent Review Layer를 반드시 둔다.
+- **모델 교체 가능**: 생성 모듈은 특정 LLM/공급자에 직접 묶이지 않고 Model Provider
+  인터페이스로만 호출한다(아래).
+
+## 모델 공급자 추상화 (교체·이식 가능)
+
+**어떤 AI 모델을 쓰든 언제든 교체·이식할 수 있어야 한다.** 특정 모델/공급자에 종속되지
+않도록, 생성·코치·RAG는 모두 얇은 **Model Provider 인터페이스**(예: `generate()`,
+`embed()`)를 통해서만 모델을 부른다.
+
+- **공급자 플러그블**: 로컬(예: llama.cpp/GGUF, Ollama, MLX)과 원격(OpenAI/Anthropic/
+  기타 호환 API)을 같은 인터페이스 뒤에 두고 **설정으로 교체**한다. 새 공급자 추가는
+  어댑터 하나 구현으로 끝난다.
+- **로컬 기본**: 프라이버시·오프라인 우선이라 기본값은 로컬 모델. 원격은 선택(부모가
+  명시적으로 켤 때만), 아동 데이터는 [privacy-and-safety.md](privacy-and-safety.md) 원칙을
+  따른다.
+- **설정 주도**: 모델 id·엔드포인트·키는 설정/`.env`로 두고 코드에 하드코딩하지 않는다.
+  기능별로 다른 모델을 지정할 수 있다(예: 생성=A, 임베딩=B).
+- **폴백 체인**: 한 공급자 실패 시 다음 공급자로 자동 전환할 수 있게 설계한다.
 
 ## 기술 스택 후보
 

@@ -13,7 +13,8 @@ src/growwise/
 ├── storage/      Storage — Markdown/SQLite 저장·조회, 학습 로그
 ├── export/       PDF Export — 인쇄 품질 문서 출력
 ├── review/       Parent Review Layer — 노출 전 검토(난이도·민감성·PII)
-└── adapters/     External API Adapters — 외부 자료 접근(경계 통제)
+├── adapters/     External API Adapters — 외부 자료 접근(경계 통제)
+└── model/        Model Provider — LLM 추상화(모델·공급자 교체·이식, 폴백)
 ```
 
 ## 채우는 순서(M0 제안)
