@@ -18,33 +18,16 @@ struct CoreHealth {
 }
 
 #[derive(Debug, Serialize)]
-struct CoreRuntimeStatus {
-    started_by_desktop: bool,
-}
+struct CoreRuntimeStatus { started_by_desktop: bool }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ChildCreateInput {
-    nickname: String,
-    stage: String,
-    age_months: Option<u16>,
-    interests: Vec<String>,
-}
+struct ChildCreateInput { nickname: String, stage: String, age_months: Option<u16>, interests: Vec<String> }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ChildProfileDto {
-    id: String,
-    nickname: String,
-    stage: String,
-    age_months: Option<u16>,
-    interests: Vec<String>,
-}
+struct ChildProfileDto { id: String, nickname: String, stage: String, age_months: Option<u16>, interests: Vec<String> }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ObservationCreateInput {
-    child_id: String,
-    observation: String,
-    experience_axes: Vec<String>,
-}
+struct ObservationCreateInput { child_id: String, observation: String, experience_axes: Vec<String> }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct LearningLogDto {
@@ -59,46 +42,23 @@ struct LearningLogDto {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GrowthAxisDto {
-    axis: String,
-    state: String,
-    observation_count: u32,
-}
+struct GrowthAxisDto { axis: String, state: String, observation_count: u32 }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct GrowthMapDto {
-    child_id: String,
-    period_days: u32,
-    total_logs_in_period: u32,
-    tagged_logs_in_period: u32,
-    axes: Vec<GrowthAxisDto>,
-}
+struct GrowthMapDto { child_id: String, period_days: u32, total_logs_in_period: u32, tagged_logs_in_period: u32, axes: Vec<GrowthAxisDto> }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct ActivitySuggestionDto {
-    title: String,
-    description: String,
-    materials: Vec<String>,
-    observation_cue: Option<String>,
-    tags: Vec<String>,
-}
+struct ActivitySuggestionDto { title: String, description: String, materials: Vec<String>, observation_cue: Option<String>, tags: Vec<String> }
 
 #[derive(Debug, Serialize, Deserialize)]
-struct InfantActivitySuggestionsDto {
-    suggestions: Vec<ActivitySuggestionDto>,
-}
+struct InfantActivitySuggestionsDto { suggestions: Vec<ActivitySuggestionDto> }
 
 fn client() -> Result<reqwest::Client, String> {
-    reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(8000))
-        .build()
-        .map_err(|error| error.to_string())
+    reqwest::Client::builder().timeout(std::time::Duration::from_millis(8000)).build().map_err(|error| error.to_string())
 }
 
 async fn ensure_success(response: reqwest::Response, label: &str) -> Result<reqwest::Response, String> {
-    if response.status().is_success() {
-        return Ok(response);
-    }
+    if response.status().is_success() { return Ok(response); }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
     Err(format!("{label} ({status}): {body}"))
@@ -106,22 +66,12 @@ async fn ensure_success(response: reqwest::Response, label: &str) -> Result<reqw
 
 #[tauri::command]
 async fn core_health() -> Result<CoreHealth, String> {
-    let response = client()?
-        .get(format!("{CORE_BASE_URL}/health"))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-    ensure_success(response, "GrowWise Core health check failed")
-        .await?
-        .json::<CoreHealth>()
-        .await
-        .map_err(|error| error.to_string())
+    let response = client()?.get(format!("{CORE_BASE_URL}/health")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "GrowWise Core health check failed").await?.json::<CoreHealth>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
-fn core_runtime_status(manager: tauri::State<'_, CoreProcessManager>) -> CoreRuntimeStatus {
-    CoreRuntimeStatus { started_by_desktop: manager.started_by_desktop() }
-}
+fn core_runtime_status(manager: tauri::State<'_, CoreProcessManager>) -> CoreRuntimeStatus { CoreRuntimeStatus { started_by_desktop: manager.started_by_desktop() } }
 
 #[tauri::command]
 async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, String> {
@@ -149,17 +99,26 @@ async fn list_observations(child_id: String) -> Result<Vec<LearningLogDto>, Stri
 
 #[tauri::command]
 async fn search_child_context(child_id: String, query: String) -> Result<serde_json::Value, String> {
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/search")).query(&[("q", query.as_str()), ("limit", "20")]).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "자연어 검색 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn create_conversation(child_id: String) -> Result<serde_json::Value, String> {
     let response = client()?
-        .get(format!("{CORE_BASE_URL}/v1/children/{child_id}/search"))
-        .query(&[("q", query.as_str()), ("limit", "20")])
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
-    ensure_success(response, "자연어 검색 실패")
-        .await?
-        .json::<serde_json::Value>()
-        .await
-        .map_err(|error| error.to_string())
+        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/conversations"))
+        .json(&serde_json::json!({"title": null}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "대화 세션 생성 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn append_conversation_turn(session_id: String, question: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/conversations/{session_id}/turns"))
+        .json(&serde_json::json!({"question": question, "limit": 8}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "후속 질문 처리 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -191,6 +150,8 @@ pub fn run() {
             create_observation,
             list_observations,
             search_child_context,
+            create_conversation,
+            append_conversation_turn,
             get_growth_map,
             get_infant_activities
         ])
