@@ -153,6 +153,12 @@ def health() -> dict[str, str | bool]:
     settings = get_settings()
     return {
         "status": "ok",
+        "operation_mode": (
+            "ai_enhanced_with_core_fallback"
+            if settings.llm_features_enabled
+            else "core_only"
+        ),
+        "core_requires_llm": False,
         "llm_features_enabled": settings.llm_features_enabled,
         "embedding_features_enabled": settings.embedding_features_enabled,
         "model_provider": settings.model_provider,
