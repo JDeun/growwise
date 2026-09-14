@@ -92,7 +92,7 @@ def create_observation(
             difficulty_note = enrichment.difficulty_note
             next_activity = enrichment.next_activity
         except Exception:
-            # LLM enrichment is non-authoritative. Local recording must never depend on model uptime.
+            # LLM enrichment is non-authoritative. Local recording must not depend on model uptime.
             pass
 
     log = LearningLog(
