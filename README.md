@@ -1,81 +1,109 @@
 # growwise
 
-**AI 기반 아동 학습자료 생성 · 학습기록 시스템**
+**AI-assisted child learning tracking, knowledge organization, and learning-material generation system**
 
-부모가 아이의 관심사와 성장 기록을 바탕으로 집에서 바로 쓸 수 있는 학습자료를 만드는
-보조 도구다. **개인이 운영하는 홈스쿨링용 크로스플랫폼 데스크탑 앱**(Windows·macOS,
-Tauri)으로 작게 시작하는 것이 현재 목표이며(홈서버·상시 백엔드 불요, 오프라인 우선),
-구조는 나중에 유치원·어린이집·학원용 교사 자료 제작으로 확장될 수 있게 설계한다.
+GrowWise는 챗봇 제품이 아니다. 핵심은 부모의 교육 철학에 맞춰 **아이의 성장과 학습을
+장기적으로 기록·정리·추적하고, 관련 자료를 수집·검색·정리하며, 필요한 학습 자료를 만드는
+개인용 교육 관리 도구**다.
 
-대상은 **0세(영아)부터 고등학교까지**이며, 연령마다 돕는 방식이 달라진다 — 영아는
-놀이·관찰·책 읽어주기, 유아·초등은 자료 생성, 중·고는 학습 트래킹·보조. 어느 연령에서도
-아이 대면 챗봇은 두지 않고 부모를 돕는다([docs/product-spec.md](docs/product-spec.md)
-대상 연령과 단계별 역할).
+LLM은 화면의 주인공이 아니라 **백그라운드 엔진**이다. 사용자는 자연어로 "최근 수학 활동
+중 측정 관련 기록 찾아줘", "지난 한 달 동안 탐구 활동이 적었던 이유를 정리해줘", "이 책과
+아이의 현재 관심사를 바탕으로 활동지 만들어줘"처럼 요청할 수 있지만, 제품의 본질은 대화가
+아니라 **데이터·기록·자료·워크플로우를 관리하는 것**이다.
 
-> 핵심 방향: growwise는 **문제지 생성기가 아니라 학습 대화 기록장**에 가깝다.
-> 중요한 데이터는 정답이 아니라 아이의 질문, 풀이 과정, 부모의 관찰,
-> 다음에 해볼 활동이다.
+개인이 운영하는 홈스쿨링용 크로스플랫폼 데스크탑 앱(Windows·macOS, Tauri)으로 시작하며,
+오프라인 우선으로 설계한다. 대상은 **0세부터 고등학교까지**다. 첫 실사용 도메인은 현재
+생후 9개월 아이에게 실제로 사용할 수 있는 **영아(0~2세) 모드**이며, 이후 유아·초등 자료
+생성, 중·고 학습 트래킹까지 확장한다.
+
+> **모토:** AI가 아이를 대신해 가르치는 것이 아니라, 부모가 자신의 교육 철학에 따라
+> 아이를 이해하고 돕기 위해 필요한 기록·자료·맥락을 관리하도록 돕는다.
 
 ---
 
-## 무엇인가
+## GrowWise가 하는 일
 
-- 책·연령·목표를 입력하면 **독서 활동지, 영어 대화 카드, 탐방/여행 활동지,
-  수학 놀이, 글쓰기·말하기 활동**을 만드는 자료 생성기
-- 날짜·자료·아이 반응·어려웠던 점·다음 활동을 남기는 **학습 기록장**
-- 아이에게 보여주기 전 난이도·민감성·개인정보를 점검하는 **부모 검토 계층**
-- 아이별 **방사형 성장 지도**(게임 스탯창처럼, 단 점수판이 아니라 활동·성장의 지도)와
-  **퀘스트형 활동 관리**(캘린더 대신), **다자녀 지원**
+- **교육 트래킹** — 활동, 관심사, 반응, 어려움, 질문, 회고를 장기 기록
+- **성장/경험 지도** — 점수·등수 대신 아이 자신의 시간 흐름 안에서 경험 커버리지를 추적
+- **자료 수집·정리** — 책, 교육과정, 활동 자료, 외부 데이터의 provenance와 함께 관리
+- **자연어 검색/질의** — 저장된 기록과 자료를 자연어로 찾고 요약·비교·답변
+- **학습자료 생성** — 독서·영어·탐방·수학·과학·글쓰기 등 필요한 자료 생성
+- **활동 관리** — 부모가 선택하는 퀘스트/활동 계획과 완료 기록
+- **부모 검토** — 생성물은 난이도·민감성·개인정보·scaffold를 검토한 뒤 승인
+- **장기 보존** — Markdown SoT + SQLite projection으로 소유권과 검색 성능을 함께 확보
+
+## LLM의 역할
+
+LLM은 적극적인 대화 상대가 아니라 다음 백그라운드 작업을 수행한다.
+
+1. 기록과 자료의 분류·태깅·요약
+2. 자연어 검색 의도 해석과 RAG 질의
+3. 여러 기록 사이의 연결과 맥락 정리
+4. 교육과정/자료를 바탕으로 학습 자료 생성
+5. 다음 활동 후보 생성
+6. 생성물의 구조·안전·grounding 검토 보조
+7. 부모가 요청한 질문에 저장된 근거를 바탕으로 답변
+
+아이가 앱 안에서 LLM과 계속 대화하는 챗봇 UX는 범위 밖이다. 그런 역할은 ChatGPT,
+Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족 교육 데이터와 워크플로우에
+특화된 시스템**에 집중한다.
 
 ## 무엇이 아닌가
 
-- 아이를 대신해 답을 주는 자율 튜터가 **아니다**. AI는 부모·교사가 자료를 만들고
-  질문을 설계하도록 돕는 조수 역할만 한다.
-- **아이가 앱 안에서 챗봇과 직접 대화하는 서비스가 아니다.** 아이-AI 대화는 범위 밖이며
-  (필요하면 기존 상용 서비스를 쓴다), growwise는 부모/교사용 자료 생성과 학습 기록에
-  집중한다.
-- 아이를 점수화·서열화하는 평가 도구가 **아니다**. 기록은 점수보다 관찰과
-  흥미 변화 중심이다.
-- 완전한 홈스쿨링 대체가 **아니다**. 가족 대화·동네 탐방·체험까지 포함하는
-  학습을 부모가 다루도록 보조한다.
+- 아이를 대신해 답을 주는 자율 튜터가 아니다.
+- ChatGPT/Claude를 복제한 범용 챗봇이 아니다.
+- 아이를 점수화·서열화하는 평가 시스템이 아니다.
+- 발달 진단 도구가 아니다.
+- 완전한 홈스쿨링 대체재가 아니다.
 
 ## 핵심 원칙
 
-1. **부모 검토 우선** — 생성물은 아이에게 보여주기 전 부모·교사가 검토한다.
-2. **로컬 우선** — 아이의 사진·음성·위치·실명은 기본적으로 로컬에서만 처리한다.
-3. **관찰 중심 기록** — 점수·낙인 대신 관찰·흥미·다음 활동을 남긴다.
-4. **외부 전송 최소화** — 외부 API로 나가는 데이터를 최소화한다.
-5. **확장 가능한 구조** — 개인용에서 기관용으로 재구조화 없이 성장한다.
+1. **부모 중심** — AI가 아니라 부모의 판단과 교육 철학이 최종 기준이다.
+2. **기록 중심** — 생성물보다 장기적으로 누적되는 학습·관찰 맥락이 중요하다.
+3. **로컬 우선** — 아동 데이터는 가능한 로컬에서 처리한다.
+4. **근거 기반** — 검색·답변·생성에는 provenance와 출처를 남긴다.
+5. **비점수화** — 성장 지도는 성취 점수 대신 경험/관찰 커버리지를 표현한다.
+6. **검토 후 노출** — 생성 자료는 Parent Review 승인 후 사용한다.
+7. **모델 독립성** — LangChain + LangGraph 기반으로 로컬/원격 모델을 교체 가능하게 한다.
+8. **완성형 목표** — 작은 MVP에서 멈추지 않고 전 연령·전 기능 완성을 목표로 한다.
 
-자세한 내용은 [docs/privacy-and-safety.md](docs/privacy-and-safety.md) 참고.
+## 기술 방향
+
+- Desktop: Tauri 2 + React/TypeScript
+- Core: Python 3.12+ / FastAPI sidecar
+- Orchestration: **LangChain + LangGraph**
+- Storage: Markdown(Source of Truth) + SQLite projection/index
+- Model: local-first, provider abstraction
+- RAG: 교육과정·도서·기록·외부 자료를 provenance와 함께 검색
+- Export: HTML/CSS → PDF
+- Platforms: Windows + macOS
+
+자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
 
 ## 현재 상태
 
-**설계 단계 (pre-alpha).** 이 저장소는 지금 제품 설계 문서와 최소 스캐폴드만
-담고 있다. 코드 구현은 아직 시작 전이며, 첫 마일스톤은
-[docs/roadmap.md](docs/roadmap.md)에서 정한다.
+**pre-alpha / implementation start.** 제품 철학·데이터 모델·아키텍처·안전·평가 설계는
+정리되어 있으며, 이제 walking skeleton부터 실제 구현에 들어간다.
 
 ## 문서
 
 | 문서 | 내용 |
 | --- | --- |
-| **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심. 먼저 읽을 것** |
-| [docs/vision.md](docs/vision.md) | 제품 비전 요약 — 왜 만드는가 |
-| [docs/product-spec.md](docs/product-spec.md) | 개인용 MVP·핵심 기능·기관용 확장 |
-| [docs/architecture.md](docs/architecture.md) | 데스크탑 앱 아키텍처·모듈·기술 스택 후보 |
-| [docs/data-model.md](docs/data-model.md) | 데이터 모델(엔티티) 초안 |
-| [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스와 어댑터 설계 |
-| [docs/references.md](docs/references.md) | 선행 사례 분석과 빌려오는 점(PAIDEIA·DeepTutor·TutorMoments 등) |
-| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 안전·개인정보 원칙과 저장소 규칙 |
-| [docs/threat-model.md](docs/threat-model.md) | 위협 모델·유출 경로·데이터 보존/삭제 |
-| [docs/evaluation.md](docs/evaluation.md) | 품질·안전·scaffold 충실도 평가 하니스 |
-| [docs/attribution.md](docs/attribution.md) | 라이선스 귀속·provenance·NOTICE |
-| [docs/curriculum-sources.md](docs/curriculum-sources.md) | 과목별 기준 자료·공개 API 후보 |
-| [docs/design-system.md](docs/design-system.md) | 시각 언어·스타일·디자인 토큰·접근성 |
-| [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 사양 |
-| [docs/roadmap.md](docs/roadmap.md) | 제품화 단계·v1 경계·미해결 질문 |
-
-코드 구조는 [src/growwise/README.md](src/growwise/README.md)를 참고한다.
+| **[docs/pedagogy.md](docs/pedagogy.md)** | 교육 원칙과 사상 — 제품의 중심 |
+| [docs/vision.md](docs/vision.md) | 왜 만드는가, LLM의 역할 |
+| [docs/product-spec.md](docs/product-spec.md) | 전 연령 기능과 사용자 흐름 |
+| [docs/architecture.md](docs/architecture.md) | LangChain/LangGraph 기반 실행 구조 |
+| [docs/data-model.md](docs/data-model.md) | 도메인 모델과 상태 머신 |
+| [docs/integrations.md](docs/integrations.md) | 외부 데이터·API 어댑터 |
+| [docs/references.md](docs/references.md) | 선행 사례와 설계 근거 |
+| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 개인정보·안전 원칙 |
+| [docs/threat-model.md](docs/threat-model.md) | 위협 모델 |
+| [docs/evaluation.md](docs/evaluation.md) | 품질·안전 평가 하니스 |
+| [docs/attribution.md](docs/attribution.md) | 라이선스·provenance·NOTICE |
+| [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·공개자료 소스 |
+| [docs/design-system.md](docs/design-system.md) | UI/UX 원칙 |
+| [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
+| [docs/roadmap.md](docs/roadmap.md) | 전 기능 완성 로드맵 |
 
 ## 라이선스
 
