@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
 import tempfile
 import zipfile
 from datetime import UTC, datetime
@@ -27,14 +28,12 @@ class BackupManifest(BaseModel):
 
 
 class BackupService:
-    """Portable backup/restore for the authoritative Markdown record set.
-
-    SQLite databases are deliberately excluded because they are rebuildable projections. Backups
-    contain only current ``.md`` source documents plus a small manifest. One-generation ``.bak``
-    recovery files remain local implementation details and are not exported.
-    """
+    """Portable backup/restore for the authoritative Markdown record set."""
 
     MANIFEST_NAME = "manifest.json"
+    MAX_ARCHIVE_MEMBERS = 100_001
+    MAX_SINGLE_FILE_BYTES = 16 * 1024 * 1024
+    MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
 
     def create(self, *, records_root: Path, destination: Path) -> BackupManifest:
         destination.parent.mkdir(parents=True, exist_ok=True)
@@ -133,13 +132,26 @@ class BackupService:
         validate_schema_version({"schema_version": manifest.schema_version})
         return manifest
 
-    @staticmethod
-    def _validate_members(archive: zipfile.ZipFile) -> None:
-        for info in archive.infolist():
+    @classmethod
+    def _validate_members(cls, archive: zipfile.ZipFile) -> None:
+        members = archive.infolist()
+        if len(members) > cls.MAX_ARCHIVE_MEMBERS:
+            raise InvalidBackup("backup archive contains too many members")
+
+        total_size = 0
+        for info in members:
             path = PurePosixPath(info.filename)
             if path.is_absolute() or ".." in path.parts:
                 raise InvalidBackup(f"unsafe archive member: {info.filename}")
-            if info.filename == BackupService.MANIFEST_NAME:
+            unix_mode = (info.external_attr >> 16) & 0xFFFF
+            if unix_mode and stat.S_ISLNK(unix_mode):
+                raise InvalidBackup(f"symlink archive member is not allowed: {info.filename}")
+            if info.file_size > cls.MAX_SINGLE_FILE_BYTES:
+                raise InvalidBackup(f"backup member is too large: {info.filename}")
+            total_size += info.file_size
+            if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
+                raise InvalidBackup("backup archive expands beyond the allowed size")
+            if info.filename == cls.MANIFEST_NAME:
                 continue
             if not path.parts or path.parts[0] != "records":
                 raise InvalidBackup(f"unexpected archive member: {info.filename}")
