@@ -46,6 +46,10 @@ class Settings(BaseSettings):
         return self.data_dir / "conversations.sqlite3"
 
     @property
+    def idempotency_path(self) -> Path:
+        return self.data_dir / "idempotency.sqlite3"
+
+    @property
     def backups_dir(self) -> Path:
         return self.data_dir / "backups"
 
