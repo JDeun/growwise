@@ -6,7 +6,10 @@ from growwise.workflows import build_observation_graph
 
 
 def test_observation_graph_persists_checkpoint(tmp_path) -> None:
-    connection = sqlite3.connect(tmp_path / "checkpoints.sqlite3")
+    connection = sqlite3.connect(
+        tmp_path / "checkpoints.sqlite3",
+        check_same_thread=False,
+    )
     checkpointer = SqliteSaver(connection)
     checkpointer.setup()
     graph = build_observation_graph(checkpointer=checkpointer)
