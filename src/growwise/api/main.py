@@ -564,7 +564,7 @@ def create_observation(
             id=reserved_log_id,
             child_id=request.child_id,
             activity_plan_id=request.activity_plan_id,
-            parent_observation=state["normalized_observation"],
+            parent_observation=request.observation,
             tags=tags,
             experience_axes=experience_axes,
             interest=interest,
