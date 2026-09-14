@@ -88,10 +88,7 @@ Use only source IDs included in the context. Return concise Korean for Korean qu
             )
 
         context = "\n\n".join(
-            "<evidence id=\"{source_id}\">\n{text}\n</evidence>".format(
-                source_id=source_id,
-                text=text,
-            )
+            f'<evidence id="{source_id}">\n{text}\n</evidence>'
             for source_id, text in sources
         )
         try:
