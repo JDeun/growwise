@@ -2,7 +2,12 @@ from __future__ import annotations
 
 from typing import Any
 
-from growwise.services import ContextAnswer, ConversationService, ConversationSession, ConversationTurn
+from growwise.services import (
+    ContextAnswer,
+    ConversationService,
+    ConversationSession,
+    ConversationTurn,
+)
 
 
 class RecordingContextService:
