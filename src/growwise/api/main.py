@@ -7,7 +7,7 @@ from typing import Annotated
 from uuid import UUID
 
 import uvicorn
-from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from langgraph.checkpoint.sqlite import SqliteSaver
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
@@ -29,6 +29,12 @@ from growwise.domain import (
     WorkflowStatus,
 )
 from growwise.generators import MaterialGenerationService
+from growwise.idempotency import (
+    IdempotencyConflict,
+    IdempotencyStatus,
+    SQLiteIdempotencyStore,
+    request_fingerprint,
+)
 from growwise.model import ModelProvider, create_model_provider
 from growwise.model.health import probe_model_runtime
 from growwise.rag import (
@@ -165,6 +171,11 @@ def get_rag_index() -> HybridRagIndex:
 @lru_cache
 def get_conversation_store() -> SQLiteConversationStore:
     return SQLiteConversationStore(get_settings().conversations_path)
+
+
+@lru_cache
+def get_idempotency_store() -> SQLiteIdempotencyStore:
+    return SQLiteIdempotencyStore(get_settings().idempotency_path)
 
 
 @lru_cache
@@ -466,12 +477,50 @@ def review_material(
 def create_observation(
     request: ObservationRequest,
     store: Annotated[EntityStore, Depends(get_store)],
+    idempotency_key: Annotated[
+        str | None, Header(alias="Idempotency-Key", max_length=200)
+    ] = None,
 ) -> LearningLog:
     validate_activity_link(
         store=store,
         child_id=request.child_id,
         activity_plan_id=request.activity_plan_id,
     )
+
+    idempotency_store = get_idempotency_store()
+    request_hash = request_fingerprint(request.model_dump(mode="json"))
+    reserved_log_id = uuid7()
+    claim = None
+    if idempotency_key is not None:
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type="learning_log",
+                resource_id=str(reserved_log_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+        reserved_log_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id, entity_type="learning_log"
+            )
+            if existing is not None:
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return LearningLog.model_validate(existing)
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(
+                    status_code=409, detail="idempotency_resource_missing"
+                )
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
     workflow = WorkflowRun(
         child_id=request.child_id,
         workflow_type="observation_ingest",
@@ -512,6 +561,7 @@ def create_observation(
                 pass
 
         log = LearningLog(
+            id=reserved_log_id,
             child_id=request.child_id,
             activity_plan_id=request.activity_plan_id,
             parent_observation=state["normalized_observation"],
@@ -526,14 +576,52 @@ def create_observation(
         workflow.output_ref = str(log.id)
         workflow.updated_at = datetime.now(UTC)
         store.save(workflow)
+        if claim is not None and claim.acquired:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
         return log
     except HTTPException:
+        if claim is not None and claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id, entity_type="learning_log"
+            )
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
         raise
     except Exception:
         workflow.status = WorkflowStatus.FAILED
         workflow.last_error_code = "observation_workflow_failed"
         workflow.updated_at = datetime.now(UTC)
         store.save(workflow)
+        if claim is not None and claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id, entity_type="learning_log"
+            )
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
         raise
 
 
