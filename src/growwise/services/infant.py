@@ -181,28 +181,56 @@ Return concise Korean when the input is Korean."""
             hints=[
                 ObservationHint(
                     domain=InfantCurriculumDomain.PHYSICAL_HEALTH,
-                    cue="편안한 일상과 놀이에서 몸을 움직이거나 감각을 탐색하는 방식을 살펴봅니다.",
-                    rationale="움직임의 성취 여부가 아니라 스스로 시도하고 쉬는 흐름을 기록합니다.",
+                    cue=(
+                        "편안한 일상과 놀이에서 몸을 움직이거나 감각을 탐색하는 방식을 "
+                        "살펴봅니다."
+                    ),
+                    rationale=(
+                        "움직임의 성취 여부가 아니라 스스로 시도하고 쉬는 흐름을 기록합니다."
+                    ),
                 ),
                 ObservationHint(
                     domain=InfantCurriculumDomain.COMMUNICATION,
-                    cue="소리, 표정, 몸짓, 말에 반응하거나 자기 방식으로 주고받는 순간을 살펴봅니다.",
-                    rationale="말의 개수보다 사람과 의미를 주고받으려는 다양한 표현을 관찰합니다.",
+                    cue=(
+                        "소리, 표정, 몸짓, 말에 반응하거나 자기 방식으로 주고받는 순간을 "
+                        "살펴봅니다."
+                    ),
+                    rationale=(
+                        "말의 개수보다 사람과 의미를 주고받으려는 다양한 표현을 관찰합니다."
+                    ),
                 ),
                 ObservationHint(
                     domain=InfantCurriculumDomain.SOCIAL_RELATIONSHIPS,
-                    cue="부모나 익숙한 사람과 시선·표정·행동을 주고받고 편안함을 찾는 방식을 봅니다.",
-                    rationale="관계 행동을 또래와 비교하지 않고 현재 아이의 상호작용 맥락으로 기록합니다.",
+                    cue=(
+                        "부모나 익숙한 사람과 시선·표정·행동을 주고받고 편안함을 찾는 "
+                        "방식을 봅니다."
+                    ),
+                    rationale=(
+                        "관계 행동을 또래와 비교하지 않고 현재 아이의 상호작용 맥락으로 "
+                        "기록합니다."
+                    ),
                 ),
                 ObservationHint(
                     domain=InfantCurriculumDomain.ART_EXPERIENCE,
-                    cue=f"{topic}와 연결된 소리, 리듬, 색, 움직임 중 무엇에 관심을 두는지 살펴봅니다.",
-                    rationale="결과물을 요구하지 않고 감각적 경험을 즐기거나 반복하는 모습을 관찰합니다.",
+                    cue=(
+                        f"{topic}와 연결된 소리, 리듬, 색, 움직임 중 무엇에 관심을 두는지 "
+                        "살펴봅니다."
+                    ),
+                    rationale=(
+                        "결과물을 요구하지 않고 감각적 경험을 즐기거나 반복하는 모습을 "
+                        "관찰합니다."
+                    ),
                 ),
                 ObservationHint(
                     domain=InfantCurriculumDomain.NATURE_INQUIRY,
-                    cue="사물의 모양·질감·움직임이나 간단한 원인과 결과를 반복해서 탐색하는 순간을 봅니다.",
-                    rationale="정답을 확인하기보다 아이가 스스로 발견하고 다시 시도하는 과정에 주목합니다.",
+                    cue=(
+                        "사물의 모양·질감·움직임이나 간단한 원인과 결과를 반복해서 탐색하는 "
+                        "순간을 봅니다."
+                    ),
+                    rationale=(
+                        "정답을 확인하기보다 아이가 스스로 발견하고 다시 시도하는 과정에 "
+                        "주목합니다."
+                    ),
                 ),
             ]
         )
@@ -229,7 +257,9 @@ class BoardBookRecommendationService:
                 resource_id=str(resource.id),
                 title=resource.title,
                 reason=self._reason(resource=resource, interests=interests),
-                read_aloud_tip="끝까지 읽기보다 아이가 오래 보는 그림에서 멈추고 짧게 말해 주세요.",
+                read_aloud_tip=(
+                    "끝까지 읽기보다 아이가 오래 보는 그림에서 멈추고 짧게 말해 주세요."
+                ),
                 source="local_library",
             )
             for resource in scored[:limit]
@@ -274,11 +304,16 @@ class BoardBookRecommendationService:
             BoardBookRecommendation(
                 title="반복되는 말과 리듬이 있는 짧은 그림책",
                 reason="반복되는 소리와 문장을 부모와 편안하게 주고받기 좋습니다.",
-                read_aloud_tip="문장을 외우게 하지 말고 반복 구간에서 표정과 소리를 함께 주고받아 주세요.",
+                read_aloud_tip=(
+                    "문장을 외우게 하지 말고 반복 구간에서 표정과 소리를 함께 주고받아 "
+                    "주세요."
+                ),
             ),
             BoardBookRecommendation(
                 title="일상 행동과 표정이 담긴 사진·그림책",
                 reason="익숙한 사람·행동·표정을 실제 생활 경험과 연결해 보기 좋습니다.",
-                read_aloud_tip="아이에게 질문을 연속해서 하기보다 보이는 장면을 짧게 묘사해 주세요.",
+                read_aloud_tip=(
+                    "아이에게 질문을 연속해서 하기보다 보이는 장면을 짧게 묘사해 주세요."
+                ),
             ),
         ]
