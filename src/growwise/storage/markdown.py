@@ -37,7 +37,11 @@ class MarkdownRepository:
         target = self._path_for(entity)
         target.parent.mkdir(parents=True, exist_ok=True)
         payload = entity.model_dump(mode="json")
-        post = frontmatter.Post(body, **payload)
+
+        # Do not expand payload as kwargs here: domain entities may legitimately have a
+        # field named `content`, which collides with frontmatter.Post's first parameter.
+        post = frontmatter.Post(body)
+        post.metadata.update(payload)
         rendered = frontmatter.dumps(post)
 
         fd, tmp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent, text=True)
