@@ -67,6 +67,7 @@ class ObservationRequest(BaseModel):
     child_id: UUID
     observation: str = Field(min_length=1, max_length=10_000)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+    activity_plan_id: UUID | None = None
 
 
 class ActivityCreateRequest(BaseModel):
@@ -182,6 +183,25 @@ def build_child_context_service(store: EntityStore) -> ChildContextService:
         rag_index=get_rag_index(),
         provider=get_model_provider(),
     )
+
+
+def validate_activity_link(
+    *,
+    store: EntityStore,
+    child_id: UUID,
+    activity_plan_id: UUID | None,
+) -> ActivityPlan | None:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    if activity_plan_id is None:
+        return None
+    payload = store.index.get_entity(str(activity_plan_id), entity_type="activity_plan")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="activity_not_found")
+    activity = ActivityPlan.model_validate(payload)
+    if activity.child_id != child_id:
+        raise HTTPException(status_code=409, detail="activity_child_mismatch")
+    return activity
 
 
 @app.get("/health")
@@ -447,6 +467,11 @@ def create_observation(
     request: ObservationRequest,
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> LearningLog:
+    validate_activity_link(
+        store=store,
+        child_id=request.child_id,
+        activity_plan_id=request.activity_plan_id,
+    )
     workflow = WorkflowRun(
         child_id=request.child_id,
         workflow_type="observation_ingest",
@@ -488,6 +513,7 @@ def create_observation(
 
         log = LearningLog(
             child_id=request.child_id,
+            activity_plan_id=request.activity_plan_id,
             parent_observation=state["normalized_observation"],
             tags=tags,
             experience_axes=experience_axes,
@@ -517,6 +543,22 @@ def list_observations(
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> list[dict]:
     return store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
+
+
+@app.get("/v1/activities/{activity_id}/observations")
+def list_activity_observations(
+    activity_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[dict]:
+    payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="activity_not_found")
+    activity = ActivityPlan.model_validate(payload)
+    logs = store.index.list_entities(
+        entity_type="learning_log",
+        child_id=str(activity.child_id),
+    )
+    return [item for item in logs if item.get("activity_plan_id") == str(activity_id)]
 
 
 @app.get("/v1/children/{child_id}/growth-map")
