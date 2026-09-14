@@ -16,6 +16,10 @@ export interface LearningLog { id: string; child_id: string; activity_plan_id: s
 export interface GrowthMap { child_id: string; period_days: number; total_logs_in_period: number; tagged_logs_in_period: number; axes: Array<{ axis: ExperienceAxis; state: string; observation_count: number; }>; }
 export interface ActivitySuggestion { title: string; description: string; materials: string[]; observation_cue: string | null; tags: string[]; }
 export interface InfantActivitySuggestions { suggestions: ActivitySuggestion[]; }
+export interface ObservationHint { domain: string; cue: string; rationale: string; }
+export interface InfantObservationHints { source: string; effective_date: string; diagnostic: boolean; hints: ObservationHint[]; }
+export interface BoardBookRecommendation { resource_id: string | null; title: string; reason: string; read_aloud_tip: string; source: string; }
+export interface BoardBookRecommendations { recommendations: BoardBookRecommendation[]; }
 export interface ActivityPlan { id: string; child_id: string; title: string; status: ActivityStatus; source_refs: string[]; parent_note: string | null; started_at: string | null; completed_at: string | null; skipped_at: string | null; created_at?: string; updated_at?: string; }
 export interface SearchPlan { keywords: string[]; entity_types: string[]; limit: number; }
 export interface SearchResponse { query: string; plan: SearchPlan; results: Array<Record<string, unknown>>; }
@@ -54,3 +58,5 @@ export const listMaterials = (childId: string) => call<GeneratedMaterial[]>("lis
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) => call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
 export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map", { childId });
 export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
+export const getInfantObservationHints = (childId: string) => call<InfantObservationHints>("get_infant_observation_hints", { childId });
+export const getBoardBookRecommendations = (childId: string) => call<BoardBookRecommendations>("get_board_book_recommendations", { childId });
