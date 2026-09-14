@@ -6,13 +6,13 @@ from .growth import AxisCoverage, CoverageState, GrowthMapProjection, GrowthMapS
 from .infant import (
     ActivitySuggestion,
     BoardBookRecommendation,
-    BoardBookRecommendationService,
     BoardBookRecommendations,
+    BoardBookRecommendationService,
     InfantActivityService,
     InfantActivitySuggestions,
     InfantCurriculumDomain,
-    InfantObservationHintService,
     InfantObservationHints,
+    InfantObservationHintService,
     ObservationHint,
 )
 from .observation import ObservationEnricher, ObservationEnrichment
