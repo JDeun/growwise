@@ -2,11 +2,12 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type OperationMode = "ai_enhanced_with_core_fallback" | "core_only";
 export type ExperienceAxis = "physical" | "emotional_character" | "expression_art" | "thinking_inquiry" | "social" | "reading" | "speaking" | "writing" | "math" | "exploration";
+export type ActivityStatus = "suggested" | "active" | "completed" | "skipped" | "archived";
 export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
 export type MaterialKind = "activity_guide" | "reading_activity" | "english_card" | "math_activity" | "science_inquiry" | "writing_prompt" | "field_trip";
 export type MaterialStatus = "draft" | "review_pending" | "revision_requested" | "approved" | "rejected" | "archived";
 
-export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
+export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_configured: boolean; llm_reachable: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput { nickname: string; stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high"; age_months: number | null; interests: string[]; }
 export interface ChildProfile { id: string; nickname: string; stage: string; age_months: number | null; interests: string[]; }
@@ -15,6 +16,7 @@ export interface LearningLog { id: string; child_id: string; parent_observation:
 export interface GrowthMap { child_id: string; period_days: number; total_logs_in_period: number; tagged_logs_in_period: number; axes: Array<{ axis: ExperienceAxis; state: string; observation_count: number; }>; }
 export interface ActivitySuggestion { title: string; description: string; materials: string[]; observation_cue: string | null; tags: string[]; }
 export interface InfantActivitySuggestions { suggestions: ActivitySuggestion[]; }
+export interface ActivityPlan { id: string; child_id: string; title: string; status: ActivityStatus; source_refs: string[]; parent_note: string | null; started_at: string | null; completed_at: string | null; skipped_at: string | null; created_at?: string; updated_at?: string; }
 export interface SearchPlan { keywords: string[]; entity_types: string[]; limit: number; }
 export interface SearchResponse { query: string; plan: SearchPlan; results: Array<Record<string, unknown>>; }
 export interface ConversationSession { id: string; child_id: string; title: string | null; turns: Array<{ role: "user" | "assistant"; content: string; source_ids: string[]; created_at: string; }>; }
@@ -38,6 +40,9 @@ export const createChild = (request: ChildCreateInput) => call<ChildProfile>("cr
 export const listChildren = () => call<ChildProfile[]>("list_children");
 export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request });
 export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
+export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs });
+export const listActivities = (childId: string) => call<ActivityPlan[]>("list_activities", { childId });
+export const transitionActivity = (activityId: string, status: ActivityStatus, parentNote?: string) => call<ActivityPlan>("transition_activity", { activityId, status, parentNote: parentNote ?? null });
 export const searchChildContext = (childId: string, query: string) => call<SearchResponse>("search_child_context", { childId, query });
 export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
