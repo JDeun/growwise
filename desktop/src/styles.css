@@ -78,6 +78,16 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
 .axis-chip.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); font-weight: 700; }
 .axis-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
 .axis-summary span { padding: 7px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-strong); font-size: 12px; font-weight: 650; }
+.growth-layers { display: grid; gap: 10px; margin-top: 16px; }
+.growth-layer { padding: 12px; border: 1px solid var(--border); border-radius: 12px; background: #fff; }
+.growth-layer > strong { font-size: 13px; }
+.growth-layer .axis-summary { margin-top: 10px; }
+.growth-layer small { display: block; margin-top: 8px; color: var(--ink-soft); font-size: 11px; }
+.diversity-note { margin-top: 12px; padding: 12px; border-radius: 12px; background: #f7faf8; }
+.diversity-note strong { font-size: 13px; }
+.diversity-note p { margin: 6px 0 0; color: var(--ink-soft); font-size: 12px; line-height: 1.55; }
+.diversity-note small { display: block; margin-top: 7px; color: var(--primary-strong); font-size: 11px; }
+.diversity-insufficient_data { background: #f7f6f3; }
 .search-section, .conversation-section, .resource-section, .material-section, .timeline-section, .activity-section, .quest-section { margin-top: 16px; }
 .search-form { display: grid; grid-template-columns: 1fr auto; gap: 10px; margin-top: 18px; }
 .search-results { margin-top: 18px; }

@@ -2,7 +2,15 @@ from .activity import ActivityPlanService, InvalidActivityTransition
 from .context import ChildContextService, ContextAnswer
 from .conversation import ConversationService, ConversationSession, ConversationTurn
 from .conversation_store import SQLiteConversationStore
-from .growth import AxisCoverage, CoverageState, GrowthMapProjection, GrowthMapService
+from .growth import (
+    AxisCoverage,
+    CoverageDiversity,
+    CoverageState,
+    DiversityState,
+    GrowthLayer,
+    GrowthMapProjection,
+    GrowthMapService,
+)
 from .infant import (
     ActivitySuggestion,
     BoardBookRecommendation,
@@ -35,7 +43,10 @@ __all__ = [
     "ConversationService",
     "ConversationSession",
     "ConversationTurn",
+    "CoverageDiversity",
     "CoverageState",
+    "DiversityState",
+    "GrowthLayer",
     "GrowthMapProjection",
     "GrowthMapService",
     "InfantActivityService",

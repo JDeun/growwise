@@ -46,6 +46,7 @@ import {
   type ResourceKind,
   type ResourceRecord,
   type SearchResponse,
+  type Stage,
 } from "./api";
 
 type ConnectionState =
@@ -62,6 +63,8 @@ const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
   { value: "social", label: "사회성" },
   { value: "reading", label: "읽기" },
   { value: "speaking", label: "말하기" },
+  { value: "writing", label: "쓰기" },
+  { value: "math", label: "수학" },
   { value: "exploration", label: "탐색" },
 ];
 
@@ -69,6 +72,29 @@ function resultText(result: Record<string, unknown>): string {
   if (typeof result.parent_observation === "string") return result.parent_observation;
   if (typeof result.title === "string") return result.title;
   return "관련 기록";
+}
+
+function stageLabel(stage: Stage): string {
+  return {
+    infant_0_2: "영아 0~2세",
+    preschool_3_5: "유아 3~5세",
+    elementary: "초등",
+    middle: "중등",
+    high: "고등",
+  }[stage];
+}
+
+function diversityLabel(state: GrowthMap["diversity"]["state"]): string {
+  return {
+    insufficient_data: "판단 보류",
+    varied: "여러 경험이 관찰됨",
+    mixed: "여러 경험과 반복이 함께 관찰됨",
+    concentrated: "일부 경험이 자주 기록됨",
+  }[state];
+}
+
+function axisLabel(axis: ExperienceAxis): string {
+  return AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis;
 }
 
 function activityStatusLabel(status: ActivityStatus): string {
@@ -92,6 +118,7 @@ function App() {
   const [activityPlans, setActivityPlans] = useState<ActivityPlan[]>([]);
 
   const [nickname, setNickname] = useState("");
+  const [childStage, setChildStage] = useState<Stage>("infant_0_2");
   const [ageMonths, setAgeMonths] = useState("9");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -209,23 +236,25 @@ function App() {
   async function handleCreateChild(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const trimmedNickname = nickname.trim();
-    const parsedAge = Number.parseInt(ageMonths, 10);
+    const trimmedAge = ageMonths.trim();
+    const parsedAge = trimmedAge ? Number.parseInt(trimmedAge, 10) : null;
     if (!trimmedNickname) return setFormError("아이를 구분할 닉네임을 입력해 주세요.");
-    if (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 24) {
-      return setFormError("월령은 0~24개월로 입력해 주세요.");
+    if (parsedAge !== null && (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 240)) {
+      return setFormError("월령은 비워 두거나 0~240개월로 입력해 주세요.");
     }
     setSaving(true);
     setFormError(null);
     try {
       const child = await createChild({
         nickname: trimmedNickname,
-        stage: "infant_0_2",
+        stage: childStage,
         age_months: parsedAge,
         interests: [],
       });
       setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
       await loadChildContext(child);
       setNickname("");
+      setAgeMonths("");
     } catch (error) {
       setFormError(error instanceof Error ? error.message : "프로필 저장에 실패했습니다.");
     } finally {
@@ -557,10 +586,10 @@ function App() {
 
       <section className="workspace">
         <div className="section-heading"><div><p className="eyebrow">CHILD CONTEXT</p><h2>기존 기록을 이어서 사용합니다.</h2></div><span className="badge">Pre-alpha</span></div>
-        {children.length > 0 && <div className="child-switcher"><label><span>아이 선택</span><select value={activeChild?.id ?? ""} onChange={(event) => void handleSelectChild(event.target.value)}>{children.map((child) => <option key={child.id} value={child.id}>{child.nickname} · {child.age_months ?? "-"}개월</option>)}</select></label><p className="muted">마지막 선택을 기억하지만 데이터는 항상 Core에서 다시 조회합니다.</p></div>}
+        {children.length > 0 && <div className="child-switcher"><label><span>아이 선택</span><select value={activeChild?.id ?? ""} onChange={(event) => void handleSelectChild(event.target.value)}>{children.map((child) => <option key={child.id} value={child.id}>{child.nickname} · {stageLabel(child.stage)} · {child.age_months ?? "-"}개월</option>)}</select></label><p className="muted">마지막 선택을 기억하지만 데이터는 항상 Core에서 다시 조회합니다.</p></div>}
 
         <div className="skeleton-grid">
-          <form className="profile-form" onSubmit={handleCreateChild}><p className="card-label">NEW CHILD</p><label><span>아이 닉네임</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="예: 아이" maxLength={40} disabled={!isConnected || saving} /></label><label><span>월령</span><input type="number" min="0" max="24" value={ageMonths} onChange={(event) => setAgeMonths(event.target.value)} disabled={!isConnected || saving} /></label><button className="primary-button" type="submit" disabled={!isConnected || saving}>{saving ? "저장 중…" : "새 프로필 저장"}</button>{formError && <p className="form-error">{formError}</p>}</form>
+          <form className="profile-form" onSubmit={handleCreateChild}><p className="card-label">NEW CHILD</p><label><span>아이 닉네임</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="예: 아이" maxLength={40} disabled={!isConnected || saving} /></label><label><span>교육 단계</span><select value={childStage} onChange={(event) => setChildStage(event.target.value as Stage)} disabled={!isConnected || saving}><option value="infant_0_2">영아 0~2세</option><option value="preschool_3_5">유아 3~5세</option><option value="elementary">초등</option><option value="middle">중등</option><option value="high">고등</option></select></label><label><span>월령(선택)</span><input type="number" min="0" max="240" value={ageMonths} onChange={(event) => setAgeMonths(event.target.value)} placeholder="예: 108" disabled={!isConnected || saving} /></label><button className="primary-button" type="submit" disabled={!isConnected || saving}>{saving ? "저장 중…" : "새 프로필 저장"}</button>{formError && <p className="form-error">{formError}</p>}</form>
           <article className="verification-card">{activeChild && growthMap ? <><p className="card-label">ACTIVE CONTEXT</p><h3>{activeChild.nickname}</h3><p className="muted">프로필과 장기 기록은 Core 저장소에서 다시 불러왔습니다.</p><dl className="verification-list"><div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div><div><dt>최근 기록</dt><dd>{growthMap.total_logs_in_period}건</dd></div><div><dt>활동</dt><dd>{activityPlans.length}건</dd></div></dl></> : <><p className="card-label">EMPTY</p><h3>아이 프로필을 만들어 주세요.</h3></>}</article>
         </div>
 
@@ -574,7 +603,7 @@ function App() {
               <button className="primary-button" type="submit" disabled={observationSaving}>{observationSaving ? "기록 중…" : "관찰 저장"}</button>
               {observationError && <p className="form-error">{observationError}</p>}
             </form>
-            <article className="observation-result"><p className="card-label">GROWTH CONTEXT</p><h3>최근 {growthMap?.period_days ?? 30}일</h3><p className="muted">기록 {growthMap?.total_logs_in_period ?? 0}건 · 경험 축 연결 {growthMap?.tagged_logs_in_period ?? 0}건</p><div className="axis-summary">{growthMap?.axes.filter((axis) => axis.observation_count > 0).map((axis) => <span key={axis.axis}>{AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} · {axis.observation_count}</span>)}</div></article>
+            <article className="observation-result"><p className="card-label">GROWTH CONTEXT</p><h3>최근 {growthMap?.period_days ?? 30}일</h3><p className="muted">기록 {growthMap?.total_logs_in_period ?? 0}건 · 경험 축 연결 {growthMap?.tagged_logs_in_period ?? 0}건</p>{growthMap && <><div className="growth-layers">{growthMap.layers.map((layer) => <section className="growth-layer" key={layer.key}><strong>{layer.label}</strong><div className="axis-summary">{layer.axes.filter((axis) => axis.observation_count > 0).map((axis) => <span key={axis.axis}>{axisLabel(axis.axis)} · {axis.observation_count}</span>)}</div>{layer.axes.every((axis) => axis.observation_count === 0) && <small>이 렌즈에 연결된 최근 기록이 아직 없습니다.</small>}</section>)}</div><div className={`diversity-note diversity-${growthMap.diversity.state}`}><strong>{diversityLabel(growthMap.diversity.state)}</strong><p>{growthMap.diversity.note}</p>{growthMap.diversity.focus_axes.length > 0 && <small>자주 기록된 경험: {growthMap.diversity.focus_axes.map(axisLabel).join(", ")}</small>}</div></>}</article>
           </div>
 
           <section className="search-section"><p className="card-label">NATURAL-LANGUAGE SEARCH</p><h3>기록을 자연어로 찾습니다.</h3><p className="muted">AI가 없어도 child-scoped lexical 검색이 작동합니다.</p><form className="search-form" onSubmit={handleSearch}><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘" /><button className="primary-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button></form>{searchError && <p className="form-error">{searchError}</p>}{searchResult && <div className="search-results"><p className="muted">검색 키워드: {searchResult.plan.keywords.join(", ") || "원문 사용"} · 결과 {searchResult.results.length}건</p>{searchResult.results.map((result, index) => <article className="search-result-card" key={String(result.id ?? index)}><p>{resultText(result)}</p></article>)}</div>}</section>

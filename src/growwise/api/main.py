@@ -820,11 +820,14 @@ def get_growth_map(
     store: Annotated[EntityStore, Depends(get_store)],
     days: Annotated[int, Query(ge=1, le=3650)] = 30,
 ) -> dict:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
         raise HTTPException(status_code=404, detail="child_not_found")
+    child = ChildProfile.model_validate(child_payload)
     projection = GrowthMapService(store.index).project(
         child_id=str(child_id),
         period_days=days,
+        stage=child.stage,
     )
     return projection.model_dump(mode="json")
 
