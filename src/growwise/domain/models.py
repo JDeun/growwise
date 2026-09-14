@@ -78,6 +78,7 @@ class ResourceKind(StrEnum):
 
 
 class EntityBase(BaseModel):
+    entity_type: str
     schema_version: int = 1
     id: UUID = Field(default_factory=uuid7)
     created_at: datetime = Field(default_factory=utc_now)
