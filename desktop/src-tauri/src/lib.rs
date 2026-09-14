@@ -55,6 +55,7 @@ struct LearningLogDto {
     experience_axes: Vec<String>,
     interest: Option<String>,
     next_activity: Option<String>,
+    created_at: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -141,6 +142,26 @@ async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, Stri
 }
 
 #[tauri::command]
+async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
+    let response = client()?
+        .get(format!("{CORE_BASE_URL}/v1/children"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("아이 목록 조회 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<Vec<ChildProfileDto>>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/observations"))
@@ -157,6 +178,26 @@ async fn create_observation(request: ObservationCreateInput) -> Result<LearningL
 
     response
         .json::<LearningLogDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn list_observations(child_id: String) -> Result<Vec<LearningLogDto>, String> {
+    let response = client()?
+        .get(format!("{CORE_BASE_URL}/v1/children/{child_id}/observations"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("관찰 기록 조회 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<Vec<LearningLogDto>>()
         .await
         .map_err(|error| error.to_string())
 }
@@ -219,7 +260,9 @@ pub fn run() {
             core_health,
             core_runtime_status,
             create_child,
+            list_children,
             create_observation,
+            list_observations,
             get_growth_map,
             get_infant_activities
         ])
