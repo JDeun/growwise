@@ -45,7 +45,9 @@ class BackupService:
         )
 
         fd, tmp_name = tempfile.mkstemp(
-            prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+            prefix=f".{destination.name}.",
+            suffix=".tmp",
+            dir=destination.parent,
         )
         os.close(fd)
         Path(tmp_name).unlink(missing_ok=True)
@@ -75,7 +77,10 @@ class BackupService:
 
         staging_parent = records_root.parent
         staging_parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(prefix="growwise-restore-", dir=staging_parent) as temp_dir:
+        with tempfile.TemporaryDirectory(
+            prefix="growwise-restore-",
+            dir=staging_parent,
+        ) as temp_dir:
             staging = Path(temp_dir)
             with zipfile.ZipFile(archive_path, "r") as archive:
                 manifest = self._read_manifest(archive)
@@ -86,7 +91,8 @@ class BackupService:
             actual_count = self._validate_records(staged_records)
             if actual_count != manifest.record_count:
                 raise InvalidBackup(
-                    f"manifest record_count={manifest.record_count} but archive contains {actual_count}"
+                    "manifest record count does not match archive contents: "
+                    f"expected {manifest.record_count}, got {actual_count}"
                 )
 
             restore_source = staging / "records-ready"
@@ -96,7 +102,8 @@ class BackupService:
                 restore_source.mkdir(parents=True)
 
             previous = records_root.with_name(
-                f"{records_root.name}.pre-restore-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+                f"{records_root.name}.pre-restore-"
+                f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
             )
             moved_previous = False
             try:
