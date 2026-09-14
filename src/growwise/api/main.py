@@ -15,6 +15,7 @@ from uuid6 import uuid7
 from growwise.config import Settings
 from growwise.domain import (
     ChildProfile,
+    ExperienceAxis,
     LearningLog,
     ResourceKind,
     ResourceRecord,
@@ -33,6 +34,7 @@ from growwise.services import (
     ChildContextService,
     ConversationService,
     ConversationSession,
+    GrowthMapService,
     InfantActivityService,
     NaturalLanguageSearch,
     ObservationEnricher,
@@ -54,6 +56,7 @@ class ChildCreateRequest(BaseModel):
 class ObservationRequest(BaseModel):
     child_id: UUID
     observation: str = Field(min_length=1, max_length=10_000)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
 
 
 class ResourceCreateRequest(BaseModel):
@@ -316,6 +319,7 @@ def create_observation(
         interest: str | None = None
         difficulty_note: str | None = None
         next_activity: str | None = None
+        experience_axes = list(request.experience_axes)
         provider = get_model_provider()
         if provider is not None:
             try:
@@ -324,6 +328,9 @@ def create_observation(
                 interest = enrichment.interest
                 difficulty_note = enrichment.difficulty_note
                 next_activity = enrichment.next_activity
+                experience_axes = list(
+                    dict.fromkeys([*experience_axes, *enrichment.experience_axes])
+                )
             except Exception:
                 pass
 
@@ -331,6 +338,7 @@ def create_observation(
             child_id=request.child_id,
             parent_observation=state["normalized_observation"],
             tags=tags,
+            experience_axes=experience_axes,
             interest=interest,
             difficulty_note=difficulty_note,
             next_activity=next_activity,
@@ -357,6 +365,21 @@ def list_observations(
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> list[dict]:
     return store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
+
+
+@app.get("/v1/children/{child_id}/growth-map")
+def get_growth_map(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+    days: Annotated[int, Query(ge=1, le=3650)] = 30,
+) -> dict:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    projection = GrowthMapService(store.index).project(
+        child_id=str(child_id),
+        period_days=days,
+    )
+    return projection.model_dump(mode="json")
 
 
 @app.get("/v1/children/{child_id}/search")
