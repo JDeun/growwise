@@ -82,6 +82,44 @@ class SQLiteProjection:
             rows = connection.execute(query, params).fetchall()
         return [json.loads(row["payload_json"]) for row in rows]
 
+    def search_entities(
+        self,
+        *,
+        child_id: str,
+        query_text: str,
+        entity_types: tuple[str, ...] = ("learning_log", "activity_plan"),
+        limit: int = 20,
+    ) -> list[dict]:
+        """Simple local lexical retrieval with mandatory child isolation.
+
+        This is the deterministic first-stage retriever. Vector/hybrid retrieval can be layered on
+        later without changing the child-scoping contract.
+        """
+        terms = [term.casefold() for term in query_text.split() if len(term.strip()) >= 2]
+        if not terms:
+            return []
+
+        placeholders = ",".join("?" for _ in entity_types)
+        sql = (
+            "SELECT payload_json FROM entities "
+            f"WHERE child_id = ? AND entity_type IN ({placeholders}) "
+            "ORDER BY created_at DESC"
+        )
+        params: list[str] = [child_id, *entity_types]
+        with self._connect() as connection:
+            rows = connection.execute(sql, params).fetchall()
+
+        ranked: list[tuple[int, dict]] = []
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            haystack = json.dumps(payload, ensure_ascii=False).casefold()
+            score = sum(haystack.count(term) for term in terms)
+            if score:
+                ranked.append((score, payload))
+
+        ranked.sort(key=lambda item: (item[0], item[1].get("created_at", "")), reverse=True)
+        return [payload for _, payload in ranked[:limit]]
+
     def rebuild(self, records_root: Path) -> int:
         with self._connect() as connection:
             connection.execute("DELETE FROM entities")
