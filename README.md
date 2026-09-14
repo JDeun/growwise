@@ -48,10 +48,13 @@
 
 | 문서 | 내용 |
 | --- | --- |
-| [docs/vision.md](docs/vision.md) | 교육 철학과 제품 비전 — 왜 만드는가 |
+| **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심. 먼저 읽을 것** |
+| [docs/vision.md](docs/vision.md) | 제품 비전 요약 — 왜 만드는가 |
 | [docs/product-spec.md](docs/product-spec.md) | 개인용 MVP·핵심 기능·기관용 확장 |
 | [docs/architecture.md](docs/architecture.md) | 홈서버 아키텍처·모듈·기술 스택 후보 |
 | [docs/data-model.md](docs/data-model.md) | 데이터 모델(엔티티) 초안 |
+| [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스와 어댑터 설계 |
+| [docs/references.md](docs/references.md) | 선행 사례 분석과 빌려오는 점(PAIDEIA·DeepTutor·TutorMoments 등) |
 | [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 안전·개인정보 원칙과 저장소 규칙 |
 | [docs/curriculum-sources.md](docs/curriculum-sources.md) | 과목별 기준 자료·공개 API 후보 |
 | [docs/roadmap.md](docs/roadmap.md) | 제품화 단계와 미해결 설계 질문 |

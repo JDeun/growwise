@@ -46,7 +46,9 @@ PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑
 ## 기술 스택 후보
 
 아직 확정 전이며, 후보를 적어 둔다. 첫 마일스톤에서 하나로 고정한다
-([roadmap.md](roadmap.md) 미해결 질문 참고).
+([roadmap.md](roadmap.md) 미해결 질문 참고). 외부 API·데이터 소스의 구체 목록과
+어댑터 설계는 [integrations.md](integrations.md), 설계 근거가 된 선행 사례는
+[references.md](references.md)를 참고한다.
 
 ### 콘텐츠 생성과 RAG
 
