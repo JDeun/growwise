@@ -1,0 +1,190 @@
+name: API Idempotency Patch Once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Patch observation create flow
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/growwise/api/main.py")
+          text = path.read_text(encoding="utf-8")
+
+          replacements = [
+              (
+                  "from fastapi import Depends, FastAPI, HTTPException, Query",
+                  "from fastapi import Depends, FastAPI, Header, HTTPException, Query",
+              ),
+              (
+                  "from growwise.generators import MaterialGenerationService\n",
+                  "from growwise.generators import MaterialGenerationService\n"
+                  "from growwise.idempotency import (\n"
+                  "    IdempotencyConflict,\n"
+                  "    IdempotencyStatus,\n"
+                  "    SQLiteIdempotencyStore,\n"
+                  "    request_fingerprint,\n"
+                  ")\n",
+              ),
+              (
+                  "@lru_cache\ndef get_conversation_store() -> SQLiteConversationStore:\n"
+                  "    return SQLiteConversationStore(get_settings().conversations_path)\n\n\n"
+                  "@lru_cache\ndef get_observation_graph():",
+                  "@lru_cache\ndef get_conversation_store() -> SQLiteConversationStore:\n"
+                  "    return SQLiteConversationStore(get_settings().conversations_path)\n\n\n"
+                  "@lru_cache\ndef get_idempotency_store() -> SQLiteIdempotencyStore:\n"
+                  "    return SQLiteIdempotencyStore(get_settings().idempotency_path)\n\n\n"
+                  "@lru_cache\ndef get_observation_graph():",
+              ),
+              (
+                  "def create_observation(\n"
+                  "    request: ObservationRequest,\n"
+                  "    store: Annotated[EntityStore, Depends(get_store)],\n"
+                  ") -> LearningLog:\n"
+                  "    validate_activity_link(\n"
+                  "        store=store,\n"
+                  "        child_id=request.child_id,\n"
+                  "        activity_plan_id=request.activity_plan_id,\n"
+                  "    )\n"
+                  "    workflow = WorkflowRun(\n",
+                  "def create_observation(\n"
+                  "    request: ObservationRequest,\n"
+                  "    store: Annotated[EntityStore, Depends(get_store)],\n"
+                  "    idempotency_key: Annotated[\n"
+                  "        str | None, Header(alias=\"Idempotency-Key\", max_length=200)\n"
+                  "    ] = None,\n"
+                  ") -> LearningLog:\n"
+                  "    validate_activity_link(\n"
+                  "        store=store,\n"
+                  "        child_id=request.child_id,\n"
+                  "        activity_plan_id=request.activity_plan_id,\n"
+                  "    )\n\n"
+                  "    idempotency_store = get_idempotency_store()\n"
+                  "    request_hash = request_fingerprint(request.model_dump(mode=\"json\"))\n"
+                  "    reserved_log_id = uuid7()\n"
+                  "    claim = None\n"
+                  "    if idempotency_key is not None:\n"
+                  "        try:\n"
+                  "            claim = idempotency_store.claim(\n"
+                  "                key=idempotency_key,\n"
+                  "                request_hash=request_hash,\n"
+                  "                resource_type=\"learning_log\",\n"
+                  "                resource_id=str(reserved_log_id),\n"
+                  "            )\n"
+                  "        except IdempotencyConflict as exc:\n"
+                  "            raise HTTPException(status_code=409, detail=str(exc)) from exc\n\n"
+                  "        reserved_log_id = UUID(claim.record.resource_id)\n"
+                  "        if not claim.acquired:\n"
+                  "            existing = store.index.get_entity(\n"
+                  "                claim.record.resource_id, entity_type=\"learning_log\"\n"
+                  "            )\n"
+                  "            if existing is not None:\n"
+                  "                if claim.record.status is IdempotencyStatus.PENDING:\n"
+                  "                    idempotency_store.complete(\n"
+                  "                        key=claim.record.key,\n"
+                  "                        request_hash=claim.record.request_hash,\n"
+                  "                        resource_id=claim.record.resource_id,\n"
+                  "                    )\n"
+                  "                return LearningLog.model_validate(existing)\n"
+                  "            if claim.record.status is IdempotencyStatus.COMPLETED:\n"
+                  "                raise HTTPException(\n"
+                  "                    status_code=409, detail=\"idempotency_resource_missing\"\n"
+                  "                )\n"
+                  "            raise HTTPException(status_code=409, detail=\"idempotency_in_progress\")\n\n"
+                  "    workflow = WorkflowRun(\n",
+              ),
+              (
+                  "        log = LearningLog(\n"
+                  "            child_id=request.child_id,",
+                  "        log = LearningLog(\n"
+                  "            id=reserved_log_id,\n"
+                  "            child_id=request.child_id,",
+              ),
+              (
+                  "        workflow.updated_at = datetime.now(UTC)\n"
+                  "        store.save(workflow)\n"
+                  "        return log\n"
+                  "    except HTTPException:\n"
+                  "        raise\n"
+                  "    except Exception:\n"
+                  "        workflow.status = WorkflowStatus.FAILED\n"
+                  "        workflow.last_error_code = \"observation_workflow_failed\"\n"
+                  "        workflow.updated_at = datetime.now(UTC)\n"
+                  "        store.save(workflow)\n"
+                  "        raise\n",
+                  "        workflow.updated_at = datetime.now(UTC)\n"
+                  "        store.save(workflow)\n"
+                  "        if claim is not None and claim.acquired:\n"
+                  "            idempotency_store.complete(\n"
+                  "                key=claim.record.key,\n"
+                  "                request_hash=claim.record.request_hash,\n"
+                  "                resource_id=claim.record.resource_id,\n"
+                  "            )\n"
+                  "        return log\n"
+                  "    except HTTPException:\n"
+                  "        if claim is not None and claim.acquired:\n"
+                  "            existing = store.index.get_entity(\n"
+                  "                claim.record.resource_id, entity_type=\"learning_log\"\n"
+                  "            )\n"
+                  "            if existing is None:\n"
+                  "                idempotency_store.release(\n"
+                  "                    key=claim.record.key,\n"
+                  "                    request_hash=claim.record.request_hash,\n"
+                  "                    resource_id=claim.record.resource_id,\n"
+                  "                )\n"
+                  "            else:\n"
+                  "                idempotency_store.complete(\n"
+                  "                    key=claim.record.key,\n"
+                  "                    request_hash=claim.record.request_hash,\n"
+                  "                    resource_id=claim.record.resource_id,\n"
+                  "                )\n"
+                  "        raise\n"
+                  "    except Exception:\n"
+                  "        workflow.status = WorkflowStatus.FAILED\n"
+                  "        workflow.last_error_code = \"observation_workflow_failed\"\n"
+                  "        workflow.updated_at = datetime.now(UTC)\n"
+                  "        store.save(workflow)\n"
+                  "        if claim is not None and claim.acquired:\n"
+                  "            existing = store.index.get_entity(\n"
+                  "                claim.record.resource_id, entity_type=\"learning_log\"\n"
+                  "            )\n"
+                  "            if existing is None:\n"
+                  "                idempotency_store.release(\n"
+                  "                    key=claim.record.key,\n"
+                  "                    request_hash=claim.record.request_hash,\n"
+                  "                    resource_id=claim.record.resource_id,\n"
+                  "                )\n"
+                  "            else:\n"
+                  "                idempotency_store.complete(\n"
+                  "                    key=claim.record.key,\n"
+                  "                    request_hash=claim.record.request_hash,\n"
+                  "                    resource_id=claim.record.resource_id,\n"
+                  "                )\n"
+                  "        raise\n",
+              ),
+          ]
+
+          for old, new in replacements:
+              if old not in text:
+                  raise SystemExit(f"expected patch anchor not found: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text, encoding="utf-8")
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/growwise/api/main.py
+          git commit -m "feat: make observation creation idempotent"
+          git push origin HEAD:main
