@@ -68,12 +68,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: desktop/package-lock.json
+      - name: Pin npm
+        run: npm install --global npm@11.6.2
       - name: Install locked dependencies
         run: npm ci --no-audit --no-fund
       - name: Node vulnerability audit
         run: npm audit --audit-level=high
+      - name: Lint
+        run: npm run lint
+      - name: Test
+        run: npm test
       - name: Build
         run: npm run build
 
