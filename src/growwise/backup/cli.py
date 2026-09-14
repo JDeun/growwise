@@ -115,6 +115,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main() -> None:
     args = build_parser().parse_args()
     settings = Settings()
+    result: dict[str, object] | list[dict[str, object]]
 
     if args.command == "create":
         result = create_backup(settings, args.name)
