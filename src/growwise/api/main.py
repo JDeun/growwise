@@ -47,11 +47,13 @@ from growwise.rag import (
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
     ActivityPlanService,
+    BoardBookRecommendationService,
     ChildContextService,
     ConversationService,
     ConversationSession,
     GrowthMapService,
     InfantActivityService,
+    InfantObservationHintService,
     InvalidActivityTransition,
     NaturalLanguageSearch,
     ObservationEnricher,
@@ -797,6 +799,59 @@ def suggest_infant_activities(
     result = service.suggest(
         age_months=child.age_months,
         recent_observations=recent_observations,
+        interests=child.interests,
+        limit=limit,
+    )
+    return result.model_dump(mode="json")
+
+
+@app.get("/v1/children/{child_id}/infant-observation-hints")
+def suggest_infant_observation_hints(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+    if child.stage is not Stage.INFANT_0_2:
+        raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")
+
+    logs = store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
+    recent_observations = [
+        str(item.get("parent_observation", ""))
+        for item in logs[:8]
+        if item.get("parent_observation")
+    ]
+    result = InfantObservationHintService(provider=get_model_provider()).suggest(
+        age_months=child.age_months,
+        recent_observations=recent_observations,
+        interests=child.interests,
+    )
+    return result.model_dump(mode="json")
+
+
+@app.get("/v1/children/{child_id}/board-books")
+def recommend_board_books(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=5)] = 3,
+) -> dict:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+    if child.stage is not Stage.INFANT_0_2:
+        raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")
+
+    resource_payloads = store.index.list_entities(entity_type="resource")
+    resources = [
+        ResourceRecord.model_validate(payload)
+        for payload in resource_payloads
+        if payload.get("child_id") in (None, str(child_id))
+    ]
+    result = BoardBookRecommendationService().recommend(
+        resources=resources,
         interests=child.interests,
         limit=limit,
     )
