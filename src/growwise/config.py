@@ -40,3 +40,7 @@ class Settings(BaseSettings):
     @property
     def rag_index_path(self) -> Path:
         return self.data_dir / "rag.sqlite3"
+
+    @property
+    def conversations_path(self) -> Path:
+        return self.data_dir / "conversations.sqlite3"
