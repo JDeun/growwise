@@ -12,10 +12,8 @@ function App() {
 
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
-    const controller = new AbortController();
-    const timeout = window.setTimeout(() => controller.abort(), 2500);
     try {
-      const health = await getHealth(controller.signal);
+      const health = await getHealth();
       setConnection({ kind: "connected", health });
     } catch (error) {
       const message =
@@ -23,8 +21,6 @@ function App() {
           ? error.message
           : "GrowWise Core 상태를 확인할 수 없습니다.";
       setConnection({ kind: "offline", message });
-    } finally {
-      window.clearTimeout(timeout);
     }
   }, []);
 
