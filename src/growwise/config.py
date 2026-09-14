@@ -29,3 +29,7 @@ class Settings(BaseSettings):
     @property
     def checkpoint_path(self) -> Path:
         return self.data_dir / "langgraph-checkpoints.sqlite3"
+
+    @property
+    def jobs_path(self) -> Path:
+        return self.data_dir / "jobs.sqlite3"
