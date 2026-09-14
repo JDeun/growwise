@@ -34,6 +34,14 @@ class ExperienceAxis(StrEnum):
     EXPLORATION = "exploration"
 
 
+class ActivityStatus(StrEnum):
+    SUGGESTED = "suggested"
+    ACTIVE = "active"
+    COMPLETED = "completed"
+    SKIPPED = "skipped"
+    ARCHIVED = "archived"
+
+
 class MaterialKind(StrEnum):
     ACTIVITY_GUIDE = "activity_guide"
     READING_ACTIVITY = "reading_activity"
@@ -89,8 +97,12 @@ class ActivityPlan(EntityBase):
     entity_type: str = "activity_plan"
     child_id: UUID
     title: str
-    status: str = "suggested"
+    description: str | None = None
+    status: ActivityStatus = ActivityStatus.SUGGESTED
     source_refs: list[str] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+    parent_note: str | None = None
+    completed_at: datetime | None = None
 
 
 class LearningLog(EntityBase):
