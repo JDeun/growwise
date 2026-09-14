@@ -29,7 +29,12 @@ from growwise.rag import (
     OllamaEmbeddingProvider,
     ResourceIngestor,
 )
-from growwise.services import InfantActivityService, NaturalLanguageSearch, ObservationEnricher
+from growwise.services import (
+    ChildContextService,
+    InfantActivityService,
+    NaturalLanguageSearch,
+    ObservationEnricher,
+)
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
 
@@ -65,6 +70,11 @@ class ResourceCreateRequest(BaseModel):
 class RagQuestionRequest(BaseModel):
     question: str = Field(min_length=2, max_length=2000)
     child_id: UUID | None = None
+    limit: int = Field(default=8, ge=1, le=20)
+
+
+class ChildQuestionRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
     limit: int = Field(default=8, ge=1, le=20)
 
 
@@ -159,6 +169,26 @@ def ask_resources(request: RagQuestionRequest) -> dict:
     return service.ask(
         query=request.question,
         child_id=str(request.child_id) if request.child_id else None,
+        limit=request.limit,
+    ).model_dump(mode="json")
+
+
+@app.post("/v1/children/{child_id}/ask")
+def ask_child_context(
+    child_id: UUID,
+    request: ChildQuestionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    service = ChildContextService(
+        entity_index=store.index,
+        rag_index=get_rag_index(),
+        provider=get_model_provider(),
+    )
+    return service.ask(
+        child_id=str(child_id),
+        query=request.question,
         limit=request.limit,
     ).model_dump(mode="json")
 
