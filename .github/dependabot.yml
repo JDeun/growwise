@@ -1,0 +1,58 @@
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:00"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    groups:
+      python-runtime:
+        patterns:
+          - "fastapi"
+          - "uvicorn"
+          - "pydantic*"
+          - "langchain*"
+          - "langgraph*"
+          - "uuid6"
+      python-tooling:
+        dependency-type: development
+
+  - package-ecosystem: npm
+    directory: "/desktop"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:15"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    groups:
+      desktop-frontend:
+        patterns:
+          - "react*"
+          - "vite"
+          - "@vitejs/*"
+          - "typescript"
+          - "@types/*"
+      tauri-js:
+        patterns:
+          - "@tauri-apps/*"
+
+  - package-ecosystem: cargo
+    directory: "/desktop/src-tauri"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:30"
+      timezone: "Asia/Seoul"
+    open-pull-requests-limit: 5
+    groups:
+      tauri-rust:
+        patterns:
+          - "tauri*"
+      rust-runtime:
+        patterns:
+          - "serde*"
+          - "reqwest"
