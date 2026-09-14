@@ -10,6 +10,7 @@ import frontmatter
 from pydantic import BaseModel
 
 from .markdown import _decode_metadata
+from .schema import validate_schema_version
 
 
 class SQLiteProjection:
@@ -27,12 +28,7 @@ class SQLiteProjection:
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
-        """Yield a transaction-scoped connection and always release the file handle.
-
-        sqlite3.Connection's own context manager commits or rolls back but does not close the
-        connection. Explicit close is required so projection files can be replaced/rebuilt on
-        Windows as well as POSIX platforms.
-        """
+        """Yield a transaction-scoped connection and always release the file handle."""
         connection = self._connect()
         try:
             yield connection
@@ -65,9 +61,11 @@ class SQLiteProjection:
 
     def upsert(self, entity: BaseModel, source_path: Path) -> None:
         payload = entity.model_dump(mode="json")
+        validate_schema_version(payload)
         self._upsert_payload(payload, source_path)
 
     def _upsert_payload(self, payload: dict, source_path: Path) -> None:
+        validate_schema_version(payload)
         with self._connection() as connection:
             connection.execute(
                 """
@@ -103,7 +101,9 @@ class SQLiteProjection:
             row = connection.execute(sql, params).fetchone()
         if row is None:
             return None
-        return json.loads(row["payload_json"])
+        payload = json.loads(row["payload_json"])
+        validate_schema_version(payload)
+        return payload
 
     def list_entities(self, *, entity_type: str, child_id: str | None = None) -> list[dict]:
         query = "SELECT payload_json FROM entities WHERE entity_type = ?"
@@ -114,7 +114,10 @@ class SQLiteProjection:
         query += " ORDER BY created_at DESC"
         with self._connection() as connection:
             rows = connection.execute(query, params).fetchall()
-        return [json.loads(row["payload_json"]) for row in rows]
+        payloads = [json.loads(row["payload_json"]) for row in rows]
+        for payload in payloads:
+            validate_schema_version(payload)
+        return payloads
 
     def search_entities(
         self,
@@ -124,11 +127,7 @@ class SQLiteProjection:
         entity_types: tuple[str, ...] = ("learning_log", "activity_plan"),
         limit: int = 20,
     ) -> list[dict]:
-        """Simple local lexical retrieval with mandatory child isolation.
-
-        This is the deterministic first-stage retriever. Vector/hybrid retrieval can be layered on
-        later without changing the child-scoping contract.
-        """
+        """Simple local lexical retrieval with mandatory child isolation."""
         terms = [term.casefold() for term in query_text.split() if len(term.strip()) >= 2]
         if not terms:
             return []
@@ -146,6 +145,7 @@ class SQLiteProjection:
         ranked: list[tuple[int, dict]] = []
         for row in rows:
             payload = json.loads(row["payload_json"])
+            validate_schema_version(payload)
             haystack = json.dumps(payload, ensure_ascii=False).casefold()
             score = sum(haystack.count(term) for term in terms)
             if score:
@@ -165,6 +165,7 @@ class SQLiteProjection:
             required = {"id", "entity_type", "created_at", "updated_at"}
             if not required.issubset(payload):
                 continue
+            validate_schema_version(payload)
             self._upsert_payload(payload, path)
             count += 1
         return count
