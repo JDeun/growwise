@@ -24,8 +24,8 @@ body {
   min-height: 100vh;
   background: radial-gradient(circle at 84% 4%, rgba(167, 215, 160, 0.18), transparent 26rem), var(--bg);
 }
-button, input { font: inherit; }
-button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
+button, input, textarea { font: inherit; }
+button:disabled, input:disabled, textarea:disabled { opacity: 0.55; cursor: not-allowed; }
 
 .app-shell { width: min(1180px, calc(100% - 48px)); margin: 0 auto; padding: 28px 0 72px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; gap: 24px; }
@@ -35,7 +35,7 @@ button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .brand span { color: var(--ink-soft); font-size: 12px; }
 .brand-logo { width: 42px; height: 42px; border-radius: 12px; }
 
-.quiet-button, .primary-button {
+.quiet-button, .primary-button, .axis-chip {
   border-radius: 10px;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 120ms ease;
@@ -55,7 +55,7 @@ button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
   font-weight: 700;
 }
 .primary-button:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
-.quiet-button:focus-visible, .primary-button:focus-visible, input:focus-visible {
+.quiet-button:focus-visible, .primary-button:focus-visible, .axis-chip:focus-visible, input:focus-visible, textarea:focus-visible {
   outline: 3px solid rgba(47,143,107,.28);
   outline-offset: 2px;
 }
@@ -66,7 +66,7 @@ button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .hero-copy { max-width: 680px; margin: 28px 0 0; color: var(--ink-soft); font-size: 17px; line-height: 1.8; }
 
 .status-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 16px; }
-.status-card, .workspace, .profile-form, .verification-card {
+.status-card, .workspace, .profile-form, .verification-card, .observation-form, .observation-result {
   border: 1px solid var(--border);
   background: rgba(255,255,255,.88);
   box-shadow: var(--shadow);
@@ -86,26 +86,57 @@ button:disabled, input:disabled { opacity: 0.55; cursor: not-allowed; }
 .badge { display: inline-flex; padding: 7px 10px; border-radius: 999px; background: var(--accent-soft); color: #79551e; font-size: 12px; font-weight: 700; }
 
 .skeleton-grid { display: grid; grid-template-columns: minmax(280px,.8fr) minmax(0,1.2fr); gap: 16px; }
-.profile-form, .verification-card { border-radius: 16px; padding: 22px; box-shadow: none; }
+.profile-form, .verification-card, .observation-form, .observation-result { border-radius: 16px; padding: 22px; box-shadow: none; }
 .profile-form { display: grid; gap: 16px; }
 .profile-form label { display: grid; gap: 7px; }
 .profile-form label > span { font-size: 13px; font-weight: 650; }
-.profile-form input {
+.profile-form input,
+.observation-form textarea {
   width: 100%; border: 1px solid var(--border); background: #fff; color: var(--ink);
   border-radius: 10px; padding: 11px 12px;
 }
-.profile-form input::placeholder { color: #aaa49c; }
+.profile-form input::placeholder,
+.observation-form textarea::placeholder { color: #aaa49c; }
 .form-error { margin: 0; color: var(--danger); font-size: 13px; line-height: 1.5; }
-.verification-card h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.025em; }
+.verification-card h3, .observation-form h3, .observation-result h3 { margin: 0 0 12px; font-size: 22px; letter-spacing: -.025em; }
 .verification-card code { font-size: 11px; overflow-wrap: anywhere; }
 .verification-list { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin: 22px 0 0; }
 .verification-list div { padding: 14px; border-radius: 12px; background: #f7faf8; }
 .verification-list dt { color: var(--ink-soft); font-size: 11px; }
 .verification-list dd { margin: 5px 0 0; font-size: 17px; font-weight: 700; }
 
+.observation-panel {
+  display: grid;
+  grid-template-columns: minmax(0,1.15fr) minmax(280px,.85fr);
+  gap: 16px;
+  margin-top: 16px;
+}
+.observation-form { display: grid; gap: 16px; }
+.observation-form textarea { min-height: 130px; resize: vertical; line-height: 1.6; }
+.axis-picker { display: flex; flex-wrap: wrap; gap: 8px; }
+.axis-chip {
+  border: 1px solid var(--border);
+  background: #fff;
+  color: var(--ink-soft);
+  padding: 8px 11px;
+  font-size: 12px;
+}
+.axis-chip:hover { border-color: #c9d9d0; }
+.axis-chip.active { border-color: var(--primary); background: var(--primary-soft); color: var(--primary-strong); font-weight: 700; }
+.observation-result blockquote {
+  margin: 16px 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--primary);
+  background: #f7faf8;
+  color: var(--ink);
+  line-height: 1.65;
+}
+.axis-summary { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.axis-summary span { padding: 7px 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-strong); font-size: 12px; font-weight: 650; }
+
 @media (max-width: 900px) {
   .status-grid { grid-template-columns: repeat(2,1fr); }
-  .skeleton-grid { grid-template-columns: 1fr; }
+  .skeleton-grid, .observation-panel { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
   .app-shell { width: min(100% - 28px,1180px); padding-top: 18px; }
