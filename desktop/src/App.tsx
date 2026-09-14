@@ -2,6 +2,7 @@ import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
   appendConversationTurn,
+  createActivity,
   createChild,
   createConversation,
   createObservation,
@@ -11,12 +12,16 @@ import {
   getGrowthMap,
   getHealth,
   getInfantActivities,
+  listActivities,
   listChildren,
   listMaterials,
   listObservations,
   listResources,
   reviewMaterial,
   searchChildContext,
+  transitionActivity,
+  type ActivityPlan,
+  type ActivityStatus,
   type ChildProfile,
   type ConversationAnswer,
   type ConversationSession,
@@ -52,11 +57,19 @@ const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
 ];
 
 function resultText(result: Record<string, unknown>): string {
-  const observation = result.parent_observation;
-  if (typeof observation === "string") return observation;
-  const title = result.title;
-  if (typeof title === "string") return title;
+  if (typeof result.parent_observation === "string") return result.parent_observation;
+  if (typeof result.title === "string") return result.title;
   return "관련 기록";
+}
+
+function activityStatusLabel(status: ActivityStatus): string {
+  return {
+    suggested: "제안됨",
+    active: "진행 중",
+    completed: "완료",
+    skipped: "건너뜀",
+    archived: "보관됨",
+  }[status];
 }
 
 function App() {
@@ -67,6 +80,7 @@ function App() {
   const [timeline, setTimeline] = useState<LearningLog[]>([]);
   const [resources, setResources] = useState<ResourceRecord[]>([]);
   const [materials, setMaterials] = useState<GeneratedMaterial[]>([]);
+  const [activityPlans, setActivityPlans] = useState<ActivityPlan[]>([]);
 
   const [nickname, setNickname] = useState("");
   const [ageMonths, setAgeMonths] = useState("9");
@@ -86,6 +100,7 @@ function App() {
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+  const [activityPlanBusy, setActivityPlanBusy] = useState(false);
 
   const [conversation, setConversation] = useState<ConversationSession | null>(null);
   const [conversationAnswers, setConversationAnswers] = useState<ConversationAnswer[]>([]);
@@ -107,17 +122,19 @@ function App() {
   const [materialError, setMaterialError] = useState<string | null>(null);
 
   const loadChildContext = useCallback(async (child: ChildProfile) => {
-    const [map, logs, childResources, childMaterials] = await Promise.all([
+    const [map, logs, childResources, childMaterials, childActivities] = await Promise.all([
       getGrowthMap(child.id),
       listObservations(child.id),
       listResources(child.id),
       listMaterials(child.id),
+      listActivities(child.id),
     ]);
     setActiveChild(child);
     setGrowthMap(map);
     setTimeline(logs);
     setResources(childResources);
     setMaterials(childMaterials);
+    setActivityPlans(childActivities);
     setSelectedResourceRefs([]);
     setActivities(null);
     setSearchResult(null);
@@ -129,7 +146,9 @@ function App() {
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
     try {
-      const [health, runtime, storedChildren] = await Promise.all([getHealth(), getCoreRuntimeStatus(), listChildren()]);
+      const [health, runtime, storedChildren] = await Promise.all([
+        getHealth(), getCoreRuntimeStatus(), listChildren(),
+      ]);
       setConnection({ kind: "connected", health, runtime });
       setChildren(storedChildren);
       if (storedChildren.length > 0) {
@@ -137,10 +156,18 @@ function App() {
         const selected = storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
         await loadChildContext(selected);
       } else {
-        setActiveChild(null); setGrowthMap(null); setTimeline([]); setResources([]); setMaterials([]);
+        setActiveChild(null);
+        setGrowthMap(null);
+        setTimeline([]);
+        setResources([]);
+        setMaterials([]);
+        setActivityPlans([]);
       }
     } catch (error) {
-      setConnection({ kind: "offline", message: error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다." });
+      setConnection({
+        kind: "offline",
+        message: error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다.",
+      });
     }
   }, [loadChildContext]);
 
@@ -255,6 +282,26 @@ function App() {
     finally { setActivitiesLoading(false); }
   }
 
+  async function handleSaveActivity(title: string) {
+    if (!activeChild) return;
+    setActivityPlanBusy(true); setActivitiesError(null);
+    try {
+      await createActivity(activeChild.id, title);
+      setActivityPlans(await listActivities(activeChild.id));
+    } catch (error) { setActivitiesError(error instanceof Error ? error.message : "활동 저장에 실패했습니다."); }
+    finally { setActivityPlanBusy(false); }
+  }
+
+  async function handleActivityTransition(activityId: string, status: ActivityStatus) {
+    if (!activeChild) return;
+    setActivityPlanBusy(true); setActivitiesError(null);
+    try {
+      await transitionActivity(activityId, status);
+      setActivityPlans(await listActivities(activeChild.id));
+    } catch (error) { setActivitiesError(error instanceof Error ? error.message : "활동 상태 변경에 실패했습니다."); }
+    finally { setActivityPlanBusy(false); }
+  }
+
   function toggleAxis(axis: ExperienceAxis) {
     setSelectedAxes((current) => current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis]);
   }
@@ -274,7 +321,7 @@ function App() {
 
       <section className="status-grid" aria-label="시스템 상태">
         <article className="status-card primary-card"><div className="card-heading"><span className={`status-dot ${isConnected ? "ok" : "warning"}`} /><h2>GrowWise Core</h2></div>{connection.kind === "loading" && <p>확인 중입니다.</p>}{connection.kind === "offline" && <p className="muted">{connection.message}</p>}{connection.kind === "connected" && <><p className="status-title">정상 연결</p><p className="muted">{connection.runtime.started_by_desktop ? "Desktop이 Core를 자동 기동했습니다." : "실행 중인 Core에 연결했습니다."}</p></>}</article>
-        <article className="status-card"><p className="card-label">운영 모드</p><p className="status-title">{mode === "ai_enhanced_with_core_fallback" ? "AI 보강 + Core fallback" : mode === "core_only" ? "Core-only" : "확인 대기"}</p><p className="muted">LLM 장애가 핵심 기능 중단으로 이어지지 않습니다.</p></article>
+        <article className="status-card"><p className="card-label">운영 모드</p><p className="status-title">{mode === "ai_enhanced_with_core_fallback" ? "AI 보강 + Core fallback" : mode === "core_only" ? "Core-only" : "확인 대기"}</p>{connection.kind === "connected" && <p className="muted">{connection.health.llm_configured ? connection.health.llm_reachable ? `${connection.health.model_provider} 연결됨` : `${connection.health.model_provider} 설정됨 · 현재 미도달` : "LLM 기능 꺼짐"}</p>}</article>
         <article className="status-card"><p className="card-label">현재 아이</p><p className="status-title">{activeChild?.nickname ?? "선택 안 됨"}</p><p className="muted">저장된 아이 {children.length}명 · child scope를 엄격히 분리합니다.</p></article>
       </section>
 
@@ -284,7 +331,7 @@ function App() {
 
         <div className="skeleton-grid">
           <form className="profile-form" onSubmit={handleCreateChild}><p className="card-label">NEW CHILD</p><label><span>아이 닉네임</span><input value={nickname} onChange={(event) => setNickname(event.target.value)} placeholder="예: 아이" maxLength={40} disabled={!isConnected || saving} /></label><label><span>월령</span><input type="number" min="0" max="24" value={ageMonths} onChange={(event) => setAgeMonths(event.target.value)} disabled={!isConnected || saving} /></label><button className="primary-button" type="submit" disabled={!isConnected || saving}>{saving ? "저장 중…" : "새 프로필 저장"}</button>{formError && <p className="form-error">{formError}</p>}</form>
-          <article className="verification-card">{activeChild && growthMap ? <><p className="card-label">ACTIVE CONTEXT</p><h3>{activeChild.nickname}</h3><p className="muted">프로필과 장기 기록은 Core 저장소에서 다시 불러왔습니다.</p><dl className="verification-list"><div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div><div><dt>최근 기록</dt><dd>{growthMap.total_logs_in_period}건</dd></div><div><dt>자료</dt><dd>{resources.length}건</dd></div></dl></> : <><p className="card-label">EMPTY</p><h3>아이 프로필을 만들어 주세요.</h3></>}</article>
+          <article className="verification-card">{activeChild && growthMap ? <><p className="card-label">ACTIVE CONTEXT</p><h3>{activeChild.nickname}</h3><p className="muted">프로필과 장기 기록은 Core 저장소에서 다시 불러왔습니다.</p><dl className="verification-list"><div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div><div><dt>최근 기록</dt><dd>{growthMap.total_logs_in_period}건</dd></div><div><dt>활동</dt><dd>{activityPlans.length}건</dd></div></dl></> : <><p className="card-label">EMPTY</p><h3>아이 프로필을 만들어 주세요.</h3></>}</article>
         </div>
 
         {activeChild && <>
@@ -301,9 +348,11 @@ function App() {
 
           <section className="material-section"><div className="resource-grid"><form className="material-form" onSubmit={handleGenerateMaterial}><p className="card-label">MATERIAL GENERATOR</p><h3>필요한 학습 자료를 만듭니다.</h3><p className="muted">LLM이 없으면 template fallback으로 생성되며, 결과는 항상 부모 검토 대기 상태입니다.</p><label><span>형식</span><select value={materialKind} onChange={(event) => setMaterialKind(event.target.value as MaterialKind)}><option value="activity_guide">활동 가이드</option><option value="reading_activity">독서 활동</option><option value="english_card">영어 카드</option><option value="math_activity">수학 활동</option><option value="science_inquiry">과학 탐구</option><option value="writing_prompt">글쓰기</option><option value="field_trip">탐방 활동</option></select></label><label><span>주제</span><input value={materialTopic} onChange={(event) => setMaterialTopic(event.target.value)} placeholder="예: 고양이와 소리" /></label><label><span>목표(선택)</span><input value={materialGoal} onChange={(event) => setMaterialGoal(event.target.value)} placeholder="예: 함께 관찰하고 반응을 주고받기" /></label>{resources.length > 0 && <div><span className="field-label">근거 자료(선택)</span><div className="source-picker">{resources.map((resource) => { const ref = `resource:${resource.id}`; const active = selectedResourceRefs.includes(ref); return <button type="button" key={resource.id} className={`axis-chip ${active ? "active" : ""}`} aria-pressed={active} onClick={() => toggleResourceRef(resource.id)}>{resource.title}</button>; })}</div></div>}<button className="primary-button" type="submit" disabled={materialBusy}>{materialBusy ? "처리 중…" : "자료 생성"}</button>{materialError && <p className="form-error">{materialError}</p>}</form><div className="material-list"><p className="card-label">PARENT REVIEW</p><h3>{materials.length}건</h3>{materials.length === 0 ? <p className="muted">생성된 자료가 없습니다.</p> : materials.map((material) => <article className="material-card" key={material.id}><div className="material-meta"><strong>{material.title}</strong><span className={`status-badge status-${material.status}`}>{material.status}</span></div><pre>{material.content_markdown}</pre><small>{material.generator_mode}{material.source_refs.length > 0 ? ` · 근거 ${material.source_refs.length}건` : ""}</small>{material.status === "review_pending" && <div className="review-actions"><button type="button" className="primary-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "approved")}>승인</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "revision_requested")}>수정 요청</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "rejected")}>폐기</button></div>}</article>)}</div></div></section>
 
-          <section className="timeline-section"><div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>{timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => <article key={log.id} className="timeline-card"><p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>)}</div>}</section>
+          <section className="activity-section"><div className="activity-heading"><div><p className="card-label">ACTIVITY INVITATIONS</p><h3>다음 활동 후보</h3><p className="muted">추천은 의무가 아닙니다. 부모가 선택한 후보만 활동 목록에 저장됩니다.</p></div><button className="quiet-button" type="button" onClick={() => void handleLoadActivities()} disabled={activitiesLoading}>{activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}</button></div>{activitiesError && <p className="form-error">{activitiesError}</p>}{activities && <div className="activity-grid">{activities.suggestions.map((suggestion) => <article className="activity-card" key={`${suggestion.title}-${suggestion.description}`}><h4>{suggestion.title}</h4><p>{suggestion.description}</p>{suggestion.observation_cue && <small>{suggestion.observation_cue}</small>}<button type="button" className="quiet-button activity-save" disabled={activityPlanBusy} onClick={() => void handleSaveActivity(suggestion.title)}>활동으로 저장</button></article>)}</div>}</section>
 
-          <section className="activity-section"><div className="activity-heading"><div><p className="card-label">ACTIVITY INVITATIONS</p><h3>다음 활동 후보</h3><p className="muted">AI가 가능하면 최근 맥락을 반영하고, 아니면 deterministic fallback을 사용합니다.</p></div><button className="quiet-button" type="button" onClick={() => void handleLoadActivities()} disabled={activitiesLoading}>{activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}</button></div>{activitiesError && <p className="form-error">{activitiesError}</p>}{activities && <div className="activity-grid">{activities.suggestions.map((suggestion) => <article className="activity-card" key={`${suggestion.title}-${suggestion.description}`}><h4>{suggestion.title}</h4><p>{suggestion.description}</p>{suggestion.observation_cue && <small>{suggestion.observation_cue}</small>}</article>)}</div>}</section>
+          <section className="quest-section"><div className="activity-heading"><div><p className="card-label">ACTIVITY QUESTS</p><h3>선택한 활동</h3><p className="muted">건너뜀은 실패가 아니며, 나중에 다시 시작할 수 있습니다.</p></div><span className="badge">{activityPlans.length}건</span></div>{activityPlans.length === 0 ? <p className="muted quest-empty">저장한 활동이 없습니다.</p> : <div className="quest-list">{activityPlans.map((activity) => <article className="quest-card" key={activity.id}><div><strong>{activity.title}</strong><span className={`status-badge status-${activity.status}`}>{activityStatusLabel(activity.status)}</span></div>{activity.parent_note && <p>{activity.parent_note}</p>}<div className="review-actions">{activity.status === "suggested" && <button type="button" className="primary-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "active")}>시작</button>}{activity.status === "active" && <button type="button" className="primary-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "completed")}>완료</button>}{(activity.status === "suggested" || activity.status === "active") && <button type="button" className="quiet-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "skipped")}>건너뜀</button>}{activity.status === "skipped" && <button type="button" className="quiet-button" disabled={activityPlanBusy} onClick={() => void handleActivityTransition(activity.id, "active")}>다시 시작</button>}</div></article>)}</div>}</section>
+
+          <section className="timeline-section"><div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>{timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => <article key={log.id} className="timeline-card"><p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>)}</div>}</section>
         </>}
       </section>
     </main>
