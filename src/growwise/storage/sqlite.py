@@ -7,6 +7,8 @@ from pathlib import Path
 import frontmatter
 from pydantic import BaseModel
 
+from .markdown import _decode_metadata
+
 
 class SQLiteProjection:
     """Rebuildable search/index projection derived from Markdown SoT."""
@@ -139,7 +141,7 @@ class SQLiteProjection:
         count = 0
         for path in sorted(records_root.rglob("*.md")):
             post = frontmatter.load(path)
-            payload = dict(post.metadata)
+            payload = _decode_metadata(dict(post.metadata))
             required = {"id", "entity_type", "created_at", "updated_at"}
             if not required.issubset(payload):
                 continue
