@@ -1,0 +1,58 @@
+name: Material Review API Once
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Wire material review checkpoint into API
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("src/growwise/api/main.py")
+          text = path.read_text()
+          text = text.replace(
+              "from langgraph.checkpoint.sqlite import SqliteSaver\n",
+              "from langgraph.checkpoint.sqlite import SqliteSaver\nfrom langgraph.types import Command\n",
+              1,
+          )
+          text = text.replace(
+              "from growwise.workflows import build_observation_graph\n",
+              "from growwise.workflows import build_material_review_graph, build_observation_graph\n",
+              1,
+          )
+          marker = '''@lru_cache\ndef get_observation_graph():\n    settings = get_settings()\n    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)\n    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)\n    checkpointer = SqliteSaver(connection)\n    checkpointer.setup()\n    return build_observation_graph(checkpointer=checkpointer)\n'''
+          replacement = marker + '''\n\n@lru_cache\ndef get_material_review_graph():\n    settings = get_settings()\n    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)\n    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)\n    checkpointer = SqliteSaver(connection)\n    checkpointer.setup()\n    return build_material_review_graph(checkpointer=checkpointer)\n'''
+          if marker not in text:
+              raise SystemExit("observation graph factory marker not found")
+          text = text.replace(marker, replacement, 1)
+
+          generate_old = '''    store.save(material)\n    return material\n\n\n@app.get("/v1/children/{child_id}/materials")'''
+          generate_new = '''    store.save(material)\n    review_config = {\n        "configurable": {"thread_id": f"material-review:{material.id}"}\n    }\n    get_material_review_graph().invoke(\n        {\n            "material_id": str(material.id),\n            "child_id": str(child.id),\n            "title": material.title,\n        },\n        config=review_config,\n    )\n    return material\n\n\n@app.get("/v1/children/{child_id}/materials")'''
+          if generate_old not in text:
+              raise SystemExit("material generation persistence marker not found")
+          text = text.replace(generate_old, generate_new, 1)
+
+          review_old = '''    material = GeneratedMaterial.model_validate(payload)\n    try:\n        MaterialReviewService().transition(material, request.status, note=request.note)\n    except InvalidMaterialTransition as exc:\n        raise HTTPException(status_code=409, detail=str(exc)) from exc\n    store.save(material)\n    return material\n'''
+          review_new = '''    material = GeneratedMaterial.model_validate(payload)\n    if material.status is MaterialStatus.REVIEW_PENDING:\n        config = {\n            "configurable": {"thread_id": f"material-review:{material.id}"}\n        }\n        try:\n            review_state = get_material_review_graph().invoke(\n                Command(\n                    resume={\n                        "status": request.status.value,\n                        "note": request.note,\n                    }\n                ),\n                config=config,\n            )\n            if review_state.get("decision_status") != request.status.value:\n                raise HTTPException(status_code=409, detail="review_decision_mismatch")\n        except HTTPException:\n            raise\n        except Exception:\n            # Backward compatibility for materials created before review checkpoints existed.\n            pass\n    try:\n        MaterialReviewService().transition(material, request.status, note=request.note)\n    except InvalidMaterialTransition as exc:\n        raise HTTPException(status_code=409, detail=str(exc)) from exc\n    store.save(material)\n    return material\n'''
+          if review_old not in text:
+              raise SystemExit("material review block not found")
+          path.write_text(text.replace(review_old, review_new, 1))
+          PY
+      - name: Commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/growwise/api/main.py
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "feat: wire parent review checkpoint into material API"
+          git push origin HEAD:main
