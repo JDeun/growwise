@@ -44,3 +44,11 @@ class Settings(BaseSettings):
     @property
     def conversations_path(self) -> Path:
         return self.data_dir / "conversations.sqlite3"
+
+    @property
+    def backups_dir(self) -> Path:
+        return self.data_dir / "backups"
+
+    @property
+    def exports_dir(self) -> Path:
+        return self.data_dir / "exports"
