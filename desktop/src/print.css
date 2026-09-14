@@ -1,0 +1,77 @@
+.print-toolbar {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+}
+
+.print-toolbar span {
+  max-width: 210px;
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
+@media (max-width: 700px) {
+  .print-toolbar span { display: none; }
+}
+
+@media print {
+  @page { margin: 18mm; }
+
+  body {
+    background: #fff;
+  }
+
+  body * {
+    visibility: hidden !important;
+  }
+
+  .material-list,
+  .material-list *,
+  .material-card:has(.status-approved),
+  .material-card:has(.status-approved) * {
+    visibility: visible !important;
+  }
+
+  .material-list {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+
+  .material-list > :not(.material-card:has(.status-approved)) {
+    display: none !important;
+  }
+
+  .material-card:has(.status-approved) {
+    display: block;
+    break-inside: avoid;
+    margin: 0 0 12mm;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+  }
+
+  .material-card:has(.status-approved) pre {
+    max-height: none;
+    overflow: visible;
+    padding: 0;
+    background: transparent;
+    white-space: pre-wrap;
+  }
+
+  .material-card .review-actions,
+  .print-toolbar {
+    display: none !important;
+  }
+}
