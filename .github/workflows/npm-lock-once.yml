@@ -16,10 +16,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - name: Pin npm
+        run: npm install --global npm@11.6.2
       - name: Rebuild package lock
         working-directory: desktop
         run: |
-          rm -f package-lock.json
+          rm -rf node_modules package-lock.json
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
       - name: Commit package lock when changed
         run: |
