@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import collections.abc
-from typing import Any
+from typing import Any, Callable
 
 from langgraph.types import RetryPolicy, TimeoutPolicy
 
@@ -30,13 +29,9 @@ class NodeRegistry:
     """Small explicit registry that prevents silently replacing workflow nodes."""
 
     def __init__(self) -> None:
-        self._nodes: dict[str, collections.abc.Callable[..., Any]] = {}
+        self._nodes: dict[str, Callable[..., Any]] = {}
 
-    def register(
-        self,
-        name: str,
-        node: collections.abc.Callable[..., Any],
-    ) -> NodeRegistry:
+    def register(self, name: str, node: Callable[..., Any]) -> NodeRegistry:
         if not name or not name.strip():
             raise ValueError("node name must not be empty")
         if name in self._nodes:
@@ -44,7 +39,7 @@ class NodeRegistry:
         self._nodes[name] = node
         return self
 
-    def get(self, name: str) -> collections.abc.Callable[..., Any]:
+    def get(self, name: str) -> Callable[..., Any]:
         try:
             return self._nodes[name]
         except KeyError as exc:
