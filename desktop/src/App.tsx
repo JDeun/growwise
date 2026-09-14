@@ -8,10 +8,12 @@ import {
   createObservation,
   createResource,
   generateMaterial,
+  getBoardBookRecommendations,
   getCoreRuntimeStatus,
   getGrowthMap,
   getHealth,
   getInfantActivities,
+  getInfantObservationHints,
   listActivities,
   listChildren,
   listMaterials,
@@ -22,6 +24,7 @@ import {
   transitionActivity,
   type ActivityPlan,
   type ActivityStatus,
+  type BoardBookRecommendations,
   type ChildProfile,
   type ConversationAnswer,
   type ConversationSession,
@@ -31,6 +34,7 @@ import {
   type GrowthMap,
   type HealthResponse,
   type InfantActivitySuggestions,
+  type InfantObservationHints,
   type LearningLog,
   type MaterialKind,
   type MaterialStatus,
@@ -102,6 +106,10 @@ function App() {
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
   const [activityPlanBusy, setActivityPlanBusy] = useState(false);
+  const [observationHints, setObservationHints] = useState<InfantObservationHints | null>(null);
+  const [boardBooks, setBoardBooks] = useState<BoardBookRecommendations | null>(null);
+  const [infantGuidanceLoading, setInfantGuidanceLoading] = useState(false);
+  const [infantGuidanceError, setInfantGuidanceError] = useState<string | null>(null);
 
   const [conversation, setConversation] = useState<ConversationSession | null>(null);
   const [conversationAnswers, setConversationAnswers] = useState<ConversationAnswer[]>([]);
@@ -139,6 +147,9 @@ function App() {
     setSelectedResourceRefs([]);
     setSelectedActivityId("");
     setActivities(null);
+    setObservationHints(null);
+    setBoardBooks(null);
+    setInfantGuidanceError(null);
     setSearchResult(null);
     setConversation(null);
     setConversationAnswers([]);
@@ -377,6 +388,26 @@ function App() {
     }
   }
 
+  async function handleLoadInfantGuidance() {
+    if (!activeChild) return;
+    setInfantGuidanceLoading(true);
+    setInfantGuidanceError(null);
+    try {
+      const [hints, books] = await Promise.all([
+        getInfantObservationHints(activeChild.id),
+        getBoardBookRecommendations(activeChild.id),
+      ]);
+      setObservationHints(hints);
+      setBoardBooks(books);
+    } catch (error) {
+      setInfantGuidanceError(
+        error instanceof Error ? error.message : "영아 관찰 가이드를 불러오지 못했습니다.",
+      );
+    } finally {
+      setInfantGuidanceLoading(false);
+    }
+  }
+
   async function handleSaveActivity(title: string) {
     if (!activeChild) return;
     setActivityPlanBusy(true);
@@ -483,6 +514,56 @@ function App() {
           <section className="resource-section"><div className="resource-grid"><form className="resource-form" onSubmit={handleCreateResource}><p className="card-label">RESOURCE LIBRARY</p><h3>자료를 지식베이스에 넣습니다.</h3><label><span>종류</span><select value={resourceKind} onChange={(event) => setResourceKind(event.target.value as ResourceKind)}><option value="note">메모</option><option value="book">도서</option><option value="curriculum">교육과정</option><option value="web">웹 자료</option><option value="file">파일 메모</option></select></label><label><span>제목</span><input value={resourceTitle} onChange={(event) => setResourceTitle(event.target.value)} maxLength={500} /></label><label><span>내용</span><textarea value={resourceContent} onChange={(event) => setResourceContent(event.target.value)} placeholder="자료의 핵심 내용이나 메모" /></label><button className="primary-button" type="submit" disabled={resourceSaving}>{resourceSaving ? "저장 중…" : "자료 저장"}</button>{resourceError && <p className="form-error">{resourceError}</p>}</form><div className="resource-list"><p className="card-label">INDEXED RESOURCES</p><h3>{resources.length}건</h3>{resources.length === 0 ? <p className="muted">아직 이 아이와 연결된 자료가 없습니다.</p> : resources.map((resource) => <article className="resource-card" key={resource.id}><strong>{resource.title}</strong><span>{resource.kind}</span>{resource.content && <p>{resource.content}</p>}</article>)}</div></div></section>
 
           <section className="material-section"><div className="resource-grid"><form className="material-form" onSubmit={handleGenerateMaterial}><p className="card-label">MATERIAL GENERATOR</p><h3>필요한 학습 자료를 만듭니다.</h3><p className="muted">LLM이 없으면 template fallback으로 생성되며, 결과는 항상 부모 검토 대기 상태입니다.</p><label><span>형식</span><select value={materialKind} onChange={(event) => setMaterialKind(event.target.value as MaterialKind)}><option value="activity_guide">활동 가이드</option><option value="reading_activity">독서 활동</option><option value="english_card">영어 카드</option><option value="math_activity">수학 활동</option><option value="science_inquiry">과학 탐구</option><option value="writing_prompt">글쓰기</option><option value="field_trip">탐방 활동</option></select></label><label><span>주제</span><input value={materialTopic} onChange={(event) => setMaterialTopic(event.target.value)} placeholder="예: 고양이와 소리" /></label><label><span>목표(선택)</span><input value={materialGoal} onChange={(event) => setMaterialGoal(event.target.value)} placeholder="예: 함께 관찰하고 반응을 주고받기" /></label>{resources.length > 0 && <div><span className="field-label">근거 자료(선택)</span><div className="source-picker">{resources.map((resource) => { const ref = `resource:${resource.id}`; const active = selectedResourceRefs.includes(ref); return <button type="button" key={resource.id} className={`axis-chip ${active ? "active" : ""}`} aria-pressed={active} onClick={() => toggleResourceRef(resource.id)}>{resource.title}</button>; })}</div></div>}<button className="primary-button" type="submit" disabled={materialBusy}>{materialBusy ? "처리 중…" : "자료 생성"}</button>{materialError && <p className="form-error">{materialError}</p>}</form><div className="material-list"><p className="card-label">PARENT REVIEW</p><h3>{materials.length}건</h3>{materials.length === 0 ? <p className="muted">생성된 자료가 없습니다.</p> : materials.map((material) => <article className="material-card" key={material.id}><div className="material-meta"><strong>{material.title}</strong><span className={`status-badge status-${material.status}`}>{material.status}</span></div><pre>{material.content_markdown}</pre><small>{material.generator_mode}{material.source_refs.length > 0 ? ` · 근거 ${material.source_refs.length}건` : ""}</small>{material.status === "review_pending" && <div className="review-actions"><button type="button" className="primary-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "approved")}>승인</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "revision_requested")}>수정 요청</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "rejected")}>폐기</button></div>}</article>)}</div></div></section>
+
+          {activeChild.stage === "infant_0_2" && (
+            <section className="infant-guidance-section">
+              <div className="activity-heading">
+                <div>
+                  <p className="card-label">INFANT OBSERVATION GUIDE</p>
+                  <h3>관찰 힌트와 보드북 연결</h3>
+                  <p className="muted">진단 체크리스트가 아니라 일상에서 무엇을 살펴볼지 돕습니다.</p>
+                </div>
+                <button
+                  className="quiet-button"
+                  type="button"
+                  onClick={() => void handleLoadInfantGuidance()}
+                  disabled={infantGuidanceLoading}
+                >
+                  {infantGuidanceLoading ? "불러오는 중…" : "관찰 힌트·책 보기"}
+                </button>
+              </div>
+              {infantGuidanceError && <p className="form-error">{infantGuidanceError}</p>}
+              {(observationHints || boardBooks) && (
+                <div className="resource-grid">
+                  <div className="resource-list">
+                    <p className="card-label">OBSERVATION HINTS</p>
+                    <h3>{observationHints?.hints.length ?? 0}개 영역</h3>
+                    {observationHints?.hints.map((hint) => (
+                      <article className="resource-card" key={hint.domain}>
+                        <strong>{hint.domain}</strong>
+                        <p>{hint.cue}</p>
+                        <small>{hint.rationale}</small>
+                      </article>
+                    ))}
+                    {observationHints && (
+                      <p className="muted">{observationHints.source} · 진단용 아님</p>
+                    )}
+                  </div>
+                  <div className="resource-list">
+                    <p className="card-label">BOARD BOOKS</p>
+                    <h3>{boardBooks?.recommendations.length ?? 0}권</h3>
+                    {boardBooks?.recommendations.map((book) => (
+                      <article className="resource-card" key={`${book.resource_id ?? book.title}-${book.title}`}>
+                        <strong>{book.title}</strong>
+                        <p>{book.reason}</p>
+                        <small>{book.read_aloud_tip}</small>
+                      </article>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="activity-section"><div className="activity-heading"><div><p className="card-label">ACTIVITY INVITATIONS</p><h3>다음 활동 후보</h3><p className="muted">추천은 의무가 아닙니다. 부모가 선택한 후보만 활동 목록에 저장됩니다.</p></div><button className="quiet-button" type="button" onClick={() => void handleLoadActivities()} disabled={activitiesLoading}>{activitiesLoading ? "불러오는 중…" : "활동 후보 보기"}</button></div>{activitiesError && <p className="form-error">{activitiesError}</p>}{activities && <div className="activity-grid">{activities.suggestions.map((suggestion) => <article className="activity-card" key={`${suggestion.title}-${suggestion.description}`}><h4>{suggestion.title}</h4><p>{suggestion.description}</p>{suggestion.observation_cue && <small>{suggestion.observation_cue}</small>}<button type="button" className="quiet-button activity-save" disabled={activityPlanBusy} onClick={() => void handleSaveActivity(suggestion.title)}>활동으로 저장</button></article>)}</div>}</section>
 

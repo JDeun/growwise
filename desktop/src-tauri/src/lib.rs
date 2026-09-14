@@ -416,6 +416,38 @@ async fn get_infant_activities(child_id: String) -> Result<InfantActivitySuggest
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+async fn get_infant_observation_hints(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/infant-observation-hints"
+        ))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "영아 관찰 힌트 조회 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn get_board_book_recommendations(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/board-books?limit=3"
+        ))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "보드북 추천 조회 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -446,7 +478,9 @@ pub fn run() {
             list_materials,
             review_material,
             get_growth_map,
-            get_infant_activities
+            get_infant_activities,
+            get_infant_observation_hints,
+            get_board_book_recommendations
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
