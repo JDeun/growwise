@@ -8,6 +8,7 @@ import {
   createConversation,
   createObservation,
   createResource,
+  exportBackup,
   generateMaterial,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
@@ -15,6 +16,7 @@ import {
   getHealth,
   getInfantActivities,
   getInfantObservationHints,
+  importBackup,
   listActivities,
   listBackups,
   listChildren,
@@ -512,6 +514,35 @@ function App() {
     }
   }
 
+  async function handleExportBackup(archiveName: string) {
+    setBackupBusy(true);
+    setBackupError(null);
+    try {
+      await exportBackup(archiveName);
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "백업 내보내기에 실패했습니다.");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
+  async function handleImportBackup() {
+    const confirmed = window.confirm(
+      "외부 GrowWise ZIP을 가져오면 현재 기록을 교체합니다. 가져오기 직전에 현재 상태를 자동 보호 백업합니다. 계속할까요?",
+    );
+    if (!confirmed) return;
+    setBackupBusy(true);
+    setBackupError(null);
+    try {
+      const result = await importBackup();
+      if (result) await refresh();
+    } catch (error) {
+      setBackupError(error instanceof Error ? error.message : "외부 백업 가져오기에 실패했습니다.");
+    } finally {
+      setBackupBusy(false);
+    }
+  }
+
   async function handleRestoreBackup(archiveName: string) {
     const confirmed = window.confirm(
       "현재 기록을 이 백업으로 교체합니다. 복원 전에 현재 상태를 별도 백업하는 것을 권장합니다. 계속할까요?",
@@ -679,9 +710,14 @@ function App() {
             <h2>백업과 복원</h2>
             <p className="muted">Markdown 정본을 portable ZIP으로 보관하고, 복원 시 검색 인덱스를 다시 만듭니다.</p>
           </div>
-          <button className="quiet-button" type="button" onClick={() => void handleCreateBackup()} disabled={!isConnected || backupBusy}>
-            {backupBusy ? "처리 중…" : "지금 백업"}
-          </button>
+          <div className="review-actions">
+            <button className="quiet-button" type="button" onClick={() => void handleImportBackup()} disabled={!isConnected || backupBusy}>
+              외부 ZIP 가져오기
+            </button>
+            <button className="quiet-button" type="button" onClick={() => void handleCreateBackup()} disabled={!isConnected || backupBusy}>
+              {backupBusy ? "처리 중…" : "지금 백업"}
+            </button>
+          </div>
         </div>
         {backupError && <p className="form-error">{backupError}</p>}
         {backups.length === 0 ? (
@@ -695,7 +731,10 @@ function App() {
                   <span className="status-badge">{Math.max(1, Math.round(backup.size_bytes / 1024))} KB</span>
                 </div>
                 <p>{new Date(backup.modified_at).toLocaleString("ko-KR")}</p>
-                <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => void handleRestoreBackup(backup.archive)}>이 백업 복원</button>
+                <div className="review-actions">
+                  <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => void handleExportBackup(backup.archive)}>ZIP 내보내기</button>
+                  <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => void handleRestoreBackup(backup.archive)}>이 백업 복원</button>
+                </div>
               </article>
             ))}
           </div>
