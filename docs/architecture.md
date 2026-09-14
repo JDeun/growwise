@@ -3,37 +3,81 @@
 > **형태: 크로스플랫폼 데스크탑 앱(Tauri, 개인용 우선).** Windows·macOS에 설치해
 > 오프라인 우선으로 동작한다. 홈서버·상시 백엔드는 1차 목표가 아니다.
 
+## 최상위 원칙: LLM-enhanced, not LLM-dependent
+
+GrowWise는 LLM을 적극 활용하지만 **LLM이 없어도 핵심 기능이 동작해야 한다.** Ollama가
+설치되지 않았거나 모델이 내려가 있거나 추론이 timeout/실패해도 앱 전체가 사용 불능이
+되어서는 안 된다.
+
+모든 주요 기능은 두 층으로 설계한다.
+
+```text
+Deterministic Core Path
+    ├─ CRUD / 기록 / 자료 관리
+    ├─ Markdown SoT / SQLite projection
+    ├─ 규칙 기반 validation
+    ├─ lexical / metadata search
+    ├─ 성장 지도 projection
+    ├─ activity / material 상태 관리
+    ├─ conversation session persistence
+    └─ export
+          ↓ optional
+AI Enhancement Layer
+    ├─ 자동 태깅·요약
+    ├─ semantic embedding search
+    ├─ query rewrite
+    ├─ grounded synthesis
+    ├─ 개인화 활동 제안
+    └─ 생성·자동 리뷰
+```
+
+### Degraded mode 계약
+
+- `llm_features_enabled=false`에서도 core CRUD/search/export는 정상 동작한다.
+- 실행 중 provider가 죽어도 현재 원본 기록/자료 저장은 실패하지 않는다.
+- embedding 실패 시 lexical/metadata 검색으로 자동 강등한다.
+- query rewrite 실패 시 원래 사용자 질의를 그대로 사용한다.
+- AI 요약/생성 실패는 원본 데이터 손실로 이어지지 않는다.
+- 기능이 축소됐을 때 UI는 `AI 보강 기능 사용 불가`를 표시하되 앱 전체 오류처럼 표현하지
+  않는다.
+- AI 산출물은 항상 파생 데이터이며 Source of Truth가 아니다.
+- CI에는 **LLM 없이도 주요 use case가 통과하는 테스트**를 유지한다.
+
 ## 핵심 실행 구조
 
-GrowWise는 **LangChain + LangGraph**를 공식 오케스트레이션 기반으로 사용한다.
+GrowWise는 **LangChain + LangGraph**를 공식 오케스트레이션 기반으로 사용한다. 단, 이들은
+GrowWise의 도메인 코어를 대체하지 않는다.
 
 - **LangChain**: 모델 공급자, 프롬프트, structured output, retriever, tool/adapter 연결.
 - **LangGraph**: 요청 라우팅, 상태 전이, 검토 게이트, 재시도·복구, human-in-the-loop,
   checkpoint/resume을 담당하는 실행 하네스.
 - LangGraph를 이유 없이 멀티에이전트화하는 용도로 쓰지 않는다. 기능별 전문 노드는 둘 수
   있지만 기본은 명시적 상태 머신과 작은 책임의 노드 조합이다.
+- deterministic core 기능은 LangChain/LLM 없이 호출 가능해야 한다.
 
 ```text
 Desktop UI (Tauri + React/TypeScript)
         ↓ typed IPC / localhost API
 Application Core (Python / FastAPI sidecar)
         ↓
-LangGraph Workflow
-        ├─ request normalization / routing
-        ├─ context builder
-        │    ├─ Local RAG
-        │    └─ External Adapters (optional, cached)
-        ├─ LangChain Model Provider
-        ├─ Generator / Coach
-        ├─ Automated Review
-        ├─ Parent Review Gate (interrupt / resume)
-        └─ approved artifact
-              ├─ Markdown SoT + SQLite projection
-              └─ HTML/CSS → PDF export
+Use-case / Domain Core
+        ├─ deterministic path ───────────────┐
+        └─ optional LangGraph Workflow      │
+             ├─ context builder             │
+             │    ├─ Local RAG              │
+             │    └─ External Adapters      │
+             ├─ optional Model Provider     │
+             ├─ Generator / Enricher        │
+             ├─ Automated Review            │
+             └─ Parent Review Gate          │
+                                             ↓
+                          Markdown SoT + SQLite projection
+                                             ↓
+                                       export / UI
 ```
 
-외부 API는 생성 뒤에 붙는 후처리가 아니라 **context-building 단계의 선택적 데이터 소스**다.
-인터넷이 없어도 기본 생성·기록·조회는 동작해야 한다.
+외부 API와 LLM은 모두 **선택적 보강 계층**이다. 인터넷·모델이 없어도 기록·자료 관리·조회,
+기본 검색, 상태 관리, projection, export는 동작해야 한다.
 
 ## 상태 머신
 
@@ -49,7 +93,8 @@ REVIEW_PENDING
 ```
 
 - `APPROVED` 이전 산출물은 아이에게 노출하거나 최종 PDF로 배포할 수 없다.
-- automated review는 사실성·연령 적합성·PII·scaffold 위반 등을 검사한다.
+- automated review가 unavailable이면 이를 숨기지 않고 Parent Review로 넘기되 자동 검토
+  미수행 상태를 명시한다.
 - parent review는 LangGraph interrupt/resume으로 구현해 앱을 닫았다 열어도 이어갈 수 있게 한다.
 - 모든 전이는 audit 가능한 event/log를 남긴다.
 
@@ -68,11 +113,12 @@ REVIEW_PENDING
 | Adapters | 도서·지도·교육과정 등 외부 데이터 경계 | `src/growwise/adapters/` |
 | Model | LangChain 기반 모델 공급자 추상화 | `src/growwise/model/` |
 | Domain | Pydantic domain model, enum, invariant | `src/growwise/domain/` |
+| Services | deterministic use case + optional AI enrichment | `src/growwise/services/` |
 
 ## Model Provider
 
 모든 생성·검토·임베딩 호출은 특정 공급자 SDK를 직접 호출하지 않고 LangChain-compatible
-provider 인터페이스 뒤에서 수행한다.
+provider 인터페이스 뒤에서 수행한다. **Provider는 nullable/optional dependency**다.
 
 초기 어댑터:
 
@@ -84,22 +130,30 @@ provider 인터페이스 뒤에서 수행한다.
 기능별 모델을 분리할 수 있다(`generation`, `review`, `embedding`). 원격 공급자는 부모가
 명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을 통과해야 한다.
 
+### Provider failure policy
+
+- startup 시 모델 연결 실패가 앱 startup 실패로 이어지지 않는다.
+- 호출에는 timeout/circuit breaker를 둔다.
+- 실패 횟수가 임계치를 넘으면 일정 시간 provider를 우회한다.
+- 재연결은 background health probe로 시도할 수 있다.
+- core use case는 provider 결과를 필수 반환값으로 요구하지 않는다.
+
 ## LangGraph 설계 원칙
 
 ### 기본 그래프
 
 ```text
 START
- → normalize
- → route
- → gather_context
- → generate
- → validate_structure
- → review_safety
- → review_grounding
+ → normalize [deterministic]
+ → route [deterministic first]
+ → gather_context [deterministic retrieval available]
+ → generate? [optional LLM]
+ → validate_structure [deterministic]
+ → review_safety [deterministic + optional LLM]
+ → review_grounding [deterministic + optional LLM]
  → parent_review [interrupt]
       ├─ approve → persist → export? → END
-      ├─ revise  → generate
+      ├─ revise  → generate/fallback edit
       └─ reject  → persist_rejection → END
 ```
 
@@ -109,6 +163,7 @@ START
 - structured output은 JSON schema/Pydantic으로 검증한다.
 - 재시도는 실패 유형별로 제한하고 무한 루프를 금지한다.
 - deterministic node와 LLM node를 구분한다.
+- **LLM node 실패가 가능한 경우 deterministic fallback edge를 둔다.**
 - checkpoint를 통해 crash/restart 후 재개한다.
 - idempotency key로 중복 저장·중복 export를 방지한다.
 - timeout/cancellation/circuit breaker를 공급자 계층에 둔다.
@@ -124,6 +179,8 @@ START
 - age-inappropriate content
 - answer-giving/scaffold violation
 - provider outage/timeout
+- provider absent / model not installed
+- embedding outage
 - corrupt Markdown/SQLite index
 - offline mode
 - duplicate/replayed request
@@ -132,6 +189,7 @@ START
 
 - **Markdown = Source of Truth**
 - **SQLite = 재생성 가능한 projection/index**
+- **LLM output = optional derived metadata/artifact**
 - 모든 문서는 YAML frontmatter로 최소 메타데이터를 가진다.
 
 ```yaml
@@ -145,26 +203,27 @@ updated_at: <ISO-8601>
 ---
 ```
 
-SQLite 전체 삭제 뒤 Markdown만으로 동일한 projection을 복구할 수 있어야 한다.
+SQLite 전체 삭제 뒤 Markdown만으로 동일한 projection을 복구할 수 있어야 한다. AI 파생
+메타데이터가 없어져도 원본 기록의 의미와 기본 기능은 유지되어야 한다.
 
 ## 기술 스택
 
 - Desktop: Tauri 2 + React + TypeScript + Vite
 - Python: 3.12+, uv, Pydantic v2, FastAPI
-- Orchestration: **LangChain + LangGraph**
-- Persistence: Markdown + SQLite(SQLAlchemy 2 또는 SQLModel)
-- Local model default: Ollama
-- RAG: LangChain retriever abstraction; 초기에는 작은 로컬 index, 필요 시 Chroma
+- Orchestration: **LangChain + LangGraph (optional AI workflow layer)**
+- Persistence: Markdown + SQLite
+- Local model default: Ollama, **optional**
+- RAG: lexical/metadata baseline + optional embedding hybrid retrieval
 - PDF: WeasyPrint 기본, Typst 보조
 - Test: pytest + Vitest + Playwright
 - Quality: Ruff + mypy + ESLint + Prettier
-- CI: GitHub Actions Windows + macOS 동시 검증
+- CI: GitHub Actions Windows + macOS + Linux
 
 ## 데스크탑 패키징
 
 Tauri가 Python 코어를 sidecar로 실행한다. Python 코어는 PyInstaller/Nuitka 등을 검증해
-플랫폼별 번들을 만든다. 대형 모델은 앱과 분리해 최초 실행 시 다운로드하고 checksum으로
-무결성을 검증한다.
+플랫폼별 번들을 만든다. 모델은 앱과 분리하며 **모델 설치를 앱 실행의 전제조건으로 두지
+않는다.** 모델이 없는 첫 실행에서도 기본 기능을 사용할 수 있어야 한다.
 
 WeasyPrint의 Windows 네이티브 의존성은 초기 CI spike에서 반드시 검증한다. 실패하면
 동일한 export interface 아래 Typst/다른 renderer로 교체할 수 있어야 한다.
