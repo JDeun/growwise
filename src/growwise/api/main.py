@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 from growwise.config import Settings
 from growwise.domain import ChildProfile, LearningLog, Stage
 from growwise.model import ModelProvider, create_model_provider
-from growwise.services import NaturalLanguageSearch, ObservationEnricher
+from growwise.services import InfantActivityService, NaturalLanguageSearch, ObservationEnricher
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
 
@@ -124,6 +124,36 @@ def search_child_context(
 ) -> dict:
     service = NaturalLanguageSearch(store.index, provider=get_model_provider())
     return service.search(child_id=str(child_id), query=q, limit=limit).model_dump(mode="json")
+
+
+@app.get("/v1/children/{child_id}/infant-activities")
+def suggest_infant_activities(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+    limit: Annotated[int, Query(ge=1, le=5)] = 3,
+) -> dict:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+
+    child = ChildProfile.model_validate(child_payload)
+    if child.stage is not Stage.INFANT_0_2:
+        raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")
+
+    logs = store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
+    recent_observations = [
+        str(item.get("parent_observation", ""))
+        for item in logs[:8]
+        if item.get("parent_observation")
+    ]
+    service = InfantActivityService(provider=get_model_provider())
+    result = service.suggest(
+        age_months=child.age_months,
+        recent_observations=recent_observations,
+        interests=child.interests,
+        limit=limit,
+    )
+    return result.model_dump(mode="json")
 
 
 def run() -> None:
