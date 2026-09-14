@@ -26,9 +26,9 @@ struct ChildCreateInput { nickname: String, stage: String, age_months: Option<u1
 #[derive(Debug, Serialize, Deserialize)]
 struct ChildProfileDto { id: String, nickname: String, stage: String, age_months: Option<u16>, interests: Vec<String> }
 #[derive(Debug, Serialize, Deserialize)]
-struct ObservationCreateInput { child_id: String, observation: String, experience_axes: Vec<String> }
+struct ObservationCreateInput { child_id: String, observation: String, experience_axes: Vec<String>, activity_plan_id: Option<String> }
 #[derive(Debug, Serialize, Deserialize)]
-struct LearningLogDto { id: String, child_id: String, parent_observation: String, tags: Vec<String>, experience_axes: Vec<String>, interest: Option<String>, next_activity: Option<String>, created_at: Option<String> }
+struct LearningLogDto { id: String, child_id: String, activity_plan_id: Option<String>, parent_observation: String, tags: Vec<String>, experience_axes: Vec<String>, interest: Option<String>, next_activity: Option<String>, created_at: Option<String> }
 #[derive(Debug, Serialize, Deserialize)]
 struct GrowthAxisDto { axis: String, state: String, observation_count: u32 }
 #[derive(Debug, Serialize, Deserialize)]
@@ -98,6 +98,11 @@ async fn transition_activity(activity_id: String, status: String, parent_note: O
     ensure_success(response, "활동 상태 변경 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 #[tauri::command]
+async fn list_activity_observations(activity_id: String) -> Result<Vec<LearningLogDto>, String> {
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/activities/{activity_id}/observations")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "활동 관찰 기록 조회 실패").await?.json::<Vec<LearningLogDto>>().await.map_err(|error| error.to_string())
+}
+#[tauri::command]
 async fn search_child_context(child_id: String, query: String) -> Result<serde_json::Value, String> {
     let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/search")).query(&[("q", query.as_str()), ("limit", "20")]).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "자연어 검색 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
@@ -164,9 +169,9 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             core_health, core_runtime_status, create_child, list_children, create_observation,
             list_observations, create_activity, list_activities, transition_activity,
-            search_child_context, create_conversation, append_conversation_turn,
-            create_resource, list_resources, generate_material, list_materials, review_material,
-            get_growth_map, get_infant_activities
+            list_activity_observations, search_child_context, create_conversation,
+            append_conversation_turn, create_resource, list_resources, generate_material,
+            list_materials, review_material, get_growth_map, get_infant_activities
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
