@@ -16,6 +16,8 @@ from growwise.config import Settings
 from growwise.domain import (
     ChildProfile,
     LearningLog,
+    ResourceKind,
+    ResourceRecord,
     Stage,
     WorkflowRun,
     WorkflowStatus,
@@ -38,6 +40,20 @@ class ChildCreateRequest(BaseModel):
 class ObservationRequest(BaseModel):
     child_id: UUID
     observation: str = Field(min_length=1, max_length=10_000)
+
+
+class ResourceCreateRequest(BaseModel):
+    kind: ResourceKind
+    title: str = Field(min_length=1, max_length=500)
+    child_id: UUID | None = None
+    summary: str | None = None
+    content: str | None = None
+    source_url: str | None = None
+    source_name: str | None = None
+    author: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    stage_tags: list[Stage] = Field(default_factory=list)
+    provenance: dict[str, str] = Field(default_factory=dict)
 
 
 @lru_cache
@@ -85,6 +101,27 @@ def create_child(
     profile = ChildProfile(**request.model_dump())
     store.save(profile)
     return profile
+
+
+@app.post("/v1/resources", response_model=ResourceRecord)
+def create_resource(
+    request: ResourceCreateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> ResourceRecord:
+    resource = ResourceRecord(**request.model_dump())
+    store.save(resource)
+    return resource
+
+
+@app.get("/v1/resources")
+def list_resources(
+    store: Annotated[EntityStore, Depends(get_store)],
+    child_id: UUID | None = None,
+) -> list[dict]:
+    return store.index.list_entities(
+        entity_type="resource",
+        child_id=str(child_id) if child_id else None,
+    )
 
 
 @app.post("/v1/observations", response_model=LearningLog)
