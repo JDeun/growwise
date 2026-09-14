@@ -22,51 +22,22 @@ struct CoreRuntimeStatus { started_by_desktop: bool }
 
 #[derive(Debug, Serialize, Deserialize)]
 struct ChildCreateInput { nickname: String, stage: String, age_months: Option<u16>, interests: Vec<String> }
-
 #[derive(Debug, Serialize, Deserialize)]
 struct ChildProfileDto { id: String, nickname: String, stage: String, age_months: Option<u16>, interests: Vec<String> }
-
 #[derive(Debug, Serialize, Deserialize)]
 struct ObservationCreateInput { child_id: String, observation: String, experience_axes: Vec<String> }
-
 #[derive(Debug, Serialize, Deserialize)]
-struct LearningLogDto {
-    id: String,
-    child_id: String,
-    parent_observation: String,
-    tags: Vec<String>,
-    experience_axes: Vec<String>,
-    interest: Option<String>,
-    next_activity: Option<String>,
-    created_at: Option<String>,
-}
-
+struct LearningLogDto { id: String, child_id: String, parent_observation: String, tags: Vec<String>, experience_axes: Vec<String>, interest: Option<String>, next_activity: Option<String>, created_at: Option<String> }
 #[derive(Debug, Serialize, Deserialize)]
 struct GrowthAxisDto { axis: String, state: String, observation_count: u32 }
-
 #[derive(Debug, Serialize, Deserialize)]
 struct GrowthMapDto { child_id: String, period_days: u32, total_logs_in_period: u32, tagged_logs_in_period: u32, axes: Vec<GrowthAxisDto> }
-
 #[derive(Debug, Serialize, Deserialize)]
 struct ActivitySuggestionDto { title: String, description: String, materials: Vec<String>, observation_cue: Option<String>, tags: Vec<String> }
-
 #[derive(Debug, Serialize, Deserialize)]
 struct InfantActivitySuggestionsDto { suggestions: Vec<ActivitySuggestionDto> }
-
 #[derive(Debug, Serialize, Deserialize)]
-struct ResourceCreateInput {
-    kind: String,
-    title: String,
-    child_id: Option<String>,
-    summary: Option<String>,
-    content: Option<String>,
-    source_url: Option<String>,
-    source_name: Option<String>,
-    author: Option<String>,
-    tags: Vec<String>,
-    stage_tags: Vec<String>,
-    provenance: serde_json::Value,
-}
+struct ResourceCreateInput { kind: String, title: String, child_id: Option<String>, summary: Option<String>, content: Option<String>, source_url: Option<String>, source_name: Option<String>, author: Option<String>, tags: Vec<String>, stage_tags: Vec<String>, provenance: serde_json::Value }
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder().timeout(std::time::Duration::from_millis(8000)).build().map_err(|error| error.to_string())
@@ -120,39 +91,50 @@ async fn search_child_context(child_id: String, query: String) -> Result<serde_j
 
 #[tauri::command]
 async fn create_conversation(child_id: String) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/conversations"))
-        .json(&serde_json::json!({"title": null}))
-        .send().await.map_err(|error| error.to_string())?;
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children/{child_id}/conversations")).json(&serde_json::json!({"title": null})).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "대화 세션 생성 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn append_conversation_turn(session_id: String, question: String) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/conversations/{session_id}/turns"))
-        .json(&serde_json::json!({"question": question, "limit": 8}))
-        .send().await.map_err(|error| error.to_string())?;
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/conversations/{session_id}/turns")).json(&serde_json::json!({"question": question, "limit": 8})).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "후속 질문 처리 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn create_resource(request: ResourceCreateInput) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/resources"))
-        .json(&request)
-        .send().await.map_err(|error| error.to_string())?;
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/resources")).json(&request).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "자료 저장 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
 async fn list_resources(child_id: Option<String>) -> Result<serde_json::Value, String> {
     let mut request = client()?.get(format!("{CORE_BASE_URL}/v1/resources"));
-    if let Some(id) = child_id.as_deref() {
-        request = request.query(&[("child_id", id)]);
-    }
+    if let Some(id) = child_id.as_deref() { request = request.query(&[("child_id", id)]); }
     let response = request.send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "자료 목록 조회 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn generate_material(child_id: String, kind: String, topic: String, goal: Option<String>) -> Result<serde_json::Value, String> {
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
+        .json(&serde_json::json!({"kind": kind, "topic": topic, "goal": goal, "source_refs": []}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "학습 자료 생성 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn list_materials(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "생성 자료 목록 조회 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn review_material(material_id: String, status: String, note: Option<String>) -> Result<serde_json::Value, String> {
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/materials/{material_id}/review"))
+        .json(&serde_json::json!({"status": status, "note": note}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 검토 상태 변경 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 
 #[tauri::command]
@@ -177,19 +159,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
-            core_health,
-            core_runtime_status,
-            create_child,
-            list_children,
-            create_observation,
-            list_observations,
-            search_child_context,
-            create_conversation,
-            append_conversation_turn,
-            create_resource,
-            list_resources,
-            get_growth_map,
-            get_infant_activities
+            core_health, core_runtime_status, create_child, list_children, create_observation,
+            list_observations, search_child_context, create_conversation, append_conversation_turn,
+            create_resource, list_resources, generate_material, list_materials, review_material,
+            get_growth_map, get_infant_activities
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
