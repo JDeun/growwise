@@ -1,139 +1,177 @@
-# 아키텍처 (초안)
+# 아키텍처
 
-> **형태: 크로스플랫폼 데스크탑 앱 (Tauri, 개인용 우선).** 홈서버·Docker·상시 백엔드
-> 배포는 목표가 아니다. **Windows·macOS**에 설치해 오프라인 우선으로 동작하는 개인
-> 홈스쿨링 앱이 1차 목표다. UI 셸은 **Tauri**로 확정. 기관용 확장은 나중 단계로 미뤄
-> 둔다([roadmap.md](roadmap.md)).
+> **형태: 크로스플랫폼 데스크탑 앱(Tauri, 개인용 우선).** Windows·macOS에 설치해
+> 오프라인 우선으로 동작한다. 홈서버·상시 백엔드는 1차 목표가 아니다.
 
-## 파이프라인
+## 핵심 실행 구조
 
+GrowWise는 **LangChain + LangGraph**를 공식 오케스트레이션 기반으로 사용한다.
+
+- **LangChain**: 모델 공급자, 프롬프트, structured output, retriever, tool/adapter 연결.
+- **LangGraph**: 요청 라우팅, 상태 전이, 검토 게이트, 재시도·복구, human-in-the-loop,
+  checkpoint/resume을 담당하는 실행 하네스.
+- LangGraph를 이유 없이 멀티에이전트화하는 용도로 쓰지 않는다. 기능별 전문 노드는 둘 수
+  있지만 기본은 명시적 상태 머신과 작은 책임의 노드 조합이다.
+
+```text
+Desktop UI (Tauri + React/TypeScript)
+        ↓ typed IPC / localhost API
+Application Core (Python / FastAPI sidecar)
+        ↓
+LangGraph Workflow
+        ├─ request normalization / routing
+        ├─ context builder
+        │    ├─ Local RAG
+        │    └─ External Adapters (optional, cached)
+        ├─ LangChain Model Provider
+        ├─ Generator / Coach
+        ├─ Automated Review
+        ├─ Parent Review Gate (interrupt / resume)
+        └─ approved artifact
+              ├─ Markdown SoT + SQLite projection
+              └─ HTML/CSS → PDF export
 ```
-Desktop UI (Tauri)
-    ->  App Core (Python 사이드카, 로컬 127.0.0.1)
-        ->  Request Router
-            ->  Generator Modules
-                ->  Local RAG
-                    ->  Markdown / SQLite Storage (로컬)
-                        ->  PDF Export
-                            ->  External API Adapters (선택적, 오프라인 시 우회)
+
+외부 API는 생성 뒤에 붙는 후처리가 아니라 **context-building 단계의 선택적 데이터 소스**다.
+인터넷이 없어도 기본 생성·기록·조회는 동작해야 한다.
+
+## 상태 머신
+
+생성 산출물의 상태는 UI 관례가 아니라 도메인 규칙으로 강제한다.
+
+```text
+DRAFT
+  ↓
+REVIEW_PENDING
+  ├─→ REVISION_REQUESTED ─→ DRAFT
+  ├─→ REJECTED
+  └─→ APPROVED ─→ ARCHIVED
 ```
 
-입력 유형을 라우터가 분류해 적절한 생성 모듈로 보내고, 생성 모듈은 로컬 RAG로
-근거 자료를 참고해 결과를 만든다. 결과와 학습 로그는 **데스크탑 로컬 저장소**에 남고,
-필요 시 PDF로 출력된다. 외부 자료(도서 메타데이터, 지도 등)는 어댑터를 통해서만
-접근하며, 외부 연결이 없어도 기본 생성·기록·조회는 동작한다.
+- `APPROVED` 이전 산출물은 아이에게 노출하거나 최종 PDF로 배포할 수 없다.
+- automated review는 사실성·연령 적합성·PII·scaffold 위반 등을 검사한다.
+- parent review는 LangGraph interrupt/resume으로 구현해 앱을 닫았다 열어도 이어갈 수 있게 한다.
+- 모든 전이는 audit 가능한 event/log를 남긴다.
 
-## 모듈
+## 모듈 경계
 
-| 모듈 | 책임 | 소스 경로 |
+| 모듈 | 책임 | 경로 |
 | --- | --- | --- |
-| App Core | 데스크탑 UI ↔ Python 코어(로컬 사이드카 127.0.0.1) 연결, IPC, 세션 | `src/growwise/api/` |
-| Request Router | 입력 유형 분류 → 생성 모듈 라우팅 | `src/growwise/router/` |
-| Reading Material Generator | 독서 활동지 생성 | `src/growwise/generators/` |
-| English Card Generator | 영어 대화 카드 생성 | `src/growwise/generators/` |
-| Tour Activity Generator | 탐방/여행 활동지 생성 | `src/growwise/generators/` |
-| Math Play Generator | 수학 놀이 활동 생성 | `src/growwise/generators/` |
-| Science Activity Generator | 과학 탐구 활동 생성 | `src/growwise/generators/` |
-| Learning Log Writer | 학습 로그 기록 | `src/growwise/storage/` |
-| Parent Review Layer | 노출 전 검토(난이도·민감성·PII) | `src/growwise/review/` |
-| Local RAG | 로컬 근거 자료 검색 | `src/growwise/rag/` |
-| Storage | Markdown(SoT)/SQLite(인덱스) 저장·조회 | `src/growwise/storage/` |
-| PDF Export | 인쇄 품질 문서 출력 | `src/growwise/export/` |
-| External API Adapters | 외부 자료 접근(경계 통제) | `src/growwise/adapters/` |
-| **Model Provider** | **LLM 추상화 — 모델·공급자 교체·이식** | `src/growwise/model/` |
+| App/API | Tauri ↔ Python 코어, IPC/API, health/session | `src/growwise/api/` |
+| Workflow | LangGraph state/schema/nodes/edges/checkpoint | `src/growwise/workflows/` |
+| Router | 요청 유형·연령·모드 분류 | `src/growwise/router/` |
+| Generators | 독서·영어·탐방·수학·과학·글쓰기·영아 활동 생성 | `src/growwise/generators/` |
+| Review | 자동 검토 + 부모 검토 정책 | `src/growwise/review/` |
+| RAG | 교육과정·근거자료 검색·citation provenance | `src/growwise/rag/` |
+| Storage | Markdown SoT / SQLite projection / rebuild | `src/growwise/storage/` |
+| Export | HTML/CSS 및 PDF 출력 | `src/growwise/export/` |
+| Adapters | 도서·지도·교육과정 등 외부 데이터 경계 | `src/growwise/adapters/` |
+| Model | LangChain 기반 모델 공급자 추상화 | `src/growwise/model/` |
+| Domain | Pydantic domain model, enum, invariant | `src/growwise/domain/` |
 
-## 설계 원칙
+## Model Provider
 
-- **단순한 라우터 먼저**: 초기에는 복잡한 멀티에이전트보다 입력 유형을 보고 독서·영어·
-  탐방·수학·과학·로그 모듈로 보내는 단순 라우터가 적합하다.
-- **로컬 우선**: 기본 자료 생성·기록 조회는 오프라인에서 동작한다. 외부 API는 어댑터
-  계층으로 격리해 경계를 통제한다([privacy-and-safety.md](privacy-and-safety.md)).
-- **검토 계층 분리**: 생성과 노출 사이에 Parent Review Layer를 반드시 둔다.
-- **모델 교체 가능**: 생성 모듈은 특정 LLM/공급자에 직접 묶이지 않고 Model Provider
-  인터페이스로만 호출한다(아래).
+모든 생성·검토·임베딩 호출은 특정 공급자 SDK를 직접 호출하지 않고 LangChain-compatible
+provider 인터페이스 뒤에서 수행한다.
 
-## 모델 공급자 추상화 (교체·이식 가능)
+초기 어댑터:
 
-**어떤 AI 모델을 쓰든 언제든 교체·이식할 수 있어야 한다.** 특정 모델/공급자에 종속되지
-않도록, 생성·코치·RAG는 모두 얇은 **Model Provider 인터페이스**(예: `generate()`,
-`embed()`)를 통해서만 모델을 부른다.
+1. Ollama(local default)
+2. llama.cpp/OpenAI-compatible local endpoint
+3. OpenAI-compatible remote endpoint
+4. 필요 시 Anthropic/Google 등 추가
 
-- **공급자 플러그블**: 로컬(예: llama.cpp/GGUF, Ollama, MLX)과 원격(OpenAI/Anthropic/
-  기타 호환 API)을 같은 인터페이스 뒤에 두고 **설정으로 교체**한다. 새 공급자 추가는
-  어댑터 하나 구현으로 끝난다.
-- **로컬 기본**: 프라이버시·오프라인 우선이라 기본값은 로컬 모델. 원격은 선택(부모가
-  명시적으로 켤 때만), 아동 데이터는 [privacy-and-safety.md](privacy-and-safety.md) 원칙을
-  따른다.
-- **설정 주도**: 모델 id·엔드포인트·키는 설정/`.env`로 두고 코드에 하드코딩하지 않는다.
-  기능별로 다른 모델을 지정할 수 있다(예: 생성=A, 임베딩=B).
-- **폴백 체인**: 한 공급자 실패 시 다음 공급자로 자동 전환할 수 있게 설계한다.
+기능별 모델을 분리할 수 있다(`generation`, `review`, `embedding`). 원격 공급자는 부모가
+명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을 통과해야 한다.
 
-## 기술 스택 후보
+## LangGraph 설계 원칙
 
-아직 확정 전이며, 후보를 적어 둔다. 첫 마일스톤에서 하나로 고정한다
-([roadmap.md](roadmap.md) 미해결 질문 참고). 외부 API·데이터 소스의 구체 목록과
-어댑터 설계는 [integrations.md](integrations.md), 설계 근거가 된 선행 사례는
-[references.md](references.md)를 참고한다.
+### 기본 그래프
 
-### 콘텐츠 생성과 RAG
+```text
+START
+ → normalize
+ → route
+ → gather_context
+ → generate
+ → validate_structure
+ → review_safety
+ → review_grounding
+ → parent_review [interrupt]
+      ├─ approve → persist → export? → END
+      ├─ revise  → generate
+      └─ reject  → persist_rejection → END
+```
 
-- 오케스트레이션: LangChain 또는 LlamaIndex(택1). **LangGraph는 채택하지 않음**(단순
-  라우터 지향, 멀티에이전트 불필요).
-- 벡터 저장소: **Chroma(로컬 임베디드)** 기본. (Qdrant는 나중 대규모 시 검토)
-- 데이터: SQLite(로컬), Markdown 파일 저장
+### 안정화
 
-> 초기에는 복잡한 멀티에이전트보다 단순한 라우터가 적합하다.
+- 모든 노드는 typed state(Pydantic/TypedDict 계약)만 주고받는다.
+- structured output은 JSON schema/Pydantic으로 검증한다.
+- 재시도는 실패 유형별로 제한하고 무한 루프를 금지한다.
+- deterministic node와 LLM node를 구분한다.
+- checkpoint를 통해 crash/restart 후 재개한다.
+- idempotency key로 중복 저장·중복 export를 방지한다.
+- timeout/cancellation/circuit breaker를 공급자 계층에 둔다.
 
-### 문서 출력 (PDF) — 하나로 고정
+### 적대적 검토
 
-- 기본 **WeasyPrint(BSD)** — HTML/CSS→PDF. 정교한 조판·수식이 필요할 때만 **Typst
-  (Apache)** 보조. (Playwright-PDF는 Chromium 번들로 설치물이 커져 채택하지 않음.)
+완료 조건은 happy-path 성공이 아니다. 각 workflow에 다음을 포함한다.
 
-> 활동지는 부모·교사가 바로 인쇄할 수 있어야 하므로 PDF 품질이 중요하다. WeasyPrint의
-> Windows 네이티브 의존(GTK/Pango/Cairo) 패키징은 사전 검증이 필요하다([hardware.md](hardware.md)).
+- malformed model output
+- hallucinated source/citation
+- prompt injection in retrieved/external content
+- PII leakage
+- age-inappropriate content
+- answer-giving/scaffold violation
+- provider outage/timeout
+- corrupt Markdown/SQLite index
+- offline mode
+- duplicate/replayed request
 
-### 지도와 탐방
+## 저장
 
-- Leaflet / OpenLayers / Three.js
-- OpenStreetMap / Overpass API / OpenTopoData
+- **Markdown = Source of Truth**
+- **SQLite = 재생성 가능한 projection/index**
+- 모든 문서는 YAML frontmatter로 최소 메타데이터를 가진다.
 
-> 실제 서비스에서는 API 안정성, 지도 저작권, 외부 이미지 라이선스를 별도 점검한다.
+```yaml
+---
+schema_version: 1
+id: <uuidv7>
+entity_type: learning_log
+child_id: <uuidv7>
+created_at: <ISO-8601>
+updated_at: <ISO-8601>
+---
+```
 
-### 음성
+SQLite 전체 삭제 뒤 Markdown만으로 동일한 projection을 복구할 수 있어야 한다.
 
-- STT: Whisper 계열
-- TTS: Piper / Coqui TTS / MisoTTS
+## 기술 스택
 
-> 아이 음성 데이터는 외부 전송을 기본값으로 삼지 않는다.
+- Desktop: Tauri 2 + React + TypeScript + Vite
+- Python: 3.12+, uv, Pydantic v2, FastAPI
+- Orchestration: **LangChain + LangGraph**
+- Persistence: Markdown + SQLite(SQLAlchemy 2 또는 SQLModel)
+- Local model default: Ollama
+- RAG: LangChain retriever abstraction; 초기에는 작은 로컬 index, 필요 시 Chroma
+- PDF: WeasyPrint 기본, Typst 보조
+- Test: pytest + Vitest + Playwright
+- Quality: Ruff + mypy + ESLint + Prettier
+- CI: GitHub Actions Windows + macOS 동시 검증
 
-### 데스크탑 앱 (Tauri, 크로스플랫폼)
+## 데스크탑 패키징
 
-목표는 홈서버가 아니라 **Windows·macOS에서 동작하는 데스크탑 앱**이다. UI 셸은
-**Tauri**(Rust 코어 + 시스템 웹뷰: Windows=WebView2, macOS=WKWebView)로 확정.
-설치물이 작고 크로스플랫폼이라 목표에 맞는다. 생성·RAG·PDF·음성 등 핵심 처리는 Python
-이므로, **Tauri가 Python 백엔드를 사이드카(번들 바이너리)로 실행**하고 로컬(127.0.0.1)로
-통신하는 구조를 기본으로 한다.
+Tauri가 Python 코어를 sidecar로 실행한다. Python 코어는 PyInstaller/Nuitka 등을 검증해
+플랫폼별 번들을 만든다. 대형 모델은 앱과 분리해 최초 실행 시 다운로드하고 checksum으로
+무결성을 검증한다.
 
-- **UI 셸**: Tauri (Rust + 시스템 웹뷰). 프론트는 웹기술(HTML/CSS/JS)
-- **코어**: 로컬 Python — 라우터·생성 모듈·RAG·PDF·음성. Tauri sidecar로 번들(PyInstaller 등)
-- **IPC 계약**: UI ↔ 코어는 로컬 127.0.0.1 HTTP(또는 Tauri command)로 통신, **타입 있는
-  요청/응답 스키마**를 정의한다. (Rust 셸과 Python 코어는 별 프로세스 — 인프로세스 아님)
-- **데이터**: SQLite + 로컬 파일(Markdown). 서버 DB 불요
-- **로컬 모델**: 임베딩·STT/TTS는 가능한 CPU 실행, 플랫폼별 가속(Metal/CUDA/CPU) 자동
-  선택. 자원은 앱에 번들하거나 최초 실행 시 내려받기
-- **패키징**: Tauri 번들러(Win: MSI/NSIS, macOS: .app/.dmg) + Python 사이드카(PyInstaller).
-  코드 서명/공증(Win Authenticode, macOS notarization) 필요.
-- **업데이트**: Tauri updater(서명 키). 모델은 앱과 분리 배포(대용량) — 무결성 검증 포함.
+WeasyPrint의 Windows 네이티브 의존성은 초기 CI spike에서 반드시 검증한다. 실패하면
+동일한 export interface 아래 Typst/다른 renderer로 교체할 수 있어야 한다.
 
-> **설치물 크기 현실**: Tauri **셸**은 작지만, Python 사이드카는 ML 의존성(torch·음성·
-> OCR·llama.cpp·벡터스토어·PDF 네이티브 라이브러리)을 번들하면 **수 GB**가 된다. 특히
-> WeasyPrint는 Windows에서 GTK/Pango/Cairo 네이티브 의존이 까다롭다. → v1은 **무거운
-> 의존을 최소화**하고(§v1 경계, [roadmap.md](roadmap.md)), 대형 모델은 최초 실행 시
-> 다운로드로 분리한다. "가볍다"는 셸에 한정된 말이지 전체 설치물이 작다는 뜻이 아니다.
+## 전체 완성 목표
 
-**크로스플랫폼 원칙**: Windows·macOS 양쪽을 **CI에서 함께 빌드·검증**한다. 경로 구분자·
-웹뷰(WebView2/WKWebView)·번들 차이를 초기부터 고려하고, **플랫폼 전용 API(예: macOS
-Apple Vision OCR)에 의존하지 않는다** — 크로스플랫폼 기본값(예: Tesseract/PaddleOCR)
-위에 플랫폼별 최적화를 선택적으로 얹는다([integrations.md](integrations.md)).
-
-> 인터넷 없이도 기본 생성·기록·조회가 가능해야 한다(오프라인 우선).
+초기 milestone은 작게 자르지만 제품 목표는 축소하지 않는다. 최종적으로 0세~고등 전 연령,
+영아 상호작용·자료 생성·학습 기록·성장 지도·퀘스트·RAG·외부 연동·PDF·중고등 트래킹을
+모두 구현한다. 각 기능은 구현 후 안정화, 적대적 테스트, dependency/license/security 위생,
+문서화까지 통과해야 완료로 본다.
