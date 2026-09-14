@@ -30,6 +30,14 @@ class MaterialStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class WorkflowStatus(StrEnum):
+    RUNNING = "running"
+    WAITING_REVIEW = "waiting_review"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+
+
 class EntityBase(BaseModel):
     schema_version: int = 1
     id: UUID = Field(default_factory=uuid7)
@@ -65,3 +73,15 @@ class LearningLog(EntityBase):
     difficulty_note: str | None = None
     next_activity: str | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+class WorkflowRun(EntityBase):
+    entity_type: str = "workflow_run"
+    child_id: UUID
+    workflow_type: str
+    thread_id: str
+    status: WorkflowStatus = WorkflowStatus.RUNNING
+    attempt_count: int = 1
+    input_ref: str | None = None
+    output_ref: str | None = None
+    last_error_code: str | None = None
