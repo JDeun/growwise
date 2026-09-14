@@ -3,7 +3,18 @@ from .context import ChildContextService, ContextAnswer
 from .conversation import ConversationService, ConversationSession, ConversationTurn
 from .conversation_store import SQLiteConversationStore
 from .growth import AxisCoverage, CoverageState, GrowthMapProjection, GrowthMapService
-from .infant import ActivitySuggestion, InfantActivityService, InfantActivitySuggestions
+from .infant import (
+    ActivitySuggestion,
+    BoardBookRecommendation,
+    BoardBookRecommendationService,
+    BoardBookRecommendations,
+    InfantActivityService,
+    InfantActivitySuggestions,
+    InfantCurriculumDomain,
+    InfantObservationHintService,
+    InfantObservationHints,
+    ObservationHint,
+)
 from .observation import ObservationEnricher, ObservationEnrichment
 from .search import NaturalLanguageSearch, SearchPlan
 from .workflow import (
@@ -16,6 +27,9 @@ __all__ = [
     "ActivityPlanService",
     "ActivitySuggestion",
     "AxisCoverage",
+    "BoardBookRecommendation",
+    "BoardBookRecommendationService",
+    "BoardBookRecommendations",
     "ChildContextService",
     "ContextAnswer",
     "ConversationService",
@@ -26,11 +40,15 @@ __all__ = [
     "GrowthMapService",
     "InfantActivityService",
     "InfantActivitySuggestions",
+    "InfantCurriculumDomain",
+    "InfantObservationHintService",
+    "InfantObservationHints",
     "InvalidActivityTransition",
     "InvalidWorkflowTransition",
     "NaturalLanguageSearch",
     "ObservationEnricher",
     "ObservationEnrichment",
+    "ObservationHint",
     "SQLiteConversationStore",
     "SearchPlan",
     "WorkflowPolicy",
