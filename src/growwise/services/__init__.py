@@ -1,5 +1,5 @@
 from .infant import ActivitySuggestion, InfantActivityService, InfantActivitySuggestions
-from .observation import ObservationEnrichment, ObservationEnricher
+from .observation import ObservationEnricher, ObservationEnrichment
 from .search import NaturalLanguageSearch, SearchPlan
 
 __all__ = [
