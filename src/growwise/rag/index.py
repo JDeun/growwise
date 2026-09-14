@@ -35,7 +35,8 @@ class HybridRagIndex:
         return connection
 
     def _ensure_schema(self) -> None:
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS rag_chunks (
@@ -57,17 +58,18 @@ class HybridRagIndex:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_rag_child ON rag_chunks(child_id)"
             )
+            connection.commit()
+        finally:
+            connection.close()
 
     def reset(self) -> None:
-        """Clear the rebuildable RAG projection without replacing the SQLite file.
-
-        Keeping the database inode/path stable avoids Windows file-lock failures when another
-        short-lived SQLite connection has not yet released its OS handle. The operation is a
-        normal SQLite transaction, so readers never observe a half-deleted database file.
-        """
-        with self._connect() as connection:
+        """Clear the rebuildable RAG projection without replacing the SQLite file."""
+        connection = self._connect()
+        try:
             connection.execute("DELETE FROM rag_chunks")
             connection.commit()
+        finally:
+            connection.close()
 
     def replace_resource(self, chunks: list[ResourceChunk]) -> int:
         if not chunks:
@@ -81,7 +83,9 @@ class HybridRagIndex:
             except Exception:
                 vectors = [None] * len(chunks)
 
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
+            connection.execute("BEGIN")
             connection.execute("DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,))
             for chunk, vector in zip(chunks, vectors, strict=True):
                 connection.execute(
@@ -103,6 +107,12 @@ class HybridRagIndex:
                         json.dumps(vector) if vector is not None else None,
                     ),
                 )
+            connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
+        finally:
+            connection.close()
         return len(chunks)
 
     def search(
@@ -120,7 +130,8 @@ class HybridRagIndex:
             except Exception:
                 query_vector = None
 
-        with self._connect() as connection:
+        connection = self._connect()
+        try:
             rows = connection.execute(
                 """
                 SELECT * FROM rag_chunks
@@ -128,6 +139,8 @@ class HybridRagIndex:
                 """,
                 (child_id,),
             ).fetchall()
+        finally:
+            connection.close()
 
         ranked: list[tuple[float, dict]] = []
         for row in rows:
