@@ -9,6 +9,8 @@ from typing import Protocol, TypeVar, runtime_checkable
 import frontmatter
 from pydantic import BaseModel
 
+from .schema import validate_schema_version
+
 T = TypeVar("T", bound=BaseModel)
 
 _RESERVED_METADATA_KEYS = {
@@ -65,11 +67,10 @@ class MarkdownRepository:
     def save(self, entity: StoredEntity, body: str = "") -> Path:
         target = self._path_for(entity)
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload = _encode_metadata(entity.model_dump(mode="json"))
+        raw_payload = entity.model_dump(mode="json")
+        validate_schema_version(raw_payload)
+        payload = _encode_metadata(raw_payload)
 
-        # python-frontmatter reserves `content` and `handler` as Post constructor
-        # parameters. GrowWise escapes those domain field names at the persistence
-        # boundary and restores them on load/rebuild.
         post = frontmatter.Post(body)
         post.metadata.update(payload)
         rendered = frontmatter.dumps(post)
@@ -84,8 +85,6 @@ class MarkdownRepository:
             if target.exists():
                 backup = self.backup_path(target)
                 shutil.copy2(target, backup)
-                with backup.open("rb") as handle:
-                    os.fsync(handle.fileno())
 
             os.replace(tmp_name, target)
         finally:
@@ -96,6 +95,7 @@ class MarkdownRepository:
     def load(self, path: Path, model: type[T]) -> T:
         post = frontmatter.load(path)
         payload = _decode_metadata(dict(post.metadata))
+        validate_schema_version(payload)
         return model.model_validate(payload)
 
     def recover(self, path: Path, model: type[T]) -> T:
