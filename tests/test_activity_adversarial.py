@@ -38,7 +38,10 @@ def test_duplicate_activity_submit_is_idempotent(
 
     assert first.id == second.id
     assert first.status is ActivityStatus.SUGGESTED
-    activities = store.index.list_entities(entity_type="activity_plan", child_id=str(child.id))
+    activities = store.index.list_entities(
+        entity_type="activity_plan",
+        child_id=str(child.id),
+    )
     assert len(activities) == 1
     assert activities[0]["source_refs"] == ["resource:book-1"]
 
@@ -67,9 +70,8 @@ def test_activity_idempotency_key_cannot_be_reused_for_different_payload(
 
 
 def test_activity_cannot_skip_directly_to_completed() -> None:
-    activity = ActivityPlan(child_id=ChildProfile(
-        nickname="수아", stage=Stage.INFANT_0_2, age_months=9
-    ).id, title="촉감 놀이")
+    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    activity = ActivityPlan(child_id=child.id, title="촉감 놀이")
 
     with pytest.raises(InvalidActivityTransition):
         ActivityPlanService().transition(activity, ActivityStatus.COMPLETED)
@@ -90,7 +92,11 @@ def test_skipped_activity_remains_reversible_and_non_failure() -> None:
     activity = ActivityPlan(child_id=child.id, title="책 보기")
     service = ActivityPlanService()
 
-    service.transition(activity, ActivityStatus.SKIPPED, parent_note="오늘은 다른 놀이를 선택함")
+    service.transition(
+        activity,
+        ActivityStatus.SKIPPED,
+        parent_note="오늘은 다른 놀이를 선택함",
+    )
     skipped_at = activity.skipped_at
     assert skipped_at is not None
     assert activity.completed_at is None
