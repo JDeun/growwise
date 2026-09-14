@@ -24,7 +24,7 @@ def validate_archive_name(name: str) -> str:
 
 
 def default_archive_name() -> str:
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
     return f"growwise-{stamp}.zip"
 
 

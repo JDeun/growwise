@@ -69,3 +69,12 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     restored_rag = HybridRagIndex(settings.rag_index_path)
     assert restored_rag.search(query="고양이", child_id=str(child.id))
     assert restored_rag.search(query="공룡", child_id=str(child.id)) == []
+
+
+def test_default_archive_names_do_not_collide_in_same_second() -> None:
+    from growwise.backup.cli import default_archive_name
+
+    first = default_archive_name()
+    second = default_archive_name()
+    assert first != second
+    assert first.startswith("growwise-") and first.endswith(".zip")

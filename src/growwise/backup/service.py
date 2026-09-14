@@ -81,10 +81,13 @@ class BackupService:
             dir=staging_parent,
         ) as temp_dir:
             staging = Path(temp_dir)
-            with zipfile.ZipFile(archive_path, "r") as archive:
-                manifest = self._read_manifest(archive)
-                self._validate_members(archive)
-                archive.extractall(staging)
+            try:
+                with zipfile.ZipFile(archive_path, "r") as archive:
+                    manifest = self._read_manifest(archive)
+                    self._validate_members(archive)
+                    archive.extractall(staging)
+            except zipfile.BadZipFile as exc:
+                raise InvalidBackup("backup archive is not a valid ZIP file") from exc
 
             staged_records = staging / "records"
             actual_count = self._validate_records(staged_records)
@@ -102,7 +105,7 @@ class BackupService:
 
             previous = records_root.with_name(
                 f"{records_root.name}.pre-restore-"
-                f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+                f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
             )
             moved_previous = False
             try:

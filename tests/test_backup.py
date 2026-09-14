@@ -113,3 +113,16 @@ def test_backup_rejects_too_many_members_before_extraction(
             records_root=tmp_path / "records",
             index_path=tmp_path / "index.sqlite3",
         )
+
+
+def test_restore_rejects_non_zip_as_invalid_backup(tmp_path) -> None:
+    from growwise.backup import InvalidBackup
+
+    archive = tmp_path / "not-a-backup.zip"
+    archive.write_text("not a zip", encoding="utf-8")
+    with pytest.raises(InvalidBackup, match="valid ZIP"):
+        BackupService().restore(
+            archive_path=archive,
+            records_root=tmp_path / "records",
+            index_path=tmp_path / "index.sqlite3",
+        )
