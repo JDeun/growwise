@@ -489,7 +489,7 @@ def create_observation(
 
     idempotency_store = get_idempotency_store()
     request_hash = request_fingerprint(request.model_dump(mode="json"))
-    reserved_log_id = uuid7()
+    reserved_log_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
         try:
