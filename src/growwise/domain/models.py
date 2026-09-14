@@ -3,9 +3,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from enum import StrEnum
 from typing import Annotated
-from uuid import UUID, uuid4
+from uuid import UUID
 
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 
 def utc_now() -> datetime:
@@ -31,7 +32,7 @@ class MaterialStatus(StrEnum):
 
 class EntityBase(BaseModel):
     schema_version: int = 1
-    id: UUID = Field(default_factory=uuid4)
+    id: UUID = Field(default_factory=uuid7)
     created_at: datetime = Field(default_factory=utc_now)
     updated_at: datetime = Field(default_factory=utc_now)
 
