@@ -56,6 +56,7 @@ export interface LearningLog {
   experience_axes: ExperienceAxis[];
   interest: string | null;
   next_activity: string | null;
+  created_at: string | null;
 }
 
 export interface GrowthMap {
@@ -115,8 +116,16 @@ export function createChild(request: ChildCreateInput): Promise<ChildProfile> {
   return call<ChildProfile>("create_child", { request });
 }
 
+export function listChildren(): Promise<ChildProfile[]> {
+  return call<ChildProfile[]>("list_children");
+}
+
 export function createObservation(request: ObservationCreateInput): Promise<LearningLog> {
   return call<LearningLog>("create_observation", { request });
+}
+
+export function listObservations(childId: string): Promise<LearningLog[]> {
+  return call<LearningLog[]>("list_observations", { childId });
 }
 
 export function getGrowthMap(childId: string): Promise<GrowthMap> {
