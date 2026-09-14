@@ -18,14 +18,20 @@ def test_activity_api_flow_persists_low_pressure_states(tmp_path: Path) -> None:
 
     activity = create_activity(
         child.id,
-        ActivityCreateRequest(title="고양이 그림 함께 보기", source_refs=["resource:book-1"]),
+        ActivityCreateRequest(
+            title="고양이 그림 함께 보기",
+            source_refs=["resource:book-1"],
+        ),
         store,
     )
     assert activity.status is ActivityStatus.SUGGESTED
 
     skipped = transition_activity(
         activity.id,
-        ActivityTransitionRequest(status=ActivityStatus.SKIPPED, parent_note="오늘은 관심이 적었음"),
+        ActivityTransitionRequest(
+            status=ActivityStatus.SKIPPED,
+            parent_note="오늘은 관심이 적었음",
+        ),
         store,
     )
     assert skipped.status is ActivityStatus.SKIPPED
