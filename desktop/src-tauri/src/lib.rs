@@ -134,7 +134,9 @@ async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let manager = CoreProcessManager::ensure_started().map_err(std::io::Error::other)?;
+            let resource_dir = app.path().resource_dir()?;
+            let manager =
+                CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
             app.manage(manager);
             Ok(())
         })
