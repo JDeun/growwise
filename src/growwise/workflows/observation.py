@@ -16,13 +16,14 @@ class ObservationState(TypedDict, total=False):
 
 
 def normalize(state: ObservationState) -> ObservationState:
-    text = " ".join(state["observation"].split())
-    return {"normalized_observation": text}
+    # Parent-authored observation text is Source of Truth and must not be rewritten.
+    # Downstream AI may derive metadata from this value, but persistence keeps it exact.
+    return {"normalized_observation": state["observation"]}
 
 
 def safety_check(state: ObservationState) -> ObservationState:
     flags: list[str] = []
-    if not state.get("normalized_observation"):
+    if not state.get("normalized_observation", "").strip():
         flags.append("empty_observation")
     return {"safety_flags": flags}
 
