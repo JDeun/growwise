@@ -6,6 +6,11 @@ from .growth import AxisCoverage, CoverageState, GrowthMapProjection, GrowthMapS
 from .infant import ActivitySuggestion, InfantActivityService, InfantActivitySuggestions
 from .observation import ObservationEnricher, ObservationEnrichment
 from .search import NaturalLanguageSearch, SearchPlan
+from .workflow import (
+    InvalidWorkflowTransition,
+    WorkflowPolicy,
+    WorkflowRunService,
+)
 
 __all__ = [
     "ActivityPlanService",
@@ -22,9 +27,12 @@ __all__ = [
     "InfantActivityService",
     "InfantActivitySuggestions",
     "InvalidActivityTransition",
+    "InvalidWorkflowTransition",
     "NaturalLanguageSearch",
     "ObservationEnricher",
     "ObservationEnrichment",
     "SQLiteConversationStore",
     "SearchPlan",
+    "WorkflowPolicy",
+    "WorkflowRunService",
 ]
