@@ -70,6 +70,18 @@ export interface GrowthMap {
   }>;
 }
 
+export interface ActivitySuggestion {
+  title: string;
+  description: string;
+  materials: string[];
+  observation_cue: string | null;
+  tags: string[];
+}
+
+export interface InfantActivitySuggestions {
+  suggestions: ActivitySuggestion[];
+}
+
 export class CoreApiError extends Error {
   constructor(message: string) {
     super(message);
@@ -109,4 +121,8 @@ export function createObservation(request: ObservationCreateInput): Promise<Lear
 
 export function getGrowthMap(childId: string): Promise<GrowthMap> {
   return call<GrowthMap>("get_growth_map", { childId });
+}
+
+export function getInfantActivities(childId: string): Promise<InfantActivitySuggestions> {
+  return call<InfantActivitySuggestions>("get_infant_activities", { childId });
 }
