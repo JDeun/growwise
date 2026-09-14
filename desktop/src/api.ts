@@ -14,140 +14,39 @@ export type ExperienceAxis =
   | "math"
   | "exploration";
 
-export interface HealthResponse {
-  status: string;
-  operation_mode: OperationMode;
-  core_requires_llm: boolean;
-  llm_features_enabled: boolean;
-  embedding_features_enabled: boolean;
-  model_provider: string;
-}
-
-export interface CoreRuntimeStatus {
-  started_by_desktop: boolean;
-}
-
-export interface ChildCreateInput {
-  nickname: string;
-  stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high";
-  age_months: number | null;
-  interests: string[];
-}
-
-export interface ChildProfile {
-  id: string;
-  nickname: string;
-  stage: string;
-  age_months: number | null;
-  interests: string[];
-}
-
-export interface ObservationCreateInput {
-  child_id: string;
-  observation: string;
-  experience_axes: ExperienceAxis[];
-}
-
-export interface LearningLog {
-  id: string;
-  child_id: string;
-  parent_observation: string;
-  tags: string[];
-  experience_axes: ExperienceAxis[];
-  interest: string | null;
-  next_activity: string | null;
-  created_at: string | null;
-}
-
-export interface GrowthMap {
-  child_id: string;
-  period_days: number;
-  total_logs_in_period: number;
-  tagged_logs_in_period: number;
-  axes: Array<{
-    axis: ExperienceAxis;
-    state: string;
-    observation_count: number;
-  }>;
-}
-
-export interface ActivitySuggestion {
-  title: string;
-  description: string;
-  materials: string[];
-  observation_cue: string | null;
-  tags: string[];
-}
-
-export interface InfantActivitySuggestions {
-  suggestions: ActivitySuggestion[];
-}
-
-export interface SearchPlan {
-  keywords: string[];
-  entity_types: string[];
-  limit: number;
-}
-
-export interface SearchResponse {
-  query: string;
-  plan: SearchPlan;
-  results: Array<Record<string, unknown>>;
-}
+export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
+export interface CoreRuntimeStatus { started_by_desktop: boolean; }
+export interface ChildCreateInput { nickname: string; stage: "infant_0_2" | "preschool_3_5" | "elementary" | "middle" | "high"; age_months: number | null; interests: string[]; }
+export interface ChildProfile { id: string; nickname: string; stage: string; age_months: number | null; interests: string[]; }
+export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; }
+export interface LearningLog { id: string; child_id: string; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
+export interface GrowthMap { child_id: string; period_days: number; total_logs_in_period: number; tagged_logs_in_period: number; axes: Array<{ axis: ExperienceAxis; state: string; observation_count: number; }>; }
+export interface ActivitySuggestion { title: string; description: string; materials: string[]; observation_cue: string | null; tags: string[]; }
+export interface InfantActivitySuggestions { suggestions: ActivitySuggestion[]; }
+export interface SearchPlan { keywords: string[]; entity_types: string[]; limit: number; }
+export interface SearchResponse { query: string; plan: SearchPlan; results: Array<Record<string, unknown>>; }
+export interface ConversationSession { id: string; child_id: string; title: string | null; turns: Array<{ role: "user" | "assistant"; content: string; source_ids: string[]; created_at: string; }>; }
+export interface ConversationAnswer { session_id: string; thread_id: string; answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean; }; turn_count: number; }
 
 export class CoreApiError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "CoreApiError";
-  }
+  constructor(message: string) { super(message); this.name = "CoreApiError"; }
 }
 
 async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  try {
-    return await invoke<T>(command, args);
-  } catch (error) {
-    throw new CoreApiError(
-      typeof error === "string"
-        ? error
-        : error instanceof Error
-          ? error.message
-          : "GrowWise Core 요청에 실패했습니다.",
-    );
+  try { return await invoke<T>(command, args); }
+  catch (error) {
+    throw new CoreApiError(typeof error === "string" ? error : error instanceof Error ? error.message : "GrowWise Core 요청에 실패했습니다.");
   }
 }
 
-export function getHealth(): Promise<HealthResponse> {
-  return call<HealthResponse>("core_health");
-}
-
-export function getCoreRuntimeStatus(): Promise<CoreRuntimeStatus> {
-  return call<CoreRuntimeStatus>("core_runtime_status");
-}
-
-export function createChild(request: ChildCreateInput): Promise<ChildProfile> {
-  return call<ChildProfile>("create_child", { request });
-}
-
-export function listChildren(): Promise<ChildProfile[]> {
-  return call<ChildProfile[]>("list_children");
-}
-
-export function createObservation(request: ObservationCreateInput): Promise<LearningLog> {
-  return call<LearningLog>("create_observation", { request });
-}
-
-export function listObservations(childId: string): Promise<LearningLog[]> {
-  return call<LearningLog[]>("list_observations", { childId });
-}
-
-export function searchChildContext(childId: string, query: string): Promise<SearchResponse> {
-  return call<SearchResponse>("search_child_context", { childId, query });
-}
-
-export function getGrowthMap(childId: string): Promise<GrowthMap> {
-  return call<GrowthMap>("get_growth_map", { childId });
-}
-
-export function getInfantActivities(childId: string): Promise<InfantActivitySuggestions> {
-  return call<InfantActivitySuggestions>("get_infant_activities", { childId });
-}
+export const getHealth = () => call<HealthResponse>("core_health");
+export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
+export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
+export const listChildren = () => call<ChildProfile[]>("list_children");
+export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request });
+export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
+export const searchChildContext = (childId: string, query: string) => call<SearchResponse>("search_child_context", { childId, query });
+export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
+export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
+export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map", { childId });
+export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
