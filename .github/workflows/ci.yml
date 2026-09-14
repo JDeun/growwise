@@ -87,6 +87,28 @@ jobs:
       - name: Rust vulnerability audit
         run: cargo audit
 
+  lockfile-snapshot:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Resolve Node dependency graph
+        working-directory: desktop
+        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
+      - name: Resolve Rust dependency graph
+        run: cargo generate-lockfile --manifest-path desktop/src-tauri/Cargo.toml
+      - name: Upload lockfile snapshot
+        uses: actions/upload-artifact@v4
+        with:
+          name: dependency-lockfiles
+          path: |
+            desktop/package-lock.json
+            desktop/src-tauri/Cargo.lock
+          if-no-files-found: error
+          retention-days: 1
+
   desktop-tauri:
     runs-on: ubuntu-latest
     steps:
