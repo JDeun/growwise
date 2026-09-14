@@ -12,6 +12,8 @@ struct CoreHealth {
     status: String,
     operation_mode: String,
     core_requires_llm: bool,
+    llm_configured: bool,
+    llm_reachable: bool,
     llm_features_enabled: bool,
     embedding_features_enabled: bool,
     model_provider: String,
@@ -75,6 +77,25 @@ async fn create_observation(request: ObservationCreateInput) -> Result<LearningL
 async fn list_observations(child_id: String) -> Result<Vec<LearningLogDto>, String> {
     let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/observations")).send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "관찰 기록 조회 실패").await?.json::<Vec<LearningLogDto>>().await.map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn create_activity(child_id: String, title: String, source_refs: Vec<String>) -> Result<serde_json::Value, String> {
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"))
+        .json(&serde_json::json!({"title": title, "source_refs": source_refs, "parent_note": null}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "활동 저장 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn list_activities(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?.get(format!("{CORE_BASE_URL}/v1/children/{child_id}/activities")).send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "활동 목록 조회 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn transition_activity(activity_id: String, status: String, parent_note: Option<String>) -> Result<serde_json::Value, String> {
+    let response = client()?.post(format!("{CORE_BASE_URL}/v1/activities/{activity_id}/transition"))
+        .json(&serde_json::json!({"status": status, "parent_note": parent_note}))
+        .send().await.map_err(|error| error.to_string())?;
+    ensure_success(response, "활동 상태 변경 실패").await?.json::<serde_json::Value>().await.map_err(|error| error.to_string())
 }
 #[tauri::command]
 async fn search_child_context(child_id: String, query: String) -> Result<serde_json::Value, String> {
@@ -142,7 +163,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             core_health, core_runtime_status, create_child, list_children, create_observation,
-            list_observations, search_child_context, create_conversation, append_conversation_turn,
+            list_observations, create_activity, list_activities, transition_activity,
+            search_child_context, create_conversation, append_conversation_turn,
             create_resource, list_resources, generate_material, list_materials, review_material,
             get_growth_map, get_infant_activities
         ])
