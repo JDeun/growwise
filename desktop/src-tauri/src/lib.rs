@@ -40,6 +40,24 @@ struct ChildProfileDto {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+struct ObservationCreateInput {
+    child_id: String,
+    observation: String,
+    experience_axes: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct LearningLogDto {
+    id: String,
+    child_id: String,
+    parent_observation: String,
+    tags: Vec<String>,
+    experience_axes: Vec<String>,
+    interest: Option<String>,
+    next_activity: Option<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 struct GrowthAxisDto {
     axis: String,
     state: String,
@@ -57,7 +75,7 @@ struct GrowthMapDto {
 
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(3000))
+        .timeout(std::time::Duration::from_millis(5000))
         .build()
         .map_err(|error| error.to_string())
 }
@@ -109,6 +127,27 @@ async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, Stri
 }
 
 #[tauri::command]
+async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/observations"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("관찰 기록 저장 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<LearningLogDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
     let response = client()?
         .get(format!(
@@ -144,6 +183,7 @@ pub fn run() {
             core_health,
             core_runtime_status,
             create_child,
+            create_observation,
             get_growth_map
         ])
         .run(tauri::generate_context!())
