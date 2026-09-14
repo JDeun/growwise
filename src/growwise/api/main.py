@@ -23,6 +23,12 @@ from growwise.domain import (
     WorkflowStatus,
 )
 from growwise.model import ModelProvider, create_model_provider
+from growwise.rag import (
+    GroundedRagService,
+    HybridRagIndex,
+    OllamaEmbeddingProvider,
+    ResourceIngestor,
+)
 from growwise.services import InfantActivityService, NaturalLanguageSearch, ObservationEnricher
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
@@ -56,6 +62,12 @@ class ResourceCreateRequest(BaseModel):
     provenance: dict[str, str] = Field(default_factory=dict)
 
 
+class RagQuestionRequest(BaseModel):
+    question: str = Field(min_length=2, max_length=2000)
+    child_id: UUID | None = None
+    limit: int = Field(default=8, ge=1, le=20)
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
@@ -74,6 +86,18 @@ def get_model_provider() -> ModelProvider | None:
 
 
 @lru_cache
+def get_rag_index() -> HybridRagIndex:
+    settings = get_settings()
+    embedding = None
+    if settings.embedding_features_enabled:
+        embedding = OllamaEmbeddingProvider(
+            model=settings.embedding_model_id,
+            base_url=settings.model_base_url,
+        )
+    return HybridRagIndex(settings.rag_index_path, embedding=embedding)
+
+
+@lru_cache
 def get_observation_graph():
     settings = get_settings()
     settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
@@ -89,6 +113,7 @@ def health() -> dict[str, str | bool]:
     return {
         "status": "ok",
         "llm_features_enabled": settings.llm_features_enabled,
+        "embedding_features_enabled": settings.embedding_features_enabled,
         "model_provider": settings.model_provider,
     }
 
@@ -110,6 +135,7 @@ def create_resource(
 ) -> ResourceRecord:
     resource = ResourceRecord(**request.model_dump())
     store.save(resource)
+    ResourceIngestor(get_rag_index()).ingest(resource)
     return resource
 
 
@@ -122,6 +148,19 @@ def list_resources(
         entity_type="resource",
         child_id=str(child_id) if child_id else None,
     )
+
+
+@app.post("/v1/rag/ask")
+def ask_resources(request: RagQuestionRequest) -> dict:
+    service = GroundedRagService(
+        index=get_rag_index(),
+        provider=get_model_provider(),
+    )
+    return service.ask(
+        query=request.question,
+        child_id=str(request.child_id) if request.child_id else None,
+        limit=request.limit,
+    ).model_dump(mode="json")
 
 
 @app.post("/v1/observations", response_model=LearningLog)
