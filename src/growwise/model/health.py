@@ -24,16 +24,32 @@ def probe_model_runtime(settings: Settings, *, timeout_seconds: float = 0.15) ->
     """
     configured = settings.llm_features_enabled
     if not configured:
-        return ModelRuntimeHealth(configured=False, reachable=False, provider=settings.model_provider)
+        return ModelRuntimeHealth(
+            configured=False,
+            reachable=False,
+            provider=settings.model_provider,
+        )
 
     if settings.model_provider.casefold() != "ollama":
-        return ModelRuntimeHealth(configured=True, reachable=False, provider=settings.model_provider)
+        return ModelRuntimeHealth(
+            configured=True,
+            reachable=False,
+            provider=settings.model_provider,
+        )
 
     parsed = urlparse(settings.model_base_url)
     host = parsed.hostname or "127.0.0.1"
     port = parsed.port or (443 if parsed.scheme == "https" else 80)
     try:
         with socket.create_connection((host, port), timeout=timeout_seconds):
-            return ModelRuntimeHealth(configured=True, reachable=True, provider=settings.model_provider)
+            return ModelRuntimeHealth(
+                configured=True,
+                reachable=True,
+                provider=settings.model_provider,
+            )
     except OSError:
-        return ModelRuntimeHealth(configured=True, reachable=False, provider=settings.model_provider)
+        return ModelRuntimeHealth(
+            configured=True,
+            reachable=False,
+            provider=settings.model_provider,
+        )
