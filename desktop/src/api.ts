@@ -2,6 +2,18 @@ import { invoke } from "@tauri-apps/api/core";
 
 export type OperationMode = "ai_enhanced_with_core_fallback" | "core_only";
 
+export type ExperienceAxis =
+  | "physical"
+  | "emotional_character"
+  | "expression_art"
+  | "thinking_inquiry"
+  | "social"
+  | "reading"
+  | "speaking"
+  | "writing"
+  | "math"
+  | "exploration";
+
 export interface HealthResponse {
   status: string;
   operation_mode: OperationMode;
@@ -30,13 +42,29 @@ export interface ChildProfile {
   interests: string[];
 }
 
+export interface ObservationCreateInput {
+  child_id: string;
+  observation: string;
+  experience_axes: ExperienceAxis[];
+}
+
+export interface LearningLog {
+  id: string;
+  child_id: string;
+  parent_observation: string;
+  tags: string[];
+  experience_axes: ExperienceAxis[];
+  interest: string | null;
+  next_activity: string | null;
+}
+
 export interface GrowthMap {
   child_id: string;
   period_days: number;
   total_logs_in_period: number;
   tagged_logs_in_period: number;
   axes: Array<{
-    axis: string;
+    axis: ExperienceAxis;
     state: string;
     observation_count: number;
   }>;
@@ -73,6 +101,10 @@ export function getCoreRuntimeStatus(): Promise<CoreRuntimeStatus> {
 
 export function createChild(request: ChildCreateInput): Promise<ChildProfile> {
   return call<ChildProfile>("create_child", { request });
+}
+
+export function createObservation(request: ObservationCreateInput): Promise<LearningLog> {
+  return call<LearningLog>("create_observation", { request });
 }
 
 export function getGrowthMap(childId: string): Promise<GrowthMap> {
