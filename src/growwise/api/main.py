@@ -14,6 +14,8 @@ from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain import (
+    ActivityPlan,
+    ActivityStatus,
     ChildProfile,
     ExperienceAxis,
     GeneratedMaterial,
@@ -28,6 +30,7 @@ from growwise.domain import (
 )
 from growwise.generators import MaterialGenerationService
 from growwise.model import ModelProvider, create_model_provider
+from growwise.model.health import probe_model_runtime
 from growwise.rag import (
     GroundedRagService,
     HybridRagIndex,
@@ -36,11 +39,13 @@ from growwise.rag import (
 )
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
+    ActivityPlanService,
     ChildContextService,
     ConversationService,
     ConversationSession,
     GrowthMapService,
     InfantActivityService,
+    InvalidActivityTransition,
     NaturalLanguageSearch,
     ObservationEnricher,
     SQLiteConversationStore,
@@ -62,6 +67,17 @@ class ObservationRequest(BaseModel):
     child_id: UUID
     observation: str = Field(min_length=1, max_length=10_000)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+
+
+class ActivityCreateRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    source_refs: list[str] = Field(default_factory=list)
+    parent_note: str | None = Field(default=None, max_length=2000)
+
+
+class ActivityTransitionRequest(BaseModel):
+    status: ActivityStatus
+    parent_note: str | None = Field(default=None, max_length=2000)
 
 
 class ResourceCreateRequest(BaseModel):
@@ -171,16 +187,19 @@ def build_child_context_service(store: EntityStore) -> ChildContextService:
 @app.get("/health")
 def health() -> dict[str, str | bool]:
     settings = get_settings()
+    runtime = probe_model_runtime(settings)
+    llm_effective = settings.llm_features_enabled and runtime.reachable
+    embedding_effective = settings.embedding_features_enabled and runtime.reachable
     return {
         "status": "ok",
         "operation_mode": (
-            "ai_enhanced_with_core_fallback"
-            if settings.llm_features_enabled
-            else "core_only"
+            "ai_enhanced_with_core_fallback" if llm_effective else "core_only"
         ),
         "core_requires_llm": False,
-        "llm_features_enabled": settings.llm_features_enabled,
-        "embedding_features_enabled": settings.embedding_features_enabled,
+        "llm_configured": runtime.configured,
+        "llm_reachable": runtime.reachable,
+        "llm_features_enabled": llm_effective,
+        "embedding_features_enabled": embedding_effective,
         "model_provider": settings.model_provider,
     }
 
@@ -203,6 +222,54 @@ def list_children(
         ChildProfile.model_validate(payload)
         for payload in store.index.list_entities(entity_type="child_profile")
     ]
+
+
+@app.post("/v1/children/{child_id}/activities", response_model=ActivityPlan)
+def create_activity(
+    child_id: UUID,
+    request: ActivityCreateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> ActivityPlan:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    activity = ActivityPlan(
+        child_id=child_id,
+        title=request.title,
+        source_refs=request.source_refs,
+        parent_note=request.parent_note,
+    )
+    store.save(activity)
+    return activity
+
+
+@app.get("/v1/children/{child_id}/activities")
+def list_activities(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[dict]:
+    return store.index.list_entities(entity_type="activity_plan", child_id=str(child_id))
+
+
+@app.post("/v1/activities/{activity_id}/transition", response_model=ActivityPlan)
+def transition_activity(
+    activity_id: UUID,
+    request: ActivityTransitionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> ActivityPlan:
+    payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="activity_not_found")
+    activity = ActivityPlan.model_validate(payload)
+    try:
+        ActivityPlanService().transition(
+            activity,
+            request.status,
+            parent_note=request.parent_note,
+        )
+    except InvalidActivityTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(activity)
+    return activity
 
 
 @app.post("/v1/resources", response_model=ResourceRecord)
