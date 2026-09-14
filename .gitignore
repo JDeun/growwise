@@ -1,0 +1,70 @@
+# ─────────────────────────────────────────────────────────────
+# growwise .gitignore
+#
+# 개인정보 보호 최우선: 이 저장소는 공개(public)다.
+# 아이의 학습 데이터·기록·프로필·생성물은 절대 커밋되지 않도록
+# 데이터 경로를 광범위하게 제외한다. (privacy-and-safety.md 참고)
+# ─────────────────────────────────────────────────────────────
+
+# --- 아동 데이터 / 로컬 산출물 (커밋 금지) ---
+/data/
+/instance/
+/storage/
+learning_logs/
+generated/
+exports/
+*.db
+*.sqlite
+*.sqlite3
+*.duckdb
+child_profile*.json
+child_profile*.yaml
+child_profile*.yml
+*.child.md
+
+# --- 비밀정보 / 환경설정 ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+credentials*.json
+
+# --- 로컬 모델 / 임베딩 캐시 / 대용량 ---
+models/
+*.gguf
+*.bin
+*.onnx
+embeddings/
+.cache/
+*.wav
+*.mp3
+*.pdf
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+env/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# --- Node ---
+node_modules/
+dist/
+build/
+.next/
+*.tsbuildinfo
+npm-debug.log*
+yarn-error.log*
+
+# --- OS / 에디터 ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
