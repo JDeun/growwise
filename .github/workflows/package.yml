@@ -1,0 +1,118 @@
+name: Desktop Package
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/package.yml"
+      - "desktop/**"
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: package (${{ matrix.artifact_name }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            artifact_name: growwise-windows-x64
+            bundles: nsis
+            artifact_path: desktop/src-tauri/target/release/bundle/nsis/*.exe
+            apple_signing_identity: ""
+          - os: macos-latest
+            artifact_name: growwise-macos-arm64
+            bundles: dmg
+            artifact_path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apple_signing_identity: "-"
+          - os: macos-15-intel
+            artifact_name: growwise-macos-x64
+            bundles: dmg
+            artifact_path: desktop/src-tauri/target/release/bundle/dmg/*.dmg
+            apple_signing_identity: "-"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Install uv
+        run: python -m pip install "uv==0.12.13"
+      - name: Sync locked sidecar build environment
+        run: uv sync --locked --extra desktop-build
+      - name: Pin npm
+        run: npm install --global npm@11.6.2
+      - name: Install locked frontend dependencies
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Generate branded platform icons
+        working-directory: desktop
+        run: npm run tauri -- icon ../assets/brand/growwise-symbol.svg
+      - name: Build Core sidecar
+        run: uv run python desktop/scripts/build_core_sidecar.py
+      - name: Smoke Core sidecar
+        run: uv run python desktop/scripts/smoke_core_sidecar.py
+      - name: Verify tag matches desktop version
+        if: startsWith(github.ref, 'refs/tags/')
+        run: >-
+          python -c "import json, os; tag=os.environ['GITHUB_REF_NAME'].removeprefix('v');
+          version=json.load(open('desktop/src-tauri/tauri.conf.json', encoding='utf-8'))['version'];
+          assert tag == version, f'tag {tag!r} does not match desktop version {version!r}'"
+      - name: Build desktop bundle
+        working-directory: desktop
+        env:
+          APPLE_SIGNING_IDENTITY: ${{ matrix.apple_signing_identity }}
+        run: npm run tauri -- build --bundles ${{ matrix.bundles }}
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+          retention-days: 14
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: package
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: growwise-*
+          path: dist
+          merge-multiple: true
+      - name: Create or update GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
+            args=(release create "$GITHUB_REF_NAME" --title "GrowWise ${GITHUB_REF_NAME#v}" --generate-notes)
+            if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+              args+=(--prerelease)
+            fi
+            gh "${args[@]}"
+          fi
+          while IFS= read -r -d '' file; do
+            gh release upload "$GITHUB_REF_NAME" "$file" --clobber
+          done < <(find dist -type f -print0)
