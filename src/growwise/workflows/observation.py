@@ -25,11 +25,11 @@ def safety_check(state: ObservationState) -> ObservationState:
     return {"safety_flags": flags}
 
 
-def build_observation_graph():
+def build_observation_graph(checkpointer=None):
     builder = StateGraph(ObservationState)
     builder.add_node("normalize", normalize)
     builder.add_node("safety_check", safety_check)
     builder.add_edge(START, "normalize")
     builder.add_edge("normalize", "safety_check")
     builder.add_edge("safety_check", END)
-    return builder.compile()
+    return builder.compile(checkpointer=checkpointer)
