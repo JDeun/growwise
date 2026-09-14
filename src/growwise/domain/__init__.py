@@ -1,6 +1,7 @@
 from .models import (
     ActivityPlan,
     ChildProfile,
+    ExperienceAxis,
     LearningLog,
     MaterialStatus,
     ResourceKind,
@@ -13,6 +14,7 @@ from .models import (
 __all__ = [
     "ActivityPlan",
     "ChildProfile",
+    "ExperienceAxis",
     "LearningLog",
     "MaterialStatus",
     "ResourceKind",
