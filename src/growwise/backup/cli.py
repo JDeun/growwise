@@ -65,15 +65,9 @@ def list_backups(settings: Settings) -> list[dict[str, object]]:
 
 def rebuild_rag_projection(settings: Settings) -> int:
     """Rebuild the lexical RAG projection from restored ResourceRecord source documents."""
-    for path in (
-        settings.rag_index_path,
-        settings.rag_index_path.with_name(f"{settings.rag_index_path.name}-wal"),
-        settings.rag_index_path.with_name(f"{settings.rag_index_path.name}-shm"),
-    ):
-        path.unlink(missing_ok=True)
-
     store = EntityStore(settings.records_dir, settings.index_path)
     index = HybridRagIndex(settings.rag_index_path, embedding=None)
+    index.reset()
     ingestor = ResourceIngestor(index)
     count = 0
     for payload in store.index.list_entities(entity_type="resource"):
