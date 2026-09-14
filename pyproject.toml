@@ -30,6 +30,11 @@ dev = [
   "httpx>=0.28,<1",
   "ruff>=0.12,<1",
   "mypy>=1.17,<2",
+  "pre-commit>=4,<5",
+]
+hygiene = [
+  "pip-audit>=2.9,<3",
+  "pip-licenses>=5,<6",
 ]
 desktop-build = [
   "pyinstaller>=6,<7",
