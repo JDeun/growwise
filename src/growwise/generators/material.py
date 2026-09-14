@@ -12,6 +12,30 @@ class MaterialDraft(BaseModel):
     source_refs: list[str] = Field(default_factory=list)
 
 
+_FORBIDDEN_DRAFT_MARKERS = (
+    "adhd",
+    "autism",
+    "autistic",
+    "disorder",
+    "diagnos",
+    "자폐",
+    "발달장애",
+    "진단",
+    "비정상",
+    "정상 발달",
+    "또래보다",
+    "또래 평균",
+    "상위 ",
+    "하위 ",
+    "퍼센타일",
+)
+
+
+def _unsafe_draft(draft: MaterialDraft) -> bool:
+    text = f"{draft.title}\n{draft.content_markdown}".casefold()
+    return any(marker in text for marker in _FORBIDDEN_DRAFT_MARKERS)
+
+
 class MaterialGenerationService:
     """Generate parent-reviewable materials with deterministic template fallback."""
 
@@ -46,7 +70,7 @@ Return Markdown content in the requested structured schema."""
 
         if self.provider is not None:
             try:
-                draft = self.provider.generate_structured(
+                candidate = self.provider.generate_structured(
                     system=self.SYSTEM,
                     user=self._llm_request(
                         child=child,
@@ -58,10 +82,15 @@ Return Markdown content in the requested structured schema."""
                     ),
                     schema=MaterialDraft,
                 )
-                draft.source_refs = [ref for ref in draft.source_refs if ref in refs]
-                if refs and not draft.source_refs:
-                    draft.source_refs = refs
-                generator_mode = "llm_enhanced"
+                candidate.source_refs = [ref for ref in candidate.source_refs if ref in refs]
+                if refs and not candidate.source_refs:
+                    candidate.source_refs = refs
+                if _unsafe_draft(candidate):
+                    draft = fallback
+                    generator_mode = "template_safety_fallback"
+                else:
+                    draft = candidate
+                    generator_mode = "llm_enhanced"
             except Exception:
                 draft = fallback
                 generator_mode = "template_fallback"
