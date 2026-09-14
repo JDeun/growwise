@@ -25,3 +25,7 @@ class Settings(BaseSettings):
     @property
     def index_path(self) -> Path:
         return self.data_dir / "index.sqlite3"
+
+    @property
+    def checkpoint_path(self) -> Path:
+        return self.data_dir / "langgraph-checkpoints.sqlite3"
