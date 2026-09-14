@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from pydantic import BaseModel
-
-from .markdown import MarkdownRepository
+from .markdown import MarkdownRepository, StoredEntity
 from .sqlite import SQLiteProjection
 
 
@@ -15,7 +13,7 @@ class EntityStore:
         self.markdown = MarkdownRepository(records_root)
         self.index = SQLiteProjection(index_path)
 
-    def save(self, entity: BaseModel, body: str = "") -> Path:
+    def save(self, entity: StoredEntity, body: str = "") -> Path:
         path = self.markdown.save(entity, body=body)
         self.index.upsert(entity, path)
         return path
