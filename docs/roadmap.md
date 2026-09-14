@@ -1,119 +1,267 @@
 # 로드맵
 
-## 제품화 단계
+## 최종 목표
 
-| 단계 | 형태 | 핵심 결과물 |
-| --- | --- | --- |
-| **1단계 (현재 목표)** | 개인용 **데스크탑 앱** (홈스쿨링) | 자료 생성 + 학습 기록장(부모 직접 사용), 오프라인 우선 |
-| **2단계 (나중)** | 교사용 자료 생성기 | 주제·연령·시간·목표 입력 → 수업안·활동지 |
-| **3단계 (나중)** | 기관용 설치형/SaaS | 개인정보 보호, 배포, 교사 워크플로우, 학부모 커뮤니케이션 |
+GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 고등학교까지** 부모가 아이의
+학습과 성장을 지원할 수 있는 완성형 크로스플랫폼 데스크탑 오픈소스를 목표로 한다.
 
-> 현재는 **1단계(개인 홈스쿨링 데스크탑 앱)**에만 집중한다. 홈서버·상시 백엔드·기관
-> 운영 기능은 목표가 아니다. 2·3단계는 방향 참고용으로만 남겨 둔다.
+최종 완성 범위:
 
-## 미해결 설계 질문
+- 영아(0~2): 놀이·상호작용 제안, 보드북 추천, 부모 관찰 기록, 경험 커버리지 성장 지도
+- 유아·초등: 독서·영어·탐방·수학·과학·글쓰기 자료 생성, 활동 퀘스트, 기록
+- 중·고: 학습 진도·약점 지도·오답/회고·자원 추천·부모 지원 포인트
+- 다자녀 프로필/전환
+- Markdown SoT + SQLite projection/rebuild
+- LangChain + LangGraph 기반 생성/RAG/검토 workflow
+- 모델 공급자 교체(Ollama/local/OpenAI-compatible 등)
+- Parent Review human-in-the-loop
+- 성장 지도/경험 커버리지
+- 외부 데이터 adapter + offline cache/fallback
+- PDF/인쇄 출력
+- 개인정보·보안·라이선스·attribution
+- Windows/macOS 설치/업데이트/CI
+- 안정화·적대적 테스트·위생·문서화
 
-첫 마일스톤을 확정하기 전에 결정해야 하는 것들이다.
+마일스톤은 위험을 관리하기 위해 작게 자르지만 **기능 범위를 포기하기 위한 v1 축소는 하지
+않는다.** 각 단계는 다음 단계를 위한 기반이며 최종 체크리스트가 모두 닫힐 때까지 계속한다.
 
-이미 정해진 것:
+## 왜 0~2세부터 시작하는가
 
-- ✅ **개인용 우선** — 개인이 운영하는 홈스쿨링용을 먼저 만든다(기관용 확장은 나중).
-- ✅ **데스크탑 앱** — 홈서버·상시 백엔드가 아니라 데스크탑에 설치하는 앱.
-- ✅ **크로스플랫폼(Windows·macOS)** — 처음부터 양 OS 지원(CI 동시 빌드).
-- ✅ **UI 셸 = Tauri** — Rust + 시스템 웹뷰 + Python 사이드카([architecture.md](architecture.md)).
-- ✅ **상업-안전 라이선스만** — 의존성은 상용/기관 확장에 걸리지 않도록 permissive
-  (MIT/BSD/Apache/CC0/CC-BY)만 채택. 비상업·독점·AGPL은 배제([integrations.md](integrations.md)).
-- ✅ **기록 저장 = 하이브리드** — **Markdown이 원본(SoT)**, SQLite는 검색·역량추적
-  인덱스(재생성 가능). 마크다운 소유권·이식성 + 앱 성능 둘 다([data-model.md](data-model.md)).
-- ✅ **첫 사용(첫 빌드) = 영아(0-2) 모드** — 가장 어린 연령대(영아)가 지금 바로 쓸 수
-  있도록 영아 모드부터 만든다. 단 최종 목표는 **전 기능 완성**(전 연령·전 모듈)이며 순서만 조정.
-- ✅ **첫 워크시트 생성 카테고리 = 탐방(Tour)** — 유아·초등 자료 생성 트랙에 들어갈 때
-  탐방부터. (영아 모드는 워크시트가 아니라 부모 대면 기록·제안)
-- ✅ **모델 독립성** — 특정 AI 모델/공급자에 종속되지 않고 교체·이식 가능(로컬 기본,
-  Model Provider 추상화)([architecture.md](architecture.md)).
-- ✅ **아이 대면 챗봇 없음** — 아이-AI 직접 대화는 범위 밖(기존 상용 서비스로). AI는
-  부모·교사 조수로만([product-spec.md](product-spec.md)).
-- ✅ **대상 연령 = 0세~고등** — 영아(0-2, 놀이·관찰)·유아·초등(자료 생성)·중등·고등
-  (학습 트래킹·보조). 단계별 역할은 [product-spec.md](product-spec.md) 참고.
-- ✅ **다자녀 지원** — 아이별 관리(`child_id`), 아이 전환. 성장 지도·퀘스트·기록 전부 아이별.
-- ✅ **표현(UX)** — 방사형 **성장 지도**(점수판 아님, 관찰 기반, **3층 축**: 전인 고정축 +
-  학습 6축 + 연령 적응형)와 **활동 퀘스트**(강제 과제 아닌 초대). 게임 UI의 가독성만
-  빌린다. 사상 가드레일은 [product-spec.md](product-spec.md).
-- ✅ **로컬/외부 경계 = 오프라인 우선 + 외부 선택 보강** — 기본 생성·기록은 항상 로컬
-  동작, 지도·도서 등 외부는 있으면 쓰고 캐싱, 없으면 우회([integrations.md](integrations.md)).
+첫 실사용 대상은 **현재 생후 9개월 아이를 둔 부모가 실제 일상에서 사용할 수 있는 영아
+모드**다. 따라서 0~2세 지원은 임의로 고른 데모 범위가 아니라 다음 장점이 있는 첫 검증
+도메인이다.
 
-주요 설계 결정은 사실상 확정됐다. 남은 것은 구현 단계의 세부(모델 기본값, radar 축 세부
-목록, 퀘스트 UI 형태 등)로, 구현하면서 조정한다.
+1. 실제 가정에서 즉시 dogfooding할 수 있다.
+2. 아이 대면 UI 없이 부모 보조라는 제품 철학을 가장 명확히 검증한다.
+3. 발달을 점수화하지 않고 관찰·경험 커버리지로 기록하는 데이터 모델을 초기에 검증한다.
+4. 생성 품질뿐 아니라 장기간 기록의 유용성을 실제 사용으로 확인할 수 있다.
 
-## v1 경계 (현실적 출시 단위)
+단, 영아 모드에 갇히지 않는다. 영아 vertical slice가 기반을 검증하면 유아·초등 생성 트랙,
+중·고 트래킹까지 순차 확장한다.
 
-**"전 연령·전 기능 완성"은 장기 목표(aspiration)이지 v1이 아니다.** 솔로 개발로 0~18·전
-모듈을 한 번에 노리면 출시가 무한정 미뤄진다(적대적 검토 지적). 따라서 v1을 좁게 못박는다.
+## 확정된 기술/제품 결정
 
-- **v1에 포함**: 영아(0-2) 모드 + 핵심 골격(다자녀·저장·성장지도 기초·기록) **또는** 하나의
-  자료 생성 수직 슬라이스(아래 전략 결정 참조).
-- **v1에서 제외(나중)**: Manim/LaTeX 애니메이션, 자체 블록코딩 런타임, STT/TTS·OCR,
-  음악 표기, 중·고 트래킹, 기관용. (무거운 의존은 v1에서 뺀다 — [architecture.md](architecture.md) 설치물 현실)
-- 각 모듈은 [evaluation.md](evaluation.md) 품질·안전 게이트를 통과해야 "완료"로 본다.
+- 개인용 홈스쿨링 데스크탑 앱 우선
+- Windows + macOS 동시 지원
+- Tauri 2 + React/TypeScript UI
+- Python 3.12+ sidecar
+- **LangChain + LangGraph 공식 채택**
+- LangGraph는 상태 머신·human-in-the-loop·checkpoint/recovery 실행 하네스로 사용
+- Markdown = Source of Truth, SQLite = 재생성 가능한 projection/index
+- UUIDv7 계열 안정 ID + schema versioning
+- 모델 독립성: local default, provider adapter로 교체
+- 아이 대면 챗봇 없음
+- Parent Review 승인 전 노출/export 금지
+- 다자녀 `child_id` 분리
+- 성장 지도는 성취 점수가 아니라 self-vs-self 경험/관찰 커버리지
+- permissive/commercial-safe dependency 우선
+- offline-first, external enrichment optional
 
-## 전략 결정 (확정) — 영아 모드 + 조기 생성 스파이크
+## Phase 0 — Foundation / Walking Skeleton
 
-적대적 검토의 핵심 트레이드오프를 다음으로 **확정**했다.
+### 프로젝트 기반
 
-- **첫 출시 = 영아(0-2) 모드** — 대상 아이가 지금 바로 쓸 수 있게.
-- **병행 = 생성 1종 수직 스파이크** — 영아 모드와 **동시에**, 자료 생성 한 종류를
-  `입력 → 로컬 LLM → PDF → 부모 검토 → 학습 로그`로 얇게 관통하는 스파이크를 만든다.
-  목적은 출시가 아니라 **가장 약한 가정의 조기 실측**: "구형 가정 PC의 로컬 LLM이 한/영
-  인쇄품질 자료를 scaffold 지켜가며 뽑는가"([evaluation.md](evaluation.md) 기준으로 채점).
-- **스파이크 결과가 판정 게이트**: 로컬 품질이 충분하면 로컬-우선 유지. 부족하면 그때
-  (a) 더 큰/다른 모델, (b) 원격 전환(프라이버시 계약 하에) 중 선택 — 설계를 미리 바꾸지
-  않고 **데이터로 결정**한다.
-- 스파이크의 생성 카테고리는 로컬 완결성이 높은 것(예: 독서/수학)으로 시작해도 무방하다
-  (탐방은 지도 API 의존이라 순수 로컬 품질 측정엔 부적합).
+- [ ] `pyproject.toml` + uv dependency management
+- [ ] Tauri 2 + React/TypeScript/Vite shell
+- [ ] Python FastAPI sidecar + health/version endpoint
+- [ ] typed IPC contract
+- [ ] Windows/macOS GitHub Actions
+- [ ] Ruff/mypy/pytest + ESLint/TypeScript/Vitest
+- [ ] pre-commit / dependency audit / license audit
 
-## 신규 방어 문서(적대적 검토 반영)
+### Domain/Storage
 
-[evaluation.md](evaluation.md)(품질·scaffold·환각 게이트), [threat-model.md](threat-model.md)
-(유출 경로·보존/삭제), [attribution.md](attribution.md)(CC-BY 귀속·BY-SA 격리·NOTICE)를
-추가했다. 이들은 "사상·상업안전" 기둥을 실제로 강제하는 장치다.
+- [ ] UUIDv7 entity IDs
+- [ ] schema version
+- [ ] Pydantic domain entities
+- [ ] `MaterialStatus` state machine
+- [ ] Markdown YAML-frontmatter repository
+- [ ] atomic write + backup/recovery
+- [ ] SQLite projection
+- [ ] Markdown → SQLite deterministic rebuild
+- [ ] migration/version compatibility tests
 
-## 첫 마일스톤 제안 (M0)
+### LangGraph runtime
 
-설계를 코드로 바꾸기 위한 최소 목표. **첫 사용 대상은 영아(0-2) 모드**(가장 어린
-연령대가 바로 쓸 수 있도록).
+- [ ] typed graph state
+- [ ] node registry
+- [ ] checkpoint persistence
+- [ ] retry/timeout/cancellation policy
+- [ ] idempotency
+- [ ] interrupt/resume parent review skeleton
+- [ ] provider abstraction + Ollama adapter
 
-- [ ] 프로젝트 스캐폴딩: Tauri 앱 + Python 사이드카(Win/macOS CI 동시 빌드) 골격
-- [ ] 저장 계층: Markdown(SoT) 쓰기 + SQLite 인덱스 재생성([data-model.md](data-model.md))
-- [ ] 데이터 모델 v0(다자녀 `child_id`, 학습 대화 로그, competency 3층 포함)
-- [ ] **영아(0-2) 모드 MVP** — 부모 대면:
-  - [ ] 연령대 놀이/상호작용 제안(표준보육과정) + 발달 관찰 힌트(**비진단·비교 아님**)
-  - [ ] 책 읽어주기(보드북) 추천(도서관 정보나루 DB)
-  - [ ] 관찰 기록(대화/성장 로그) 저장·조회
-  - [ ] 성장 지도(방사형) 기초 — **경험 커버리지(self-vs-self), 점수판 아님**
-- [ ] 다자녀: 아이 전환 + 아이별 분리
-- [ ] Parent Review 최소(영아 모드는 부모 대면이라 경량) / 로컬 실행 가이드(README)
+**완료 조건:** 빈 앱이 아니라 `UI → Python → LangGraph → storage → UI`가 한 번 완주하고,
+프로세스 재시작 후 checkpoint/rebuild가 검증된다.
 
-**병행: 생성 1종 수직 스파이크(리스크 실측용, 출시 아님)**
+## Phase 1 — 영아(0~2) 실사용 모드
 
-- [ ] 로컬 완결 카테고리 1종(예: 독서/수학) — `입력 → 로컬 LLM → PDF(WeasyPrint) →
-      부모 검토 → 학습 로그` 얇게 관통
-- [ ] Model Provider로 로컬 모델 1개 연결(교체 가능 구조 확인)
-- [ ] [evaluation.md](evaluation.md) 기준으로 **품질·scaffold·속도 실측** → 로컬 유지 vs
-      원격 전환 판정
-- [ ] 최소/권장 하드웨어에서 지연·품질 측정([hardware.md](hardware.md))
+- [ ] 다자녀 프로필/아이 전환
+- [ ] 월령/단계 기반 놀이·상호작용 제안
+- [ ] 표준보육과정 기반 관찰 힌트
+- [ ] 비진단/비비교 가드레일
+- [ ] 보드북/책 읽어주기 추천
+- [ ] 활동 퀘스트(제안/진행/완료/건너뜀)
+- [ ] 부모 자유 관찰 기록
+- [ ] learning log
+- [ ] 경험 커버리지 태깅
+- [ ] 3층 성장 지도 기초
+- [ ] 오프라인 완전 동작
+- [ ] export/import/backup
 
-이후(전 연령·전 기능 완성이 최종 목표):
+**실사용 검증:** 실제 9개월 아이의 일상 사용에서 제안 품질, 기록 부담, 성장 지도 유용성,
+반복 제안, 부적절한 발달 판단 여부를 관찰하고 수정한다. 개인 실사용 데이터는 저장소에 넣지
+않는다.
 
-- **유아·초등 자료 생성 트랙** — 첫 워크시트 카테고리=탐방(지도/장소 어댑터, 오프라인
-  캐싱), 이어 독서·영어·수학·과학·글쓰기 코치
-- **중·고 학습 트래킹·보조 모드**(진도·약점 지도·회고·부모 지원 포인트, PAIDEIA식)
-- 활동 퀘스트 UI 고도화
+## Phase 2 — 생성 Vertical Slice
 
-## 검증 지점
+가장 약한 기술 가정을 조기에 실측한다.
 
-제품으로 발전시키려면 다음 네 가지가 핵심 검증 지점이다([vision.md](vision.md) 참고).
+```text
+input
+ → router
+ → RAG/context
+ → local LLM
+ → structured material
+ → automated review
+ → parent review
+ → Markdown/SQLite
+ → HTML/CSS
+ → PDF
+ → learning log
+```
 
-1. 교육과정 기준(누리과정·초등 교육과정 매핑)
-2. 현장 교사 워크플로우
-3. 개인정보 설계([privacy-and-safety.md](privacy-and-safety.md))
-4. 출력 품질(인쇄 가능한 활동지)
+- [ ] 독서 또는 수학 1종 end-to-end
+- [ ] LangChain structured output
+- [ ] grounding/citation provenance
+- [ ] scaffold guard
+- [ ] prompt injection defense
+- [ ] Parent Review interrupt/resume
+- [ ] revision loop
+- [ ] WeasyPrint packaging spike
+- [ ] local model latency/quality benchmark
+- [ ] 최소/권장 하드웨어 benchmark
+
+스파이크 결과로 모델 기본값을 조정하되 아키텍처는 provider-independent로 유지한다.
+
+## Phase 3 — 유아·초등 전체 생성 기능
+
+- [ ] 독서 활동지
+- [ ] 영어 대화 카드
+- [ ] 탐방/여행 활동지
+- [ ] 수학 놀이
+- [ ] 과학 탐구
+- [ ] 글쓰기·말하기 코치
+- [ ] 그림/표/도형 등 출력 컴포넌트
+- [ ] curriculum mapping
+- [ ] 활동 템플릿 라이브러리
+- [ ] 생성물 편집/재생성/버전 관리
+- [ ] 인쇄 레이아웃 설정
+- [ ] source/citation 표시
+
+탐방은 지도/장소 adapter, 캐싱, attribution을 포함한다.
+
+## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
+
+- [ ] 전인 고정축
+- [ ] 학습 6축
+- [ ] 연령 적응형 축
+- [ ] 기간별 경험 커버리지
+- [ ] 활동 다양성/편중 탐지
+- [ ] 다음 활동 추천
+- [ ] 퀘스트 추천/보류/완료/회고
+- [ ] 검색/필터/타임라인
+- [ ] Markdown 묶음 portable export
+
+랭킹·레벨·또래 비교·강제 streak는 넣지 않는다.
+
+## Phase 5 — 중·고 학습 트래킹
+
+- [ ] 과목/단원 진도
+- [ ] weakmap
+- [ ] 오답/실수 유형
+- [ ] 학습 회고
+- [ ] 자원 추천
+- [ ] 부모 지원 포인트
+- [ ] 자기설명/근거검증 로그
+- [ ] 시험 대비 계획(압박형 gamification 없이)
+
+## Phase 6 — Integrations
+
+- [ ] 도서관 정보나루
+- [ ] 교육과정/공공 교육자료 adapter
+- [ ] OpenStreetMap/Overpass 계열
+- [ ] 외부 metadata/image license filtering
+- [ ] cache TTL / stale fallback
+- [ ] offline fixture
+- [ ] attribution/NOTICE 자동 생성
+
+## Phase 7 — Desktop Productization
+
+- [ ] Windows installer
+- [ ] macOS app/dmg
+- [ ] code signing/notarization 문서/자동화
+- [ ] Tauri updater
+- [ ] 모델 다운로드/삭제/무결성 검증
+- [ ] storage location 관리
+- [ ] backup/restore UX
+- [ ] crash recovery
+- [ ] accessibility
+- [ ] keyboard navigation
+- [ ] localization 기반
+
+## Phase 8 — 완성도 강화
+
+모든 기능 구현 후 별도 안정화 라운드를 반복한다.
+
+### 안정화
+
+- [ ] unit/integration/e2e/property tests
+- [ ] workflow replay tests
+- [ ] offline tests
+- [ ] provider failure tests
+- [ ] corrupt DB/Markdown recovery
+- [ ] interrupted export/review recovery
+- [ ] long-running soak tests
+- [ ] performance/memory profiling
+
+### 적대적 리뷰
+
+- [ ] prompt injection
+- [ ] malicious retrieved content
+- [ ] citation fabrication
+- [ ] PII leakage
+- [ ] age-inappropriate generation
+- [ ] diagnostic/medical-like developmental claims
+- [ ] stereotype/bias
+- [ ] answer-giving/scaffold violations
+- [ ] malformed structured output
+- [ ] path traversal/file corruption attempts
+- [ ] external API poisoning/failure
+
+### 위생
+
+- [ ] dead code 제거
+- [ ] TODO/FIXME audit
+- [ ] dependency pin/update policy
+- [ ] CVE audit
+- [ ] secret scan
+- [ ] license/NOTICE audit
+- [ ] docs/code consistency audit
+- [ ] sample/test data privacy audit
+- [ ] reproducible builds where practical
+
+## Definition of Done
+
+기능은 코드가 존재한다고 완료가 아니다. 다음을 모두 만족해야 한다.
+
+1. 실제 사용자 흐름에서 동작
+2. unit + integration + 필요한 e2e test 통과
+3. offline/failure path 존재
+4. privacy/safety policy 준수
+5. adversarial case 통과
+6. dependency/license hygiene 통과
+7. 문서와 실제 동작 일치
+8. Windows/macOS에서 검증
+
+이 기준으로 **전 기능 완료**를 목표로 한다.
