@@ -28,16 +28,17 @@ class ConversationSession(BaseModel):
 
 
 class RewrittenQuery(BaseModel):
-    query: str
+    query: str = Field(min_length=1, max_length=2000)
 
 
 class ConversationService:
     """Bounded-memory query workspace; conversation history is never treated as evidence."""
 
     REWRITE_SYSTEM = """Rewrite the latest GrowWise follow-up question as a standalone
-retrieval query. Use conversation history only to resolve references such as '그중',
-'그거', or omitted subjects. Do not add facts that were not present in the user's turns.
-Return only the rewritten query."""
+retrieval query. Use only the supplied prior USER questions to resolve references such as
+'그중', '그거', or omitted subjects. Never infer facts from prior assistant answers because
+assistant text is not evidence. Do not broaden the child scope or add facts not present in the
+user's questions. Return only the rewritten retrieval query."""
 
     def __init__(
         self,
@@ -73,12 +74,18 @@ Return only the rewritten query."""
     def _rewrite(self, *, session: ConversationSession, question: str) -> str:
         if self.provider is None or not session.turns:
             return question
-        recent = session.turns[-self.max_history_turns :]
-        history = "\n".join(f"{turn.role}: {turn.content}" for turn in recent)
+        recent_user_turns = [
+            turn
+            for turn in session.turns
+            if turn.role == "user"
+        ][-self.max_history_turns :]
+        if not recent_user_turns:
+            return question
+        history = "\n".join(f"user: {turn.content}" for turn in recent_user_turns)
         try:
             rewritten = self.provider.generate_structured(
                 system=self.REWRITE_SYSTEM,
-                user=f"History:\n{history}\n\nLatest question: {question}",
+                user=f"Prior user questions:\n{history}\n\nLatest question: {question}",
                 schema=RewrittenQuery,
             )
             return rewritten.query.strip() or question
