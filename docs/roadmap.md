@@ -23,14 +23,16 @@
 - ✅ **UI 셸 = Tauri** — Rust + 시스템 웹뷰 + Python 사이드카([architecture.md](architecture.md)).
 - ✅ **상업-안전 라이선스만** — 의존성은 상용/기관 확장에 걸리지 않도록 permissive
   (MIT/BSD/Apache/CC0/CC-BY)만 채택. 비상업·독점·AGPL은 배제([integrations.md](integrations.md)).
+- ✅ **기록 저장 = 하이브리드** — **Markdown이 원본(SoT)**, SQLite는 검색·역량추적
+  인덱스(재생성 가능). 마크다운 소유권·이식성 + 앱 성능 둘 다([data-model.md](data-model.md)).
+- ✅ **첫 활동지 = 탐방(Tour)** — 첫 end-to-end 구현 대상. 단 최종 목표는 **전 기능 완성**
+  (독서·영어·탐방·수학·과학·글쓰기 코치·학습로그·부모검토 전부). 탐방은 착수 순서일 뿐.
 
 아직 결정할 것:
 
-1. **기록 저장 방식** — 학습 기록을 Markdown 중심으로 둘 것인가, SQLite 기반 앱
-   데이터로 둘 것인가? (둘 다 로컬)
-2. **첫 활동지 카테고리** — 독서, 영어, 탐방 중 무엇으로 시작할 것인가?
-3. **로컬/외부 경계** — 외부 API를 어디까지 허용하고, 어떤 데이터는 반드시 로컬에만
-   둘 것인가? ([integrations.md](integrations.md))
+1. **로컬/외부 경계** — 탐방이 지도 API를 쓰므로 특히 중요. 외부 API를 어디까지 허용하고,
+   어떤 데이터는 반드시 로컬에만 둘 것인가? 오프라인 우선을 위해 지도·장소 데이터 캐싱
+   전략은? ([integrations.md](integrations.md))
 
 ## 첫 마일스톤 제안 (M0)
 
@@ -38,12 +40,16 @@
 먼저 정한 뒤 조정)
 
 - [ ] 프로젝트 스캐폴딩: Tauri 앱 + Python 사이드카(Win/macOS CI 동시 빌드) 골격
-- [ ] 저장 방식 확정(SQLite vs Markdown), RAG 사용 여부
-- [ ] 데이터 모델 v0 스키마 확정([data-model.md](data-model.md))
-- [ ] 첫 생성 모듈 1종 구현(예: 독서 활동지) — 라우터 → 생성 → 저장 → PDF 출력 end-to-end
+- [ ] 저장 계층: Markdown(SoT) 쓰기 + SQLite 인덱스 재생성([data-model.md](data-model.md))
+- [ ] 데이터 모델 v0 스키마 확정(학습 대화 로그 포함)
+- [ ] **첫 생성 모듈 = 탐방 활동지** — 라우터 → 생성 → (지도/장소 어댑터) → 저장 → PDF
+      end-to-end. 오프라인 대비 장소 데이터 캐싱 포함
 - [ ] Parent Review Layer 최소 구현(노출 전 체크리스트)
-- [ ] 학습 로그 저장/조회
+- [ ] 학습 로그(대화 기록장) 저장/조회
 - [ ] 로컬 실행 가이드(README 보강)
+
+이후: 나머지 생성 모듈(독서·영어·수학·과학·글쓰기 코치)을 순차 완성 — **전 기능 완성이
+최종 목표**다.
 
 ## 검증 지점
 
