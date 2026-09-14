@@ -23,8 +23,12 @@ class MaterialRevisionService:
         note: str | None = None,
     ) -> GeneratedMaterial:
         if material.status is not MaterialStatus.REVISION_REQUESTED:
-            raise MaterialRevisionError("material must be revision_requested before regeneration")
-        revision_note = (note or material.review_note or "부모 수정 요청을 반영해 다시 구성한다.").strip()
+            raise MaterialRevisionError(
+                "material must be revision_requested before regeneration"
+            )
+        revision_note = (
+            note or material.review_note or "부모 수정 요청을 반영해 다시 구성한다."
+        ).strip()
         topic = material.request_topic or material.title
         previous_goal = material.request_goal or ""
         goal = "\n".join(
