@@ -4,6 +4,8 @@ use core_process::CoreProcessManager;
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 
+const CORE_BASE_URL: &str = "http://127.0.0.1:8765";
+
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 struct CoreHealth {
@@ -20,11 +22,50 @@ struct CoreRuntimeStatus {
     started_by_desktop: bool,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct ChildCreateInput {
+    nickname: String,
+    stage: String,
+    age_months: Option<u16>,
+    interests: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct ChildProfileDto {
+    id: String,
+    nickname: String,
+    stage: String,
+    age_months: Option<u16>,
+    interests: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GrowthAxisDto {
+    axis: String,
+    state: String,
+    observation_count: u32,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct GrowthMapDto {
+    child_id: String,
+    period_days: u32,
+    total_logs_in_period: u32,
+    tagged_logs_in_period: u32,
+    axes: Vec<GrowthAxisDto>,
+}
+
+fn client() -> Result<reqwest::Client, String> {
+    reqwest::Client::builder()
+        .timeout(std::time::Duration::from_millis(3000))
+        .build()
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 async fn core_health() -> Result<CoreHealth, String> {
-    let response = reqwest::Client::new()
-        .get("http://127.0.0.1:8765/health")
-        .timeout(std::time::Duration::from_millis(2500))
+    let response = client()?
+        .get(format!("{CORE_BASE_URL}/health"))
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -46,6 +87,49 @@ fn core_runtime_status(manager: tauri::State<'_, CoreProcessManager>) -> CoreRun
     }
 }
 
+#[tauri::command]
+async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/children"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("아이 프로필 저장 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<ChildProfileDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
+    let response = client()?
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/growth-map?days=30"
+        ))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("성장 맥락 조회 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<GrowthMapDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -54,7 +138,12 @@ pub fn run() {
             app.manage(manager);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![core_health, core_runtime_status])
+        .invoke_handler(tauri::generate_handler![
+            core_health,
+            core_runtime_status,
+            create_child,
+            get_growth_map
+        ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
 }
