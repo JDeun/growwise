@@ -58,6 +58,17 @@ class HybridRagIndex:
                 "CREATE INDEX IF NOT EXISTS idx_rag_child ON rag_chunks(child_id)"
             )
 
+    def reset(self) -> None:
+        """Clear the rebuildable RAG projection without replacing the SQLite file.
+
+        Keeping the database inode/path stable avoids Windows file-lock failures when another
+        short-lived SQLite connection has not yet released its OS handle. The operation is a
+        normal SQLite transaction, so readers never observe a half-deleted database file.
+        """
+        with self._connect() as connection:
+            connection.execute("DELETE FROM rag_chunks")
+            connection.commit()
+
     def replace_resource(self, chunks: list[ResourceChunk]) -> int:
         if not chunks:
             return 0
