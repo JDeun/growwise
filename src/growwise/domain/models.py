@@ -148,6 +148,10 @@ class GeneratedMaterial(EntityBase):
     source_refs: list[str] = Field(default_factory=list)
     generator_mode: str = "template"
     review_note: str | None = None
+    request_topic: str | None = None
+    request_goal: str | None = None
+    version: int = Field(default=1, ge=1)
+    parent_material_id: UUID | None = None
 
 
 class WorkflowRun(EntityBase):
