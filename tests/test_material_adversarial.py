@@ -7,7 +7,11 @@ import pytest
 from fastapi import HTTPException
 
 import growwise.api.main as api
-from growwise.api.main import MaterialGenerateRequest, MaterialReviewRequest
+from growwise.api.main import (
+    MaterialGenerateRequest,
+    MaterialReviewRequest,
+    MaterialRevisionRequest,
+)
 from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
 from growwise.generators import MaterialGenerationService
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
@@ -179,4 +183,75 @@ def test_review_decision_mismatch_is_rejected(
             MaterialReviewRequest(status=MaterialStatus.APPROVED),
             store,
         )
+    assert exc_info.value.status_code == 409
+
+
+
+def test_revision_api_preserves_request_lineage_and_is_retry_safe(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, child = _store_with_child(tmp_path)
+    graph = RecordingReviewGraph()
+    monkeypatch.setattr(api, "get_model_provider", lambda: None)
+    monkeypatch.setattr(api, "get_material_review_graph", lambda: graph)
+
+    material = api.generate_material(
+        child.id,
+        MaterialGenerateRequest(
+            topic="달의 모양",
+            goal="관찰한 차이를 말로 설명한다.",
+            kind=MaterialKind.SCIENCE_INQUIRY,
+        ),
+        store,
+    )
+    assert material.request_topic == "달의 모양"
+    assert material.request_goal == "관찰한 차이를 말로 설명한다."
+
+    requested = api.review_material(
+        material.id,
+        MaterialReviewRequest(
+            status=MaterialStatus.REVISION_REQUESTED,
+            note="질문 수를 줄이고 관찰 중심으로 바꿔주세요.",
+        ),
+        store,
+    )
+    revised = api.revise_material(
+        requested.id,
+        MaterialRevisionRequest(),
+        store,
+    )
+
+    assert revised.status is MaterialStatus.REVIEW_PENDING
+    assert revised.version == 2
+    assert revised.parent_material_id == material.id
+    assert revised.request_topic == "달의 모양"
+    assert "관찰한 차이를 말로 설명한다." in (revised.request_goal or "")
+    assert "질문 수를 줄이고 관찰 중심으로" in (revised.request_goal or "")
+    assert graph.calls[-1][1]["configurable"]["thread_id"] == f"material-review:{revised.id}"
+
+    call_count = len(graph.calls)
+    retried = api.revise_material(
+        requested.id,
+        MaterialRevisionRequest(note="재시도에서 다른 버전이 생기면 안 됩니다."),
+        store,
+    )
+    assert retried.id == revised.id
+    assert len(graph.calls) == call_count
+
+
+def test_revision_api_rejects_material_without_revision_request(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, child = _store_with_child(tmp_path)
+    graph = RecordingReviewGraph()
+    monkeypatch.setattr(api, "get_model_provider", lambda: None)
+    monkeypatch.setattr(api, "get_material_review_graph", lambda: graph)
+    material = api.generate_material(
+        child.id,
+        MaterialGenerateRequest(topic="그림자"),
+        store,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        api.revise_material(material.id, MaterialRevisionRequest(), store)
     assert exc_info.value.status_code == 409
