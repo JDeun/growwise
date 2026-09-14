@@ -38,6 +38,14 @@ class WorkflowStatus(StrEnum):
     CANCELLED = "cancelled"
 
 
+class ResourceKind(StrEnum):
+    BOOK = "book"
+    CURRICULUM = "curriculum"
+    WEB = "web"
+    NOTE = "note"
+    FILE = "file"
+
+
 class EntityBase(BaseModel):
     schema_version: int = 1
     id: UUID = Field(default_factory=uuid7)
@@ -73,6 +81,22 @@ class LearningLog(EntityBase):
     difficulty_note: str | None = None
     next_activity: str | None = None
     tags: list[str] = Field(default_factory=list)
+
+
+class ResourceRecord(EntityBase):
+    entity_type: str = "resource"
+    child_id: UUID | None = None
+    kind: ResourceKind
+    title: str
+    summary: str | None = None
+    content: str | None = None
+    source_url: str | None = None
+    source_name: str | None = None
+    author: str | None = None
+    published_at: datetime | None = None
+    tags: list[str] = Field(default_factory=list)
+    stage_tags: list[Stage] = Field(default_factory=list)
+    provenance: dict[str, str] = Field(default_factory=dict)
 
 
 class WorkflowRun(EntityBase):
