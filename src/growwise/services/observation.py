@@ -14,6 +14,60 @@ class ObservationEnrichment(BaseModel):
     next_activity: str | None = None
 
 
+_FORBIDDEN_INTERPRETATION_MARKERS = (
+    "adhd",
+    "autism",
+    "autistic",
+    "disorder",
+    "diagnos",
+    "자폐",
+    "발달장애",
+    "장애로 보",
+    "진단",
+    "비정상",
+    "정상 발달",
+    "또래보다",
+    "또래 평균",
+    "상위 ",
+    "하위 ",
+    "퍼센타일",
+)
+
+
+def _contains_forbidden_interpretation(value: str | None) -> bool:
+    if value is None:
+        return False
+    lowered = value.casefold()
+    return any(marker in lowered for marker in _FORBIDDEN_INTERPRETATION_MARKERS)
+
+
+def _sanitize(enrichment: ObservationEnrichment) -> ObservationEnrichment:
+    return enrichment.model_copy(
+        update={
+            "tags": [
+                tag
+                for tag in enrichment.tags
+                if not _contains_forbidden_interpretation(tag)
+            ],
+            "interest": (
+                None
+                if _contains_forbidden_interpretation(enrichment.interest)
+                else enrichment.interest
+            ),
+            "difficulty_note": (
+                None
+                if _contains_forbidden_interpretation(enrichment.difficulty_note)
+                else enrichment.difficulty_note
+            ),
+            "next_activity": (
+                None
+                if _contains_forbidden_interpretation(enrichment.next_activity)
+                else enrichment.next_activity
+            ),
+        }
+    )
+
+
 class ObservationEnricher:
     """Turn free-form parent notes into searchable metadata without changing the source note."""
 
@@ -31,8 +85,9 @@ The parent's original observation remains authoritative; you are only producing 
         self.provider = provider
 
     def enrich(self, observation: str) -> ObservationEnrichment:
-        return self.provider.generate_structured(
+        enrichment = self.provider.generate_structured(
             system=self.SYSTEM,
             user=observation,
             schema=ObservationEnrichment,
         )
+        return _sanitize(enrichment)
