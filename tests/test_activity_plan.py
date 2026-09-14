@@ -1,5 +1,5 @@
-from uuid6 import uuid7
 import pytest
+from uuid6 import uuid7
 
 from growwise.domain import ActivityPlan, ActivityStatus
 from growwise.services import ActivityPlanService, InvalidActivityTransition
