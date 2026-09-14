@@ -73,9 +73,23 @@ struct GrowthMapDto {
     axes: Vec<GrowthAxisDto>,
 }
 
+#[derive(Debug, Serialize, Deserialize)]
+struct ActivitySuggestionDto {
+    title: String,
+    description: String,
+    materials: Vec<String>,
+    observation_cue: Option<String>,
+    tags: Vec<String>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct InfantActivitySuggestionsDto {
+    suggestions: Vec<ActivitySuggestionDto>,
+}
+
 fn client() -> Result<reqwest::Client, String> {
     reqwest::Client::builder()
-        .timeout(std::time::Duration::from_millis(5000))
+        .timeout(std::time::Duration::from_millis(8000))
         .build()
         .map_err(|error| error.to_string())
 }
@@ -169,6 +183,28 @@ async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+async fn get_infant_activities(child_id: String) -> Result<InfantActivitySuggestionsDto, String> {
+    let response = client()?
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/infant-activities?limit=3"
+        ))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        return Err(format!("영아 활동 추천 조회 실패 ({status}): {body}"));
+    }
+
+    response
+        .json::<InfantActivitySuggestionsDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -184,7 +220,8 @@ pub fn run() {
             core_runtime_status,
             create_child,
             create_observation,
-            get_growth_map
+            get_growth_map,
+            get_infant_activities
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
