@@ -74,27 +74,75 @@ Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족
 - Desktop: Tauri 2 + React/TypeScript
 - Core: Python 3.12+ / FastAPI sidecar
 - Orchestration: **LangChain + LangGraph**
+- Workflow persistence: LangGraph `SqliteSaver` + `workflow_run`
 - Storage: Markdown(Source of Truth) + SQLite projection/index
-- Model: local-first, provider abstraction
+- Model: local-first provider abstraction, 현재 Ollama adapter
 - RAG: 교육과정·도서·기록·외부 자료를 provenance와 함께 검색
 - Export: HTML/CSS → PDF
 - Platforms: Windows + macOS
 
 자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
 
-## 현재 상태
+## 현재 구현 상태
 
-**pre-alpha / implementation start.** 제품 철학·데이터 모델·아키텍처·안전·평가 설계는
-정리되어 있으며, walking skeleton부터 실제 구현을 시작했다.
+**pre-alpha / active implementation.** 설계 전용 저장소를 지나 실제 local-first core의 첫
+vertical slices가 동작하도록 구현 중이다.
 
 현재 구현된 기반:
 
-- Python package / test scaffold
-- Pydantic domain model v0
+- Python 3.12 package / FastAPI sidecar
+- Pydantic domain model + UUIDv7
+- `ChildProfile`, `LearningLog`, `ActivityPlan`, `WorkflowRun`
 - Markdown atomic Source-of-Truth repository
-- LangGraph observation workflow skeleton
-- FastAPI sidecar health/observation endpoint
+- SQLite disposable projection + Markdown 전체 rebuild
+- child-scoped lexical retrieval
+- 자연어 검색 plan 생성 + deterministic fallback
+- LangChain ModelProvider abstraction
+- Ollama / `ChatOllama` adapter
+- 관찰 원문을 보존하는 선택적 LLM 태깅·메타데이터 보강
+- LangGraph observation workflow
+- LangGraph SQLite durable checkpoint + `thread_id`
+- workflow 실행 상태/출력 참조 저장
+- 영아 활동 추천 + 오프라인 deterministic fallback
+- Windows / macOS / Linux Python CI
 - GrowWise brand SVG assets
+
+## 로컬 코어 실행
+
+```bash
+python -m pip install -e ".[dev]"
+growwise
+```
+
+기본 API 주소:
+
+```text
+http://127.0.0.1:8765
+```
+
+주요 환경변수:
+
+```bash
+GROWWISE_DATA_DIR=~/.growwise
+GROWWISE_MODEL_PROVIDER=ollama
+GROWWISE_MODEL_ID=qwen3.5:9b
+GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
+GROWWISE_LLM_FEATURES_ENABLED=true
+```
+
+LLM 기능이 비활성화되거나 Ollama를 사용할 수 없어도 **기록 저장과 deterministic 검색/활동
+fallback은 계속 동작**하도록 설계한다. 원본 기록은 LLM 가용성에 의존하지 않는다.
+
+현재 API vertical slice:
+
+```text
+POST /v1/children
+POST /v1/observations
+GET  /v1/children/{child_id}/observations
+GET  /v1/children/{child_id}/search?q=...
+GET  /v1/children/{child_id}/infant-activities
+GET  /health
+```
 
 ## 문서
 
