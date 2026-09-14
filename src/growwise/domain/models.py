@@ -34,6 +34,16 @@ class ExperienceAxis(StrEnum):
     EXPLORATION = "exploration"
 
 
+class MaterialKind(StrEnum):
+    ACTIVITY_GUIDE = "activity_guide"
+    READING_ACTIVITY = "reading_activity"
+    ENGLISH_CARD = "english_card"
+    MATH_ACTIVITY = "math_activity"
+    SCIENCE_INQUIRY = "science_inquiry"
+    WRITING_PROMPT = "writing_prompt"
+    FIELD_TRIP = "field_trip"
+
+
 class MaterialStatus(StrEnum):
     DRAFT = "draft"
     REVIEW_PENDING = "review_pending"
@@ -111,6 +121,18 @@ class ResourceRecord(EntityBase):
     tags: list[str] = Field(default_factory=list)
     stage_tags: list[Stage] = Field(default_factory=list)
     provenance: dict[str, str] = Field(default_factory=dict)
+
+
+class GeneratedMaterial(EntityBase):
+    entity_type: str = "generated_material"
+    child_id: UUID
+    kind: MaterialKind
+    title: str
+    content_markdown: str
+    status: MaterialStatus = MaterialStatus.DRAFT
+    source_refs: list[str] = Field(default_factory=list)
+    generator_mode: str = "template"
+    review_note: str | None = None
 
 
 class WorkflowRun(EntityBase):
