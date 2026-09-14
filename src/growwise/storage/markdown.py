@@ -52,8 +52,7 @@ class MarkdownRepository:
         self.root.mkdir(parents=True, exist_ok=True)
 
     def _path_for(self, entity: EntityBase) -> Path:
-        entity_type = getattr(entity, "entity_type")
-        return self.root / str(entity_type) / f"{entity.id}.md"
+        return self.root / entity.entity_type / f"{entity.id}.md"
 
     @staticmethod
     def backup_path(path: Path) -> Path:
