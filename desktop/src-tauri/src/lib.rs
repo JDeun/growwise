@@ -448,6 +448,52 @@ async fn get_board_book_recommendations(child_id: String) -> Result<serde_json::
         .map_err(|error| error.to_string())
 }
 
+#[tauri::command]
+async fn list_backups() -> Result<serde_json::Value, String> {
+    let response = client()?
+        .get(format!("{CORE_BASE_URL}/v1/admin/backups"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "백업 목록 조회 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn create_backup() -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/admin/backups"))
+        .json(&serde_json::json!({}))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "백업 생성 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+async fn restore_backup(archive_name: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!(
+            "{CORE_BASE_URL}/v1/admin/backups/{archive_name}/restore"
+        ))
+        .json(&serde_json::json!({"confirmed": true}))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "백업 복원 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -480,7 +526,10 @@ pub fn run() {
             get_growth_map,
             get_infant_activities,
             get_infant_observation_hints,
-            get_board_book_recommendations
+            get_board_book_recommendations,
+            list_backups,
+            create_backup,
+            restore_backup
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
