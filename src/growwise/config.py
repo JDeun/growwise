@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     model_temperature: float = 0.1
     llm_features_enabled: bool = True
 
+    embedding_model_id: str = "nomic-embed-text"
+    embedding_features_enabled: bool = True
+
     @property
     def records_dir(self) -> Path:
         return self.data_dir / "records"
@@ -33,3 +36,7 @@ class Settings(BaseSettings):
     @property
     def jobs_path(self) -> Path:
         return self.data_dir / "jobs.sqlite3"
+
+    @property
+    def rag_index_path(self) -> Path:
+        return self.data_dir / "rag.sqlite3"
