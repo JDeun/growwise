@@ -1,5 +1,4 @@
 """Minimal PyInstaller entry point for the GrowWise desktop Core sidecar."""
-
 from growwise.api.main import run
 
 
