@@ -1,18 +1,8 @@
 import { invoke } from "@tauri-apps/api/core";
 
 export type OperationMode = "ai_enhanced_with_core_fallback" | "core_only";
-
-export type ExperienceAxis =
-  | "physical"
-  | "emotional_character"
-  | "expression_art"
-  | "thinking_inquiry"
-  | "social"
-  | "reading"
-  | "speaking"
-  | "writing"
-  | "math"
-  | "exploration";
+export type ExperienceAxis = "physical" | "emotional_character" | "expression_art" | "thinking_inquiry" | "social" | "reading" | "speaking" | "writing" | "math" | "exploration";
+export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
 
 export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
@@ -27,6 +17,8 @@ export interface SearchPlan { keywords: string[]; entity_types: string[]; limit:
 export interface SearchResponse { query: string; plan: SearchPlan; results: Array<Record<string, unknown>>; }
 export interface ConversationSession { id: string; child_id: string; title: string | null; turns: Array<{ role: "user" | "assistant"; content: string; source_ids: string[]; created_at: string; }>; }
 export interface ConversationAnswer { session_id: string; thread_id: string; answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean; }; turn_count: number; }
+export interface ResourceCreateInput { kind: ResourceKind; title: string; child_id: string | null; summary: string | null; content: string | null; source_url: string | null; source_name: string | null; author: string | null; tags: string[]; stage_tags: string[]; provenance: Record<string, string>; }
+export interface ResourceRecord extends ResourceCreateInput { id: string; created_at?: string; updated_at?: string; }
 
 export class CoreApiError extends Error {
   constructor(message: string) { super(message); this.name = "CoreApiError"; }
@@ -48,5 +40,7 @@ export const listObservations = (childId: string) => call<LearningLog[]>("list_o
 export const searchChildContext = (childId: string, query: string) => call<SearchResponse>("search_child_context", { childId, query });
 export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
+export const createResource = (request: ResourceCreateInput) => call<ResourceRecord>("create_resource", { request });
+export const listResources = (childId?: string) => call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
 export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map", { childId });
 export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
