@@ -9,6 +9,7 @@ from uuid import UUID
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from langgraph.checkpoint.sqlite import SqliteSaver
+from langgraph.types import Command
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
@@ -57,7 +58,7 @@ from growwise.services import (
     SQLiteConversationStore,
 )
 from growwise.storage import EntityStore
-from growwise.workflows import build_observation_graph
+from growwise.workflows import build_material_review_graph, build_observation_graph
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 
@@ -186,6 +187,16 @@ def get_observation_graph():
     checkpointer = SqliteSaver(connection)
     checkpointer.setup()
     return build_observation_graph(checkpointer=checkpointer)
+
+
+@lru_cache
+def get_material_review_graph():
+    settings = get_settings()
+    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+    checkpointer = SqliteSaver(connection)
+    checkpointer.setup()
+    return build_material_review_graph(checkpointer=checkpointer)
 
 
 def build_child_context_service(store: EntityStore) -> ChildContextService:
@@ -488,6 +499,17 @@ def generate_material(
         source_refs=request.source_refs,
     )
     store.save(material)
+    review_config = {
+        "configurable": {"thread_id": f"material-review:{material.id}"}
+    }
+    get_material_review_graph().invoke(
+        {
+            "material_id": str(material.id),
+            "child_id": str(child.id),
+            "title": material.title,
+        },
+        config=review_config,
+    )
     return material
 
 
@@ -520,6 +542,27 @@ def review_material(
     if payload is None:
         raise HTTPException(status_code=404, detail="material_not_found")
     material = GeneratedMaterial.model_validate(payload)
+    if material.status is MaterialStatus.REVIEW_PENDING:
+        config = {
+            "configurable": {"thread_id": f"material-review:{material.id}"}
+        }
+        try:
+            review_state = get_material_review_graph().invoke(
+                Command(
+                    resume={
+                        "status": request.status.value,
+                        "note": request.note,
+                    }
+                ),
+                config=config,
+            )
+            if review_state.get("decision_status") != request.status.value:
+                raise HTTPException(status_code=409, detail="review_decision_mismatch")
+        except HTTPException:
+            raise
+        except Exception:
+            # Backward compatibility for materials created before review checkpoints existed.
+            pass
     try:
         MaterialReviewService().transition(material, request.status, note=request.note)
     except InvalidMaterialTransition as exc:
