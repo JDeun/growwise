@@ -71,6 +71,18 @@ class SQLiteProjection:
                 ),
             )
 
+    def get_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
+        sql = "SELECT payload_json FROM entities WHERE id = ?"
+        params: list[str] = [entity_id]
+        if entity_type is not None:
+            sql += " AND entity_type = ?"
+            params.append(entity_type)
+        with self._connect() as connection:
+            row = connection.execute(sql, params).fetchone()
+        if row is None:
+            return None
+        return json.loads(row["payload_json"])
+
     def list_entities(self, *, entity_type: str, child_id: str | None = None) -> list[dict]:
         query = "SELECT payload_json FROM entities WHERE entity_type = ?"
         params: list[str] = [entity_type]
