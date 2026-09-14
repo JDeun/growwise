@@ -10,6 +10,14 @@ from pydantic import BaseModel
 
 T = TypeVar("T", bound=BaseModel)
 
+_RESERVED_METADATA_KEYS = {
+    "content": "__growwise_content",
+    "handler": "__growwise_handler",
+}
+_REVERSE_RESERVED_METADATA_KEYS = {
+    encoded: original for original, encoded in _RESERVED_METADATA_KEYS.items()
+}
+
 
 @runtime_checkable
 class StoredEntity(Protocol):
@@ -17,6 +25,20 @@ class StoredEntity(Protocol):
     id: object
 
     def model_dump(self, *, mode: str = "python") -> dict: ...
+
+
+def _encode_metadata(payload: dict) -> dict:
+    return {
+        _RESERVED_METADATA_KEYS.get(key, key): value
+        for key, value in payload.items()
+    }
+
+
+def _decode_metadata(payload: dict) -> dict:
+    return {
+        _REVERSE_RESERVED_METADATA_KEYS.get(key, key): value
+        for key, value in payload.items()
+    }
 
 
 class MarkdownRepository:
@@ -36,10 +58,11 @@ class MarkdownRepository:
     def save(self, entity: StoredEntity, body: str = "") -> Path:
         target = self._path_for(entity)
         target.parent.mkdir(parents=True, exist_ok=True)
-        payload = entity.model_dump(mode="json")
+        payload = _encode_metadata(entity.model_dump(mode="json"))
 
-        # Do not expand payload as kwargs here: domain entities may legitimately have a
-        # field named `content`, which collides with frontmatter.Post's first parameter.
+        # python-frontmatter reserves `content` and `handler` as Post constructor
+        # parameters. GrowWise escapes those domain field names at the persistence
+        # boundary and restores them on load/rebuild.
         post = frontmatter.Post(body)
         post.metadata.update(payload)
         rendered = frontmatter.dumps(post)
@@ -58,4 +81,5 @@ class MarkdownRepository:
 
     def load(self, path: Path, model: type[T]) -> T:
         post = frontmatter.load(path)
-        return model.model_validate(dict(post.metadata))
+        payload = _decode_metadata(dict(post.metadata))
+        return model.model_validate(payload)
