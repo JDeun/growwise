@@ -1,0 +1,159 @@
+from __future__ import annotations
+
+import json
+import shutil
+import tempfile
+import zipfile
+from datetime import UTC, datetime
+from pathlib import Path, PurePosixPath
+
+import frontmatter
+from pydantic import BaseModel
+
+from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
+from growwise.storage.sqlite import SQLiteProjection
+
+
+class InvalidBackup(ValueError):
+    pass
+
+
+class BackupManifest(BaseModel):
+    format_version: int = 1
+    schema_version: int = CURRENT_SCHEMA_VERSION
+    created_at: datetime
+    record_count: int
+
+
+class BackupService:
+    """Portable backup/restore for the authoritative Markdown record set.
+
+    SQLite databases are deliberately excluded because they are rebuildable projections. Backups
+    contain only current ``.md`` source documents plus a small manifest. One-generation ``.bak``
+    recovery files remain local implementation details and are not exported.
+    """
+
+    MANIFEST_NAME = "manifest.json"
+
+    def create(self, *, records_root: Path, destination: Path) -> BackupManifest:
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        records = sorted(path for path in records_root.rglob("*.md") if path.is_file())
+        manifest = BackupManifest(
+            created_at=datetime.now(UTC),
+            record_count=len(records),
+        )
+
+        fd, tmp_name = tempfile.mkstemp(
+            prefix=f".{destination.name}.", suffix=".tmp", dir=destination.parent
+        )
+        Path(tmp_name).unlink(missing_ok=True)
+        try:
+            with zipfile.ZipFile(tmp_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+                archive.writestr(
+                    self.MANIFEST_NAME,
+                    json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2),
+                )
+                for path in records:
+                    relative = path.relative_to(records_root).as_posix()
+                    archive.write(path, f"records/{relative}")
+            Path(tmp_name).replace(destination)
+        finally:
+            Path(tmp_name).unlink(missing_ok=True)
+        return manifest
+
+    def restore(
+        self,
+        *,
+        archive_path: Path,
+        records_root: Path,
+        index_path: Path,
+    ) -> BackupManifest:
+        if not archive_path.is_file():
+            raise FileNotFoundError(archive_path)
+
+        staging_parent = records_root.parent
+        staging_parent.mkdir(parents=True, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="growwise-restore-", dir=staging_parent) as temp_dir:
+            staging = Path(temp_dir)
+            with zipfile.ZipFile(archive_path, "r") as archive:
+                manifest = self._read_manifest(archive)
+                self._validate_members(archive)
+                archive.extractall(staging)
+
+            staged_records = staging / "records"
+            actual_count = self._validate_records(staged_records)
+            if actual_count != manifest.record_count:
+                raise InvalidBackup(
+                    f"manifest record_count={manifest.record_count} but archive contains {actual_count}"
+                )
+
+            restore_source = staging / "records-ready"
+            if staged_records.exists():
+                shutil.copytree(staged_records, restore_source)
+            else:
+                restore_source.mkdir(parents=True)
+
+            previous = records_root.with_name(
+                f"{records_root.name}.pre-restore-{datetime.now(UTC).strftime('%Y%m%dT%H%M%SZ')}"
+            )
+            moved_previous = False
+            try:
+                if records_root.exists():
+                    records_root.replace(previous)
+                    moved_previous = True
+                restore_source.replace(records_root)
+                SQLiteProjection(index_path).rebuild(records_root)
+            except Exception:
+                if records_root.exists():
+                    shutil.rmtree(records_root, ignore_errors=True)
+                if moved_previous and previous.exists():
+                    previous.replace(records_root)
+                raise
+
+        return manifest
+
+    def _read_manifest(self, archive: zipfile.ZipFile) -> BackupManifest:
+        try:
+            payload = json.loads(archive.read(self.MANIFEST_NAME))
+        except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
+            raise InvalidBackup("missing or invalid backup manifest") from exc
+        manifest = BackupManifest.model_validate(payload)
+        if manifest.format_version != 1:
+            raise InvalidBackup(f"unsupported backup format_version={manifest.format_version}")
+        validate_schema_version({"schema_version": manifest.schema_version})
+        return manifest
+
+    @staticmethod
+    def _validate_members(archive: zipfile.ZipFile) -> None:
+        for info in archive.infolist():
+            path = PurePosixPath(info.filename)
+            if path.is_absolute() or ".." in path.parts:
+                raise InvalidBackup(f"unsafe archive member: {info.filename}")
+            if info.filename == BackupService.MANIFEST_NAME:
+                continue
+            if not path.parts or path.parts[0] != "records":
+                raise InvalidBackup(f"unexpected archive member: {info.filename}")
+
+    @staticmethod
+    def _validate_records(records_root: Path) -> int:
+        count = 0
+        if not records_root.exists():
+            return count
+        for path in records_root.rglob("*"):
+            if not path.is_file():
+                continue
+            if path.suffix != ".md":
+                raise InvalidBackup(f"unexpected record file: {path.name}")
+            try:
+                post = frontmatter.load(path)
+                payload = dict(post.metadata)
+                required = {"id", "entity_type", "schema_version", "created_at", "updated_at"}
+                if not required.issubset(payload):
+                    raise InvalidBackup(f"record metadata incomplete: {path.name}")
+                validate_schema_version(payload)
+            except InvalidBackup:
+                raise
+            except Exception as exc:
+                raise InvalidBackup(f"invalid Markdown record: {path.name}") from exc
+            count += 1
+        return count
