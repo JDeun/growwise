@@ -12,6 +12,12 @@ class Settings(BaseSettings):
     api_host: str = "127.0.0.1"
     api_port: int = 8765
 
+    model_provider: str = "ollama"
+    model_id: str = "qwen3.5:9b"
+    model_base_url: str = "http://127.0.0.1:11434"
+    model_temperature: float = 0.1
+    llm_features_enabled: bool = True
+
     @property
     def records_dir(self) -> Path:
         return self.data_dir / "records"
