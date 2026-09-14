@@ -47,13 +47,14 @@ def _store_with_child(tmp_path: Path) -> tuple[EntityStore, ChildProfile]:
     return store, child
 
 
-def test_observation_graph_preserves_parent_source_text_exactly() -> None:
+def test_observation_graph_derives_normalized_text_without_mutating_input() -> None:
     source = "  책을  보고\n다시 손을 뻗었다.\n---\ncontent: 그대로  "
     state = build_observation_graph().invoke(
         {"child_id": "child-1", "observation": source}
     )
 
-    assert state["normalized_observation"] == source
+    assert state["observation"] == source
+    assert state["normalized_observation"] == "책을 보고 다시 손을 뻗었다. --- content: 그대로"
     assert state["safety_flags"] == []
 
 
