@@ -1,29 +1,34 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
 import {
-  CoreApiError,
   appendConversationTurn,
   createChild,
   createConversation,
   createObservation,
   createResource,
+  generateMaterial,
   getCoreRuntimeStatus,
   getGrowthMap,
   getHealth,
   getInfantActivities,
   listChildren,
+  listMaterials,
   listObservations,
   listResources,
+  reviewMaterial,
   searchChildContext,
   type ChildProfile,
   type ConversationAnswer,
   type ConversationSession,
   type CoreRuntimeStatus,
   type ExperienceAxis,
+  type GeneratedMaterial,
   type GrowthMap,
   type HealthResponse,
   type InfantActivitySuggestions,
   type LearningLog,
+  type MaterialKind,
+  type MaterialStatus,
   type ResourceKind,
   type ResourceRecord,
   type SearchResponse,
@@ -60,43 +65,58 @@ function App() {
   const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
   const [growthMap, setGrowthMap] = useState<GrowthMap | null>(null);
   const [timeline, setTimeline] = useState<LearningLog[]>([]);
+  const [resources, setResources] = useState<ResourceRecord[]>([]);
+  const [materials, setMaterials] = useState<GeneratedMaterial[]>([]);
+
   const [nickname, setNickname] = useState("");
   const [ageMonths, setAgeMonths] = useState("9");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
   const [observation, setObservation] = useState("");
   const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationError, setObservationError] = useState<string | null>(null);
+
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
   const [searching, setSearching] = useState(false);
   const [searchError, setSearchError] = useState<string | null>(null);
+
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
+
   const [conversation, setConversation] = useState<ConversationSession | null>(null);
   const [conversationAnswers, setConversationAnswers] = useState<ConversationAnswer[]>([]);
   const [conversationQuestion, setConversationQuestion] = useState("");
   const [conversationBusy, setConversationBusy] = useState(false);
   const [conversationError, setConversationError] = useState<string | null>(null);
-  const [resources, setResources] = useState<ResourceRecord[]>([]);
+
   const [resourceKind, setResourceKind] = useState<ResourceKind>("note");
   const [resourceTitle, setResourceTitle] = useState("");
   const [resourceContent, setResourceContent] = useState("");
   const [resourceSaving, setResourceSaving] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
 
+  const [materialKind, setMaterialKind] = useState<MaterialKind>("activity_guide");
+  const [materialTopic, setMaterialTopic] = useState("");
+  const [materialGoal, setMaterialGoal] = useState("");
+  const [materialBusy, setMaterialBusy] = useState(false);
+  const [materialError, setMaterialError] = useState<string | null>(null);
+
   const loadChildContext = useCallback(async (child: ChildProfile) => {
-    const [map, logs, childResources] = await Promise.all([
+    const [map, logs, childResources, childMaterials] = await Promise.all([
       getGrowthMap(child.id),
       listObservations(child.id),
       listResources(child.id),
+      listMaterials(child.id),
     ]);
     setActiveChild(child);
     setGrowthMap(map);
     setTimeline(logs);
     setResources(childResources);
+    setMaterials(childMaterials);
     setActivities(null);
     setSearchResult(null);
     setConversation(null);
@@ -123,10 +143,10 @@ function App() {
         setGrowthMap(null);
         setTimeline([]);
         setResources([]);
+        setMaterials([]);
       }
     } catch (error) {
-      const message = error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다.";
-      setConnection({ kind: "offline", message });
+      setConnection({ kind: "offline", message: error instanceof Error ? error.message : "GrowWise Core 상태를 확인할 수 없습니다." });
     }
   }, [loadChildContext]);
 
@@ -188,10 +208,7 @@ function App() {
     setConversationBusy(true); setConversationError(null);
     try {
       let session = conversation;
-      if (!session) {
-        session = await createConversation(activeChild.id);
-        setConversation(session);
-      }
+      if (!session) { session = await createConversation(activeChild.id); setConversation(session); }
       const answer = await appendConversationTurn(session.id, question);
       setConversationAnswers((current) => [...current, answer]);
       setConversationQuestion("");
@@ -207,23 +224,35 @@ function App() {
     if (!title) return setResourceError("자료 제목을 입력해 주세요.");
     setResourceSaving(true); setResourceError(null);
     try {
-      await createResource({
-        kind: resourceKind,
-        title,
-        child_id: activeChild.id,
-        summary: null,
-        content: content || null,
-        source_url: null,
-        source_name: "parent",
-        author: null,
-        tags: [],
-        stage_tags: [activeChild.stage],
-        provenance: { origin: "desktop_manual" },
-      });
+      await createResource({ kind: resourceKind, title, child_id: activeChild.id, summary: null, content: content || null, source_url: null, source_name: "parent", author: null, tags: [], stage_tags: [activeChild.stage], provenance: { origin: "desktop_manual" } });
       setResources(await listResources(activeChild.id));
       setResourceTitle(""); setResourceContent("");
     } catch (error) { setResourceError(error instanceof Error ? error.message : "자료 저장에 실패했습니다."); }
     finally { setResourceSaving(false); }
+  }
+
+  async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!activeChild) return;
+    const topic = materialTopic.trim();
+    if (!topic) return setMaterialError("자료 주제를 입력해 주세요.");
+    setMaterialBusy(true); setMaterialError(null);
+    try {
+      await generateMaterial(activeChild.id, materialKind, topic, materialGoal.trim() || undefined);
+      setMaterials(await listMaterials(activeChild.id));
+      setMaterialTopic(""); setMaterialGoal("");
+    } catch (error) { setMaterialError(error instanceof Error ? error.message : "자료 생성에 실패했습니다."); }
+    finally { setMaterialBusy(false); }
+  }
+
+  async function handleReviewMaterial(materialId: string, status: MaterialStatus) {
+    if (!activeChild) return;
+    setMaterialBusy(true); setMaterialError(null);
+    try {
+      await reviewMaterial(materialId, status);
+      setMaterials(await listMaterials(activeChild.id));
+    } catch (error) { setMaterialError(error instanceof Error ? error.message : "자료 검토 상태 변경에 실패했습니다."); }
+    finally { setMaterialBusy(false); }
   }
 
   async function handleLoadActivities() {
@@ -243,11 +272,7 @@ function App() {
 
   return (
     <main className="app-shell">
-      <header className="topbar">
-        <div className="brand"><img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" /><div><strong>GrowWise</strong><span>Personal Education OS</span></div></div>
-        <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
-      </header>
-
+      <header className="topbar"><div className="brand"><img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" /><div><strong>GrowWise</strong><span>Personal Education OS</span></div></div><button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button></header>
       <section className="hero"><p className="eyebrow">LOCAL-FIRST · PARENT-LED</p><h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1><p className="hero-copy">핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을 선택적으로 보강합니다.</p></section>
 
       <section className="status-grid" aria-label="시스템 상태">
@@ -271,22 +296,13 @@ function App() {
             <article className="observation-result"><p className="card-label">GROWTH CONTEXT</p><h3>최근 {growthMap?.period_days ?? 30}일</h3><p className="muted">기록 {growthMap?.total_logs_in_period ?? 0}건 · 경험 축 연결 {growthMap?.tagged_logs_in_period ?? 0}건</p><div className="axis-summary">{growthMap?.axes.filter((axis) => axis.observation_count > 0).map((axis) => <span key={axis.axis}>{AXIS_OPTIONS.find((item) => item.value === axis.axis)?.label ?? axis.axis} · {axis.observation_count}</span>)}</div></article>
           </div>
 
-          <section className="search-section">
-            <p className="card-label">NATURAL-LANGUAGE SEARCH</p><h3>기록을 자연어로 찾습니다.</h3><p className="muted">AI가 없어도 child-scoped lexical 검색이 작동합니다.</p>
-            <form className="search-form" onSubmit={handleSearch}><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘" /><button className="primary-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button></form>{searchError && <p className="form-error">{searchError}</p>}
-            {searchResult && <div className="search-results"><p className="muted">검색 키워드: {searchResult.plan.keywords.join(", ") || "원문 사용"} · 결과 {searchResult.results.length}건</p>{searchResult.results.map((result, index) => <article className="search-result-card" key={String(result.id ?? index)}><p>{resultText(result)}</p></article>)}</div>}
-          </section>
+          <section className="search-section"><p className="card-label">NATURAL-LANGUAGE SEARCH</p><h3>기록을 자연어로 찾습니다.</h3><p className="muted">AI가 없어도 child-scoped lexical 검색이 작동합니다.</p><form className="search-form" onSubmit={handleSearch}><input value={searchQuery} onChange={(event) => setSearchQuery(event.target.value)} placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘" /><button className="primary-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button></form>{searchError && <p className="form-error">{searchError}</p>}{searchResult && <div className="search-results"><p className="muted">검색 키워드: {searchResult.plan.keywords.join(", ") || "원문 사용"} · 결과 {searchResult.results.length}건</p>{searchResult.results.map((result, index) => <article className="search-result-card" key={String(result.id ?? index)}><p>{resultText(result)}</p></article>)}</div>}</section>
 
-          <section className="conversation-section">
-            <p className="card-label">BOUNDED MULTI-TURN</p><h3>후속 질문으로 맥락을 좁힙니다.</h3><p className="muted">대화는 지시어 해석에만 쓰고, 사실 근거는 매 턴 원본 기록과 Resource KB에서 다시 찾습니다.</p>
-            <form className="search-form" onSubmit={handleConversation}><input value={conversationQuestion} onChange={(event) => setConversationQuestion(event.target.value)} placeholder="예: 그중 고양이 관련 기록만 보여줘" /><button className="primary-button" type="submit" disabled={conversationBusy}>{conversationBusy ? "확인 중…" : conversation ? "후속 질문" : "세션 시작"}</button></form>{conversationError && <p className="form-error">{conversationError}</p>}
-            {conversation && <p className="muted session-meta">session {conversation.id.slice(0, 8)}… · child scope 고정</p>}
-            <div className="conversation-list">{conversationAnswers.map((item, index) => <article className="conversation-card" key={`${item.session_id}-${index}`}><p>{item.answer.answer}</p><small>{item.answer.source_ids.length > 0 ? `근거 ${item.answer.source_ids.length}건 · ${item.answer.source_ids.join(", ")}` : item.answer.insufficient_evidence ? "근거 부족" : "근거 없음"}</small></article>)}</div>
-          </section>
+          <section className="conversation-section"><p className="card-label">BOUNDED MULTI-TURN</p><h3>후속 질문으로 맥락을 좁힙니다.</h3><p className="muted">대화는 지시어 해석에만 쓰고, 사실 근거는 매 턴 원본 기록과 Resource KB에서 다시 찾습니다.</p><form className="search-form" onSubmit={handleConversation}><input value={conversationQuestion} onChange={(event) => setConversationQuestion(event.target.value)} placeholder="예: 그중 고양이 관련 기록만 보여줘" /><button className="primary-button" type="submit" disabled={conversationBusy}>{conversationBusy ? "확인 중…" : conversation ? "후속 질문" : "세션 시작"}</button></form>{conversationError && <p className="form-error">{conversationError}</p>}{conversation && <p className="muted session-meta">session {conversation.id.slice(0, 8)}… · child scope 고정</p>}<div className="conversation-list">{conversationAnswers.map((item, index) => <article className="conversation-card" key={`${item.session_id}-${index}`}><p>{item.answer.answer}</p><small>{item.answer.source_ids.length > 0 ? `근거 ${item.answer.source_ids.length}건 · ${item.answer.source_ids.join(", ")}` : item.answer.insufficient_evidence ? "근거 부족" : "근거 없음"}</small></article>)}</div></section>
 
-          <section className="resource-section">
-            <div className="resource-grid"><form className="resource-form" onSubmit={handleCreateResource}><p className="card-label">RESOURCE LIBRARY</p><h3>자료를 지식베이스에 넣습니다.</h3><label><span>종류</span><select value={resourceKind} onChange={(event) => setResourceKind(event.target.value as ResourceKind)}><option value="note">메모</option><option value="book">도서</option><option value="curriculum">교육과정</option><option value="web">웹 자료</option><option value="file">파일 메모</option></select></label><label><span>제목</span><input value={resourceTitle} onChange={(event) => setResourceTitle(event.target.value)} maxLength={500} /></label><label><span>내용</span><textarea value={resourceContent} onChange={(event) => setResourceContent(event.target.value)} placeholder="자료의 핵심 내용이나 메모" /></label><button className="primary-button" type="submit" disabled={resourceSaving}>{resourceSaving ? "저장 중…" : "자료 저장"}</button>{resourceError && <p className="form-error">{resourceError}</p>}</form><div className="resource-list"><p className="card-label">INDEXED RESOURCES</p><h3>{resources.length}건</h3>{resources.length === 0 ? <p className="muted">아직 이 아이와 연결된 자료가 없습니다.</p> : resources.map((resource) => <article className="resource-card" key={resource.id}><strong>{resource.title}</strong><span>{resource.kind}</span>{resource.content && <p>{resource.content}</p>}</article>)}</div></div>
-          </section>
+          <section className="resource-section"><div className="resource-grid"><form className="resource-form" onSubmit={handleCreateResource}><p className="card-label">RESOURCE LIBRARY</p><h3>자료를 지식베이스에 넣습니다.</h3><label><span>종류</span><select value={resourceKind} onChange={(event) => setResourceKind(event.target.value as ResourceKind)}><option value="note">메모</option><option value="book">도서</option><option value="curriculum">교육과정</option><option value="web">웹 자료</option><option value="file">파일 메모</option></select></label><label><span>제목</span><input value={resourceTitle} onChange={(event) => setResourceTitle(event.target.value)} maxLength={500} /></label><label><span>내용</span><textarea value={resourceContent} onChange={(event) => setResourceContent(event.target.value)} placeholder="자료의 핵심 내용이나 메모" /></label><button className="primary-button" type="submit" disabled={resourceSaving}>{resourceSaving ? "저장 중…" : "자료 저장"}</button>{resourceError && <p className="form-error">{resourceError}</p>}</form><div className="resource-list"><p className="card-label">INDEXED RESOURCES</p><h3>{resources.length}건</h3>{resources.length === 0 ? <p className="muted">아직 이 아이와 연결된 자료가 없습니다.</p> : resources.map((resource) => <article className="resource-card" key={resource.id}><strong>{resource.title}</strong><span>{resource.kind}</span>{resource.content && <p>{resource.content}</p>}</article>)}</div></div></section>
+
+          <section className="material-section"><div className="resource-grid"><form className="material-form" onSubmit={handleGenerateMaterial}><p className="card-label">MATERIAL GENERATOR</p><h3>필요한 학습 자료를 만듭니다.</h3><p className="muted">LLM이 없으면 template fallback으로 생성되며, 결과는 항상 부모 검토 대기 상태입니다.</p><label><span>형식</span><select value={materialKind} onChange={(event) => setMaterialKind(event.target.value as MaterialKind)}><option value="activity_guide">활동 가이드</option><option value="reading_activity">독서 활동</option><option value="english_card">영어 카드</option><option value="math_activity">수학 활동</option><option value="science_inquiry">과학 탐구</option><option value="writing_prompt">글쓰기</option><option value="field_trip">탐방 활동</option></select></label><label><span>주제</span><input value={materialTopic} onChange={(event) => setMaterialTopic(event.target.value)} placeholder="예: 고양이와 소리" /></label><label><span>목표(선택)</span><input value={materialGoal} onChange={(event) => setMaterialGoal(event.target.value)} placeholder="예: 함께 관찰하고 반응을 주고받기" /></label><button className="primary-button" type="submit" disabled={materialBusy}>{materialBusy ? "처리 중…" : "자료 생성"}</button>{materialError && <p className="form-error">{materialError}</p>}</form><div className="material-list"><p className="card-label">PARENT REVIEW</p><h3>{materials.length}건</h3>{materials.length === 0 ? <p className="muted">생성된 자료가 없습니다.</p> : materials.map((material) => <article className="material-card" key={material.id}><div className="material-meta"><strong>{material.title}</strong><span className={`status-badge status-${material.status}`}>{material.status}</span></div><pre>{material.content_markdown}</pre><small>{material.generator_mode}</small>{material.status === "review_pending" && <div className="review-actions"><button type="button" className="primary-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "approved")}>승인</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "revision_requested")}>수정 요청</button><button type="button" className="quiet-button" disabled={materialBusy} onClick={() => void handleReviewMaterial(material.id, "rejected")}>폐기</button></div>}</article>)}</div></div></section>
 
           <section className="timeline-section"><div className="activity-heading"><div><p className="card-label">OBSERVATION TIMELINE</p><h3>관찰 기록</h3></div><span className="badge">{timeline.length}건</span></div>{timeline.length === 0 ? <p className="muted">아직 기록이 없습니다. 기록 공백은 실패가 아닙니다.</p> : <div className="timeline-list">{timeline.map((log) => <article key={log.id} className="timeline-card"><p>{log.parent_observation}</p><div className="axis-summary">{log.experience_axes.map((axis) => <span key={axis}>{AXIS_OPTIONS.find((item) => item.value === axis)?.label ?? axis}</span>)}</div>{log.created_at && <time dateTime={log.created_at}>{new Date(log.created_at).toLocaleString("ko-KR")}</time>}</article>)}</div>}</section>
 
