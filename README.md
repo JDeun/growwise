@@ -67,10 +67,13 @@ Tauri)으로 작게 시작하는 것이 현재 목표이며(홈서버·상시 �
 | [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스와 어댑터 설계 |
 | [docs/references.md](docs/references.md) | 선행 사례 분석과 빌려오는 점(PAIDEIA·DeepTutor·TutorMoments 등) |
 | [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 안전·개인정보 원칙과 저장소 규칙 |
+| [docs/threat-model.md](docs/threat-model.md) | 위협 모델·유출 경로·데이터 보존/삭제 |
+| [docs/evaluation.md](docs/evaluation.md) | 품질·안전·scaffold 충실도 평가 하니스 |
+| [docs/attribution.md](docs/attribution.md) | 라이선스 귀속·provenance·NOTICE |
 | [docs/curriculum-sources.md](docs/curriculum-sources.md) | 과목별 기준 자료·공개 API 후보 |
 | [docs/design-system.md](docs/design-system.md) | 시각 언어·스타일·디자인 토큰·접근성 |
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 사양 |
-| [docs/roadmap.md](docs/roadmap.md) | 제품화 단계와 미해결 설계 질문 |
+| [docs/roadmap.md](docs/roadmap.md) | 제품화 단계·v1 경계·미해결 질문 |
 
 코드 구조는 [src/growwise/README.md](src/growwise/README.md)를 참고한다.
 

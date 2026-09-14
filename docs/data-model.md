@@ -34,8 +34,9 @@
 - `generated_material` → `parent_review`: 산출물은 노출 전 검토를 거친다.
 - `activity` → `activity_plan`: 활동 템플릿에서 아이별 퀘스트(계획 인스턴스)가 만들어진다.
 - `activity_plan` / `book` → `learning_log`: 퀘스트 완료·도서 수행 후 기록이 남는다.
-- `learning_log` → `competency`: 기록은 역량 관찰로 요약돼 **방사형 성장 지도**를 채운다
-  (점수화가 아니라 관찰·경험 기반).
+- `learning_log` → `competency`: 기록은 역량 관찰로 요약돼 **방사형 성장 지도**를 채운다.
+  축 값 = **경험/관찰 커버리지(self-vs-self)**이며 성취 점수·또래 비교가 아니다
+  ([product-spec.md](product-spec.md) 스칼라 정의).
 - `institution_profile` + `classroom_context`: 기관용에서 반 단위 맥락을 담는다.
 
 ## 개인용 ↔ 기관용
@@ -58,7 +59,8 @@ growwise의 핵심은 "문제지 생성기가 아니라 **학습 대화 기록�
 | `parent_observation` | 부모의 관찰(흥미·집중·태도) |
 | `evidence_checked` | 검증한 근거·출처(검증력 훈련의 흔적) |
 | `child_reexplanation` | 아이가 **자기 언어로 다시 설명**한 최종본 |
-| `interest`, `difficulty` | 흥미 변화·어려웠던 지점(점수 아님) |
+| `interest` | 흥미 변화(정성) |
+| `difficulty_note` | **어디가 어려웠는지 정성 메모**(예: "받침 있는 낱말"). 숫자 난이도 등급이 아님 — 채점·집계용 스칼라로 쓰지 않는다 |
 | `next_activity` | 다음에 해볼 활동 추천 |
 
 > 점수·낙인 필드는 두지 않는다. `ai_hint`에는 "얼마나 스스로 하게 남겼는가(과도한 도움

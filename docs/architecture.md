@@ -8,8 +8,8 @@
 ## 파이프라인
 
 ```
-Desktop UI
-    ->  App Core (로컬, 인프로세스 또는 로컬 사이드카)
+Desktop UI (Tauri)
+    ->  App Core (Python 사이드카, 로컬 127.0.0.1)
         ->  Request Router
             ->  Generator Modules
                 ->  Local RAG
@@ -27,7 +27,7 @@ Desktop UI
 
 | 모듈 | 책임 | 소스 경로 |
 | --- | --- | --- |
-| App Core | 데스크탑 UI ↔ 코어 연결(로컬 인프로세스 또는 로컬 API), 세션 | `src/growwise/api/` |
+| App Core | 데스크탑 UI ↔ Python 코어(로컬 사이드카 127.0.0.1) 연결, IPC, 세션 | `src/growwise/api/` |
 | Request Router | 입력 유형 분류 → 생성 모듈 라우팅 | `src/growwise/router/` |
 | Reading Material Generator | 독서 활동지 생성 | `src/growwise/generators/` |
 | English Card Generator | 영어 대화 카드 생성 | `src/growwise/generators/` |
@@ -77,18 +77,20 @@ Desktop UI
 
 ### 콘텐츠 생성과 RAG
 
-- LangChain / LlamaIndex / LangGraph
-- 벡터 저장소: Chroma / Qdrant (로컬 임베디드 모드)
+- 오케스트레이션: LangChain 또는 LlamaIndex(택1). **LangGraph는 채택하지 않음**(단순
+  라우터 지향, 멀티에이전트 불필요).
+- 벡터 저장소: **Chroma(로컬 임베디드)** 기본. (Qdrant는 나중 대규모 시 검토)
 - 데이터: SQLite(로컬), Markdown 파일 저장
 
 > 초기에는 복잡한 멀티에이전트보다 단순한 라우터가 적합하다.
 
-### 문서 출력
+### 문서 출력 (PDF) — 하나로 고정
 
-- Pandoc / WeasyPrint / Playwright PDF
-- Markdown → PDF 파이프라인, Obsidian export
+- 기본 **WeasyPrint(BSD)** — HTML/CSS→PDF. 정교한 조판·수식이 필요할 때만 **Typst
+  (Apache)** 보조. (Playwright-PDF는 Chromium 번들로 설치물이 커져 채택하지 않음.)
 
-> 활동지는 부모·교사가 바로 인쇄할 수 있어야 하므로 PDF 출력 품질이 중요하다.
+> 활동지는 부모·교사가 바로 인쇄할 수 있어야 하므로 PDF 품질이 중요하다. WeasyPrint의
+> Windows 네이티브 의존(GTK/Pango/Cairo) 패키징은 사전 검증이 필요하다([hardware.md](hardware.md)).
 
 ### 지도와 탐방
 
@@ -114,10 +116,20 @@ Desktop UI
 
 - **UI 셸**: Tauri (Rust + 시스템 웹뷰). 프론트는 웹기술(HTML/CSS/JS)
 - **코어**: 로컬 Python — 라우터·생성 모듈·RAG·PDF·음성. Tauri sidecar로 번들(PyInstaller 등)
+- **IPC 계약**: UI ↔ 코어는 로컬 127.0.0.1 HTTP(또는 Tauri command)로 통신, **타입 있는
+  요청/응답 스키마**를 정의한다. (Rust 셸과 Python 코어는 별 프로세스 — 인프로세스 아님)
 - **데이터**: SQLite + 로컬 파일(Markdown). 서버 DB 불요
 - **로컬 모델**: 임베딩·STT/TTS는 가능한 CPU 실행, 플랫폼별 가속(Metal/CUDA/CPU) 자동
   선택. 자원은 앱에 번들하거나 최초 실행 시 내려받기
-- **패키징**: Tauri 번들러(Win: MSI/NSIS, macOS: .app/.dmg) + Python 사이드카(PyInstaller)
+- **패키징**: Tauri 번들러(Win: MSI/NSIS, macOS: .app/.dmg) + Python 사이드카(PyInstaller).
+  코드 서명/공증(Win Authenticode, macOS notarization) 필요.
+- **업데이트**: Tauri updater(서명 키). 모델은 앱과 분리 배포(대용량) — 무결성 검증 포함.
+
+> **설치물 크기 현실**: Tauri **셸**은 작지만, Python 사이드카는 ML 의존성(torch·음성·
+> OCR·llama.cpp·벡터스토어·PDF 네이티브 라이브러리)을 번들하면 **수 GB**가 된다. 특히
+> WeasyPrint는 Windows에서 GTK/Pango/Cairo 네이티브 의존이 까다롭다. → v1은 **무거운
+> 의존을 최소화**하고(§v1 경계, [roadmap.md](roadmap.md)), 대형 모델은 최초 실행 시
+> 다운로드로 분리한다. "가볍다"는 셸에 한정된 말이지 전체 설치물이 작다는 뜻이 아니다.
 
 **크로스플랫폼 원칙**: Windows·macOS 양쪽을 **CI에서 함께 빌드·검증**한다. 경로 구분자·
 웹뷰(WebView2/WKWebView)·번들 차이를 초기부터 고려하고, **플랫폼 전용 API(예: macOS
