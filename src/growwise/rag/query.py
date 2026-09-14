@@ -17,7 +17,8 @@ class GroundedRagService:
     SYSTEM = """Answer the parent's question using only the supplied GrowWise context.
 Do not invent facts. If evidence is insufficient, say so and set insufficient_evidence=true.
 Do not diagnose development, rank a child against peers, or infer stable personality traits.
-Keep observations and interpretation distinct. Cite source_chunk_ids that directly support the answer.
+Keep observations and interpretation distinct.
+Cite source_chunk_ids that directly support the answer.
 Return concise Korean when the question is Korean."""
 
     def __init__(
