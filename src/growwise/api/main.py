@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -7,9 +8,16 @@ from uuid import UUID
 import uvicorn
 from fastapi import Depends, FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 from growwise.config import Settings
-from growwise.domain import ChildProfile, LearningLog, Stage
+from growwise.domain import (
+    ChildProfile,
+    LearningLog,
+    Stage,
+    WorkflowRun,
+    WorkflowStatus,
+)
 from growwise.model import ModelProvider, create_model_provider
 from growwise.services import InfantActivityService, NaturalLanguageSearch, ObservationEnricher
 from growwise.storage import EntityStore
@@ -73,38 +81,61 @@ def create_observation(
     request: ObservationRequest,
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> LearningLog:
-    state = observation_graph.invoke(
-        {"child_id": str(request.child_id), "observation": request.observation}
-    )
-    if state.get("safety_flags"):
-        raise HTTPException(status_code=422, detail={"flags": state["safety_flags"]})
-
-    tags: list[str] = []
-    interest: str | None = None
-    difficulty_note: str | None = None
-    next_activity: str | None = None
-    provider = get_model_provider()
-    if provider is not None:
-        try:
-            enrichment = ObservationEnricher(provider).enrich(state["normalized_observation"])
-            tags = enrichment.tags
-            interest = enrichment.interest
-            difficulty_note = enrichment.difficulty_note
-            next_activity = enrichment.next_activity
-        except Exception:
-            # LLM enrichment is non-authoritative. Local recording must not depend on model uptime.
-            pass
-
-    log = LearningLog(
+    workflow = WorkflowRun(
         child_id=request.child_id,
-        parent_observation=state["normalized_observation"],
-        tags=tags,
-        interest=interest,
-        difficulty_note=difficulty_note,
-        next_activity=next_activity,
+        workflow_type="observation_ingest",
+        thread_id=str(uuid7()),
     )
-    store.save(log)
-    return log
+    store.save(workflow)
+
+    try:
+        state = observation_graph.invoke(
+            {"child_id": str(request.child_id), "observation": request.observation}
+        )
+        if state.get("safety_flags"):
+            workflow.status = WorkflowStatus.FAILED
+            workflow.last_error_code = "observation_validation_failed"
+            workflow.updated_at = datetime.now(UTC)
+            store.save(workflow)
+            raise HTTPException(status_code=422, detail={"flags": state["safety_flags"]})
+
+        tags: list[str] = []
+        interest: str | None = None
+        difficulty_note: str | None = None
+        next_activity: str | None = None
+        provider = get_model_provider()
+        if provider is not None:
+            try:
+                enrichment = ObservationEnricher(provider).enrich(state["normalized_observation"])
+                tags = enrichment.tags
+                interest = enrichment.interest
+                difficulty_note = enrichment.difficulty_note
+                next_activity = enrichment.next_activity
+            except Exception:
+                pass
+
+        log = LearningLog(
+            child_id=request.child_id,
+            parent_observation=state["normalized_observation"],
+            tags=tags,
+            interest=interest,
+            difficulty_note=difficulty_note,
+            next_activity=next_activity,
+        )
+        store.save(log)
+        workflow.status = WorkflowStatus.COMPLETED
+        workflow.output_ref = str(log.id)
+        workflow.updated_at = datetime.now(UTC)
+        store.save(workflow)
+        return log
+    except HTTPException:
+        raise
+    except Exception:
+        workflow.status = WorkflowStatus.FAILED
+        workflow.last_error_code = "observation_workflow_failed"
+        workflow.updated_at = datetime.now(UTC)
+        store.save(workflow)
+        raise
 
 
 @app.get("/v1/children/{child_id}/observations")
