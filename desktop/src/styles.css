@@ -105,6 +105,10 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
 .material-card pre { margin: 8px 0 0; padding: 12px; max-height: 260px; overflow: auto; border-radius: 10px; background: #f8f7f4; color: var(--ink); white-space: pre-wrap; word-break: break-word; font-family: inherit; font-size: 13px; line-height: 1.6; }
 .material-card small { color: var(--ink-soft); }
 .review-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.revision-panel { display: grid; gap: 10px; margin-top: 10px; padding: 12px; border-radius: 10px; background: #f8f7f4; }
+.revision-panel label { display: grid; gap: 7px; }
+.revision-panel label > span { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
+.revision-panel textarea { width: 100%; min-height: 82px; resize: vertical; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); padding: 11px 12px; line-height: 1.55; }
 .timeline-list { display: grid; gap: 10px; margin-top: 18px; }
 .timeline-card { padding: 16px; border: 1px solid var(--border); border-radius: 14px; background: #fff; }
 .timeline-card p { margin: 0; line-height: 1.65; }
