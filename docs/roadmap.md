@@ -222,9 +222,9 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] malicious retrieved content 기초 (`test_rag_adversarial.py`, hardened material adversarial guard)
 - [x] citation/source fabrication 기초 (material source refs existence/scope 검증)
 - [x] PII leakage (ScaffoldGuard `_PII_PATTERNS` reject, `test_material_pii_guard.py`)
-- [ ] age-inappropriate generation (구현·수정 완료, PR #24 검토/병합 대기)
+- [x] age-inappropriate generation (ScaffoldGuard `_AGE_UNSAFE_PATTERNS`, PR #24 병합)
 - [x] diagnostic/medical-like infant claims 회귀 기초
-- [ ] stereotype/bias
+- [x] stereotype/bias (ScaffoldGuard `_STEREOTYPE_PATTERNS` — 규정적 고정관념 차단, `test_scaffold_stereotype.py`)
 - [x] answer-giving/scaffold violations (ScaffoldGuard `_DIRECT_ANSWER_PATTERNS`/rote-pressure, `test_scaffold_adversarial.py`)
 - [x] malformed structured output (empty/whitespace/oversized/control-char draft → 결정적 템플릿 폴백, `test_material_malformed_output.py`)
 - [x] path traversal/file corruption attempts 기초
