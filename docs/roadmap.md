@@ -124,14 +124,14 @@ input → router → RAG/context → optional LLM → structured material
 - [x] 독서 1종 end-to-end 회귀 (resource provenance → reading material → revision → approval)
 - [x] LangChain structured output
 - [x] grounding/citation provenance 기초 + 존재/child-scope source guard
-- [ ] scaffold guard
-- [ ] prompt injection defense 회귀 세트
+- [x] scaffold guard (ScaffoldGuard — direct-answer/rote/injection/pii/age/stereotype)
+- [x] prompt injection defense 회귀 세트 (`test_material_prompt_injection.py`, `test_scaffold_adversarial.py`)
 - [ ] Parent Review interrupt/resume를 material workflow 동일 thread로 통합
 - [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
 - [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
 - [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로)
-- [ ] local model latency/quality benchmark
-- [ ] 최소/권장 하드웨어 benchmark
+- [ ] local model latency/quality benchmark (하네스 `scripts/benchmark_model.py` 완료; 실측·로컬/원격 결정=운영자)
+- [ ] 최소/권장 하드웨어 benchmark (하네스 `scripts/benchmark_hardware.py` 완료; 실기기 실측=운영자)
 
 ## Phase 3 — 유아·초등 전체 생성 기능
 
@@ -158,7 +158,7 @@ input → router → RAG/context → optional LLM → structured material
 - [x] 다음 활동 추천 기초(영아)
 - [x] 퀘스트 추천/보류/완료/회고 상태 기반
 - [x] 검색/필터/타임라인 기초
-- [ ] Markdown 묶음 portable export
+- [x] Markdown 묶음 portable export (백업 서비스: Markdown 레코드 zip 아카이브)
 
 랭킹·레벨·또래 비교·강제 streak는 넣지 않는다.
 
@@ -181,10 +181,10 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] 도서관 정보나루(Data4Library) adapter
 - [ ] 교육과정/공공 교육자료 adapter
 - [x] OpenStreetMap/Overpass adapter
-- [ ] 외부 metadata/image license filtering
+- [x] 외부 metadata/image license filtering (`adapters/license_filter.py`; 어댑터 배선은 상류 per-item 라이선스 필드 생기면)
 - [x] cache TTL / stale fallback
 - [x] offline fixture/회귀 테스트
-- [ ] attribution/NOTICE 자동 생성 (문서 attribution은 존재)
+- [x] attribution/NOTICE 자동 생성 (`scripts/generate_notice.py` → THIRD_PARTY_NOTICES.md)
 
 외부 adapter는 아이 관찰/개인 기록을 전송하지 않고 public query만 사용하며, 장애 시 local core를
 깨뜨리지 않는다.
@@ -195,11 +195,11 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] macOS app/dmg CI (Apple Silicon + Intel)
 - [ ] 실제 배포용 code signing/notarization 자격증명/자동화
 - [ ] Tauri updater
-- [ ] 모델 다운로드/삭제/무결성 검증
+- [x] 모델 다운로드/삭제/무결성 검증 (`model/registry.py` — 원자적 쓰기+sha256 검증)
 - [ ] storage location 관리
 - [x] backup/restore/import/export Desktop UX
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
-- [ ] crash recovery 전체
+- [x] crash recovery 전체 (`test_crash_recovery.py`; 손상 인덱스/부분 레코드 복구 하드닝)
 - [ ] accessibility
 - [ ] keyboard navigation
 - [ ] localization 기반
