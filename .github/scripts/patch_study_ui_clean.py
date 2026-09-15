@@ -23,9 +23,7 @@ replace_once(
     "<StudyPanel child={activeChild} />}\n",
 )
 
-rust_commands = r'''
-
-async fn core_get_json(path: &str, label: &str) -> Result<serde_json::Value, String> {
+rust_commands = r'''async fn core_get_json(path: &str, label: &str) -> Result<serde_json::Value, String> {
     let response = client()?
         .get(format!("{CORE_BASE_URL}{path}"))
         .send()
@@ -124,7 +122,9 @@ async fn get_study_resources(
     unit: String,
 ) -> Result<serde_json::Value, String> {
     let response = client()?
-        .get(format!("{CORE_BASE_URL}/v1/children/{child_id}/study/resources"))
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/study/resources"
+        ))
         .query(&[
             ("subject", subject.as_str()),
             ("unit", unit.as_str()),
@@ -166,7 +166,7 @@ async fn list_study_plans(child_id: String) -> Result<serde_json::Value, String>
 replace_once(
     "desktop/src-tauri/src/lib.rs",
     "\n#[cfg_attr(mobile, tauri::mobile_entry_point)]\npub fn run() {\n",
-    rust_commands + "\n#[cfg_attr(mobile, tauri::mobile_entry_point)]\npub fn run() {\n",
+    "\n" + rust_commands + "\n#[cfg_attr(mobile, tauri::mobile_entry_point)]\npub fn run() {\n",
 )
 replace_once(
     "desktop/src-tauri/src/lib.rs",
