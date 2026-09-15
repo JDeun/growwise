@@ -6,7 +6,7 @@ import { MaterialWorkspace } from "./MaterialWorkspace";
 export interface MaterialWorkspaceController {
   materials: GeneratedMaterial[];
   resources: ResourceRecord[];
-  stage: Stage;
+  stage?: Stage;
   materialKind: MaterialKind;
   materialTopic: string;
   materialGoal: string;
