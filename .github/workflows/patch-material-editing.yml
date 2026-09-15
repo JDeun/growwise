@@ -1,0 +1,40 @@
+name: Patch material editing once
+
+on:
+  push:
+    branches: [codex/material-edit-versioning]
+    paths:
+      - .github/workflows/patch-material-editing.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/material-edit-versioning
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Integrate material edit versioning
+        run: python .github/scripts/patch_material_editing.py
+      - name: Install uv
+        run: python -m pip install "uv==0.12.13"
+      - name: Verify material edit slice
+        run: |
+          uv sync --locked --extra dev
+          uv run ruff check --fix src/growwise/domain/models.py src/growwise/generators src/growwise/api/main.py tests/test_material_editing.py
+          uv run ruff check src tests desktop/scripts
+          uv run mypy src/growwise
+          uv run pytest tests/test_material_editing.py tests/test_material_adversarial.py tests/test_materials.py tests/test_schema_compatibility.py
+      - name: Commit verified slice and remove one-time patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/scripts/patch_material_editing.py .github/workflows/patch-material-editing.yml
+          git add src/growwise/domain/models.py src/growwise/generators/__init__.py src/growwise/generators/editing.py src/growwise/api/main.py tests/test_material_editing.py
+          git commit -m "feat: add immutable parent material edits"
+          git push origin HEAD:codex/material-edit-versioning
