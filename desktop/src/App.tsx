@@ -1,6 +1,11 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { ConfirmDialog, MaterialWorkspaceIntegration, ViewStateNotice } from "./components";
+import {
+  ConfirmDialog,
+  MaterialWorkspaceIntegration,
+  OperationNotice,
+  ViewStateNotice,
+} from "./components";
 import {
   childContextState,
   errorMessage,
@@ -68,6 +73,8 @@ type ConnectionState =
 type BackupConfirmation =
   | { kind: "import" }
   | { kind: "restore"; archiveName: string };
+
+type WriteNotice = { id: number; message: string };
 
 const LAST_CHILD_KEY = "growwise:last-child-id";
 const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
@@ -189,6 +196,8 @@ function App() {
   const [backupNotice, setBackupNotice] = useState<string | null>(null);
   const [backupConfirmation, setBackupConfirmation] = useState<BackupConfirmation | null>(null);
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
+  const [writeNotice, setWriteNotice] = useState<WriteNotice | null>(null);
+  const writeNoticeId = useRef(0);
 
   const updateChildContextState = useCallback((key: ChildContextKey, state: ViewLoadState) => {
     setChildContext((current) => ({ ...current, [key]: state }));
@@ -320,6 +329,20 @@ function App() {
     void refresh();
   }, [refresh]);
 
+  useEffect(() => {
+    if (!writeNotice) return;
+    const noticeId = writeNotice.id;
+    const timeoutId = window.setTimeout(() => {
+      setWriteNotice((current) => (current?.id === noticeId ? null : current));
+    }, 4500);
+    return () => window.clearTimeout(timeoutId);
+  }, [writeNotice]);
+
+  function announceWrite(message: string) {
+    writeNoticeId.current += 1;
+    setWriteNotice({ id: writeNoticeId.current, message });
+  }
+
   async function reloadChildContextPart(key: ChildContextKey) {
     if (!activeChild) return;
     const childId = activeChild.id;
@@ -392,6 +415,7 @@ function App() {
       await loadChildContext(child);
       setNickname("");
       setAgeMonths("");
+      announceWrite("아이 프로필을 저장했습니다.");
     } catch (error) {
       setFormError(errorMessage(error, "프로필 저장에 실패했습니다."));
     } finally {
@@ -433,6 +457,7 @@ function App() {
         reloadChildContextPart("growth"),
         reloadChildContextPart("observations"),
       ]);
+      announceWrite("관찰 기록을 저장했습니다.");
     } catch (error) {
       setObservationError(errorMessage(error, "관찰 기록 저장에 실패했습니다."));
     } finally {
@@ -504,6 +529,7 @@ function App() {
       setResourceTitle("");
       setResourceContent("");
       await reloadChildContextPart("library");
+      announceWrite("자료를 저장했습니다.");
     } catch (error) {
       setResourceError(errorMessage(error, "자료 저장에 실패했습니다."));
     } finally {
@@ -530,6 +556,7 @@ function App() {
       setMaterialGoal("");
       setSelectedResourceRefs([]);
       await reloadChildContextPart("materials");
+      announceWrite("학습 자료 초안을 생성했습니다.");
     } catch (error) {
       setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
     } finally {
@@ -544,6 +571,13 @@ function App() {
     try {
       await reviewMaterial(materialId, status);
       await reloadChildContextPart("materials");
+      announceWrite(
+        status === "approved"
+          ? "학습 자료를 승인했습니다."
+          : status === "rejected"
+            ? "학습 자료를 반려했습니다."
+            : "자료 검토 상태를 변경했습니다.",
+      );
     } catch (error) {
       setMaterialError(errorMessage(error, "자료 검토 상태 변경에 실패했습니다."));
     } finally {
@@ -565,6 +599,7 @@ function App() {
         delete next[materialId];
         return next;
       });
+      announceWrite("수정본을 생성했습니다.");
     } catch (error) {
       setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
     } finally {
@@ -585,6 +620,7 @@ function App() {
       await editMaterial(materialId, title, contentMarkdown, note);
       await reloadChildContextPart("materials");
       setEditingMaterialId(null);
+      announceWrite("편집본을 저장했습니다.");
     } catch (error) {
       setMaterialError(errorMessage(error, "편집본 저장에 실패했습니다."));
     } finally {
@@ -630,6 +666,7 @@ function App() {
     try {
       await createActivity(activeChild.id, title);
       await reloadChildContextPart("activities");
+      announceWrite("활동으로 저장했습니다.");
     } catch (error) {
       setActivitiesError(errorMessage(error, "활동 저장에 실패했습니다."));
     } finally {
@@ -644,6 +681,7 @@ function App() {
     try {
       await transitionActivity(activityId, status);
       await reloadChildContextPart("activities");
+      announceWrite(`활동 상태를 '${activityStatusLabel(status)}'으로 변경했습니다.`);
     } catch (error) {
       setActivitiesError(errorMessage(error, "활동 상태 변경에 실패했습니다."));
     } finally {
@@ -870,14 +908,7 @@ function App() {
 
           {activeChild.stage === "infant_0_2" && (
             <section className="infant-guidance-section">
-              <div className="activity-heading">
-                <div>
-                  <p className="card-label">INFANT OBSERVATION GUIDE</p>
-                  <h3>관찰 힌트와 보드북 연결</h3>
-                  <p className="muted">진단 체크리스트가 아니라 일상에서 무엇을 살펴볼지 돕습니다.</p>
-                </div>
-                <button className="quiet-button" type="button" onClick={() => void handleLoadInfantGuidance()} disabled={infantGuidanceLoading}>{infantGuidanceLoading ? "불러오는 중…" : "관찰 힌트·책 보기"}</button>
-              </div>
+              <div className="activity-heading"><div><p className="card-label">INFANT OBSERVATION GUIDE</p><h3>관찰 힌트와 보드북 연결</h3><p className="muted">진단 체크리스트가 아니라 일상에서 무엇을 살펴볼지 돕습니다.</p></div><button className="quiet-button" type="button" onClick={() => void handleLoadInfantGuidance()} disabled={infantGuidanceLoading}>{infantGuidanceLoading ? "불러오는 중…" : "관찰 힌트·책 보기"}</button></div>
               {infantGuidanceError && <p className="form-error" role="alert">{infantGuidanceError}</p>}
               {(observationHints || boardBooks) && <div className="resource-grid"><div className="resource-list"><p className="card-label">OBSERVATION HINTS</p><h3>{observationHints?.hints.length ?? 0}개 영역</h3>{observationHints?.hints.map((hint) => <article className="resource-card" key={hint.domain}><strong>{hint.domain}</strong><p>{hint.cue}</p><small>{hint.rationale}</small></article>)}{observationHints && <p className="muted">{observationHints.source} · 진단용 아님</p>}</div><div className="resource-list"><p className="card-label">BOARD BOOKS</p><h3>{boardBooks?.recommendations.length ?? 0}권</h3>{boardBooks?.recommendations.map((book) => <article className="resource-card" key={`${book.resource_id ?? book.title}-${book.title}`}><strong>{book.title}</strong><p>{book.reason}</p><small>{book.read_aloud_tip}</small></article>)}</div></div>}
             </section>
@@ -899,6 +930,7 @@ function App() {
       </section>
 
       <ConfirmDialog open={backupConfirmation !== null} title={backupConfirmationTitle} description={backupConfirmationDescription} confirmLabel={backupConfirmationLabel} busy={backupBusy} destructive onConfirm={() => void handleConfirmBackupAction()} onCancel={handleCancelBackupAction} />
+      <OperationNotice message={writeNotice?.message ?? null} onDismiss={() => setWriteNotice(null)} />
 
       {printMaterial && <article className="print-material" aria-hidden="true"><h1>{printMaterial.title}</h1><pre>{printMaterial.content_markdown}</pre></article>}
     </main>
