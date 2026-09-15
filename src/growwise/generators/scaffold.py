@@ -13,7 +13,7 @@ class ScaffoldCheck:
 
 
 class ScaffoldGuard:
-    """Reject drafts that bypass parent review, inject instructions, or collapse scaffolding."""
+    """Reject drafts that bypass review, inject instructions, leak PII, or collapse scaffolding."""
 
     _DIRECT_ANSWER_PATTERNS = (
         re.compile(r"정\s*답\s*(?:은|:|：)"),
@@ -55,6 +55,12 @@ class ScaffoldGuard:
         re.compile(r"(?:auto|automatically)\s*approve", re.IGNORECASE),
         re.compile(r"(?:부모\s*)?(?:검토|승인).{0,12}(?:건너뛰|생략|우회|자동\s*승인)"),
     )
+    _PII_PATTERNS = (
+        re.compile(r"(?<!\d)01[016789][ -]?\d{3,4}[ -]?\d{4}(?!\d)"),
+        re.compile(r"(?<!\d)\d{6}[ -]?[1-4]\d{6}(?!\d)"),
+        re.compile(r"(?<!\d)(?:\d{2,3}-\d{2,4}-\d{4}|\d{9,11})(?!\d)"),
+        re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE),
+    )
     _SCAFFOLD_KINDS = {
         MaterialKind.ENGLISH_CARD,
         MaterialKind.MATH_ACTIVITY,
@@ -75,4 +81,6 @@ class ScaffoldGuard:
             violations.append("prompt_injection")
         if any(pattern.search(text) for pattern in self._REVIEW_BYPASS_PATTERNS):
             violations.append("review_bypass")
+        if any(pattern.search(text) for pattern in self._PII_PATTERNS):
+            violations.append("pii_leakage")
         return ScaffoldCheck(safe=not violations, violations=tuple(dict.fromkeys(violations)))
