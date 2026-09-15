@@ -71,7 +71,7 @@ class RecordingReviewGraph:
 
 
 def _child() -> ChildProfile:
-    return ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    return ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
 
 
 def _store_with_child(tmp_path: Path) -> tuple[EntityStore, ChildProfile]:

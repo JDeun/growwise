@@ -10,7 +10,7 @@ from growwise.storage import EntityStore
 
 def test_activity_link_is_child_scoped(tmp_path: Path) -> None:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    first = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    first = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     second = ChildProfile(nickname="다른 아이", stage=Stage.INFANT_0_2, age_months=10)
     store.save(first)
     store.save(second)
@@ -37,7 +37,7 @@ def test_activity_link_is_child_scoped(tmp_path: Path) -> None:
 
 def test_activity_observation_listing_uses_explicit_provenance(tmp_path: Path) -> None:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
     activity = ActivityPlan(child_id=child.id, title="소리 탐색")
     store.save(activity)

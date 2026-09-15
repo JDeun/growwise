@@ -26,7 +26,7 @@ def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> Non
     source_root = tmp_path / "source-records"
     source_index = tmp_path / "source.sqlite3"
     source_store = EntityStore(source_root, source_index)
-    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     source_store.save(child)
 
     archive = tmp_path / "growwise-backup.zip"
@@ -45,7 +45,7 @@ def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> Non
     restored_store = EntityStore(restored_root, restored_index)
     payload = restored_store.index.get_entity(str(child.id), entity_type="child_profile")
     assert payload is not None
-    assert payload["nickname"] == "아이"
+    assert payload["nickname"] == "샘플아이"
 
 
 def test_backup_rejects_path_traversal(tmp_path: Path) -> None:

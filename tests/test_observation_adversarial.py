@@ -42,7 +42,7 @@ class FailingProvider:
 
 def _store_with_child(tmp_path: Path) -> tuple[EntityStore, ChildProfile]:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
     return store, child
 
@@ -76,7 +76,7 @@ def test_observation_enrichment_filters_diagnosis_and_peer_ranking() -> None:
 
 
 def test_observation_request_enforces_text_size_boundary() -> None:
-    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     accepted = ObservationRequest(child_id=child.id, observation="가" * 10_000)
     assert len(accepted.observation) == 10_000
 
