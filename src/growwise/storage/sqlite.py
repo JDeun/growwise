@@ -26,8 +26,9 @@ class SQLiteProjection:
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path)
+        connection = sqlite3.connect(self.path, timeout=5.0)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout=5000")  # ride out transient contention
         return connection
 
     @contextmanager
@@ -46,9 +47,14 @@ class SQLiteProjection:
     def _ensure_schema(self) -> None:
         try:
             self._create_schema()
+        except sqlite3.OperationalError:
+            # Locked / permission / disk-IO / disk-full are TRANSIENT and recoverable —
+            # never delete a possibly-good index on them (that would silently wipe records
+            # from queries). Fail loudly instead so the caller can retry.
+            raise
         except sqlite3.DatabaseError:
-            # The index is a disposable projection: a corrupt or non-SQLite file is
-            # discarded so it can be rebuilt from the Markdown source of truth.
+            # Genuine corruption ("file is not a database" / "malformed"): the index is a
+            # disposable projection, so discard it and rebuild from the Markdown SoT.
             if self.path.exists():
                 self.path.unlink()
             self._create_schema()
