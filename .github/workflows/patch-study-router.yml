@@ -1,0 +1,40 @@
+name: Patch study router once
+
+on:
+  push:
+    branches: [codex/study-tracking]
+    paths:
+      - .github/workflows/patch-study-router.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/study-tracking
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - name: Integrate study router
+        run: python .github/scripts/patch_study_router.py
+      - name: Install uv
+        run: python -m pip install "uv==0.12.13"
+      - name: Verify study slice
+        run: |
+          uv sync --locked --extra dev
+          uv run ruff check --fix src/growwise/domain/study.py src/growwise/services/study.py src/growwise/api/study_routes.py tests/test_study_tracking.py src/growwise/api/main.py
+          uv run ruff check src tests desktop/scripts
+          uv run mypy src/growwise
+          uv run pytest tests/test_study_tracking.py tests/test_schema_compatibility.py tests/test_markdown_repository.py
+      - name: Commit verified study slice and remove one-time patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/scripts/patch_study_router.py .github/workflows/patch-study-router.yml
+          git add src/growwise/api/main.py src/growwise/api/study_routes.py src/growwise/domain/study.py src/growwise/services/study.py tests/test_study_tracking.py
+          git commit -m "feat: add middle and high study tracking"
+          git push origin HEAD:codex/study-tracking
