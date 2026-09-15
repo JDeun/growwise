@@ -2,16 +2,13 @@ name: Desktop Package
 
 on:
   workflow_dispatch:
-  pull_request:
-    paths:
-      - ".github/workflows/package.yml"
-      - "desktop/**"
-      - "src/**"
-      - "pyproject.toml"
-      - "uv.lock"
   push:
     tags:
       - "v*"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
 permissions:
   contents: read
