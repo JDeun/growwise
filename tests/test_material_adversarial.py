@@ -11,9 +11,18 @@ from growwise.api.main import (
     MaterialGenerateRequest,
     MaterialReviewRequest,
     MaterialRevisionRequest,
+    ResourceCreateRequest,
 )
-from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
+from growwise.domain import (
+    ChildProfile,
+    MaterialKind,
+    MaterialStatus,
+    ResourceKind,
+    ResourceRecord,
+    Stage,
+)
 from growwise.generators import MaterialGenerationService
+from growwise.rag import HybridRagIndex
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.storage import EntityStore
 
@@ -255,3 +264,118 @@ def test_revision_api_rejects_material_without_revision_request(
     with pytest.raises(HTTPException) as exc_info:
         api.revise_material(material.id, MaterialRevisionRequest(), store)
     assert exc_info.value.status_code == 409
+
+
+
+def test_material_api_rejects_missing_source_ref(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, child = _store_with_child(tmp_path)
+    monkeypatch.setattr(api, "get_model_provider", lambda: None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        api.generate_material(
+            child.id,
+            MaterialGenerateRequest(
+                kind=MaterialKind.READING_ACTIVITY,
+                topic="그림책",
+                source_refs=["resource:00000000-0000-0000-0000-000000000001"],
+            ),
+            store,
+        )
+    assert exc_info.value.status_code == 422
+    assert exc_info.value.detail == "material_source_not_found"
+
+
+def test_material_api_rejects_other_child_private_source(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, child = _store_with_child(tmp_path)
+    other = ChildProfile(nickname="다른 아이", stage=Stage.INFANT_0_2, age_months=12)
+    store.save(other)
+    private_resource = ResourceRecord(
+        child_id=other.id,
+        kind=ResourceKind.BOOK,
+        title="다른 아이의 책 메모",
+        content="private",
+    )
+    store.save(private_resource)
+    monkeypatch.setattr(api, "get_model_provider", lambda: None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        api.generate_material(
+            child.id,
+            MaterialGenerateRequest(
+                kind=MaterialKind.READING_ACTIVITY,
+                topic="그림책",
+                source_refs=[f"resource:{private_resource.id}"],
+            ),
+            store,
+        )
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "material_source_child_mismatch"
+
+
+def test_reading_material_vertical_slice_preserves_provenance_through_revision(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    store, child = _store_with_child(tmp_path)
+    graph = RecordingReviewGraph()
+    rag_index = HybridRagIndex(tmp_path / "rag.sqlite3")
+    monkeypatch.setattr(api, "get_model_provider", lambda: None)
+    monkeypatch.setattr(api, "get_material_review_graph", lambda: graph)
+    monkeypatch.setattr(api, "get_rag_index", lambda: rag_index)
+
+    resource = api.create_resource(
+        ResourceCreateRequest(
+            child_id=child.id,
+            kind=ResourceKind.BOOK,
+            title="고양이 그림책 메모",
+            content="고양이가 창가에서 새를 바라보는 장면이 있다.",
+            source_name="부모 기록",
+            provenance={"entered_by": "parent"},
+        ),
+        store,
+    )
+    source_ref = f"resource:{resource.id}"
+
+    first = api.generate_material(
+        child.id,
+        MaterialGenerateRequest(
+            kind=MaterialKind.READING_ACTIVITY,
+            topic="고양이 그림책",
+            goal="장면을 관찰하고 아이의 반응을 기다린다.",
+            source_refs=[source_ref],
+        ),
+        store,
+    )
+    assert first.status is MaterialStatus.REVIEW_PENDING
+    assert first.source_refs == [source_ref]
+    assert source_ref in first.content_markdown
+    assert MaterialReviewService().can_export(first) is False
+
+    requested = api.review_material(
+        first.id,
+        MaterialReviewRequest(
+            status=MaterialStatus.REVISION_REQUESTED,
+            note="질문을 하나로 줄여주세요.",
+        ),
+        store,
+    )
+    second = api.revise_material(requested.id, MaterialRevisionRequest(), store)
+    assert second.version == 2
+    assert second.parent_material_id == first.id
+    assert second.source_refs == [source_ref]
+    assert second.status is MaterialStatus.REVIEW_PENDING
+
+    approved = api.review_material(
+        second.id,
+        MaterialReviewRequest(status=MaterialStatus.APPROVED, note="최종 확인"),
+        store,
+    )
+    assert approved.status is MaterialStatus.APPROVED
+    assert approved.source_refs == [source_ref]
+    assert MaterialReviewService().can_export(approved) is True
+
+    indexed = rag_index.search(query="창가 새", child_id=str(child.id))
+    assert indexed
