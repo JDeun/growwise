@@ -6,6 +6,7 @@ export {
   MaterialWorkspaceIntegration,
   type MaterialWorkspaceController,
 } from "./MaterialWorkspace.integration";
+export { ViewStateNotice, type ViewStateNoticeKind } from "./ViewStateNotice";
 export { WorkspaceFrame } from "./WorkspaceFrame";
 export { WorkspaceNav } from "./WorkspaceNav";
 export { WorkspacePlaceholder } from "./WorkspacePlaceholder";
