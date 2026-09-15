@@ -32,6 +32,8 @@ from growwise.domain import (
     WorkflowStatus,
 )
 from growwise.generators import (
+    MaterialEditError,
+    MaterialEditService,
     MaterialGenerationService,
     MaterialRevisionError,
     MaterialRevisionService,
@@ -148,6 +150,12 @@ class MaterialRevisionRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
 
 
+class MaterialEditRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    content_markdown: str = Field(min_length=1, max_length=100_000)
+    note: str | None = Field(default=None, max_length=2000)
+
+
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
@@ -248,9 +256,7 @@ def health() -> dict[str, str | bool]:
     embedding_effective = settings.embedding_features_enabled and runtime.reachable
     return {
         "status": "ok",
-        "operation_mode": (
-            "ai_enhanced_with_core_fallback" if llm_effective else "core_only"
-        ),
+        "operation_mode": ("ai_enhanced_with_core_fallback" if llm_effective else "core_only"),
         "core_requires_llm": False,
         "llm_configured": runtime.configured,
         "llm_reachable": runtime.reachable,
@@ -285,9 +291,7 @@ def create_activity(
     child_id: UUID,
     request: ActivityCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
-    idempotency_key: Annotated[
-        str | None, Header(alias="Idempotency-Key", max_length=200)
-    ] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> ActivityPlan:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
@@ -310,9 +314,7 @@ def create_activity(
             raise HTTPException(status_code=409, detail=str(exc)) from exc
         reserved_activity_id = UUID(claim.record.resource_id)
         if not claim.acquired:
-            existing = store.index.get_entity(
-                claim.record.resource_id, entity_type="activity_plan"
-            )
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="activity_plan")
             if existing is not None:
                 if claim.record.status is IdempotencyStatus.PENDING:
                     idempotency_store.complete(
@@ -322,9 +324,7 @@ def create_activity(
                     )
                 return ActivityPlan.model_validate(existing)
             if claim.record.status is IdempotencyStatus.COMPLETED:
-                raise HTTPException(
-                    status_code=409, detail="idempotency_resource_missing"
-                )
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
     activity = ActivityPlan(
@@ -426,11 +426,15 @@ def ask_child_context(
 ) -> dict:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
-    return build_child_context_service(store).ask(
-        child_id=str(child_id),
-        query=request.question,
-        limit=request.limit,
-    ).model_dump(mode="json")
+    return (
+        build_child_context_service(store)
+        .ask(
+            child_id=str(child_id),
+            query=request.question,
+            limit=request.limit,
+        )
+        .model_dump(mode="json")
+    )
 
 
 @app.post("/v1/children/{child_id}/conversations", response_model=ConversationSession)
@@ -495,7 +499,6 @@ def delete_conversation(session_id: str) -> dict[str, bool]:
     return {"deleted": get_conversation_store().delete(session_id)}
 
 
-
 def validate_material_source_refs(
     *,
     child_id: UUID,
@@ -511,9 +514,7 @@ def validate_material_source_refs(
         try:
             resource_id = UUID(raw_id)
         except ValueError as exc:
-            raise HTTPException(
-                status_code=422, detail="material_source_ref_invalid"
-            ) from exc
+            raise HTTPException(status_code=422, detail="material_source_ref_invalid") from exc
         payload = store.index.get_entity(str(resource_id), entity_type="resource")
         if payload is None:
             raise HTTPException(status_code=422, detail="material_source_not_found")
@@ -549,9 +550,7 @@ def generate_material(
     material.request_topic = request.topic
     material.request_goal = request.goal
     store.save(material)
-    review_config = {
-        "configurable": {"thread_id": f"material-review:{material.id}"}
-    }
+    review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
     get_material_review_graph().invoke(
         {
             "material_id": str(material.id),
@@ -593,9 +592,7 @@ def review_material(
         raise HTTPException(status_code=404, detail="material_not_found")
     material = GeneratedMaterial.model_validate(payload)
     if material.status is MaterialStatus.REVIEW_PENDING:
-        config = {
-            "configurable": {"thread_id": f"material-review:{material.id}"}
-        }
+        config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
         try:
             review_state = get_material_review_graph().invoke(
                 Command(
@@ -660,9 +657,7 @@ def revise_material(
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
     store.save(revised)
-    review_config = {
-        "configurable": {"thread_id": f"material-review:{revised.id}"}
-    }
+    review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
     get_material_review_graph().invoke(
         {
             "material_id": str(revised.id),
@@ -674,13 +669,43 @@ def revise_material(
     return revised
 
 
+@app.post("/v1/materials/{material_id}/edit", response_model=GeneratedMaterial)
+def edit_material(
+    material_id: UUID,
+    request: MaterialEditRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    versions = store.index.list_entities(
+        entity_type="generated_material", child_id=str(material.child_id)
+    )
+    if any(candidate.get("parent_material_id") == str(material.id) for candidate in versions):
+        raise HTTPException(status_code=409, detail="material_has_newer_version")
+    try:
+        edited = MaterialEditService().create_version(
+            material=material,
+            title=request.title,
+            content_markdown=request.content_markdown,
+            note=request.note,
+        )
+    except MaterialEditError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(edited)
+    get_material_review_graph().invoke(
+        {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
+        config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
+    )
+    return edited
+
+
 @app.post("/v1/observations", response_model=LearningLog)
 def create_observation(
     request: ObservationRequest,
     store: Annotated[EntityStore, Depends(get_store)],
-    idempotency_key: Annotated[
-        str | None, Header(alias="Idempotency-Key", max_length=200)
-    ] = None,
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> LearningLog:
     validate_activity_link(
         store=store,
@@ -705,9 +730,7 @@ def create_observation(
 
         reserved_log_id = UUID(claim.record.resource_id)
         if not claim.acquired:
-            existing = store.index.get_entity(
-                claim.record.resource_id, entity_type="learning_log"
-            )
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is not None:
                 if claim.record.status is IdempotencyStatus.PENDING:
                     idempotency_store.complete(
@@ -717,9 +740,7 @@ def create_observation(
                     )
                 return LearningLog.model_validate(existing)
             if claim.record.status is IdempotencyStatus.COMPLETED:
-                raise HTTPException(
-                    status_code=409, detail="idempotency_resource_missing"
-                )
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
     workflow = WorkflowRun(
@@ -786,9 +807,7 @@ def create_observation(
         return log
     except HTTPException:
         if claim is not None and claim.acquired:
-            existing = store.index.get_entity(
-                claim.record.resource_id, entity_type="learning_log"
-            )
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is None:
                 idempotency_store.release(
                     key=claim.record.key,
@@ -808,9 +827,7 @@ def create_observation(
         workflow.updated_at = datetime.now(UTC)
         store.save(workflow)
         if claim is not None and claim.acquired:
-            existing = store.index.get_entity(
-                claim.record.resource_id, entity_type="learning_log"
-            )
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is None:
                 idempotency_store.release(
                     key=claim.record.key,
