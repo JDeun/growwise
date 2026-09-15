@@ -99,15 +99,17 @@ LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounde
 - RAG: lexical + optional embedding hybrid retrieval
 - Background jobs: SQLite durable job queue
 - Desktop packaging: PyInstaller one-file Core bundled as Tauri resource
-- Export: HTML/CSS → PDF (planned)
+- Export: 이식형 백업(zip)·Markdown 묶음 + 안전한 인쇄/PDF(OS 경로), 전용 렌더러는 검토 중
 - Platforms: Windows + macOS
 
 자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
 
 ## 현재 구현 상태
 
-**pre-alpha / active implementation.** 설계 전용 저장소를 지나 local-first core와 desktop
-walking skeleton을 구현하는 단계다.
+**pre-1.0 / 활발한 구현 단계.** 설계 전용 저장소를 지나, local-first Core와 데스크탑 앱의
+대부분 기능이 구현·테스트된 상태다([로드맵](docs/roadmap.md) 체크리스트 대부분 완료). 남은 것은
+주로 코드사이닝/notarization, 실기기·로컬모델 벤치 *수치*, 교육 콘텐츠 라이선스 소싱, 과목별
+UX 실사용 다듬기다.
 
 현재 구현된 기반:
 
@@ -137,6 +139,14 @@ walking skeleton을 구현하는 단계다.
 - PyInstaller one-file Core sidecar build + Tauri resource packaging 경로
 - Windows/macOS/Linux Python CI, React build, Rust `cargo check`, packaged-Core smoke test
 - GrowWise brand SVG assets
+- 이식형 백업 export/import + Markdown 묶음 아카이브(경로 traversal 방어)
+- 불변 부모본 자료 편집·버저닝(동시 생성 직렬화)
+- 중·고 학습 트래킹
+- 콘텐츠 안전 가드 — PII·프롬프트 인젝션·연령 부적합·고정관념·scaffold(정답 대신 힌트) + 적대적 회귀 테스트
+- 모델 아티팩트 무결성 검증 레지스트리(sha256·원자적 쓰기)
+- 안전한 저장소 위치 이전(복사·검증·스왑, 데이터 무손실)
+- 접근성(ARIA·역할·키보드 내비게이션·포커스 트랩) + 안전한 자료 출력 렌더러(테이블/도형, 미신뢰 HTML 이스케이프)
+- 의존성 라이선스 기반 THIRD_PARTY_NOTICES 자동생성 + 저장소 PII 감사 테스트
 
 ## 로컬 코어 실행
 
@@ -228,6 +238,7 @@ GET  /health
 | **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심** |
 | [docs/vision.md](docs/vision.md) | 제품 비전·LLM 역할·성공 기준 |
 | [docs/product-spec.md](docs/product-spec.md) | 전 연령 제품 사양·트래킹·자료·검색·생성 |
+| [docs/material-product-ux.md](docs/material-product-ux.md) | 자료 생성·검토 제품 UX |
 | [docs/architecture.md](docs/architecture.md) | Tauri/Python/LangChain/LangGraph 실행 구조 |
 | [docs/data-model.md](docs/data-model.md) | Markdown SoT·SQLite projection·상태 머신 |
 | [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스·Model Provider |
@@ -238,6 +249,8 @@ GET  /health
 | [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·과목별 공개 자료 후보 |
 | [docs/design-system.md](docs/design-system.md) | 브랜드·UI·성장지도·자연어 검색 디자인 규칙 |
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
+| [docs/references.md](docs/references.md) | 참고 자료·근거 |
+| [docs/release.md](docs/release.md) | 릴리스·패키징 절차 |
 | [docs/roadmap.md](docs/roadmap.md) | 전체 기능 완성 로드맵 |
 
 브랜드 자산은 [assets/brand](assets/brand)를 참고한다.
