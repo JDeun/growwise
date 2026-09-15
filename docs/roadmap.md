@@ -95,87 +95,66 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 - [x] interrupt/resume parent review skeleton (SQLite checkpoint 기반 LangGraph interrupt/resume 회귀 테스트)
 - [x] provider abstraction + Ollama adapter
 
-**완료 조건:** 빈 앱이 아니라 `UI → Python → LangGraph → storage → UI`가 한 번 완주하고,
-프로세스 재시작 후 checkpoint/rebuild가 검증된다.
-
-**Phase 0 상태: 완료.** Walking skeleton, sidecar smoke, Windows/macOS Python 검증, frontend
-lint/test/build, Tauri check/clippy, dependency lock 및 기본 실행 하네스까지 기반 범위를 닫았다.
-이후 단계의 도메인 기능·실사용 검증·제품 배포 완성은 각 Phase에서 별도로 완료한다.
+**Phase 0 상태: 완료.**
 
 ## Phase 1 — 영아(0~2) 실사용 모드
 
 - [x] 다자녀 프로필/아이 전환
 - [x] 월령/단계 기반 놀이·상호작용 제안
-- [ ] 표준보육과정 기반 관찰 힌트
+- [x] 표준보육과정 기반 관찰 힌트 (2024 개정 0~2세 5개 영역 + 비진단 fallback/회귀 테스트)
 - [x] 비진단/비비교 가드레일
-- [ ] 보드북/책 읽어주기 추천
+- [x] 보드북/책 읽어주기 추천 (child/global local resource 우선 + deterministic offline fallback)
 - [x] 활동 퀘스트(제안/진행/완료/건너뜀)
 - [x] 부모 자유 관찰 기록
 - [x] learning log
 - [x] 경험 커버리지 태깅
 - [x] 3층 성장 지도 기초
 - [x] LLM 없이 핵심 기능 동작(Core-only degraded mode)
-- [ ] export/import/backup (portable backup/restore와 인쇄 export는 구현, 통합 UX/import 범위 미완료)
+- [x] export/import/backup (portable ZIP backup/restore + Desktop import/export UX + safety backup)
 
-**실사용 검증:** 실제 9개월 아이의 일상 사용에서 제안 품질, 기록 부담, 성장 지도 유용성,
-반복 제안, 부적절한 발달 판단 여부를 관찰하고 수정한다. 개인 실사용 데이터는 저장소에 넣지
-않는다.
+**남은 Phase 1 검증:** 실제 가정 dogfooding. 개인 실사용 데이터는 저장소에 넣지 않는다.
 
 ## Phase 2 — 생성 Vertical Slice
 
-가장 약한 기술 가정을 조기에 실측한다.
-
 ```text
-input
- → router
- → RAG/context
- → local LLM (optional enhancement)
- → structured material
- → automated review
- → parent review
- → Markdown/SQLite
- → HTML/CSS
- → PDF/print
- → learning log
+input → router → RAG/context → optional LLM → structured material
+ → automated review → parent review → Markdown/SQLite → print/PDF → learning log
 ```
 
-- [ ] 독서 또는 수학 1종 end-to-end (범용 자료 생성 vertical slice는 구현, 도메인 1종 완성 검증 미완료)
+- [x] 독서 1종 end-to-end 회귀 (resource provenance → reading material → revision → approval)
 - [x] LangChain structured output
-- [x] grounding/citation provenance 기초
+- [x] grounding/citation provenance 기초 + 존재/child-scope source guard
 - [ ] scaffold guard
 - [ ] prompt injection defense 회귀 세트
-- [ ] Parent Review interrupt/resume (LangGraph skeleton/회귀 테스트는 완료, material 생성·review API와 동일 thread로 연결하는 실제 흐름 미완료)
-- [ ] revision loop (revision 상태는 구현, 자동 재생성 loop 미완료)
-- [ ] WeasyPrint packaging spike (현재 OS print/PDF 경로)
+- [ ] Parent Review interrupt/resume를 material workflow 동일 thread로 통합
+- [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
+- [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
+- [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로)
 - [ ] local model latency/quality benchmark
 - [ ] 최소/권장 하드웨어 benchmark
 
-스파이크 결과로 모델 기본값을 조정하되 아키텍처는 provider-independent로 유지한다.
-
 ## Phase 3 — 유아·초등 전체 생성 기능
 
-- [ ] 독서 활동지
-- [ ] 영어 대화 카드
-- [ ] 탐방/여행 활동지
-- [ ] 수학 놀이
-- [ ] 과학 탐구
-- [ ] 글쓰기·말하기 코치
+- [ ] 독서 활동지 제품 UX 완성 (Core vertical slice는 구현)
+- [ ] 영어 대화 카드 제품 UX 완성
+- [ ] 탐방/여행 활동지 제품 UX 완성
+- [ ] 수학 놀이 제품 UX 완성
+- [ ] 과학 탐구 제품 UX 완성
+- [ ] 글쓰기·말하기 코치 제품 UX 완성
 - [ ] 그림/표/도형 등 출력 컴포넌트
 - [ ] curriculum mapping
-- [ ] 활동 템플릿 라이브러리
-- [ ] 생성물 편집/재생성/버전 관리
+- [ ] 활동 템플릿 라이브러리 확장
+- [x] 생성물 편집/재생성/immutable 버전 관리
 - [ ] 인쇄 레이아웃 설정
 - [ ] source/citation 표시 완성
-
-탐방은 지도/장소 adapter, 캐싱, attribution을 포함한다.
 
 ## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
 
 - [x] 전인 고정축 기초
 - [x] 학습 6축 기초
-- [ ] 연령 적응형 축
+- [x] 연령 적응형 stage-focus layer 기초
 - [x] 기간별 경험 커버리지
-- [ ] 활동 다양성/편중 탐지
+- [x] 활동 다양성/편중 탐지 기초 (sparse-data guard 포함 qualitative diversity)
 - [x] 다음 활동 추천 기초(영아)
 - [x] 퀘스트 추천/보류/완료/회고 상태 기반
 - [x] 검색/필터/타임라인 기초
@@ -185,34 +164,40 @@ input
 
 ## Phase 5 — 중·고 학습 트래킹
 
-- [ ] 과목/단원 진도
-- [ ] weakmap
-- [ ] 오답/실수 유형
-- [ ] 학습 회고
-- [ ] 자원 추천
-- [ ] 부모 지원 포인트
-- [ ] 자기설명/근거검증 로그
-- [ ] 시험 대비 계획(압박형 gamification 없이)
+Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop 전용 UX와 실사용 검증은
+제품화 단계에서 계속한다.
+
+- [x] 과목/단원 진도
+- [x] weakmap
+- [x] 오답/실수 유형
+- [x] 학습 회고
+- [x] 자원 추천
+- [x] 부모 지원 포인트
+- [x] 자기설명/근거검증 로그
+- [x] 시험 대비 계획(압박형 gamification 없이)
 
 ## Phase 6 — Integrations
 
-- [ ] 도서관 정보나루
+- [x] 도서관 정보나루(Data4Library) adapter
 - [ ] 교육과정/공공 교육자료 adapter
-- [ ] OpenStreetMap/Overpass 계열
+- [x] OpenStreetMap/Overpass adapter
 - [ ] 외부 metadata/image license filtering
-- [ ] cache TTL / stale fallback
-- [ ] offline fixture
-- [ ] attribution/NOTICE 자동 생성
+- [x] cache TTL / stale fallback
+- [x] offline fixture/회귀 테스트
+- [ ] attribution/NOTICE 자동 생성 (문서 attribution은 존재)
+
+외부 adapter는 아이 관찰/개인 기록을 전송하지 않고 public query만 사용하며, 장애 시 local core를
+깨뜨리지 않는다.
 
 ## Phase 7 — Desktop Productization
 
-- [ ] Windows installer
-- [ ] macOS app/dmg
-- [ ] code signing/notarization 문서/자동화
+- [x] Windows installer CI (NSIS)
+- [x] macOS app/dmg CI (Apple Silicon + Intel)
+- [ ] 실제 배포용 code signing/notarization 자격증명/자동화
 - [ ] Tauri updater
 - [ ] 모델 다운로드/삭제/무결성 검증
 - [ ] storage location 관리
-- [ ] backup/restore UX (Core 서비스/CLI는 구현, Desktop UX 미완료)
+- [x] backup/restore/import/export Desktop UX
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
 - [ ] crash recovery 전체
 - [ ] accessibility
@@ -220,9 +205,6 @@ input
 - [ ] localization 기반
 
 ## Phase 8 — 완성도 강화
-
-모든 기능 구현 후 별도 안정화 라운드를 반복한다. 일부 기반 테스트/위생 게이트는 이미 선행
-도입했지만 전체 Phase가 완료됐다는 의미는 아니다.
 
 ### 안정화
 
@@ -238,22 +220,23 @@ input
 
 - [ ] prompt injection
 - [ ] malicious retrieved content
-- [ ] citation fabrication
+- [x] citation/source fabrication 기초 (material source refs existence/scope 검증)
 - [ ] PII leakage
 - [ ] age-inappropriate generation
-- [ ] diagnostic/medical-like developmental claims 자동 회귀 세트
+- [x] diagnostic/medical-like infant claims 회귀 기초
 - [ ] stereotype/bias
 - [ ] answer-giving/scaffold violations
 - [ ] malformed structured output
 - [x] path traversal/file corruption attempts 기초
-- [ ] external API poisoning/failure
+- [x] external API failure/stale fallback 기초
+- [x] concurrent immutable-version race 회귀
 
 ### 위생
 
 - [x] TODO/FIXME audit (현재 코드 검색 기준 잔여 없음)
 - [x] dependency lock/update policy 기초(`uv.lock`, `package-lock.json`, `Cargo.lock`, Dependabot)
 - [x] Python/Node/Rust CVE audit CI
-- [ ] secret scan
+- [x] secret scan (Gitleaks workflow)
 - [x] Python license inventory CI
 - [ ] docs/code consistency audit 전체
 - [ ] sample/test data privacy audit
