@@ -17,6 +17,13 @@ describe("MaterialContent", () => {
     expect(html).toContain("<li>먼저 봅니다</li>");
   });
 
+  it("renders a pathological emphasis paragraph without overflowing the stack", () => {
+    // ~20k inline tokens in one paragraph used to recurse to a RangeError; the
+    // iterative renderer must handle it as plain rendering.
+    const html = render("*a* ".repeat(20000));
+    expect(html).toContain("<em>a</em>");
+  });
+
   it("renders emphasis and inline code", () => {
     const html = render("**중요**한 `topic` 를 봅니다");
     expect(html).toContain("<strong>중요</strong>");

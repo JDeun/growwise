@@ -24,44 +24,51 @@ type Align = "left" | "center" | "right" | undefined;
 
 // --- inline parsing ----------------------------------------------------------
 
-// Renders inline emphasis/code by locating the earliest token and recursing on
-// the surrounding text. Precedence: inline code > bold > italic. Everything
-// resolves to strings inside React elements, so nothing is ever interpreted as
-// markup.
+// Renders inline emphasis/code by repeatedly locating the earliest token in the
+// remaining text. Precedence: inline code > bold > italic. This is ITERATIVE over
+// the trailing text (not recursive) so a pathological paragraph with tens of
+// thousands of inline tokens can never overflow the call stack. Only the bounded,
+// shallow emphasis *nesting* recurses. Everything resolves to strings inside React
+// elements, so nothing is ever interpreted as markup.
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
-  if (!text) return [];
-
-  const code = INLINE_CODE.exec(text);
-  const bold = BOLD.exec(text);
-  const italic = ITALIC.exec(text);
-
-  const candidates = [
-    code ? { kind: "code" as const, index: code.index, match: code } : null,
-    bold ? { kind: "bold" as const, index: bold.index, match: bold } : null,
-    italic ? { kind: "italic" as const, index: italic.index, match: italic } : null,
-  ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-
-  if (candidates.length === 0) return [text];
-
-  candidates.sort((a, b) => a.index - b.index);
-  const chosen = candidates[0];
-  const { match } = chosen;
-  const before = text.slice(0, match.index);
-  const after = text.slice(match.index + match[0].length);
-  const inner = match[1] ?? match[2] ?? "";
-
   const nodes: ReactNode[] = [];
-  if (before) nodes.push(...renderInline(before, `${keyPrefix}b`));
+  let remaining = text;
+  let i = 0;
+  while (remaining) {
+    const code = INLINE_CODE.exec(remaining);
+    const bold = BOLD.exec(remaining);
+    const italic = ITALIC.exec(remaining);
 
-  if (chosen.kind === "code") {
-    nodes.push(<code key={`${keyPrefix}c`}>{inner}</code>);
-  } else if (chosen.kind === "bold") {
-    nodes.push(<strong key={`${keyPrefix}s`}>{renderInline(inner, `${keyPrefix}si`)}</strong>);
-  } else {
-    nodes.push(<em key={`${keyPrefix}e`}>{renderInline(inner, `${keyPrefix}ei`)}</em>);
+    const candidates = [
+      code ? { kind: "code" as const, index: code.index, match: code } : null,
+      bold ? { kind: "bold" as const, index: bold.index, match: bold } : null,
+      italic ? { kind: "italic" as const, index: italic.index, match: italic } : null,
+    ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+    if (candidates.length === 0) {
+      nodes.push(remaining);
+      break;
+    }
+
+    candidates.sort((a, b) => a.index - b.index);
+    const chosen = candidates[0];
+    const { match } = chosen;
+    // `before` cannot contain an earlier token (chosen is the earliest), so it is plain text.
+    const before = remaining.slice(0, match.index);
+    const inner = match[1] ?? match[2] ?? "";
+    if (before) nodes.push(before);
+
+    if (chosen.kind === "code") {
+      nodes.push(<code key={`${keyPrefix}-${i}c`}>{inner}</code>);
+    } else if (chosen.kind === "bold") {
+      nodes.push(<strong key={`${keyPrefix}-${i}s`}>{renderInline(inner, `${keyPrefix}-${i}si`)}</strong>);
+    } else {
+      nodes.push(<em key={`${keyPrefix}-${i}e`}>{renderInline(inner, `${keyPrefix}-${i}ei`)}</em>);
+    }
+
+    remaining = remaining.slice(match.index + match[0].length);
+    i += 1;
   }
-
-  if (after) nodes.push(...renderInline(after, `${keyPrefix}a`));
   return nodes;
 }
 
