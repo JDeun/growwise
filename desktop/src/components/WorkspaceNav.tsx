@@ -13,7 +13,7 @@ type WorkspaceNavProps = {
 
 export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
   return (
-    <nav className="workspace-nav" aria-label="GrowWise workspace">
+    <nav className="workspace-nav" aria-label="GrowWise 작업공간">
       {WORKSPACE_VIEWS.map((view) => {
         const active = activeView === view;
         return (
