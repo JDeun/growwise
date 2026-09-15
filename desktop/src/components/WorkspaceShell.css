@@ -1,5 +1,11 @@
+.workspace-shell-root,
 .workspace-shell {
   min-width: 0;
+}
+
+.workspace-shell-root {
+  display: grid;
+  gap: 18px;
 }
 
 .workspace-frame {
