@@ -226,7 +226,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] diagnostic/medical-like infant claims 회귀 기초
 - [ ] stereotype/bias
 - [x] answer-giving/scaffold violations (ScaffoldGuard `_DIRECT_ANSWER_PATTERNS`/rote-pressure, `test_scaffold_adversarial.py`)
-- [ ] malformed structured output
+- [x] malformed structured output (empty/whitespace/oversized/control-char draft → 결정적 템플릿 폴백, `test_material_malformed_output.py`)
 - [x] path traversal/file corruption attempts 기초
 - [x] external API failure/stale fallback 기초
 - [x] concurrent immutable-version race 회귀

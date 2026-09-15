@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from pydantic import BaseModel, Field
 
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind, MaterialStatus
@@ -36,6 +38,25 @@ _FORBIDDEN_DRAFT_MARKERS = (
 def _unsafe_draft(draft: MaterialDraft) -> bool:
     text = f"{draft.title}\n{draft.content_markdown}".casefold()
     return any(marker in text for marker in _FORBIDDEN_DRAFT_MARKERS)
+
+
+# Structured output that validates against the schema can still be malformed: empty,
+# whitespace-only, pathologically large, or control-char laden. Such drafts must degrade to the
+# deterministic template rather than reach parent review. (Fabricated source refs are already
+# filtered to the allowed set before this check runs.)
+_MAX_TITLE_CHARS = 200
+_MAX_CONTENT_CHARS = 20_000
+_CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")  # allow \t (\x09) and \n (\x0a)
+
+
+def _malformed_draft(draft: MaterialDraft) -> bool:
+    title = draft.title or ""
+    content = draft.content_markdown or ""
+    if not title.strip() or not content.strip():
+        return True
+    if len(title) > _MAX_TITLE_CHARS or len(content) > _MAX_CONTENT_CHARS:
+        return True
+    return bool(_CONTROL_CHARS.search(title) or _CONTROL_CHARS.search(content))
 
 
 class MaterialGenerationService:
@@ -116,6 +137,9 @@ Return Markdown in the requested schema."""
                 if _unsafe_draft(candidate) or not scaffold.safe:
                     draft = fallback
                     generator_mode = "template_safety_fallback"
+                elif _malformed_draft(candidate):
+                    draft = fallback
+                    generator_mode = "template_malformed_fallback"
                 else:
                     draft = candidate
                     generator_mode = "llm_enhanced"
