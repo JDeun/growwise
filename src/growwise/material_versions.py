@@ -3,7 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 from threading import Lock
-from typing import ParamSpec, TypeVar
+from typing import Concatenate, ParamSpec, TypeVar
 from uuid import UUID
 
 P = ParamSpec("P")
@@ -24,8 +24,8 @@ def _lock_for(material_id: UUID) -> Lock:
 
 
 def serialize_material_successor(
-    func: Callable[P, R],
-) -> Callable[P, R]:
+    func: Callable[Concatenate[UUID, P], R],
+) -> Callable[Concatenate[UUID, P], R]:
     """Serialize successor creation for one material inside the Core sidecar process.
 
     GrowWise starts Uvicorn as a single-process local sidecar. FastAPI executes synchronous
@@ -39,4 +39,4 @@ def serialize_material_successor(
         with _lock_for(material_id):
             return func(material_id, *args, **kwargs)
 
-    return wrapped  # type: ignore[return-value]
+    return wrapped
