@@ -34,8 +34,8 @@ describe("localization foundation", () => {
     expect(() => persistLocale(writeStorage, "ko-KR")).not.toThrow();
   });
 
-  it("applies semantic document language without coupling startup to translations", () => {
-    const root = document.createElement("html");
+  it("applies semantic document language without requiring a DOM test environment", () => {
+    const root = { lang: "", dir: "" };
     applyDocumentLocale("en-US", root);
     expect(root.lang).toBe("en-US");
     expect(root.dir).toBe("ltr");
