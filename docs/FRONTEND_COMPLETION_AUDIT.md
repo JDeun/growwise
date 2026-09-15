@@ -10,12 +10,12 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 
 - [x] Introduce persistent workspace navigation: Home, Observations, Growth, Activities, Search, Library, Materials, Settings.
 - [x] Preserve active child context across all workspace views (the App remains mounted across workspace changes and the child switcher remains available in child-scoped views).
-- [ ] Add route/view-level empty, loading, and error states instead of relying on one global page flow.
+- [x] Add route/view-level empty, loading, and error states. Growth, observations, library, materials, and activities now load independently, expose local recovery actions, and no longer collapse the whole child context when one endpoint fails.
 - [x] Make Core-only/offline capability explicit in the UI; a persistent capability status explains that deterministic records, search, growth, activities, resource management and Parent Review remain available when AI is unavailable.
 - [x] Move backup/import/restore and runtime diagnostics into Settings (the Settings workspace projects system status and data-management surfaces together).
 - [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
 - [ ] Provide visible success feedback for writes. Backup create/export/import/restore now provide in-app status feedback, and destructive import/restore actions use the accessible app confirmation dialog.
-- [ ] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast.
+- [x] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast. Workspace navigation now exposes tablist/tab/tabpanel semantics with roving keyboard focus and a skip link; dialogs trap focus; form errors/status use alert/status semantics; reduced-motion overrides are present; and the primary action/text color was darkened so normal-size white/green combinations clear WCAG AA contrast.
 - [x] Add narrow-window behavior suitable for common laptop sizes (workspace navigation and content grids collapse at 900/700/600 px breakpoints, with reduced-width shell spacing on small windows).
 - [ ] Break App.tsx into feature components without changing Core semantics.
 
