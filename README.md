@@ -1,8 +1,29 @@
-# growwise
+<p align="center">
+  <img src="assets/brand/growwise-logo.svg" alt="GrowWise" width="320">
+</p>
 
-![GrowWise](assets/brand/growwise-logo.svg)
+<p align="center">
+  <strong>아이의 성장을 기록하고, 부모의 교육 철학에 맞춰 학습 자료를 만든다.</strong><br>
+  Local-first, parent-centered child learning tracking, knowledge organization, and material generation.
+</p>
 
-**AI-assisted child learning tracking, knowledge organization, and learning-material generation system**
+<p align="center">
+  <a href="https://github.com/JDeun/growwise/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/JDeun/growwise/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/JDeun/growwise/actions/workflows/package.yml"><img alt="Desktop Packages" src="https://github.com/JDeun/growwise/actions/workflows/package.yml/badge.svg"></a>
+  <a href="https://github.com/JDeun/growwise/actions/workflows/secret-scan.yml"><img alt="Secret Scan" src="https://github.com/JDeun/growwise/actions/workflows/secret-scan.yml/badge.svg"></a>
+  <a href="LICENSE"><img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-blue.svg"></a>
+  <img alt="Version" src="https://img.shields.io/badge/version-0.1.0a0-informational.svg">
+</p>
+
+> [!IMPORTANT]
+> **현재 상태: pre-1.0 / 활발한 구현.** 소스와 CI 기반 unsigned 데스크탑 빌드는 사용할 수 있으나,
+> code signing/notarization을 거친 **공식 signed public release는 아직 없습니다.** GrowWise는 발달
+> **진단·평가 도구가 아니며**, 생성물은 반드시 Parent Review 승인 후에만 사용합니다.
+
+> [!NOTE]
+> **로컬·프라이버시 원칙:** 아동 데이터는 로컬에서 처리하고(Markdown = Source of Truth, SQLite =
+> 재생성 인덱스), 아이 대면 챗봇은 범위 밖입니다. 공개 저장소에는 실명·생년 등 개인정보를 커밋하지
+> 않으며, 저장소 PII 감사 테스트로 이를 강제합니다.
 
 GrowWise는 챗봇 제품이 아니다. 핵심은 부모의 교육 철학에 맞춰 **아이의 성장과 학습을
 장기적으로 기록·정리·추적하고, 관련 자료를 수집·검색·정리하며, 필요한 학습 자료를 만드는
@@ -25,14 +46,33 @@ LLM은 화면의 주인공이 아니라 **백그라운드 엔진**이다. 사용
 
 ## GrowWise가 하는 일
 
-- **교육 트래킹** — 활동, 관심사, 반응, 어려움, 질문, 회고를 장기 기록
-- **성장/경험 지도** — 점수·등수 대신 아이 자신의 시간 흐름 안에서 경험 커버리지를 추적
-- **자료 수집·정리** — 책, 교육과정, 활동 자료, 외부 데이터의 provenance와 함께 관리
-- **자연어 검색/질의** — 저장된 기록과 자료를 자연어로 찾고 요약·비교·답변
-- **학습자료 생성** — 독서·영어·탐방·수학·과학·글쓰기 등 필요한 자료 생성
-- **활동 관리** — 부모가 선택하는 퀘스트/활동 계획과 완료 기록
-- **부모 검토** — 생성물은 난이도·민감성·개인정보·scaffold를 검토한 뒤 승인
-- **장기 보존** — Markdown SoT + SQLite projection으로 소유권과 검색 성능을 함께 확보
+| | 기능 | 설명 |
+|---|---|---|
+| 📝 | **교육 트래킹** | 활동·관심사·반응·어려움·질문·회고를 장기 기록 |
+| 🌱 | **성장/경험 지도** | 점수·등수 대신 아이 자신의 시간 흐름 안에서 경험 커버리지를 추적 |
+| 📚 | **자료 수집·정리** | 책·교육과정·활동 자료·외부 데이터를 provenance와 함께 관리 |
+| 🔍 | **자연어 검색/질의** | 저장된 기록·자료를 자연어로 찾고 요약·비교·답변 |
+| ✏️ | **학습자료 생성** | 독서·영어·탐방·수학·과학·글쓰기 등 자료를 안전 가드와 함께 생성 |
+| 🧭 | **활동 관리** | 부모가 선택하는 퀘스트/활동 계획과 완료 기록 |
+| ✅ | **부모 검토** | 생성물은 난이도·민감성·개인정보·scaffold 검토 후 승인 |
+| 💾 | **장기 보존** | Markdown SoT + SQLite projection으로 소유권과 검색 성능을 함께 확보 |
+
+## 데이터 흐름 한눈에 보기
+
+```mermaid
+flowchart LR
+    P[부모 입력: 관찰·자료·요청] --> MD[(Markdown = Source of Truth)]
+    MD --> IDX[(SQLite projection/index)]
+    GEN[템플릿·LLM 자료 생성] --> GUARD{안전 가드<br/>PII·인젝션·연령·편향·scaffold}
+    GUARD -->|통과| REVIEW[Parent Review]
+    GUARD -->|위반| FB[결정적 템플릿 폴백]
+    FB --> REVIEW
+    REVIEW -->|승인| MD
+    IDX --> SEARCH[검색·RAG·성장 지도]
+    MD --> EXPORT[백업/내보내기·인쇄]
+```
+
+*LLM/embedding 장애 시에도 CRUD·검색·트래킹·템플릿 생성은 계속 동작한다(LLM-enhanced, not LLM-dependent).*
 
 ## LLM의 역할
 
