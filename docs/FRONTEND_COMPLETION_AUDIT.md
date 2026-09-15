@@ -11,12 +11,12 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [x] Introduce persistent workspace navigation: Home, Observations, Growth, Activities, Search, Library, Materials, Settings.
 - [x] Preserve active child context across all workspace views (the App remains mounted across workspace changes and the child switcher remains available in child-scoped views).
 - [ ] Add route/view-level empty, loading, and error states instead of relying on one global page flow.
-- [ ] Make Core-only/offline capability explicit in the UI; LLM unavailability must not visually disable deterministic features.
-- [ ] Move backup/import/restore and runtime diagnostics into Settings.
+- [x] Make Core-only/offline capability explicit in the UI; a persistent capability status explains that deterministic records, search, growth, activities, resource management and Parent Review remain available when AI is unavailable.
+- [x] Move backup/import/restore and runtime diagnostics into Settings (the Settings workspace projects system status and data-management surfaces together).
 - [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
 - [ ] Provide visible success feedback for writes. Backup create/export/import/restore now provide in-app status feedback, and destructive import/restore actions use the accessible app confirmation dialog.
 - [ ] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast.
-- [ ] Add narrow-window behavior suitable for common laptop sizes.
+- [x] Add narrow-window behavior suitable for common laptop sizes (workspace navigation and content grids collapse at 900/700/600 px breakpoints, with reduced-width shell spacing on small windows).
 - [ ] Break App.tsx into feature components without changing Core semantics.
 
 ## P1 product-quality batch
