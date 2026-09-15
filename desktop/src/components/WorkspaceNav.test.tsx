@@ -8,7 +8,7 @@ describe("WorkspaceNav", () => {
     const onChange = vi.fn();
     render(<WorkspaceNav activeView="home" onChange={onChange} />);
 
-    expect(screen.getByRole("button", { name: /홈/ })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("button", { name: /홈/ }).getAttribute("aria-current")).toBe("page");
 
     fireEvent.click(screen.getByRole("button", { name: /자료/ }));
     expect(onChange).toHaveBeenCalledWith("materials");
