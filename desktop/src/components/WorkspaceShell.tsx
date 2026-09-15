@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 
+import "./WorkspaceShell.css";
 import { WorkspaceNav } from "./WorkspaceNav";
 import { readWorkspaceView, writeWorkspaceView } from "./workspaceStorage";
 import type { WorkspaceView } from "./workspaceTypes";
