@@ -16,7 +16,7 @@ def test_backup_api_create_list_and_restore_requires_confirmation(
     data_dir = tmp_path / "growwise"
     monkeypatch.setenv("GROWWISE_DATA_DIR", str(data_dir))
     store = EntityStore(data_dir / "records", data_dir / "index.sqlite3")
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
 
     client = TestClient(app)

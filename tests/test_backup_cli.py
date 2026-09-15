@@ -28,7 +28,7 @@ def test_backup_name_rejects_path_traversal(tmp_path: Path) -> None:
 def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> None:
     settings = Settings(data_dir=tmp_path)
     store = EntityStore(settings.records_dir, settings.index_path)
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
     baseline_resource = ResourceRecord(
         child_id=child.id,
@@ -64,7 +64,7 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
 
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")
-    assert [item["nickname"] for item in children] == ["수아"]
+    assert [item["nickname"] for item in children] == ["샘플아이"]
 
     restored_rag = HybridRagIndex(settings.rag_index_path)
     assert restored_rag.search(query="고양이", child_id=str(child.id))

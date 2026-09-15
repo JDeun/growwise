@@ -22,7 +22,7 @@ class _ObservationGraph:
 
 def _setup(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[EntityStore, ChildProfile]:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
     idempotency = SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3")
 
