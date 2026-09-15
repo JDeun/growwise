@@ -208,13 +208,13 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 
 ### 안정화
 
-- [ ] unit/integration/e2e/property tests (unit/integration 다수 존재, e2e/property 범위 미완료)
+- [x] unit/integration/e2e/property tests (e2e `test_e2e_api_flow.py`, property `test_markdown_roundtrip_property.py`)
 - [x] workflow replay tests (리뷰 그래프 재시작-재개, `test_interrupted_recovery.py`)
 - [x] Core-only / provider failure fallback tests 기초
 - [x] corrupt Markdown/DB recovery 기초
 - [x] interrupted export/review recovery (재시작 후 체크포인트 재개 + export 원자성, `test_interrupted_recovery.py`)
-- [ ] long-running soak tests
-- [ ] performance/memory profiling
+- [x] long-running soak tests (`test_soak_generation.py` — 1500 사이클 안전 가드)
+- [x] performance/memory profiling (`test_performance_smoke.py` — 시간·피크메모리·누수 가드)
 
 ### 적대적 리뷰
 
@@ -238,7 +238,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] Python/Node/Rust CVE audit CI
 - [x] secret scan (Gitleaks workflow)
 - [x] Python license inventory CI
-- [ ] docs/code consistency audit 전체
+- [x] docs/code consistency audit (`test_docs_code_consistency.py` — 로드맵 코드참조 검증)
 - [x] sample/test data privacy audit (`test_repo_privacy_audit.py` — 구조적 전화/주민번호 + GROWWISE_PII_DENYLIST 실명 감사)
 - [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
 
