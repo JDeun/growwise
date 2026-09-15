@@ -4,16 +4,16 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 
 ## Current structural risk
 
-`desktop/src/App.tsx` is a ~46 KB monolith containing connection status, child creation/switching, observations, growth map, search, conversation, resources, material generation/review/editing, activities, infant guidance, backups, and printing. The functionality exists, but the information architecture is effectively one long page. That creates navigation, discoverability, accessibility, state-isolation, and maintainability risk.
+`desktop/src/App.tsx` is still a ~46 KB monolith containing connection status, child creation/switching, observations, growth map, search, conversation, resources, material generation/review/editing, activities, infant guidance, backups, and printing. The persistent workspace shell now projects those existing sections into task-oriented views while keeping the same mounted App/controller state, so the previous one-long-page information architecture is no longer the primary user surface. Component isolation and maintainability remain unfinished until the monolith is split without changing Core semantics.
 
 ## P0 completion batch
 
-- [ ] Introduce persistent workspace navigation: Home, Record, Growth, Activities, Materials, Library, Ask, Settings.
-- [ ] Preserve active child context across all workspace views.
+- [x] Introduce persistent workspace navigation: Home, Observations, Growth, Activities, Search, Library, Materials, Settings.
+- [x] Preserve active child context across all workspace views (the App remains mounted across workspace changes and the child switcher remains available in child-scoped views).
 - [ ] Add route/view-level empty, loading, and error states instead of relying on one global page flow.
 - [ ] Make Core-only/offline capability explicit in the UI; LLM unavailability must not visually disable deterministic features.
 - [ ] Move backup/import/restore and runtime diagnostics into Settings.
-- [ ] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
+- [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
 - [ ] Provide visible success feedback for writes and destructive-action feedback for restore/import.
 - [ ] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast.
 - [ ] Add narrow-window behavior suitable for common laptop sizes.
