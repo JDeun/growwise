@@ -39,6 +39,7 @@ class BackupService:
     def create(self, *, records_root: Path, destination: Path) -> BackupManifest:
         destination.parent.mkdir(parents=True, exist_ok=True)
         records = sorted(path for path in records_root.rglob("*.md") if path.is_file())
+        self._validate_create_sources(records)
         manifest = BackupManifest(
             created_at=datetime.now(UTC),
             record_count=len(records),
@@ -84,8 +85,11 @@ class BackupService:
             staging = Path(temp_dir)
             try:
                 with zipfile.ZipFile(archive_path, "r") as archive:
-                    manifest = self._read_manifest(archive)
+                    # Validate the central directory before reading or extracting any member.
+                    # In particular, a hostile manifest must not bypass the same decompression
+                    # limits that protect ordinary record files.
                     self._validate_members(archive)
+                    manifest = self._read_manifest(archive)
                     archive.extractall(staging)
             except zipfile.BadZipFile as exc:
                 raise InvalidBackup("backup archive is not a valid ZIP file") from exc
@@ -136,13 +140,39 @@ class BackupService:
         return manifest
 
     @classmethod
+    def _validate_create_sources(cls, records: list[Path]) -> None:
+        if len(records) + 1 > cls.MAX_ARCHIVE_MEMBERS:
+            raise InvalidBackup("backup would contain too many members")
+
+        total_size = 0
+        for path in records:
+            if path.is_symlink():
+                raise InvalidBackup(f"symlink source record is not allowed: {path.name}")
+            size = path.stat().st_size
+            if size > cls.MAX_SINGLE_FILE_BYTES:
+                raise InvalidBackup(f"source record is too large to back up: {path.name}")
+            total_size += size
+            if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
+                raise InvalidBackup("backup source exceeds the allowed total size")
+
+    @classmethod
     def _validate_members(cls, archive: zipfile.ZipFile) -> None:
         members = archive.infolist()
         if len(members) > cls.MAX_ARCHIVE_MEMBERS:
             raise InvalidBackup("backup archive contains too many members")
 
+        seen_names: set[str] = set()
+        manifest_count = 0
         total_size = 0
         for info in members:
+            if info.filename in seen_names:
+                raise InvalidBackup(f"duplicate archive member: {info.filename}")
+            seen_names.add(info.filename)
+
+            # ZIP paths are defined with '/' separators. Backslashes are rejected explicitly
+            # so the same archive cannot acquire different traversal semantics on Windows.
+            if "\\" in info.filename:
+                raise InvalidBackup(f"unsafe archive member: {info.filename}")
             path = PurePosixPath(info.filename)
             if path.is_absolute() or ".." in path.parts:
                 raise InvalidBackup(f"unsafe archive member: {info.filename}")
@@ -155,9 +185,15 @@ class BackupService:
             if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
                 raise InvalidBackup("backup archive expands beyond the allowed size")
             if info.filename == cls.MANIFEST_NAME:
+                if info.is_dir():
+                    raise InvalidBackup("backup manifest must be a file")
+                manifest_count += 1
                 continue
             if not path.parts or path.parts[0] != "records":
                 raise InvalidBackup(f"unexpected archive member: {info.filename}")
+
+        if manifest_count != 1:
+            raise InvalidBackup("backup archive must contain exactly one manifest")
 
     @staticmethod
     def _validate_records(records_root: Path) -> int:
