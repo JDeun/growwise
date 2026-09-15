@@ -1,16 +1,27 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Self
 from uuid import UUID
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from uuid6 import uuid7
 
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
+
+
+def age_in_months(birth_date: date, *, on_date: date | None = None) -> int:
+    """Return completed chronological months without rounding partial months up."""
+    reference = on_date or datetime.now(UTC).date()
+    if birth_date > reference:
+        raise ValueError("birth_date cannot be in the future")
+    months = (reference.year - birth_date.year) * 12 + reference.month - birth_date.month
+    if reference.day < birth_date.day:
+        months -= 1
+    return max(0, months)
 
 
 class Stage(StrEnum):
@@ -89,19 +100,30 @@ class ChildProfile(EntityBase):
     entity_type: str = "child_profile"
     nickname: str
     stage: Stage
+    birth_date: date | None = None
+    # Backward-compatible cached/legacy field. When birth_date exists it is refreshed on load.
     age_months: Annotated[int | None, Field(default=None, ge=0, le=240)]
     interests: list[str] = Field(default_factory=list)
     notes: str | None = None
+
+    @model_validator(mode="after")
+    def derive_age_from_birth_date(self) -> Self:
+        if self.birth_date is not None:
+            self.age_months = age_in_months(self.birth_date)
+        return self
+
+    def age_months_on(self, on_date: date) -> int | None:
+        if self.birth_date is not None:
+            return age_in_months(self.birth_date, on_date=on_date)
+        return self.age_months
 
 
 class ActivityPlan(EntityBase):
     entity_type: str = "activity_plan"
     child_id: UUID
     title: str
-    description: str | None = None
     status: ActivityStatus = ActivityStatus.SUGGESTED
     source_refs: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
     parent_note: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -113,17 +135,15 @@ class LearningLog(EntityBase):
     child_id: UUID
     activity_plan_id: UUID | None = None
     parent_observation: str
-    process: str | None = None
-    child_question: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
     interest: str | None = None
     difficulty_note: str | None = None
     next_activity: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
 
 
 class ResourceRecord(EntityBase):
-    entity_type: str = "resource"
+    entity_type: str = "resource_record"
     child_id: UUID | None = None
     kind: ResourceKind
     title: str
@@ -132,7 +152,6 @@ class ResourceRecord(EntityBase):
     source_url: str | None = None
     source_name: str | None = None
     author: str | None = None
-    published_at: datetime | None = None
     tags: list[str] = Field(default_factory=list)
     stage_tags: list[Stage] = Field(default_factory=list)
     provenance: dict[str, str] = Field(default_factory=dict)
@@ -150,18 +169,19 @@ class GeneratedMaterial(EntityBase):
     review_note: str | None = None
     request_topic: str | None = None
     request_goal: str | None = None
-    version: int = Field(default=1, ge=1)
+    version: int = 1
     parent_material_id: UUID | None = None
     version_note: str | None = None
 
 
 class WorkflowRun(EntityBase):
     entity_type: str = "workflow_run"
-    child_id: UUID
+    child_id: UUID | None = None
     workflow_type: str
     thread_id: str
     status: WorkflowStatus = WorkflowStatus.RUNNING
-    attempt_count: int = 1
+    current_node: str | None = None
     input_ref: str | None = None
     output_ref: str | None = None
+    retry_count: int = 0
     last_error_code: str | None = None
