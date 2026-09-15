@@ -70,22 +70,22 @@ class StudyTrackingService:
         for reflection in reflections:
             reflection_groups[(reflection.subject, reflection.unit)].append(reflection)
         progress_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-        for progress_payload in progress_payloads:
+        for raw_progress in progress_payloads:
             key = (
-                str(progress_payload.get("subject", "")),
-                str(progress_payload.get("unit", "")),
+                str(raw_progress.get("subject", "")),
+                str(raw_progress.get("unit", "")),
             )
-            progress_by_key.setdefault(key, progress_payload)
+            progress_by_key.setdefault(key, raw_progress)
 
         keys = set(mistake_groups) | set(reflection_groups) | set(progress_by_key)
         entries: list[WeakMapEntry] = []
         for subject, unit in keys:
             grouped_mistakes = mistake_groups.get((subject, unit), [])
             grouped_reflections = reflection_groups.get((subject, unit), [])
-            progress_payload = progress_by_key.get((subject, unit))
+            latest_progress = progress_by_key.get((subject, unit))
             state = (
-                StudyProgressState(str(progress_payload["state"]))
-                if progress_payload is not None and progress_payload.get("state")
+                StudyProgressState(str(latest_progress["state"]))
+                if latest_progress is not None and latest_progress.get("state")
                 else None
             )
             difficulties = [
