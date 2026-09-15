@@ -31,7 +31,7 @@ export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
 
   return (
     <nav className="workspace-nav" aria-label="GrowWise 작업공간">
-      <div className="workspace-nav-items" role="toolbar" aria-orientation="horizontal">
+      <div className="workspace-nav-items" role="tablist" aria-orientation="horizontal">
         {WORKSPACE_VIEWS.map((view, index) => {
           const active = activeView === view;
           return (
@@ -40,9 +40,12 @@ export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
               ref={(element) => {
                 itemRefs.current[index] = element;
               }}
+              id={`workspace-tab-${view}`}
               type="button"
+              role="tab"
               className={`workspace-nav-item ${active ? "active" : ""}`}
-              aria-current={active ? "page" : undefined}
+              aria-selected={active}
+              aria-controls="workspace-panel"
               aria-label={`${WORKSPACE_LABELS[view]}: ${WORKSPACE_DESCRIPTIONS[view]}`}
               tabIndex={index === focusIndex ? 0 : -1}
               onKeyDown={handleKeyDown}
