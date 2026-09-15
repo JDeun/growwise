@@ -218,14 +218,14 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 
 ### 적대적 리뷰
 
-- [ ] prompt injection
-- [ ] malicious retrieved content
+- [x] prompt injection (ScaffoldGuard `_INJECTION_PATTERNS` + boundary enforcement, `test_material_prompt_injection.py`)
+- [x] malicious retrieved content 기초 (`test_rag_adversarial.py`, hardened material adversarial guard)
 - [x] citation/source fabrication 기초 (material source refs existence/scope 검증)
-- [ ] PII leakage
-- [ ] age-inappropriate generation
+- [x] PII leakage (ScaffoldGuard `_PII_PATTERNS` reject, `test_material_pii_guard.py`)
+- [ ] age-inappropriate generation (구현·수정 완료, PR #24 검토/병합 대기)
 - [x] diagnostic/medical-like infant claims 회귀 기초
 - [ ] stereotype/bias
-- [ ] answer-giving/scaffold violations
+- [x] answer-giving/scaffold violations (ScaffoldGuard `_DIRECT_ANSWER_PATTERNS`/rote-pressure, `test_scaffold_adversarial.py`)
 - [ ] malformed structured output
 - [x] path traversal/file corruption attempts 기초
 - [x] external API failure/stale fallback 기초
