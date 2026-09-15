@@ -43,7 +43,13 @@ export function ConfirmDialog({
     const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     );
-    if (!focusable || focusable.length === 0) return;
+    if (!focusable || focusable.length === 0) {
+      // e.g. while `busy` both buttons are disabled: keep focus on the dialog itself
+      // instead of letting Tab escape to the page behind the backdrop.
+      event.preventDefault();
+      dialogRef.current?.focus();
+      return;
+    }
     const items = Array.from(focusable);
     const current = items.indexOf(document.activeElement as HTMLElement);
     const target = focusTrapIndex(current < 0 ? 0 : current, items.length, event.key, event.shiftKey);
@@ -60,6 +66,7 @@ export function ConfirmDialog({
         className="confirm-dialog"
         role="alertdialog"
         aria-modal="true"
+        tabIndex={-1}
         aria-labelledby="confirm-dialog-title"
         aria-describedby="confirm-dialog-description"
         onMouseDown={(event) => event.stopPropagation()}
