@@ -1,0 +1,6 @@
+/* Feature-local marker for MaterialWorkspace. Shared design-system declarations remain in styles.css
+   until App.tsx decomposition removes the legacy material section. Keeping this file establishes a
+   feature boundary without duplicating token values. */
+.material-workspace [role="alert"] { scroll-margin-block: 24px; }
+.material-workspace button { min-height: 40px; }
+.material-workspace textarea { line-height: 1.55; }
