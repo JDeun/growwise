@@ -209,10 +209,10 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 ### 안정화
 
 - [ ] unit/integration/e2e/property tests (unit/integration 다수 존재, e2e/property 범위 미완료)
-- [ ] workflow replay tests
+- [x] workflow replay tests (리뷰 그래프 재시작-재개, `test_interrupted_recovery.py`)
 - [x] Core-only / provider failure fallback tests 기초
 - [x] corrupt Markdown/DB recovery 기초
-- [ ] interrupted export/review recovery
+- [x] interrupted export/review recovery (재시작 후 체크포인트 재개 + export 원자성, `test_interrupted_recovery.py`)
 - [ ] long-running soak tests
 - [ ] performance/memory profiling
 
