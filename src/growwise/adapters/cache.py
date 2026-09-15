@@ -72,7 +72,13 @@ class SQLiteExternalCache:
             connection.execute(
                 """
                 INSERT INTO external_cache (
-                    cache_key, payload_json, source, attribution, license_note, fetched_at, expires_at
+                    cache_key,
+                    payload_json,
+                    source,
+                    attribution,
+                    license_note,
+                    fetched_at,
+                    expires_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(cache_key) DO UPDATE SET
                     payload_json=excluded.payload_json,
