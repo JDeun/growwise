@@ -15,7 +15,9 @@ def utc_now() -> datetime:
 
 def age_in_months(birth_date: date, *, on_date: date | None = None) -> int:
     """Return completed chronological months without rounding partial months up."""
-    reference = on_date or datetime.now(UTC).date()
+    # Use the local calendar date (the user's "today"), not UTC — otherwise a birth date
+    # entered as "today" is wrongly rejected as future during the KST 00:00–09:00 window.
+    reference = on_date or date.today()
     if birth_date > reference:
         raise ValueError("birth_date cannot be in the future")
     months = (reference.year - birth_date.year) * 12 + reference.month - birth_date.month
