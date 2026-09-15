@@ -71,7 +71,10 @@ class ScaffoldGuard:
             r"(?:suicide|self[- ]?harm|make\s+(?:a\s+)?bomb|hard\s+drugs)",
             re.IGNORECASE,
         ),
-        re.compile(r"(?:explicit|graphic)\s+(?:sexual|pornographic)\s+(?:content|instructions?)", re.IGNORECASE),
+        re.compile(
+            r"(?:explicit|graphic)\s+(?:sexual|pornographic)\s+(?:content|instructions?)",
+            re.IGNORECASE,
+        ),
     )
     _SCAFFOLD_KINDS = {
         MaterialKind.ENGLISH_CARD,
