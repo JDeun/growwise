@@ -141,12 +141,12 @@ input → router → RAG/context → optional LLM → structured material
 - [ ] 수학 놀이 제품 UX 완성
 - [ ] 과학 탐구 제품 UX 완성
 - [ ] 글쓰기·말하기 코치 제품 UX 완성
-- [ ] 그림/표/도형 등 출력 컴포넌트
+- [x] 그림/표/도형 등 출력 컴포넌트 (`MaterialContent.tsx` — 안전 렌더러, 접근성 테이블/도형)
 - [ ] curriculum mapping
 - [x] 활동 템플릿 라이브러리 확장 (`generators/templates.py` — kind별 5변형, 결정적 선택)
 - [x] 생성물 편집/재생성/immutable 버전 관리
 - [x] 인쇄 레이아웃 설정 (A4/Letter, 세로/가로, 5~40mm 안전 여백 + 적대 입력 회귀)
-- [ ] source/citation 표시 완성
+- [x] source/citation 표시 완성 (`MaterialSources.tsx` + 워크스페이스 인라인)
 
 ## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
 
@@ -200,8 +200,8 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] backup/restore/import/export Desktop UX
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
 - [x] crash recovery 전체 (`test_crash_recovery.py`; 손상 인덱스/부분 레코드 복구 하드닝)
-- [ ] accessibility
-- [ ] keyboard navigation
+- [x] accessibility (ARIA roles/labels·role=alert·focus-visible, `a11y.ts`)
+- [x] keyboard navigation (roving tabindex·arrow/Home/End·focus trap, `WorkspaceNav`/`ConfirmDialog`)
 - [x] localization 기반 (`desktop/src/i18n.ts` — ko-KR/en-US 결정·저장 fallback·document lang·Intl formatting)
 
 ## Phase 8 — 완성도 강화
