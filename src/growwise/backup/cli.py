@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from growwise.backup import BackupService
+from growwise.backup.naming import unique_backup_token
 from growwise.config import Settings
 from growwise.domain import ResourceRecord
 from growwise.rag import HybridRagIndex, ResourceIngestor
@@ -24,8 +25,7 @@ def validate_archive_name(name: str) -> str:
 
 
 def default_archive_name() -> str:
-    stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S%fZ")
-    return f"growwise-{stamp}.zip"
+    return f"growwise-{unique_backup_token()}.zip"
 
 
 def managed_archive_path(settings: Settings, name: str) -> Path:
