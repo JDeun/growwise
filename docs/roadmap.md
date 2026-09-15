@@ -129,7 +129,7 @@ input → router → RAG/context → optional LLM → structured material
 - [x] Parent Review interrupt/resume를 material workflow 동일 thread로 통합 (`workflows/material_pipeline.py`)
 - [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
 - [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
-- [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로)
+- [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로; 안전한 용지/방향/여백 설정 완료)
 - [ ] local model latency/quality benchmark (하네스 `scripts/benchmark_model.py` 완료; 실측·로컬/원격 결정=운영자)
 - [ ] 최소/권장 하드웨어 benchmark (하네스 `scripts/benchmark_hardware.py` 완료; 실기기 실측=운영자)
 
@@ -145,7 +145,7 @@ input → router → RAG/context → optional LLM → structured material
 - [ ] curriculum mapping
 - [x] 활동 템플릿 라이브러리 확장 (`generators/templates.py` — kind별 5변형, 결정적 선택)
 - [x] 생성물 편집/재생성/immutable 버전 관리
-- [ ] 인쇄 레이아웃 설정
+- [x] 인쇄 레이아웃 설정 (A4/Letter, 세로/가로, 5~40mm 안전 여백 + 적대 입력 회귀)
 - [ ] source/citation 표시 완성
 
 ## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
@@ -202,7 +202,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] crash recovery 전체 (`test_crash_recovery.py`; 손상 인덱스/부분 레코드 복구 하드닝)
 - [ ] accessibility
 - [ ] keyboard navigation
-- [ ] localization 기반
+- [x] localization 기반 (`desktop/src/i18n.ts` — ko-KR/en-US 결정·저장 fallback·document lang·Intl formatting)
 
 ## Phase 8 — 완성도 강화
 
