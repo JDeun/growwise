@@ -6,6 +6,7 @@ export * from "./WorkspaceShell";
 export * from "./WorkspaceView";
 export * from "./workspaceLabels";
 export * from "./workspaceLayout";
+export * from "./workspaceMigration";
 export * from "./workspaceStorage";
 export * from "./workspaceTypes";
 export * from "./workspaceViews";
