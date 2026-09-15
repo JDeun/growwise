@@ -44,6 +44,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.material_versions import serialize_material_successor
 from growwise.model import ModelProvider, create_model_provider
 from growwise.model.health import probe_model_runtime
 from growwise.rag import (
@@ -619,6 +620,7 @@ def review_material(
 
 
 @app.post("/v1/materials/{material_id}/revise", response_model=GeneratedMaterial)
+@serialize_material_successor
 def revise_material(
     material_id: UUID,
     request: MaterialRevisionRequest,
@@ -670,6 +672,7 @@ def revise_material(
 
 
 @app.post("/v1/materials/{material_id}/edit", response_model=GeneratedMaterial)
+@serialize_material_successor
 def edit_material(
     material_id: UUID,
     request: MaterialEditRequest,
