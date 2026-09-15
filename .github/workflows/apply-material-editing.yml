@@ -5,6 +5,7 @@ on:
     branches: [codex/material-edit-rebased]
     paths:
       - .github/workflows/apply-material-editing.yml
+      - .github/scripts/apply_material_editing.py
 
 permissions:
   contents: write
@@ -20,29 +21,12 @@ jobs:
         with:
           python-version: "3.12"
       - name: Apply integration
-        run: |
-          python .github/scripts/apply_material_editing.py
-          cp /tmp/editing.py src/growwise/generators/editing.py 2>/dev/null || true
-      - name: Create editing service
-        run: |
-          cat > src/growwise/generators/editing.py <<'PY'
-          from __future__ import annotations
-          from growwise.domain import GeneratedMaterial, MaterialStatus
-          class MaterialEditError(ValueError):
-              pass
-          class MaterialEditService:
-              def create_version(self, *, material: GeneratedMaterial, title: str, content_markdown: str, note: str | None = None) -> GeneratedMaterial:
-                  if material.status is MaterialStatus.ARCHIVED:
-                      raise MaterialEditError("archived material cannot be edited")
-                  title = title.strip(); content_markdown = content_markdown.strip()
-                  if not title or not content_markdown:
-                      raise MaterialEditError("edited material title and content cannot be empty")
-                  return GeneratedMaterial(child_id=material.child_id, kind=material.kind, title=title, content_markdown=content_markdown, status=MaterialStatus.REVIEW_PENDING, source_refs=list(material.source_refs), generator_mode="parent_edit", request_topic=material.request_topic, request_goal=material.request_goal, version=material.version + 1, parent_material_id=material.id, version_note=note.strip() if note and note.strip() else None)
-          PY
+        run: python .github/scripts/apply_material_editing.py
       - name: Verify
         run: |
           python -m pip install "uv==0.12.13"
           uv sync --locked --extra dev
+          uv run ruff format src/growwise/api/main.py src/growwise/domain/models.py src/growwise/generators
           uv run ruff check --fix src/growwise/api/main.py src/growwise/domain/models.py src/growwise/generators
           uv run ruff check src tests desktop/scripts
           uv run mypy src/growwise
