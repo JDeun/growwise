@@ -62,7 +62,7 @@ def test_public_book_route_never_exposes_credential(
         assert captured["keyword"] == "우주"
         assert captured["page_size"] == 3
         assert "test-secret" not in response.text
-        assert "child" not in response.request.url.query.casefold()
+        assert "child" not in str(response.request.url).casefold()
     finally:
         app.dependency_overrides.clear()
 
