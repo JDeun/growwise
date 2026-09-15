@@ -24,8 +24,18 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
 
   return (
     <div className="workspace-shell-root">
+      <a className="skip-link" href="#workspace-panel">
+        작업공간 본문으로 바로가기
+      </a>
       <WorkspaceNav activeView={activeView} onChange={handleChange} />
-      <div className="workspace-shell" data-active-workspace={activeView}>
+      <div
+        id="workspace-panel"
+        className="workspace-shell"
+        role="tabpanel"
+        aria-labelledby={`workspace-tab-${activeView}`}
+        tabIndex={-1}
+        data-active-workspace={activeView}
+      >
         {renderWorkspace(activeView)}
       </div>
     </div>
