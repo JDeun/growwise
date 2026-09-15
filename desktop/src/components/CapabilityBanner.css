@@ -1,0 +1,43 @@
+.capability-banner {
+  display: grid;
+  gap: 4px;
+  width: min(1180px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 14px 18px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  box-shadow: 0 8px 24px rgba(53, 48, 40, 0.05);
+}
+
+.capability-banner strong {
+  font-size: 14px;
+}
+
+.capability-banner span {
+  color: var(--ink-soft);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.capability-banner.enhanced {
+  border-color: rgba(47, 143, 107, 0.28);
+  background: var(--primary-soft);
+}
+
+.capability-banner.core-only {
+  border-color: rgba(121, 85, 30, 0.2);
+  background: var(--accent-soft);
+}
+
+.capability-banner.danger {
+  border-color: rgba(168, 77, 67, 0.25);
+  background: #f9ecea;
+}
+
+@media (max-width: 600px) {
+  .capability-banner {
+    width: min(100% - 24px, 1180px);
+    padding: 12px 14px;
+  }
+}
