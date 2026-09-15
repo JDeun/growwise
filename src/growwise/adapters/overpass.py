@@ -10,7 +10,6 @@ from .base import AdapterResult, ExternalAdapterError, ExternalUnavailable
 from .cache import CachedPayload, SQLiteExternalCache
 from .http import JsonHttpClient
 
-
 _ALLOWED_AMENITIES = frozenset(
     {
         "arts_centre",
