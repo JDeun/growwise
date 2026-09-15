@@ -46,3 +46,18 @@
 .view-state-action {
   margin-top: 10px;
 }
+
+.child-context-required {
+  margin-top: 16px;
+}
+
+.workspace-shell[data-active-workspace="home"] .child-context-required {
+  display: none;
+}
+
+.material-state-panel {
+  padding: 22px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.88);
+}
