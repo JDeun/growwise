@@ -25,9 +25,9 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
   return (
     <div className="workspace-shell-root">
       <WorkspaceNav activeView={activeView} onChange={handleChange} />
-      <main className="workspace-shell" data-active-workspace={activeView}>
+      <div className="workspace-shell" data-active-workspace={activeView}>
         {renderWorkspace(activeView)}
-      </main>
+      </div>
     </div>
   );
 }
