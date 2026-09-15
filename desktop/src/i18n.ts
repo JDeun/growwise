@@ -16,8 +16,9 @@ export function resolveLocale(candidates: readonly string[]): SupportedLocale {
   for (const candidate of candidates) {
     const canonical = canonicalize(candidate);
     if (!canonical) continue;
-    if (canonical.toLowerCase() === "ko-kr" || canonical.toLowerCase() === "ko") return "ko-KR";
-    if (canonical.toLowerCase() === "en-us" || canonical.toLowerCase() === "en") return "en-US";
+    const normalized = canonical.toLowerCase();
+    if (normalized === "ko-kr" || normalized === "ko") return "ko-KR";
+    if (normalized === "en-us" || normalized === "en") return "en-US";
   }
   return DEFAULT_LOCALE;
 }
@@ -30,6 +31,22 @@ export function loadLocale(storage: Pick<Storage, "getItem"> | null, languages: 
     // Storage can be unavailable in hardened/private webviews. Locale selection must still work.
   }
   return resolveLocale(stored ? [stored, ...languages] : languages);
+}
+
+export function detectBrowserLocale(): SupportedLocale {
+  let storage: Pick<Storage, "getItem"> | null = null;
+  let languages: readonly string[] = [];
+  try {
+    storage = window.localStorage;
+  } catch {
+    // Accessing localStorage itself can throw under restrictive webview policies.
+  }
+  try {
+    languages = navigator.languages?.length ? navigator.languages : [navigator.language];
+  } catch {
+    // Fall through to the deterministic Korean default.
+  }
+  return loadLocale(storage, languages);
 }
 
 export function persistLocale(storage: Pick<Storage, "setItem"> | null, locale: SupportedLocale): void {
