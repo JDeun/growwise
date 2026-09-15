@@ -10,7 +10,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 
 - [x] Introduce persistent workspace navigation: Home, Observations, Growth, Activities, Search, Library, Materials, Settings.
 - [x] Preserve active child context across all workspace views (the App remains mounted across workspace changes and the child switcher remains available in child-scoped views).
-- [ ] Add route/view-level empty, loading, and error states instead of relying on one global page flow.
+- [x] Add route/view-level empty, loading, and error states. Growth, observations, library, materials, and activities now load independently, expose local recovery actions, and no longer collapse the whole child context when one endpoint fails.
 - [x] Make Core-only/offline capability explicit in the UI; a persistent capability status explains that deterministic records, search, growth, activities, resource management and Parent Review remain available when AI is unavailable.
 - [x] Move backup/import/restore and runtime diagnostics into Settings (the Settings workspace projects system status and data-management surfaces together).
 - [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
