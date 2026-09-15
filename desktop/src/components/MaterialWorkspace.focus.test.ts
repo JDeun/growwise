@@ -10,4 +10,9 @@ describe("desktop focus visibility", () => {
     expect(css).toContain("select:focus-visible");
     expect(css).toContain("outline: 3px solid");
   });
+
+  it("keeps a visible focus ring on the keyboard-navigable workspace nav", () => {
+    const css = readFileSync(fileURLToPath(new URL("../styles.css", import.meta.url)), "utf8");
+    expect(css).toContain(".workspace-nav-item:focus-visible");
+  });
 });
