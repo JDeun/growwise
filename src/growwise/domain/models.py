@@ -113,7 +113,6 @@ class ChildProfile(EntityBase):
     stage: Stage
     birth_date: date | None = None
     sex: ChildSex = ChildSex.UNSPECIFIED
-    # Backward-compatible cached/legacy field. birth_date is authoritative when present.
     age_months: Annotated[int | None, Field(default=None, ge=0, le=240)]
     grade: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
     school_entry_year: Annotated[int | None, Field(default=None, ge=1900, le=2200)] = None
@@ -151,20 +150,15 @@ class ChildProfile(EntityBase):
         return self.age_months
 
     def grade_on(self, on_date: date) -> int | None:
-        """Return Korean school grade (1..12), unless explicitly overridden."""
         if self.grade_override is not None:
             return self.grade_override
         if self.birth_date is None or self.education_system != EducationSystem.KR:
             return self.grade
-        # In Korea the school year begins in March. Children normally enter grade 1
-        # in March of the calendar year in which they turn seven by Korean year age
-        # (birth year + 7). January/February still belong to the previous school year.
         school_year = on_date.year if on_date.month >= 3 else on_date.year - 1
         grade = school_year - (self.birth_date.year + 6)
         return grade if 1 <= grade <= 12 else None
 
     def stage_on(self, on_date: date) -> Stage:
-        """Derive the normal education stage while preserving explicit pre-school stages."""
         grade = self.grade_on(on_date)
         if grade is None:
             months = self.age_months_on(on_date)
@@ -184,8 +178,10 @@ class ActivityPlan(EntityBase):
     entity_type: str = "activity_plan"
     child_id: UUID
     title: str
+    description: str | None = None
     status: ActivityStatus = ActivityStatus.SUGGESTED
     source_refs: list[str] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
     parent_note: str | None = None
     started_at: datetime | None = None
     completed_at: datetime | None = None
@@ -197,15 +193,17 @@ class LearningLog(EntityBase):
     child_id: UUID
     activity_plan_id: UUID | None = None
     parent_observation: str
-    tags: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+    process: str | None = None
+    child_question: str | None = None
     interest: str | None = None
     difficulty_note: str | None = None
     next_activity: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
 
 
 class ResourceRecord(EntityBase):
-    entity_type: str = "resource_record"
+    entity_type: str = "resource"
     child_id: UUID | None = None
     kind: ResourceKind
     title: str
@@ -214,6 +212,7 @@ class ResourceRecord(EntityBase):
     source_url: str | None = None
     source_name: str | None = None
     author: str | None = None
+    published_at: datetime | None = None
     tags: list[str] = Field(default_factory=list)
     stage_tags: list[Stage] = Field(default_factory=list)
     provenance: dict[str, str] = Field(default_factory=dict)
@@ -231,19 +230,18 @@ class GeneratedMaterial(EntityBase):
     review_note: str | None = None
     request_topic: str | None = None
     request_goal: str | None = None
-    version: int = 1
+    version: int = Field(default=1, ge=1)
     parent_material_id: UUID | None = None
     version_note: str | None = None
 
 
 class WorkflowRun(EntityBase):
     entity_type: str = "workflow_run"
-    child_id: UUID | None = None
+    child_id: UUID
     workflow_type: str
     thread_id: str
     status: WorkflowStatus = WorkflowStatus.RUNNING
-    current_node: str | None = None
+    attempt_count: int = 1
     input_ref: str | None = None
     output_ref: str | None = None
-    retry_count: int = 0
     last_error_code: str | None = None
