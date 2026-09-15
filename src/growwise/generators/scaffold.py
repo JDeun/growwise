@@ -13,7 +13,7 @@ class ScaffoldCheck:
 
 
 class ScaffoldGuard:
-    """Reject drafts that bypass review, inject instructions, leak PII, or collapse scaffolding."""
+    """Reject drafts that bypass review, leak sensitive content, or collapse scaffolding."""
 
     _DIRECT_ANSWER_PATTERNS = (
         re.compile(r"정\s*답\s*(?:은|:|：)"),
@@ -61,6 +61,21 @@ class ScaffoldGuard:
         re.compile(r"(?<!\d)(?:\d{2,3}-\d{2,4}-\d{4}|\d{9,11})(?!\d)"),
         re.compile(r"\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b", re.IGNORECASE),
     )
+    _AGE_UNSAFE_PATTERNS = (
+        re.compile(r"(?:자살|자해).{0,16}(?:방법|하는\s*법|도구|순서|시도)"),
+        re.compile(r"(?:폭탄|폭발물).{0,16}(?:만드는\s*법|제조|재료|조립|설계)"),
+        re.compile(r"(?:마약|필로폰|코카인|헤로인).{0,16}(?:만드는\s*법|제조|복용|투약)"),
+        re.compile(r"(?:성행위|성관계).{0,16}(?:자세|방법|하는\s*법|기술)"),
+        re.compile(
+            r"(?:how\s+to|instructions?\s+(?:for|to)).{0,24}"
+            r"(?:suicide|self[- ]?harm|make\s+(?:a\s+)?bomb|hard\s+drugs)",
+            re.IGNORECASE,
+        ),
+        re.compile(
+            r"(?:explicit|graphic)\s+(?:sexual|pornographic)\s+(?:content|instructions?)",
+            re.IGNORECASE,
+        ),
+    )
     _SCAFFOLD_KINDS = {
         MaterialKind.ENGLISH_CARD,
         MaterialKind.MATH_ACTIVITY,
@@ -83,4 +98,6 @@ class ScaffoldGuard:
             violations.append("review_bypass")
         if any(pattern.search(text) for pattern in self._PII_PATTERNS):
             violations.append("pii_leakage")
+        if any(pattern.search(text) for pattern in self._AGE_UNSAFE_PATTERNS):
+            violations.append("age_inappropriate")
         return ScaffoldCheck(safe=not violations, violations=tuple(dict.fromkeys(violations)))
