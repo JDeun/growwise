@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import re
-from datetime import UTC, datetime
+from datetime import UTC
 from typing import Any
 
 from .base import AdapterResult, ExternalAdapterError, ExternalUnavailable
@@ -71,7 +71,9 @@ class OverpassAdapter:
         stale = self.cache.get(cache_key, allow_stale=True)
         if offline:
             if stale is None:
-                raise ExternalUnavailable("Overpass data is unavailable offline and no cache exists")
+                raise ExternalUnavailable(
+                    "Overpass data is unavailable offline and no cache exists"
+                )
             return self._from_cached(stale, status="stale" if stale.stale else "fresh")
 
         query = self._build_query(
