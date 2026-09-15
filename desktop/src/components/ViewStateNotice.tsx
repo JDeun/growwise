@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 
+import "./ViewStateNotice.css";
+
 export type ViewStateNoticeKind = "loading" | "error" | "empty";
 
 interface ViewStateNoticeProps {
