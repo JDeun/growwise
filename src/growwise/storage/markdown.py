@@ -3,8 +3,9 @@ from __future__ import annotations
 import os
 import shutil
 import tempfile
+import threading
 from pathlib import Path
-from typing import TypeVar
+from typing import ClassVar, TypeVar
 
 import frontmatter
 from pydantic import BaseModel
@@ -25,16 +26,12 @@ _REVERSE_RESERVED_METADATA_KEYS = {
 
 
 def _encode_metadata(payload: dict) -> dict:
-    return {
-        _RESERVED_METADATA_KEYS.get(key, key): value
-        for key, value in payload.items()
-    }
+    return {_RESERVED_METADATA_KEYS.get(key, key): value for key, value in payload.items()}
 
 
 def _decode_metadata(payload: dict) -> dict:
     return {
-        _REVERSE_RESERVED_METADATA_KEYS.get(key, key): value
-        for key, value in payload.items()
+        _REVERSE_RESERVED_METADATA_KEYS.get(key, key): value for key, value in payload.items()
     }
 
 
@@ -45,7 +42,14 @@ class MarkdownRepository:
     never invalidate the source Markdown document. Before replacing an existing source document,
     GrowWise keeps the previous valid generation as ``.bak`` so corruption can be explicitly
     recovered without making SQLite the source of truth.
+
+    Saves for the same entity path are serialized across repository instances in this process. This
+    preserves the invariant that ``.bak`` is the generation immediately preceding the current
+    document even when multiple request handlers attempt to save the same entity concurrently.
     """
+
+    _lock_registry_guard: ClassVar[threading.Lock] = threading.Lock()
+    _path_locks: ClassVar[dict[Path, threading.Lock]] = {}
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -53,6 +57,12 @@ class MarkdownRepository:
 
     def _path_for(self, entity: EntityBase) -> Path:
         return self.root / entity.entity_type / f"{entity.id}.md"
+
+    @classmethod
+    def _lock_for(cls, path: Path) -> threading.Lock:
+        key = path.resolve()
+        with cls._lock_registry_guard:
+            return cls._path_locks.setdefault(key, threading.Lock())
 
     @staticmethod
     def backup_path(path: Path) -> Path:
@@ -69,21 +79,24 @@ class MarkdownRepository:
         post.metadata.update(payload)
         rendered = frontmatter.dumps(post)
 
-        fd, tmp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent, text=True)
-        try:
-            with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                handle.write(rendered)
-                handle.flush()
-                os.fsync(handle.fileno())
+        with self._lock_for(target):
+            fd, tmp_name = tempfile.mkstemp(
+                prefix=f".{target.name}.", dir=target.parent, text=True
+            )
+            try:
+                with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                    handle.write(rendered)
+                    handle.flush()
+                    os.fsync(handle.fileno())
 
-            if target.exists():
-                backup = self.backup_path(target)
-                shutil.copy2(target, backup)
+                if target.exists():
+                    backup = self.backup_path(target)
+                    shutil.copy2(target, backup)
 
-            os.replace(tmp_name, target)
-        finally:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
+                os.replace(tmp_name, target)
+            finally:
+                if os.path.exists(tmp_name):
+                    os.unlink(tmp_name)
         return target
 
     def load(self, path: Path, model: type[T]) -> T:
@@ -98,13 +111,14 @@ class MarkdownRepository:
         if not backup.exists():
             raise FileNotFoundError(f"no backup exists for {path}")
 
-        recovered = self.load(backup, model)
-        fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.recover.", dir=path.parent)
-        os.close(fd)
-        try:
-            shutil.copy2(backup, tmp_name)
-            os.replace(tmp_name, path)
-        finally:
-            if os.path.exists(tmp_name):
-                os.unlink(tmp_name)
+        with self._lock_for(path):
+            recovered = self.load(backup, model)
+            fd, tmp_name = tempfile.mkstemp(prefix=f".{path.name}.recover.", dir=path.parent)
+            os.close(fd)
+            try:
+                shutil.copy2(backup, tmp_name)
+                os.replace(tmp_name, path)
+            finally:
+                if os.path.exists(tmp_name):
+                    os.unlink(tmp_name)
         return recovered
