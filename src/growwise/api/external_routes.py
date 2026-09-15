@@ -53,7 +53,8 @@ def search_public_books(
 ) -> AdapterResult:
     """Search Data4Library using only a public keyword query."""
     _require_enabled(settings)
-    auth_key = (settings.data4library_auth_key or "").strip()
+    secret = settings.data4library_auth_key
+    auth_key = secret.get_secret_value().strip() if secret is not None else ""
     if not auth_key:
         raise HTTPException(status_code=503, detail="data4library_not_configured")
     adapter = Data4LibraryAdapter(
