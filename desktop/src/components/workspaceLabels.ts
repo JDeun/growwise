@@ -1,0 +1,12 @@
+import type { WorkspaceView } from "./WorkspaceNav";
+
+export const WORKSPACE_LABELS: Record<WorkspaceView, string> = {
+  home: "홈",
+  observations: "관찰",
+  growth: "성장",
+  activities: "활동",
+  search: "검색",
+  library: "라이브러리",
+  materials: "자료",
+  settings: "설정",
+};
