@@ -11,7 +11,9 @@ import frontmatter
 from growwise.domain.models import EntityBase
 
 from .markdown import _decode_metadata
-from .schema import validate_schema_version
+from .schema import UnsupportedSchemaVersion, validate_schema_version
+
+_REQUIRED_RECORD_KEYS = ("id", "entity_type", "created_at", "updated_at")
 
 
 class SQLiteProjection:
@@ -20,6 +22,7 @@ class SQLiteProjection:
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.last_rebuild_skipped: list[Path] = []
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -41,6 +44,16 @@ class SQLiteProjection:
             connection.close()
 
     def _ensure_schema(self) -> None:
+        try:
+            self._create_schema()
+        except sqlite3.DatabaseError:
+            # The index is a disposable projection: a corrupt or non-SQLite file is
+            # discarded so it can be rebuilt from the Markdown source of truth.
+            if self.path.exists():
+                self.path.unlink()
+            self._create_schema()
+
+    def _create_schema(self) -> None:
         with self._connection() as connection:
             connection.execute(
                 """
@@ -179,11 +192,34 @@ class SQLiteProjection:
         with self._connection() as connection:
             connection.execute("DELETE FROM entities")
 
+        self.last_rebuild_skipped = []
         indexed = 0
         for path in sorted(records_root.rglob("*.md")):
-            post = frontmatter.load(path)
-            payload = _decode_metadata(dict(post.metadata))
-            validate_schema_version(payload)
+            payload = self._read_record(path)
+            if payload is None:
+                continue
             self._upsert_payload(payload, path)
             indexed += 1
         return indexed
+
+    def _read_record(self, path: Path) -> dict | None:
+        """Load one Markdown record, quarantining corrupt/partial files.
+
+        A truncated or unparseable record is skipped (and reported via
+        ``last_rebuild_skipped``) so one bad file cannot abort recovery of the
+        rest. A recognised-but-unsupported ``schema_version`` is a hard error and
+        propagates, since that signals data written by an incompatible build.
+        """
+        try:
+            post = frontmatter.load(path)
+            payload = _decode_metadata(dict(post.metadata))
+            validate_schema_version(payload)
+        except UnsupportedSchemaVersion:
+            raise
+        except Exception:
+            self.last_rebuild_skipped.append(path)
+            return None
+        if not all(payload.get(key) for key in _REQUIRED_RECORD_KEYS):
+            self.last_rebuild_skipped.append(path)
+            return None
+        return payload
