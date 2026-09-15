@@ -45,34 +45,37 @@ class StudyTrackingService:
 
     def weak_map(self, *, child_id: str, limit: int = 12) -> WeakMap:
         mistakes = [
-            MistakeRecord.model_validate(item)
-            for item in self.index.list_entities(
+            MistakeRecord.model_validate(payload)
+            for payload in self.index.list_entities(
                 entity_type="mistake_record",
                 child_id=child_id,
             )
         ]
         reflections = [
-            StudyReflection.model_validate(item)
-            for item in self.index.list_entities(
+            StudyReflection.model_validate(payload)
+            for payload in self.index.list_entities(
                 entity_type="study_reflection",
                 child_id=child_id,
             )
         ]
-        progress = self.index.list_entities(
+        progress_payloads = self.index.list_entities(
             entity_type="study_unit_progress",
             child_id=child_id,
         )
 
         mistake_groups: dict[tuple[str, str], list[MistakeRecord]] = defaultdict(list)
-        for item in mistakes:
-            mistake_groups[(item.subject, item.unit)].append(item)
+        for mistake in mistakes:
+            mistake_groups[(mistake.subject, mistake.unit)].append(mistake)
         reflection_groups: dict[tuple[str, str], list[StudyReflection]] = defaultdict(list)
-        for item in reflections:
-            reflection_groups[(item.subject, item.unit)].append(item)
+        for reflection in reflections:
+            reflection_groups[(reflection.subject, reflection.unit)].append(reflection)
         progress_by_key: dict[tuple[str, str], dict[str, Any]] = {}
-        for item in progress:
-            key = (str(item.get("subject", "")), str(item.get("unit", "")))
-            progress_by_key.setdefault(key, item)
+        for progress_payload in progress_payloads:
+            key = (
+                str(progress_payload.get("subject", "")),
+                str(progress_payload.get("unit", "")),
+            )
+            progress_by_key.setdefault(key, progress_payload)
 
         keys = set(mistake_groups) | set(reflection_groups) | set(progress_by_key)
         entries: list[WeakMapEntry] = []
@@ -86,11 +89,11 @@ class StudyTrackingService:
                 else None
             )
             difficulties = [
-                item.difficult_point.strip()
-                for item in grouped_reflections
-                if item.difficult_point and item.difficult_point.strip()
+                reflection.difficult_point.strip()
+                for reflection in grouped_reflections
+                if reflection.difficult_point and reflection.difficult_point.strip()
             ][:3]
-            type_counts = Counter(item.mistake_type.value for item in grouped_mistakes)
+            type_counts = Counter(mistake.mistake_type.value for mistake in grouped_mistakes)
             recurring_types = [
                 name
                 for name, count in sorted(
@@ -122,7 +125,11 @@ class StudyTrackingService:
             )
 
         entries.sort(
-            key=lambda item: (-item.evidence_count, item.subject.casefold(), item.unit.casefold())
+            key=lambda entry: (
+                -entry.evidence_count,
+                entry.subject.casefold(),
+                entry.unit.casefold(),
+            )
         )
         return WeakMap(child_id=child_id, entries=entries[:limit])
 
