@@ -72,3 +72,5 @@ export const getBoardBookRecommendations = (childId: string) => call<BoardBookRe
 export const listBackups = () => call<BackupItem[]>("list_backups");
 export const createBackup = () => call<BackupCreateResult>("create_backup");
 export const restoreBackup = (archiveName: string) => call<BackupRestoreResult>("restore_backup", { archiveName });
+export const exportBackup = (archiveName: string) => call<string | null>("export_backup", { archiveName });
+export const importBackup = () => call<(BackupRestoreResult & { safety_backup: string; imported_archive: string }) | null>("import_backup");
