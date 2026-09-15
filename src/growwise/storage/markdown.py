@@ -16,6 +16,23 @@ from .schema import validate_schema_version
 
 T = TypeVar("T", bound=BaseModel)
 
+
+def _fsync_dir(directory: Path) -> None:
+    """Best-effort fsync of a directory so a preceding rename is durable across power loss.
+    No-op where directory fsync is unsupported (e.g. Windows) or not permitted."""
+    if not hasattr(os, "O_DIRECTORY"):  # Windows
+        return
+    try:
+        dir_fd = os.open(directory, os.O_DIRECTORY)
+    except OSError:
+        return
+    try:
+        os.fsync(dir_fd)
+    except OSError:
+        pass
+    finally:
+        os.close(dir_fd)
+
 _RESERVED_METADATA_KEYS = {
     "content": "__growwise_content",
     "handler": "__growwise_handler",
@@ -58,46 +75,81 @@ class MarkdownRepository:
     def _path_for(self, entity: EntityBase) -> Path:
         return self.root / entity.entity_type / f"{entity.id}.md"
 
+    def path_for(self, entity: EntityBase) -> Path:
+        """Public: the Markdown path an entity will be written to."""
+        return self._path_for(entity)
+
     @classmethod
     def _lock_for(cls, path: Path) -> threading.Lock:
         key = path.resolve()
         with cls._lock_registry_guard:
             return cls._path_locks.setdefault(key, threading.Lock())
 
+    @classmethod
+    def lock_for(cls, path: Path) -> threading.Lock:
+        """Public: the per-path write lock, so a caller can serialize a Markdown write
+        together with its downstream index update (write-through consistency)."""
+        return cls._lock_for(path)
+
     @staticmethod
     def backup_path(path: Path) -> Path:
         return path.with_suffix(path.suffix + ".bak")
 
-    def save(self, entity: EntityBase, body: str = "") -> Path:
-        target = self._path_for(entity)
-        target.parent.mkdir(parents=True, exist_ok=True)
+    def render(self, entity: EntityBase, body: str = "") -> str:
+        """Serialize an entity to its Markdown (frontmatter + body) form."""
         raw_payload = entity.model_dump(mode="json")
         validate_schema_version(raw_payload)
         payload = _encode_metadata(raw_payload)
-
         post = frontmatter.Post(body)
         post.metadata.update(payload)
-        rendered = frontmatter.dumps(post)
+        return frontmatter.dumps(post)
 
+    def save(self, entity: EntityBase, body: str = "") -> Path:
+        target = self._path_for(entity)
+        rendered = self.render(entity, body=body)
         with self._lock_for(target):
-            fd, tmp_name = tempfile.mkstemp(
-                prefix=f".{target.name}.", dir=target.parent, text=True
-            )
-            try:
-                with os.fdopen(fd, "w", encoding="utf-8") as handle:
-                    handle.write(rendered)
-                    handle.flush()
-                    os.fsync(handle.fileno())
-
-                if target.exists():
-                    backup = self.backup_path(target)
-                    shutil.copy2(target, backup)
-
-                os.replace(tmp_name, target)
-            finally:
-                if os.path.exists(tmp_name):
-                    os.unlink(tmp_name)
+            self._write_locked(target, rendered)
         return target
+
+    def _write_locked(self, target: Path, rendered: str) -> None:
+        """Atomically write ``rendered`` to ``target``. Caller must hold ``lock_for(target)``.
+
+        Durability: the temp file is fsynced before rename, the previous generation is backed
+        up atomically (temp+rename), and the parent directory is fsynced so the renames survive
+        power loss (best-effort; directory fsync is a no-op where unsupported, e.g. Windows)."""
+        target.parent.mkdir(parents=True, exist_ok=True)
+        fd, tmp_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent, text=True)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as handle:
+                handle.write(rendered)
+                handle.flush()
+                os.fsync(handle.fileno())
+
+            if target.exists():
+                self._atomic_backup(target)
+
+            os.replace(tmp_name, target)
+            _fsync_dir(target.parent)
+        finally:
+            if os.path.exists(tmp_name):
+                os.unlink(tmp_name)
+
+    def _atomic_backup(self, target: Path) -> None:
+        """Write the current generation to ``.bak`` atomically (temp+rename), not a bare copy,
+        so a crash cannot leave a torn backup adjacent to the new document."""
+        backup = self.backup_path(target)
+        data = target.read_bytes()
+        bfd, btmp = tempfile.mkstemp(prefix=f".{backup.name}.", dir=target.parent)
+        try:
+            with os.fdopen(bfd, "wb") as bh:
+                bh.write(data)
+                bh.flush()
+                os.fsync(bh.fileno())
+            os.replace(btmp, backup)
+            _fsync_dir(target.parent)
+        finally:
+            if os.path.exists(btmp):
+                os.unlink(btmp)
 
     def load(self, path: Path, model: type[T]) -> T:
         post = frontmatter.load(path)

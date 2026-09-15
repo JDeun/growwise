@@ -16,6 +16,13 @@ class EntityStore:
         self.index = SQLiteProjection(index_path)
 
     def save(self, entity: EntityBase, body: str = "") -> Path:
-        path = self.markdown.save(entity, body=body)
-        self.index.upsert(entity, path)
+        # Hold the per-path write lock across BOTH the Markdown write and the index upsert so
+        # concurrent saves of the same entity commit last-writer-wins consistently to both
+        # stores. Otherwise two threads could interleave such that the disposable SQLite index
+        # permanently reflects an older generation than the authoritative Markdown (reads would
+        # then silently return a stale record until a rebuild).
+        path = self.markdown.path_for(entity)
+        with self.markdown.lock_for(path):
+            self.markdown._write_locked(path, self.markdown.render(entity, body=body))
+            self.index.upsert(entity, path)
         return path
