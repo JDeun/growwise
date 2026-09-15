@@ -1,0 +1,48 @@
+.view-state-notice {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 12px;
+  align-items: start;
+  margin-top: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.view-state-mark {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+  font-weight: 800;
+}
+
+.view-state-notice strong {
+  display: block;
+  font-size: 13px;
+}
+
+.view-state-notice p {
+  margin: 4px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.view-state-error {
+  border-color: rgba(168, 77, 67, 0.28);
+  background: #fffafa;
+}
+
+.view-state-error .view-state-mark {
+  background: #f6e7e5;
+  color: var(--danger);
+}
+
+.view-state-action {
+  margin-top: 10px;
+}
