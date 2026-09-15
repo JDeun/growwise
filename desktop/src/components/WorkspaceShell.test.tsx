@@ -9,9 +9,10 @@ describe("WorkspaceShell", () => {
 
   it("owns navigation state and persists the selected workspace", () => {
     render(<WorkspaceShell renderWorkspace={(view) => <p>{view} workspace</p>} />);
-    expect(screen.getByText("home workspace")).toBeTruthy();
+    expect(screen.getByRole("main").getAttribute("data-active-workspace")).toBe("home");
     fireEvent.click(screen.getByRole("button", { name: /자료/ }));
     expect(screen.getByText("materials workspace")).toBeTruthy();
+    expect(screen.getByRole("main").getAttribute("data-active-workspace")).toBe("materials");
     expect(window.localStorage.getItem(LAST_WORKSPACE_KEY)).toBe("materials");
   });
 
