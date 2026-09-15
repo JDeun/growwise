@@ -76,6 +76,20 @@ class ScaffoldGuard:
             re.IGNORECASE,
         ),
     )
+    # Narrow, prescriptive/essentialist stereotype assertions only (parent-facing draft must not
+    # normalise them). Kept conservative to avoid degrading legitimate content that merely
+    # mentions gender or groups.
+    _STEREOTYPE_PATTERNS = (
+        re.compile(r"(?:남자|남자아이|사내)\s*(?:는|가|라면|아이는)?\s*.{0,8}(?:울면\s*안|약하면\s*안|씩씩해야|강해야|참아야)"),
+        re.compile(r"(?:여자|여자아이)\s*(?:는|가|라면|아이는)?\s*.{0,8}(?:얌전|조용히\s*있어야|예뻐야|순해야|약하니)"),
+        re.compile(r"(?:남자|여자)\s*(?:답게|다워야)"),
+        re.compile(r"(?:남자|여자|남자아이|여자아이)\s*(?:는|은)\s*원래"),
+        re.compile(r"여자(?:아이)?\s*(?:는|가)\s*.{0,8}(?:수학|과학)\s*.{0,4}(?:못|약)"),
+        re.compile(r"boys?\s+(?:don'?t|do\s+not)\s+cry"),
+        re.compile(r"girls?\s+(?:can'?t|cannot|are\s+bad\s+at)\s+(?:math|science)"),
+        re.compile(r"(?:boys|girls)\s+are\s+(?:naturally|inherently)\b"),
+        re.compile(r"act\s+like\s+a\s+(?:man|lady)"),
+    )
     _SCAFFOLD_KINDS = {
         MaterialKind.ENGLISH_CARD,
         MaterialKind.MATH_ACTIVITY,
@@ -100,4 +114,6 @@ class ScaffoldGuard:
             violations.append("pii_leakage")
         if any(pattern.search(text) for pattern in self._AGE_UNSAFE_PATTERNS):
             violations.append("age_inappropriate")
+        if any(pattern.search(text) for pattern in self._STEREOTYPE_PATTERNS):
+            violations.append("stereotype_bias")
         return ScaffoldCheck(safe=not violations, violations=tuple(dict.fromkeys(violations)))
