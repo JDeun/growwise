@@ -1,11 +1,12 @@
 import type { FormEvent } from "react";
 
-import type { GeneratedMaterial, MaterialKind, MaterialStatus, ResourceRecord } from "../api";
+import type { GeneratedMaterial, MaterialKind, MaterialStatus, ResourceRecord, Stage } from "../api";
 import { MaterialWorkspace } from "./MaterialWorkspace";
 
 export interface MaterialWorkspaceController {
   materials: GeneratedMaterial[];
   resources: ResourceRecord[];
+  stage?: Stage;
   materialKind: MaterialKind;
   materialTopic: string;
   materialGoal: string;
@@ -32,6 +33,7 @@ export function MaterialWorkspaceIntegration({ controller }: { controller: Mater
     <MaterialWorkspace
       materials={controller.materials}
       resources={controller.resources}
+      stage={controller.stage}
       materialKind={controller.materialKind}
       topic={controller.materialTopic}
       goal={controller.materialGoal}
