@@ -37,15 +37,8 @@ export interface BackupItem { archive: string; path: string; size_bytes: number;
 export interface BackupCreateResult { archive: string; path: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; }; }
 export interface BackupRestoreResult { archive: string; restored: boolean; rag_chunk_count: number; manifest: BackupCreateResult["manifest"]; }
 
-export class CoreApiError extends Error {
-  constructor(message: string) { super(message); this.name = "CoreApiError"; }
-}
-
-async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> {
-  try { return await invoke<T>(command, args); }
-  catch (error) { throw new CoreApiError(typeof error === "string" ? error : error instanceof Error ? error.message : "GrowWise Core 요청에 실패했습니다."); }
-}
-
+export class CoreApiError extends Error { constructor(message: string) { super(message); this.name = "CoreApiError"; } }
+async function call<T>(command: string, args?: Record<string, unknown>): Promise<T> { try { return await invoke<T>(command, args); } catch (error) { throw new CoreApiError(typeof error === "string" ? error : error instanceof Error ? error.message : "GrowWise Core 요청에 실패했습니다."); } }
 export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
 export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
@@ -65,6 +58,7 @@ export const generateMaterial = (childId: string, kind: MaterialKind, topic: str
 export const listMaterials = (childId: string) => call<GeneratedMaterial[]>("list_materials", { childId });
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) => call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
 export const reviseMaterial = (materialId: string, note?: string) => call<GeneratedMaterial>("revise_material", { materialId, note: note ?? null });
+export const editMaterial = (materialId: string, title: string, contentMarkdown: string, note?: string | null) => call<GeneratedMaterial>("edit_material", { materialId, title, contentMarkdown, note: note ?? null });
 export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map", { childId });
 export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
 export const getInfantObservationHints = (childId: string) => call<InfantObservationHints>("get_infant_observation_hints", { childId });
