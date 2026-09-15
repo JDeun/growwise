@@ -27,7 +27,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libxdo-dev
-      - name: Integrate parent material editing after import-anchor fix
+      - name: Integrate parent material editing with actual App import anchor
         run: python .github/scripts/patch_material_edit_ui.py
       - name: Verify frontend
         working-directory: desktop
