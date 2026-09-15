@@ -126,7 +126,7 @@ input → router → RAG/context → optional LLM → structured material
 - [x] grounding/citation provenance 기초 + 존재/child-scope source guard
 - [x] scaffold guard (ScaffoldGuard — direct-answer/rote/injection/pii/age/stereotype)
 - [x] prompt injection defense 회귀 세트 (`test_material_prompt_injection.py`, `test_scaffold_adversarial.py`)
-- [ ] Parent Review interrupt/resume를 material workflow 동일 thread로 통합
+- [x] Parent Review interrupt/resume를 material workflow 동일 thread로 통합 (`workflows/material_pipeline.py`)
 - [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
 - [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
 - [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로)
@@ -143,7 +143,7 @@ input → router → RAG/context → optional LLM → structured material
 - [ ] 글쓰기·말하기 코치 제품 UX 완성
 - [ ] 그림/표/도형 등 출력 컴포넌트
 - [ ] curriculum mapping
-- [ ] 활동 템플릿 라이브러리 확장
+- [x] 활동 템플릿 라이브러리 확장 (`generators/templates.py` — kind별 5변형, 결정적 선택)
 - [x] 생성물 편집/재생성/immutable 버전 관리
 - [ ] 인쇄 레이아웃 설정
 - [ ] source/citation 표시 완성
@@ -196,7 +196,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [ ] 실제 배포용 code signing/notarization 자격증명/자동화
 - [ ] Tauri updater
 - [x] 모델 다운로드/삭제/무결성 검증 (`model/registry.py` — 원자적 쓰기+sha256 검증)
-- [ ] storage location 관리
+- [x] storage location 관리 (`storage/location.py` — 검증+안전 relocate)
 - [x] backup/restore/import/export Desktop UX
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
 - [x] crash recovery 전체 (`test_crash_recovery.py`; 손상 인덱스/부분 레코드 복구 하드닝)
