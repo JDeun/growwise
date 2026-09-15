@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     embedding_model_id: str = "nomic-embed-text"
     embedding_features_enabled: bool = True
 
+    external_enrichment_enabled: bool = True
+    data4library_auth_key: str | None = None
+    external_cache_ttl_seconds: int = 86_400
+
     @property
     def records_dir(self) -> Path:
         return self.data_dir / "records"
@@ -48,6 +52,10 @@ class Settings(BaseSettings):
     @property
     def idempotency_path(self) -> Path:
         return self.data_dir / "idempotency.sqlite3"
+
+    @property
+    def external_cache_path(self) -> Path:
+        return self.data_dir / "external-cache.sqlite3"
 
     @property
     def backups_dir(self) -> Path:
