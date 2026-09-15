@@ -12,6 +12,7 @@ from pathlib import Path, PurePosixPath
 import frontmatter
 from pydantic import BaseModel
 
+from growwise.backup.naming import unique_backup_token
 from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
 from growwise.storage.sqlite import SQLiteProjection
 
@@ -104,8 +105,7 @@ class BackupService:
                 restore_source.mkdir(parents=True)
 
             previous = records_root.with_name(
-                f"{records_root.name}.pre-restore-"
-                f"{datetime.now(UTC).strftime('%Y%m%dT%H%M%S%fZ')}"
+                f"{records_root.name}.pre-restore-{unique_backup_token()}"
             )
             moved_previous = False
             try:
