@@ -6,6 +6,7 @@ on:
     paths:
       - .github/workflows/patch-material-version-race-guard.yml
       - .github/scripts/patch_material_version_race_guard.py
+      - src/growwise/material_versions.py
 
 permissions:
   contents: write
