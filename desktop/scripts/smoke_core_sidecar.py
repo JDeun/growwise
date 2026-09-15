@@ -36,6 +36,22 @@ def wait_until_healthy(process: subprocess.Popen[str], *, timeout_seconds: float
 
 
 def stop_process(process: subprocess.Popen[str]) -> None:
+    if os.name == "nt":
+        # PyInstaller one-file executables use a parent/child process model on Windows.
+        # Killing only the Popen process can leave the extracted child holding log/data files.
+        subprocess.run(
+            ["taskkill", "/PID", str(process.pid), "/T", "/F"],
+            check=False,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
+        return
+
     if process.poll() is not None:
         return
     process.terminate()
