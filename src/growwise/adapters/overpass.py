@@ -137,8 +137,10 @@ class OverpassAdapter:
         for item in value:
             if not isinstance(item, dict):
                 continue
-            tags = item.get("tags") if isinstance(item.get("tags"), dict) else {}
-            center = item.get("center") if isinstance(item.get("center"), dict) else {}
+            raw_tags = item.get("tags")
+            tags: dict[str, Any] = raw_tags if isinstance(raw_tags, dict) else {}
+            raw_center = item.get("center")
+            center: dict[str, Any] = raw_center if isinstance(raw_center, dict) else {}
             lat = item.get("lat", center.get("lat"))
             lon = item.get("lon", center.get("lon"))
             if not isinstance(lat, (int, float)) or not isinstance(lon, (int, float)):
