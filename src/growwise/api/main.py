@@ -31,6 +31,8 @@ from growwise.domain import (
     WorkflowStatus,
 )
 from growwise.generators import (
+    MaterialEditError,
+    MaterialEditService,
     MaterialGenerationService,
     MaterialRevisionError,
     MaterialRevisionService,
@@ -143,6 +145,12 @@ class MaterialReviewRequest(BaseModel):
 
 
 class MaterialRevisionRequest(BaseModel):
+    note: str | None = Field(default=None, max_length=2000)
+
+
+class MaterialEditRequest(BaseModel):
+    title: str = Field(min_length=1, max_length=500)
+    content_markdown: str = Field(min_length=1, max_length=100_000)
     note: str | None = Field(default=None, max_length=2000)
 
 
@@ -670,6 +678,50 @@ def revise_material(
         config=review_config,
     )
     return revised
+
+
+
+@app.post("/v1/materials/{material_id}/edit", response_model=GeneratedMaterial)
+def edit_material(
+    material_id: UUID,
+    request: MaterialEditRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+
+    versions = store.index.list_entities(
+        entity_type="generated_material",
+        child_id=str(material.child_id),
+    )
+    if any(candidate.get("parent_material_id") == str(material.id) for candidate in versions):
+        raise HTTPException(status_code=409, detail="material_has_newer_version")
+
+    try:
+        edited = MaterialEditService().create_version(
+            material=material,
+            title=request.title,
+            content_markdown=request.content_markdown,
+            note=request.note,
+        )
+    except MaterialEditError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    store.save(edited)
+    review_config = {
+        "configurable": {"thread_id": f"material-review:{edited.id}"}
+    }
+    get_material_review_graph().invoke(
+        {
+            "material_id": str(edited.id),
+            "child_id": str(edited.child_id),
+            "title": edited.title,
+        },
+        config=review_config,
+    )
+    return edited
 
 
 @app.post("/v1/observations", response_model=LearningLog)

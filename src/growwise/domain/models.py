@@ -152,6 +152,7 @@ class GeneratedMaterial(EntityBase):
     request_goal: str | None = None
     version: int = Field(default=1, ge=1)
     parent_material_id: UUID | None = None
+    version_note: str | None = None
 
 
 class WorkflowRun(EntityBase):
