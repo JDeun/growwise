@@ -29,8 +29,8 @@ replace_once(
 )
 replace_once(
     "desktop/src/App.tsx",
-    "  createResource,\n  generateMaterial,\n",
-    "  createResource,\n  editMaterial,\n  generateMaterial,\n",
+    "  exportBackup,\n  generateMaterial,\n",
+    "  exportBackup,\n  editMaterial,\n  generateMaterial,\n",
 )
 replace_once(
     "desktop/src/App.tsx",
