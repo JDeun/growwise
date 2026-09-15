@@ -130,6 +130,7 @@ class OverpassAdapter:
 
     @staticmethod
     def _normalize_elements(value: object) -> list[dict[str, Any]]:
+        """Normalize only object-shaped tags/center payloads before field access."""
         if not isinstance(value, list):
             return []
         records: list[dict[str, Any]] = []
