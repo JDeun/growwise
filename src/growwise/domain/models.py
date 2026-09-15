@@ -38,6 +38,10 @@ class ChildSex(StrEnum):
     UNSPECIFIED = "unspecified"
 
 
+class EducationSystem(StrEnum):
+    KR = "KR"
+
+
 class ExperienceAxis(StrEnum):
     PHYSICAL = "physical"
     EMOTIONAL_CHARACTER = "emotional_character"
@@ -113,6 +117,9 @@ class ChildProfile(EntityBase):
     age_months: Annotated[int | None, Field(default=None, ge=0, le=240)]
     grade: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
     school_entry_year: Annotated[int | None, Field(default=None, ge=1900, le=2200)] = None
+    education_system: EducationSystem = EducationSystem.KR
+    grade_override: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
+    grade_override_reason: str | None = Field(default=None, max_length=500)
     primary_language: str = Field(default="ko-KR", min_length=2, max_length=35)
     additional_languages: list[str] = Field(default_factory=list)
     interests: list[str] = Field(default_factory=list)
@@ -134,12 +141,43 @@ class ChildProfile(EntityBase):
     def derive_age_from_birth_date(self) -> Self:
         if self.birth_date is not None:
             self.age_months = age_in_months(self.birth_date)
+        if self.grade_override is not None:
+            self.grade = self.grade_override
         return self
 
     def age_months_on(self, on_date: date) -> int | None:
         if self.birth_date is not None:
             return age_in_months(self.birth_date, on_date=on_date)
         return self.age_months
+
+    def grade_on(self, on_date: date) -> int | None:
+        """Return Korean school grade (1..12), unless explicitly overridden."""
+        if self.grade_override is not None:
+            return self.grade_override
+        if self.birth_date is None or self.education_system != EducationSystem.KR:
+            return self.grade
+        # In Korea the school year begins in March. Children normally enter grade 1
+        # in March of the calendar year in which they turn seven by Korean year age
+        # (birth year + 7). January/February still belong to the previous school year.
+        school_year = on_date.year if on_date.month >= 3 else on_date.year - 1
+        grade = school_year - (self.birth_date.year + 6)
+        return grade if 1 <= grade <= 12 else None
+
+    def stage_on(self, on_date: date) -> Stage:
+        """Derive the normal education stage while preserving explicit pre-school stages."""
+        grade = self.grade_on(on_date)
+        if grade is None:
+            months = self.age_months_on(on_date)
+            if months is not None and months <= 35:
+                return Stage.INFANT_0_2
+            if months is not None and months <= 83:
+                return Stage.PRESCHOOL_3_5
+            return self.stage
+        if grade <= 6:
+            return Stage.ELEMENTARY
+        if grade <= 9:
+            return Stage.MIDDLE
+        return Stage.HIGH
 
 
 class ActivityPlan(EntityBase):
