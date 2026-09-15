@@ -11,12 +11,23 @@ type WorkspaceShellProps = {
 };
 
 export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellProps) {
-  const [activeView, setActiveView] = useState<WorkspaceView>(() => initialView ?? readWorkspaceView(window.localStorage));
+  const [activeView, setActiveView] = useState<WorkspaceView>(() => {
+    if (initialView) return initialView;
+    if (typeof window === "undefined") return "home";
+    return readWorkspaceView(window.localStorage);
+  });
 
   function handleChange(view: WorkspaceView) {
     setActiveView(view);
-    writeWorkspaceView(window.localStorage, view);
+    if (typeof window !== "undefined") writeWorkspaceView(window.localStorage, view);
   }
 
-  return <><WorkspaceNav activeView={activeView} onChange={handleChange} /><div className="workspace-shell" data-active-workspace={activeView}>{renderWorkspace(activeView)}</div></>;
+  return (
+    <>
+      <WorkspaceNav activeView={activeView} onChange={handleChange} />
+      <div className="workspace-shell" data-active-workspace={activeView}>
+        {renderWorkspace(activeView)}
+      </div>
+    </>
+  );
 }
