@@ -1,11 +1,11 @@
-import { useState, type PropsWithChildren, type ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { WorkspaceNav, type WorkspaceView } from "./WorkspaceNav";
 
-type WorkspaceShellProps = PropsWithChildren<{
+type WorkspaceShellProps = {
   initialView?: WorkspaceView;
   renderWorkspace: (activeView: WorkspaceView) => ReactNode;
-}>;
+};
 
 export function WorkspaceShell({
   initialView = "home",
