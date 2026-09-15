@@ -11,7 +11,7 @@ const STATUS_LABELS: Record<MaterialStatus, string> = {
 };
 
 interface MaterialWorkspaceProps {
-  materials: GeneratedMaterial[]; resources: ResourceRecord[]; stage: Stage; materialKind: MaterialKind; topic: string; goal: string;
+  materials: GeneratedMaterial[]; resources: ResourceRecord[]; stage?: Stage; materialKind: MaterialKind; topic: string; goal: string;
   selectedResourceRefs: string[]; busy: boolean; error: string | null; revisionNotes: Record<string, string>; editingMaterialId: string | null;
   onKindChange: (kind: MaterialKind) => void; onTopicChange: (value: string) => void; onGoalChange: (value: string) => void;
   onToggleResource: (resourceId: string) => void; onGenerate: (event: FormEvent<HTMLFormElement>) => void;
@@ -26,7 +26,7 @@ function sourceTitle(ref: string, resources: ResourceRecord[]): string {
 }
 
 export function MaterialWorkspace(props: MaterialWorkspaceProps) {
-  const { materials, resources, stage, materialKind, topic, goal, selectedResourceRefs, busy, error, revisionNotes, editingMaterialId,
+  const { materials, resources, stage = "preschool_3_5", materialKind, topic, goal, selectedResourceRefs, busy, error, revisionNotes, editingMaterialId,
     onKindChange, onTopicChange, onGoalChange, onToggleResource, onGenerate, onReview, onRevisionNoteChange, onRevise, onEditStart, onEdit, onPrint } = props;
   const catalog = materialCatalogForStage(stage);
   const selectedCatalogItem = catalog.find((item) => item.kind === materialKind) ?? catalog[0];
