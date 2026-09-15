@@ -88,6 +88,21 @@ def _source_text() -> str:
 
 
 def _file_exists(name: str) -> bool:
+    # Path-qualified tokens (e.g. ``scripts/benchmark_model.py`` or the abbreviated
+    # ``model/registry.py`` for ``src/growwise/model/registry.py``) resolve either literally
+    # from the repo root or by path-suffix under the source roots (never scanning .venv).
+    # Bare filenames are searched under the known roots.
+    if "/" in name:
+        if (_REPO / name).is_file():
+            return True
+        needle = "/" + name
+        for base in ("src", "tests", "scripts"):
+            root = _REPO / base
+            if root.is_dir() and any(
+                str(path).replace("\\", "/").endswith(needle) for path in root.rglob("*.py")
+            ):
+                return True
+        return False
     return any(
         any((_REPO / base).rglob(name)) for base in _FILE_ROOTS if (_REPO / base).is_dir()
     )
