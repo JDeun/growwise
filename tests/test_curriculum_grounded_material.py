@@ -12,16 +12,22 @@ class StubHttp:
 
     def get_json(self, endpoint: str, *, params: dict[str, str]) -> dict[str, object]:
         self.calls.append(params)
-        return {"records": [{
-            "code": "SCI-01",
-            "title": "주변 생물 관찰",
-            "stage": "elementary",
-            "subject": "science",
-            "achievement_standard": "주변 생물의 특징을 관찰하고 설명한다.",
-        }]}
+        return {
+            "records": [
+                {
+                    "code": "SCI-01",
+                    "title": "주변 생물 관찰",
+                    "stage": "elementary",
+                    "subject": "science",
+                    "achievement_standard": "주변 생물의 특징을 관찰하고 설명한다.",
+                }
+            ]
+        }
 
 
-def test_grounded_material_persists_canonical_resource_without_sending_child_identity(tmp_path) -> None:
+def test_grounded_material_persists_canonical_resource_without_child_identity(
+    tmp_path,
+) -> None:
     http = StubHttp()
     curriculum = PublicCurriculumAdapter(
         endpoint="https://example.invalid/curriculum",
@@ -55,11 +61,13 @@ def test_grounded_material_persists_canonical_resource_without_sending_child_ide
     assert material.source_refs == ["resource:parent-note", curriculum_ref]
     assert f"`{curriculum_ref}`" in material.content_markdown
     assert resources[0].provenance["curriculum_id"] == "SCI-01"
-    assert http.calls == [{
-        "stage": "elementary",
-        "subject": "science",
-        "query": "곤충 관찰",
-    }]
+    assert http.calls == [
+        {
+            "stage": "elementary",
+            "subject": "science",
+            "query": "곤충 관찰",
+        }
+    ]
     serialized_calls = repr(http.calls)
     assert child.name not in serialized_calls
     assert str(child.id) not in serialized_calls
