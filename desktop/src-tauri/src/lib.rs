@@ -423,6 +423,31 @@ async fn revise_material(
         .await
         .map_err(|error| error.to_string())
 }
+
+#[tauri::command]
+async fn edit_material(
+    material_id: String,
+    title: String,
+    content_markdown: String,
+    note: Option<String>,
+) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/materials/{material_id}/edit"))
+        .json(&serde_json::json!({
+            "title": title,
+            "content_markdown": content_markdown,
+            "note": note,
+        }))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "부모 편집본 저장 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
 #[tauri::command]
 async fn get_growth_map(child_id: String) -> Result<GrowthMapDto, String> {
     let response = client()?
@@ -693,6 +718,7 @@ pub fn run() {
             list_materials,
             review_material,
             revise_material,
+            edit_material,
             get_growth_map,
             get_infant_activities,
             get_infant_observation_hints,
