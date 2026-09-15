@@ -1,0 +1,37 @@
+name: Normalize adapter imports once
+
+on:
+  push:
+    branches: [codex/external-adapters]
+    paths:
+      - .github/workflows/fix-adapter-imports.yml
+
+permissions:
+  contents: write
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/external-adapters
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.12"
+      - run: python -m pip install "uv==0.12.13"
+      - name: Let repository Ruff normalize imports and verify adapters
+        run: |
+          uv sync --locked --extra dev
+          uv run ruff check --fix src/growwise/adapters/overpass.py
+          uv run ruff check src/growwise/adapters tests/test_external_adapters.py
+          uv run mypy src/growwise/adapters
+          uv run pytest tests/test_external_adapters.py
+      - name: Commit normalized source and remove one-shot workflow
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/fix-adapter-imports.yml
+          git add src/growwise/adapters/overpass.py
+          git commit -m "style: normalize adapter imports"
+          git push origin HEAD:codex/external-adapters
