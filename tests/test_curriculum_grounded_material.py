@@ -21,7 +21,7 @@ class StubHttp:
         }]}
 
 
-def test_grounded_material_adds_curriculum_ref_without_sending_child_identity(tmp_path) -> None:
+def test_grounded_material_persists_canonical_resource_without_sending_child_identity(tmp_path) -> None:
     http = StubHttp()
     curriculum = PublicCurriculumAdapter(
         endpoint="https://example.invalid/curriculum",
@@ -38,6 +38,7 @@ def test_grounded_material_adds_curriculum_ref_without_sending_child_identity(tm
         birth_date=date(2018, 4, 1),
         interests=["곤충"],
     )
+    persisted = []
 
     material, resources = service.generate(
         child=child,
@@ -45,11 +46,14 @@ def test_grounded_material_adds_curriculum_ref_without_sending_child_identity(tm
         topic="곤충 관찰",
         subject="science",
         source_refs=["resource:parent-note"],
+        persist_resource=persisted.append,
     )
 
-    assert material.source_refs == ["resource:parent-note", "curriculum:SCI-01"]
-    assert "`curriculum:SCI-01`" in material.content_markdown
     assert len(resources) == 1
+    assert persisted == resources
+    curriculum_ref = f"resource:{resources[0].id}"
+    assert material.source_refs == ["resource:parent-note", curriculum_ref]
+    assert f"`{curriculum_ref}`" in material.content_markdown
     assert resources[0].provenance["curriculum_id"] == "SCI-01"
     assert http.calls == [{
         "stage": "elementary",
@@ -59,4 +63,4 @@ def test_grounded_material_adds_curriculum_ref_without_sending_child_identity(tm
     serialized_calls = repr(http.calls)
     assert child.name not in serialized_calls
     assert str(child.id) not in serialized_calls
-    assert "곤충" in serialized_calls  # public topic is allowed; private identity is not
+    assert "곤충" in serialized_calls
