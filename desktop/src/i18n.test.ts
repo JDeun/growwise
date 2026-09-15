@@ -35,7 +35,7 @@ describe("localization foundation", () => {
   });
 
   it("applies semantic document language without requiring a DOM test environment", () => {
-    const root = { lang: "", dir: "" };
+    const root = { lang: "", dir: "" } as unknown as HTMLElement;
     applyDocumentLocale("en-US", root);
     expect(root.lang).toBe("en-US");
     expect(root.dir).toBe("ltr");
