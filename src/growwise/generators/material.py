@@ -167,9 +167,7 @@ not an automatically approved child-facing artifact. Return Markdown in the requ
         stage_text: str,
     ) -> str:
         header = (
-            f"# {cls._title(kind, topic)}\n\n"
-            f"- 대상 단계: `{stage_text}`\n"
-            f"- 목표: {goal_text}\n\n"
+            f"# {cls._title(kind, topic)}\n\n- 대상 단계: `{stage_text}`\n- 목표: {goal_text}\n\n"
         )
         bodies = {
             MaterialKind.READING_ACTIVITY: (
