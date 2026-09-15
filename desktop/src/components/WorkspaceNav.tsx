@@ -1,3 +1,7 @@
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+import { isRovingKey, nextWorkspaceIndex } from "../a11y";
+
 export type WorkspaceView =
   | "home"
   | "record"
@@ -26,19 +30,46 @@ interface WorkspaceNavProps {
 }
 
 export function WorkspaceNav({ active, childName, onChange }: WorkspaceNavProps) {
+  const activeIndex = Math.max(
+    0,
+    ITEMS.findIndex((item) => item.id === active),
+  );
+  // Roving tabindex: exactly one item is in the tab order at a time, and the
+  // arrow keys move focus between items (WAI-ARIA toolbar pattern).
+  const [focusIndex, setFocusIndex] = useState(activeIndex);
+  const itemRefs = useRef<Array<HTMLButtonElement | null>>([]);
+
+  useEffect(() => {
+    // Keep the tab stop on the current page when it changes elsewhere.
+    setFocusIndex(activeIndex);
+  }, [activeIndex]);
+
+  function handleKeyDown(event: KeyboardEvent<HTMLButtonElement>) {
+    if (!isRovingKey(event.key)) return;
+    event.preventDefault();
+    const target = nextWorkspaceIndex(focusIndex, event.key, ITEMS.length);
+    setFocusIndex(target);
+    itemRefs.current[target]?.focus();
+  }
+
   return (
     <nav className="workspace-nav" aria-label="GrowWise 주요 메뉴">
       <div className="workspace-nav-context">
         <span>현재 아이</span>
         <strong>{childName ?? "선택 안 됨"}</strong>
       </div>
-      <div className="workspace-nav-items" role="list">
-        {ITEMS.map((item) => (
+      <div className="workspace-nav-items" role="toolbar" aria-orientation="vertical">
+        {ITEMS.map((item, index) => (
           <button
             key={item.id}
+            ref={(element) => {
+              itemRefs.current[index] = element;
+            }}
             type="button"
             className={`workspace-nav-item ${active === item.id ? "active" : ""}`}
             aria-current={active === item.id ? "page" : undefined}
+            tabIndex={index === focusIndex ? 0 : -1}
+            onKeyDown={handleKeyDown}
             onClick={() => onChange(item.id)}
           >
             <span>{item.label}</span>

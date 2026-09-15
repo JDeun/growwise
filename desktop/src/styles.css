@@ -32,7 +32,7 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
 .quiet-button:hover { background: var(--surface); }
 .primary-button { border: 1px solid var(--primary); background: var(--primary); color: white; padding: 12px 16px; font-weight: 700; }
 .primary-button:hover:not(:disabled) { background: var(--primary-strong); border-color: var(--primary-strong); }
-.quiet-button:focus-visible, .primary-button:focus-visible, .axis-chip:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid rgba(47,143,107,.28); outline-offset: 2px; }
+.quiet-button:focus-visible, .primary-button:focus-visible, .danger-button:focus-visible, .axis-chip:focus-visible, .workspace-nav-item:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid rgba(47,143,107,.28); outline-offset: 2px; }
 .hero { max-width: 780px; padding: 88px 0 54px; }
 .eyebrow, .card-label { margin: 0 0 12px; color: var(--primary); font-size: 12px; font-weight: 700; letter-spacing: .12em; }
 .hero h1 { margin: 0; font-size: clamp(40px, 6vw, 70px); line-height: 1.04; letter-spacing: -.055em; font-weight: 650; }
