@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -21,9 +22,9 @@ class Settings(BaseSettings):
     embedding_model_id: str = "nomic-embed-text"
     embedding_features_enabled: bool = True
 
-    external_enrichment_enabled: bool = True
-    data4library_auth_key: str | None = None
-    external_cache_ttl_seconds: int = 86_400
+    external_enrichment_enabled: bool = False
+    data4library_auth_key: SecretStr | None = None
+    external_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=604_800)
 
     @property
     def records_dir(self) -> Path:
