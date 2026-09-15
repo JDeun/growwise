@@ -1,0 +1,18 @@
+{
+  "response": {
+    "docs": [
+      {
+        "doc": {
+          "bookname": "테스트 역사책",
+          "authors": "홍길동",
+          "publisher": "테스트 출판사",
+          "publication_year": "2025",
+          "isbn13": "9780000000001",
+          "class_nm": "역사",
+          "bookImageURL": "https://example.invalid/book.jpg",
+          "bookDtlUrl": "https://example.invalid/book"
+        }
+      }
+    ]
+  }
+}
