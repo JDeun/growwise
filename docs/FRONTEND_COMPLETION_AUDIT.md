@@ -14,7 +14,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [ ] Make Core-only/offline capability explicit in the UI; LLM unavailability must not visually disable deterministic features.
 - [ ] Move backup/import/restore and runtime diagnostics into Settings.
 - [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
-- [ ] Provide visible success feedback for writes and destructive-action feedback for restore/import.
+- [ ] Provide visible success feedback for writes. Backup create/export/import/restore now provide in-app status feedback, and destructive import/restore actions use the accessible app confirmation dialog.
 - [ ] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast.
 - [ ] Add narrow-window behavior suitable for common laptop sizes.
 - [ ] Break App.tsx into feature components without changing Core semantics.
@@ -29,7 +29,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [ ] Resource library search/filter/detail/edit/delete flows.
 - [ ] Conversation history/session affordances and evidence presentation.
 - [ ] Onboarding for first child and optional local-model setup.
-- [ ] Consistent confirmation dialogs instead of browser `window.confirm` for destructive operations.
+- [x] Consistent confirmation dialogs instead of browser `window.confirm` for destructive backup import/restore operations.
 
 ## Definition of done
 
