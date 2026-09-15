@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from growwise.api.curriculum import generate_curriculum_grounded_material
@@ -12,8 +11,6 @@ from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind
 from growwise.generators import MaterialGenerationService
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.storage import EntityStore
-
-router = APIRouter(prefix="/v1", tags=["curriculum"])
 
 
 class CurriculumMaterialRequest(BaseModel):
@@ -30,6 +27,7 @@ def build_curriculum_router(
     store: EntityStore,
     rag_index: HybridRagIndex,
 ) -> APIRouter:
+    router = APIRouter(prefix="/v1", tags=["curriculum"])
     ingestor = ResourceIngestor(rag_index)
 
     @router.post(
