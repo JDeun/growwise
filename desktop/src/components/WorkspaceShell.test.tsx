@@ -9,9 +9,7 @@ describe("WorkspaceShell", () => {
 
   it("owns navigation state and persists the selected workspace", () => {
     render(<WorkspaceShell renderWorkspace={(view) => <p>{view} workspace</p>} />);
-
     expect(screen.getByText("home workspace")).toBeTruthy();
-
     fireEvent.click(screen.getByRole("button", { name: /자료/ }));
     expect(screen.getByText("materials workspace")).toBeTruthy();
     expect(window.localStorage.getItem(LAST_WORKSPACE_KEY)).toBe("materials");
@@ -21,5 +19,11 @@ describe("WorkspaceShell", () => {
     window.localStorage.setItem(LAST_WORKSPACE_KEY, "growth");
     render(<WorkspaceShell renderWorkspace={(view) => <p>{view} workspace</p>} />);
     expect(screen.getByText("growth workspace")).toBeTruthy();
+  });
+
+  it("lets an explicit initial view override persisted state", () => {
+    window.localStorage.setItem(LAST_WORKSPACE_KEY, "growth");
+    render(<WorkspaceShell initialView="search" renderWorkspace={(view) => <p>{view} workspace</p>} />);
+    expect(screen.getByText("search workspace")).toBeTruthy();
   });
 });
