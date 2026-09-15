@@ -35,6 +35,11 @@ def _all_files(root: Path) -> list[Path]:
     return sorted(path for path in root.rglob("*") if path.is_file())
 
 
+def _is_nested(a: Path, b: Path) -> bool:
+    """True when either resolved path is contained within the other."""
+    return a.is_relative_to(b) or b.is_relative_to(a)
+
+
 def _nearest_existing_ancestor(path: Path) -> Path:
     ancestor = path
     while not ancestor.exists():
@@ -98,8 +103,12 @@ class StorageLocation:
         dest_root_path = StorageLocation.validate(dest_root)
         dest_index_path = Path(dest_index).expanduser().resolve()
 
-        if dest_root_path == source_root_path:
-            raise StorageLocationError("destination root is the same as the source root")
+        if dest_root_path == source_root_path or _is_nested(dest_root_path, source_root_path):
+            # Nested paths are fatal: relocating a dir into its own subtree (or vice-versa)
+            # would let the source removal delete the only surviving copy.
+            raise StorageLocationError(
+                "destination and source root must not be the same or nested within each other"
+            )
 
         source_records = _markdown_records(source_root_path)
 
@@ -112,30 +121,46 @@ class StorageLocation:
 
         dest_root_path.mkdir(parents=True, exist_ok=True)
         created: list[Path] = []
+        backups: list[tuple[Path, Path]] = []  # (target, backup of pre-existing content)
         try:
             for src in _all_files(source_root_path):
                 rel = src.relative_to(source_root_path)
                 target = dest_root_path / rel
                 target.parent.mkdir(parents=True, exist_ok=True)
-                preexisted = target.exists()
-                shutil.copy2(src, target)
-                if not preexisted:
+                if target.exists():
+                    backup = target.with_name(target.name + ".relocate-bak")
+                    shutil.copy2(target, backup)  # so a partial failure can restore it (I2)
+                    backups.append((target, backup))
+                else:
                     created.append(target)
+                shutil.copy2(src, target)
 
             _verify_copy(source_records, source_root_path, dest_root_path)
 
             projection = SQLiteProjection(dest_index_path)
             projection.rebuild(dest_root_path)
+        except Exception:
+            # Destination-only undo — the source has NOT been touched yet, so no records lost.
+            for target in reversed(created):
+                target.unlink(missing_ok=True)
+            for target, backup in reversed(backups):
+                shutil.copy2(backup, target)  # restore the overwritten original
+                backup.unlink(missing_ok=True)
+            raise
 
-            # Swap: source is only removed once the destination is proven good.
+        for _target, backup in backups:  # commit: discard the overwrite backups
+            backup.unlink(missing_ok=True)
+
+        # Source removal happens ONLY after the destination is proven durable, and its own
+        # failure must never trigger the destination rollback above (C1): a leftover source
+        # duplicates records but loses none.
+        try:
             if source_root_path.exists():
                 shutil.rmtree(source_root_path)
             if source_index_path.exists():
                 source_index_path.unlink()
-        except Exception:
-            for target in reversed(created):
-                target.unlink(missing_ok=True)
-            raise
+        except OSError:
+            pass
 
         return RelocationReport(
             moved_count=len(source_records),
