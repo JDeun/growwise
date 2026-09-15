@@ -20,7 +20,7 @@ interface MaterialWorkspaceProps {
   onToggleResource: (resourceId: string) => void; onGenerate: (event: FormEvent<HTMLFormElement>) => void;
   onReview: (materialId: string, status: MaterialStatus) => void; onRevisionNoteChange: (materialId: string, note: string) => void;
   onRevise: (materialId: string) => void; onEditStart: (materialId: string | null) => void;
-  onEdit: (materialId: string, title: string, content: string, note: string | null) => Promise<void>; onPrint: (material: GeneratedMaterial) => void;
+  onEdit: (materialId: string, title: string, content: string, note: string | null) => void | Promise<void>; onPrint: (material: GeneratedMaterial) => void;
 }
 function sourceTitle(ref: string, resources: ResourceRecord[]): string {
   if (!ref.startsWith("resource:")) return ref;
