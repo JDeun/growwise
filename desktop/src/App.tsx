@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useState } from "react";
 
-import { MaterialWorkspaceIntegration } from "./components";
+import { ConfirmDialog, MaterialWorkspaceIntegration } from "./components";
 import {
   appendConversationTurn,
   createActivity,
@@ -57,6 +57,10 @@ type ConnectionState =
   | { kind: "loading" }
   | { kind: "connected"; health: HealthResponse; runtime: CoreRuntimeStatus }
   | { kind: "offline"; message: string };
+
+type BackupConfirmation =
+  | { kind: "import" }
+  | { kind: "restore"; archiveName: string };
 
 const LAST_CHILD_KEY = "growwise:last-child-id";
 const AXIS_OPTIONS: Array<{ value: ExperienceAxis; label: string }> = [
@@ -171,6 +175,8 @@ function App() {
   const [backups, setBackups] = useState<BackupItem[]>([]);
   const [backupBusy, setBackupBusy] = useState(false);
   const [backupError, setBackupError] = useState<string | null>(null);
+  const [backupNotice, setBackupNotice] = useState<string | null>(null);
+  const [backupConfirmation, setBackupConfirmation] = useState<BackupConfirmation | null>(null);
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
 
   const loadChildContext = useCallback(async (child: ChildProfile) => {
@@ -527,9 +533,11 @@ function App() {
   async function handleCreateBackup() {
     setBackupBusy(true);
     setBackupError(null);
+    setBackupNotice(null);
     try {
       await createBackup();
       setBackups(await listBackups());
+      setBackupNotice("새 백업을 만들었습니다.");
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : "백업 생성에 실패했습니다.");
     } finally {
@@ -540,8 +548,10 @@ function App() {
   async function handleExportBackup(archiveName: string) {
     setBackupBusy(true);
     setBackupError(null);
+    setBackupNotice(null);
     try {
       await exportBackup(archiveName);
+      setBackupNotice("백업 ZIP 내보내기를 완료했습니다.");
     } catch (error) {
       setBackupError(error instanceof Error ? error.message : "백업 내보내기에 실패했습니다.");
     } finally {
@@ -549,38 +559,54 @@ function App() {
     }
   }
 
-  async function handleImportBackup() {
-    const confirmed = window.confirm(
-      "외부 GrowWise ZIP을 가져오면 현재 기록을 교체합니다. 가져오기 직전에 현재 상태를 자동 보호 백업합니다. 계속할까요?",
-    );
-    if (!confirmed) return;
+  function handleImportBackup() {
+    if (backupBusy) return;
+    setBackupError(null);
+    setBackupNotice(null);
+    setBackupConfirmation({ kind: "import" });
+  }
+
+  function handleRestoreBackup(archiveName: string) {
+    if (backupBusy) return;
+    setBackupError(null);
+    setBackupNotice(null);
+    setBackupConfirmation({ kind: "restore", archiveName });
+  }
+
+  async function handleConfirmBackupAction() {
+    const action = backupConfirmation;
+    if (!action) return;
     setBackupBusy(true);
     setBackupError(null);
+    setBackupNotice(null);
     try {
-      const result = await importBackup();
-      if (result) await refresh();
+      if (action.kind === "import") {
+        const result = await importBackup();
+        if (result) {
+          await refresh();
+          setBackupNotice("외부 백업을 가져왔습니다.");
+        }
+      } else {
+        await restoreBackup(action.archiveName);
+        await refresh();
+        setBackupNotice("백업을 복원했습니다.");
+      }
+      setBackupConfirmation(null);
     } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "외부 백업 가져오기에 실패했습니다.");
+      setBackupError(
+        error instanceof Error
+          ? error.message
+          : action.kind === "import"
+            ? "외부 백업 가져오기에 실패했습니다."
+            : "백업 복원에 실패했습니다.",
+      );
     } finally {
       setBackupBusy(false);
     }
   }
 
-  async function handleRestoreBackup(archiveName: string) {
-    const confirmed = window.confirm(
-      "현재 기록을 이 백업으로 교체합니다. 복원 전에 현재 상태를 별도 백업하는 것을 권장합니다. 계속할까요?",
-    );
-    if (!confirmed) return;
-    setBackupBusy(true);
-    setBackupError(null);
-    try {
-      await restoreBackup(archiveName);
-      await refresh();
-    } catch (error) {
-      setBackupError(error instanceof Error ? error.message : "백업 복원에 실패했습니다.");
-    } finally {
-      setBackupBusy(false);
-    }
+  function handleCancelBackupAction() {
+    if (!backupBusy) setBackupConfirmation(null);
   }
 
   function handlePrintMaterial(material: GeneratedMaterial) {
@@ -604,6 +630,14 @@ function App() {
 
   const isConnected = connection.kind === "connected";
   const mode = isConnected ? connection.health.operation_mode : null;
+  const backupConfirmationTitle =
+    backupConfirmation?.kind === "restore" ? "백업으로 복원하기" : "외부 백업 가져오기";
+  const backupConfirmationDescription =
+    backupConfirmation?.kind === "restore"
+      ? `현재 기록을 ${backupConfirmation.archiveName} 백업으로 교체합니다. 복원 전에 현재 상태를 별도 백업하는 것을 권장합니다.`
+      : "외부 GrowWise ZIP을 가져오면 현재 기록을 교체합니다. 가져오기 직전에 현재 상태를 자동 보호 백업합니다.";
+  const backupConfirmationLabel =
+    backupConfirmation?.kind === "restore" ? "이 백업 복원" : "가져오기 계속";
 
   return (
     <main className="app-shell">
@@ -760,7 +794,7 @@ function App() {
             <p className="muted">Markdown 정본을 portable ZIP으로 보관하고, 복원 시 검색 인덱스를 다시 만듭니다.</p>
           </div>
           <div className="review-actions">
-            <button className="quiet-button" type="button" onClick={() => void handleImportBackup()} disabled={!isConnected || backupBusy}>
+            <button className="quiet-button" type="button" onClick={handleImportBackup} disabled={!isConnected || backupBusy}>
               외부 ZIP 가져오기
             </button>
             <button className="quiet-button" type="button" onClick={() => void handleCreateBackup()} disabled={!isConnected || backupBusy}>
@@ -769,6 +803,7 @@ function App() {
           </div>
         </div>
         {backupError && <p className="form-error" role="alert">{backupError}</p>}
+        {backupNotice && <p className="muted" role="status" aria-live="polite">{backupNotice}</p>}
         {backups.length === 0 ? (
           <p className="muted">아직 만든 백업이 없습니다.</p>
         ) : (
@@ -782,13 +817,24 @@ function App() {
                 <p>{new Date(backup.modified_at).toLocaleString("ko-KR")}</p>
                 <div className="review-actions">
                   <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => void handleExportBackup(backup.archive)}>ZIP 내보내기</button>
-                  <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => void handleRestoreBackup(backup.archive)}>이 백업 복원</button>
+                  <button className="quiet-button" type="button" disabled={backupBusy} onClick={() => handleRestoreBackup(backup.archive)}>이 백업 복원</button>
                 </div>
               </article>
             ))}
           </div>
         )}
       </section>
+
+      <ConfirmDialog
+        open={backupConfirmation !== null}
+        title={backupConfirmationTitle}
+        description={backupConfirmationDescription}
+        confirmLabel={backupConfirmationLabel}
+        busy={backupBusy}
+        destructive
+        onConfirm={() => void handleConfirmBackupAction()}
+        onCancel={handleCancelBackupAction}
+      />
 
       {printMaterial && (
         <article className="print-material" aria-hidden="true">
