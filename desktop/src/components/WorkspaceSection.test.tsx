@@ -1,24 +1,11 @@
-import { render, screen } from "@testing-library/react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import { WorkspaceSection } from "./WorkspaceSection";
 
 describe("WorkspaceSection", () => {
   it("renders only the selected workspace", () => {
-    const { rerender } = render(
-      <WorkspaceSection activeView="home" view="home">
-        <p>home content</p>
-      </WorkspaceSection>,
-    );
-
-    expect(screen.getByText("home content")).toBeTruthy();
-
-    rerender(
-      <WorkspaceSection activeView="materials" view="home">
-        <p>home content</p>
-      </WorkspaceSection>,
-    );
-
-    expect(screen.queryByText("home content")).toBeNull();
+    expect(renderToStaticMarkup(<WorkspaceSection activeView="home" view="home"><p>home content</p></WorkspaceSection>)).toContain("home content");
+    expect(renderToStaticMarkup(<WorkspaceSection activeView="materials" view="home"><p>home content</p></WorkspaceSection>)).toBe("");
   });
 });
