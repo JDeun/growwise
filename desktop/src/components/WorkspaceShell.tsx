@@ -23,11 +23,11 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
   }
 
   return (
-    <>
+    <div className="workspace-shell-root">
       <WorkspaceNav activeView={activeView} onChange={handleChange} />
-      <div className="workspace-shell" data-active-workspace={activeView}>
+      <main className="workspace-shell" data-active-workspace={activeView}>
         {renderWorkspace(activeView)}
-      </div>
-    </>
+      </main>
+    </div>
   );
 }
