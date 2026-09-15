@@ -1,3 +1,5 @@
+import "./WorkspaceNav.css";
+
 export type WorkspaceView =
   | "home"
   | "record"
