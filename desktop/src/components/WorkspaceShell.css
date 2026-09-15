@@ -1,0 +1,110 @@
+.workspace-shell-root,
+.workspace-shell {
+  min-width: 0;
+}
+
+.workspace-shell-root {
+  display: grid;
+  gap: 18px;
+}
+
+.workspace-frame {
+  display: grid;
+  gap: 18px;
+  min-width: 0;
+}
+
+.workspace-frame__header {
+  display: grid;
+  gap: 6px;
+}
+
+.workspace-frame__header h2,
+.workspace-frame__header p {
+  margin: 0;
+}
+
+.workspace-placeholder {
+  min-height: 240px;
+}
+
+/*
+ * App.tsx deliberately remains mounted while the workspace changes. This keeps
+ * active-child state, in-progress forms and Core-backed controller state intact
+ * while the shell projects the existing sections into product-level workspaces.
+ */
+.workspace-shell[data-active-workspace] .app-shell > .hero,
+.workspace-shell[data-active-workspace] .app-shell > .status-grid,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .section-heading,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .skeleton-grid,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .observation-panel,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .search-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .conversation-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .resource-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .material-workspace,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .infant-guidance-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .activity-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .quest-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .timeline-section,
+.workspace-shell[data-active-workspace] .app-shell > .data-management-section {
+  display: none;
+}
+
+.workspace-shell[data-active-workspace="home"] .app-shell > .hero {
+  display: block;
+}
+
+.workspace-shell[data-active-workspace="home"] .app-shell > .status-grid,
+.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
+  display: grid;
+}
+
+.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .section-heading {
+  display: flex;
+}
+
+.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .skeleton-grid {
+  display: grid;
+}
+
+.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel {
+  display: grid;
+}
+
+.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel > .observation-result {
+  display: none;
+}
+
+.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .timeline-section {
+  display: block;
+}
+
+.workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel > .observation-form {
+  display: none;
+}
+
+.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .infant-guidance-section,
+.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .activity-section,
+.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .quest-section,
+.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .search-section,
+.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-section,
+.workspace-shell[data-active-workspace="library"] .app-shell > .workspace > .resource-section,
+.workspace-shell[data-active-workspace="materials"] .app-shell > .workspace > .material-workspace,
+.workspace-shell[data-active-workspace="settings"] .app-shell > .data-management-section {
+  display: block;
+}
+
+.workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
+  display: none;
+}
+
+@media (max-width: 700px) {
+  .workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

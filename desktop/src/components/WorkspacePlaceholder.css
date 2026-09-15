@@ -1,0 +1,10 @@
+.workspace-placeholder {
+  display: grid;
+  align-content: center;
+  gap: 8px;
+}
+
+.workspace-placeholder h2,
+.workspace-placeholder p {
+  margin: 0;
+}
