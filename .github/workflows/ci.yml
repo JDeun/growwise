@@ -5,12 +5,16 @@ on:
     branches: [main]
   pull_request:
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   python-core:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: ${{ fromJSON(github.event_name == 'pull_request' && '["ubuntu-latest"]' || '["ubuntu-latest","macos-latest","windows-latest"]') }}
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -87,18 +91,18 @@ jobs:
 
   rust-hygiene:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: desktop/src-tauri
     steps:
       - uses: actions/checkout@v7
       - name: Verify Rust formatting
+        working-directory: desktop/src-tauri
         run: cargo fmt --all -- --check
       - name: Verify locked Rust dependency graph
+        working-directory: desktop/src-tauri
         run: cargo metadata --locked --format-version=1 --no-deps > /dev/null
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked
       - name: Rust vulnerability audit
+        working-directory: desktop/src-tauri
         run: cargo audit
 
   desktop-tauri:
