@@ -57,6 +57,33 @@ def test_birth_date_remains_authoritative_over_stale_cached_age() -> None:
     assert profile.age_months_on(date(2026, 9, 19)) == 9
 
 
+def test_korean_grade_advances_at_march_school_year_boundary() -> None:
+    profile = ChildProfile(
+        name="아이",
+        stage=Stage.ELEMENTARY,
+        birth_date=date(2019, 10, 10),
+    )
+    assert profile.grade_on(date(2026, 2, 28)) is None
+    assert profile.grade_on(date(2026, 3, 1)) == 1
+    assert profile.stage_on(date(2026, 3, 1)) is Stage.ELEMENTARY
+    assert profile.grade_on(date(2032, 3, 1)) == 7
+    assert profile.stage_on(date(2032, 3, 1)) is Stage.MIDDLE
+    assert profile.grade_on(date(2035, 3, 1)) == 10
+    assert profile.stage_on(date(2035, 3, 1)) is Stage.HIGH
+
+
+def test_grade_override_handles_early_or_delayed_school_entry() -> None:
+    profile = ChildProfile(
+        name="아이",
+        stage=Stage.ELEMENTARY,
+        birth_date=date(2019, 10, 10),
+        grade_override=2,
+        grade_override_reason="조기 입학",
+    )
+    assert profile.grade_on(date(2026, 3, 1)) == 2
+    assert profile.grade == 2
+
+
 def test_profile_rejects_invalid_grade_and_future_birth_date() -> None:
     with pytest.raises(ValidationError):
         ChildProfile(name="아이", stage=Stage.ELEMENTARY, grade=13)
