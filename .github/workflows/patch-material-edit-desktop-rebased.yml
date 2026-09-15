@@ -5,6 +5,7 @@ on:
     branches: [codex/material-edit-desktop-rebased]
     paths:
       - .github/workflows/patch-material-edit-desktop-rebased.yml
+      - .github/scripts/patch_material_edit_ui.py
 
 permissions:
   contents: write
