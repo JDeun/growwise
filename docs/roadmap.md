@@ -239,7 +239,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] secret scan (Gitleaks workflow)
 - [x] Python license inventory CI
 - [ ] docs/code consistency audit 전체
-- [ ] sample/test data privacy audit
+- [x] sample/test data privacy audit (`test_repo_privacy_audit.py` — 구조적 전화/주민번호 + GROWWISE_PII_DENYLIST 실명 감사)
 - [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
 
 ## Definition of Done
