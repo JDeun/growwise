@@ -493,6 +493,35 @@ def delete_conversation(session_id: str) -> dict[str, bool]:
     return {"deleted": get_conversation_store().delete(session_id)}
 
 
+
+def validate_material_source_refs(
+    *,
+    child_id: UUID,
+    source_refs: list[str],
+    store: EntityStore,
+) -> list[str]:
+    """Resolve material provenance to existing resources within the child's scope."""
+    validated: list[str] = []
+    for ref in dict.fromkeys(source_refs):
+        if not ref.startswith("resource:"):
+            raise HTTPException(status_code=422, detail="material_source_ref_invalid")
+        raw_id = ref.removeprefix("resource:")
+        try:
+            resource_id = UUID(raw_id)
+        except ValueError as exc:
+            raise HTTPException(
+                status_code=422, detail="material_source_ref_invalid"
+            ) from exc
+        payload = store.index.get_entity(str(resource_id), entity_type="resource")
+        if payload is None:
+            raise HTTPException(status_code=422, detail="material_source_not_found")
+        resource = ResourceRecord.model_validate(payload)
+        if resource.child_id is not None and resource.child_id != child_id:
+            raise HTTPException(status_code=409, detail="material_source_child_mismatch")
+        validated.append(f"resource:{resource.id}")
+    return validated
+
+
 @app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
 def generate_material(
     child_id: UUID,
@@ -503,12 +532,17 @@ def generate_material(
     if child_payload is None:
         raise HTTPException(status_code=404, detail="child_not_found")
     child = ChildProfile.model_validate(child_payload)
+    source_refs = validate_material_source_refs(
+        child_id=child.id,
+        source_refs=request.source_refs,
+        store=store,
+    )
     material = MaterialGenerationService(provider=get_model_provider()).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
         goal=request.goal,
-        source_refs=request.source_refs,
+        source_refs=source_refs,
     )
     material.request_topic = request.topic
     material.request_goal = request.goal
