@@ -82,12 +82,16 @@ class PublicCurriculumAdapter:
         stale = self.cache.get(cache_key, allow_stale=True)
         if offline:
             if stale is None:
-                raise ExternalUnavailable("Curriculum source is unavailable offline and no cache exists")
+                raise ExternalUnavailable(
+                    "Curriculum source is unavailable offline and no cache exists"
+                )
             return self._from_cached(stale, status="stale" if stale.stale else "fresh")
 
         try:
             payload = self.http.get_json(self.endpoint, params=descriptor)
-            records = [record.model_dump(mode="json") for record in self._normalize_response(payload)]
+            records = [
+                record.model_dump(mode="json") for record in self._normalize_response(payload)
+            ]
             cached = self.cache.put(
                 cache_key=cache_key,
                 payload={"records": records},
@@ -126,29 +130,46 @@ class PublicCurriculumAdapter:
         for item in raw_records:
             if not isinstance(item, dict):
                 continue
-            title = cls._text(item.get("title") or item.get("name") or item.get("achievement_standard"))
-            stage = cls._text(item.get("stage") or item.get("school_level") or item.get("grade_band"))
+            title = cls._text(
+                item.get("title") or item.get("name") or item.get("achievement_standard")
+            )
+            stage = cls._text(
+                item.get("stage") or item.get("school_level") or item.get("grade_band")
+            )
             if not title or not stage:
                 continue
             source_id = cls._text(item.get("id") or item.get("code"))
             curriculum_id = source_id or hashlib.sha256(
-                f"{stage}\x1f{cls._text(item.get('subject'))}\x1f{title}".encode("utf-8")
+                f"{stage}\x1f{cls._text(item.get('subject'))}\x1f{title}".encode()
             ).hexdigest()[:24]
             known = {
-                "id", "code", "title", "name", "stage", "school_level", "grade_band",
-                "subject", "domain", "competency", "achievement_standard", "source_url", "url",
+                "id",
+                "code",
+                "title",
+                "name",
+                "stage",
+                "school_level",
+                "grade_band",
+                "subject",
+                "domain",
+                "competency",
+                "achievement_standard",
+                "source_url",
+                "url",
             }
-            records.append(CurriculumRecord(
-                curriculum_id=curriculum_id,
-                title=title,
-                stage=stage,
-                subject=cls._optional_text(item.get("subject")),
-                domain=cls._optional_text(item.get("domain")),
-                competency=cls._optional_text(item.get("competency")),
-                achievement_standard=cls._optional_text(item.get("achievement_standard")),
-                source_url=cls._optional_text(item.get("source_url") or item.get("url")),
-                metadata={str(k): v for k, v in item.items() if k not in known},
-            ))
+            records.append(
+                CurriculumRecord(
+                    curriculum_id=curriculum_id,
+                    title=title,
+                    stage=stage,
+                    subject=cls._optional_text(item.get("subject")),
+                    domain=cls._optional_text(item.get("domain")),
+                    competency=cls._optional_text(item.get("competency")),
+                    achievement_standard=cls._optional_text(item.get("achievement_standard")),
+                    source_url=cls._optional_text(item.get("source_url") or item.get("url")),
+                    metadata={str(k): v for k, v in item.items() if k not in known},
+                )
+            )
         return records
 
     @staticmethod
