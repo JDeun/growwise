@@ -1,5 +1,6 @@
 export * from "./MaterialWorkspaceIntegration";
 export * from "./WorkspaceNav";
+export * from "./WorkspacePlaceholder";
 export * from "./WorkspaceSection";
 export * from "./WorkspaceShell";
 export * from "./WorkspaceView";
