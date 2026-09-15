@@ -1,4 +1,4 @@
-import type { WorkspaceView } from "./WorkspaceNav";
+import type { WorkspaceView } from "./workspaceTypes";
 
 export type WorkspaceLayoutKey =
   | "child-context"

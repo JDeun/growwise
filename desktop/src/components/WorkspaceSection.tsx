@@ -1,6 +1,6 @@
 import type { PropsWithChildren } from "react";
 
-import type { WorkspaceView } from "./WorkspaceNav";
+import type { WorkspaceView } from "./workspaceTypes";
 
 type WorkspaceSectionProps = PropsWithChildren<{
   activeView: WorkspaceView;
@@ -8,17 +8,7 @@ type WorkspaceSectionProps = PropsWithChildren<{
   className?: string;
 }>;
 
-export function WorkspaceSection({
-  activeView,
-  view,
-  className,
-  children,
-}: WorkspaceSectionProps) {
+export function WorkspaceSection({ activeView, view, className, children }: WorkspaceSectionProps) {
   if (activeView !== view) return null;
-
-  return (
-    <section className={className} data-workspace-view={view}>
-      {children}
-    </section>
-  );
+  return <section className={className} data-workspace-view={view}>{children}</section>;
 }

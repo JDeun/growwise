@@ -1,17 +1,10 @@
 import "./WorkspaceNav.css";
 
 import { WORKSPACE_LABELS } from "./workspaceLabels";
+import type { WorkspaceView } from "./workspaceTypes";
 import { WORKSPACE_VIEWS } from "./workspaceViews";
 
-export type WorkspaceView =
-  | "home"
-  | "observations"
-  | "growth"
-  | "activities"
-  | "search"
-  | "library"
-  | "materials"
-  | "settings";
+export type { WorkspaceView } from "./workspaceTypes";
 
 type WorkspaceNavProps = {
   activeView: WorkspaceView;

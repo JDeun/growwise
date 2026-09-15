@@ -1,4 +1,4 @@
-import type { WorkspaceView } from "./WorkspaceNav";
+import type { WorkspaceView } from "./workspaceTypes";
 
 export const WORKSPACE_LABELS: Record<WorkspaceView, string> = {
   home: "홈",

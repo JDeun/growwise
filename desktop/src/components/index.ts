@@ -6,4 +6,5 @@ export * from "./WorkspaceView";
 export * from "./workspaceLabels";
 export * from "./workspaceLayout";
 export * from "./workspaceStorage";
+export * from "./workspaceTypes";
 export * from "./workspaceViews";
