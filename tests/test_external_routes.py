@@ -5,11 +5,10 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from growwise.adapters import AdapterResult, ExternalUnavailable
+from growwise.adapters import AdapterResult, ExternalUnavailable, SQLiteExternalCache
 from growwise.api.external_routes import get_external_cache, get_external_settings
 from growwise.api.main import app
 from growwise.config import Settings
-from growwise.storage import EntityStore
 
 
 def _client(tmp_path, *, auth_key: str | None = "test-secret", enabled: bool = True):
@@ -19,13 +18,15 @@ def _client(tmp_path, *, auth_key: str | None = "test-secret", enabled: bool = T
         data4library_auth_key=auth_key,
     )
     app.dependency_overrides[get_external_settings] = lambda: settings
-    app.dependency_overrides[get_external_cache] = lambda: __import__(
-        "growwise.adapters", fromlist=["SQLiteExternalCache"]
-    ).SQLiteExternalCache(settings.external_cache_path)
+    app.dependency_overrides[get_external_cache] = lambda: SQLiteExternalCache(
+        settings.external_cache_path
+    )
     return TestClient(app), settings
 
 
-def test_public_book_route_never_exposes_credential(tmp_path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_public_book_route_never_exposes_credential(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     client, settings = _client(tmp_path)
     captured: dict[str, Any] = {}
 
@@ -49,7 +50,10 @@ def test_public_book_route_never_exposes_credential(tmp_path, monkeypatch: pytes
         fake_search,
     )
     try:
-        response = client.get("/v1/external/books", params={"q": "우주", "page_size": 3})
+        response = client.get(
+            "/v1/external/books",
+            params={"q": "우주", "page_size": 3},
+        )
         assert response.status_code == 200
         payload = response.json()
         assert payload["records"][0]["title"] == "우주 그림책"
@@ -75,7 +79,10 @@ def test_book_route_requires_configuration_but_not_core_llm(tmp_path) -> None:
 def test_external_enrichment_can_be_disabled_without_affecting_core(tmp_path) -> None:
     client, _ = _client(tmp_path, enabled=False)
     try:
-        response = client.get("/v1/external/places", params={"latitude": 37.5, "longitude": 127.0})
+        response = client.get(
+            "/v1/external/places",
+            params={"latitude": 37.5, "longitude": 127.0},
+        )
         assert response.status_code == 503
         assert response.json()["detail"] == "external_enrichment_disabled"
         assert client.get("/health").status_code == 200
