@@ -57,7 +57,8 @@ def test_public_book_route_never_exposes_credential(
         assert response.status_code == 200
         payload = response.json()
         assert payload["records"][0]["title"] == "우주 그림책"
-        assert captured["auth_key"] == settings.data4library_auth_key
+        assert settings.data4library_auth_key is not None
+        assert captured["auth_key"] == settings.data4library_auth_key.get_secret_value()
         assert captured["keyword"] == "우주"
         assert captured["page_size"] == 3
         assert "test-secret" not in response.text
