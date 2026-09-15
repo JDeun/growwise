@@ -1,0 +1,53 @@
+name: Patch material edit desktop once
+
+on:
+  push:
+    branches: [codex/material-edit-desktop-rebased]
+    paths:
+      - .github/workflows/patch-material-edit-desktop-rebased.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: codex/material-edit-desktop-rebased
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "22"
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libwebkit2gtk-4.1-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libxdo-dev
+      - name: Integrate material edit desktop flow
+        run: python .github/scripts/patch_material_edit_ui.py
+      - name: Verify frontend
+        working-directory: desktop
+        run: |
+          npm ci --no-audit --no-fund
+          npm run lint
+          npm test
+          npm run build
+      - name: Verify Rust shell
+        working-directory: desktop/src-tauri
+        run: |
+          cargo fmt --all -- --check
+          cargo check --locked
+          cargo clippy --locked --all-targets -- -D warnings
+          cargo test --locked
+      - name: Commit verified integration and remove one-time patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/scripts/patch_material_edit_ui.py .github/workflows/patch-material-edit-desktop-rebased.yml
+          git add desktop/src/App.tsx desktop/src/api.ts desktop/src-tauri/src/lib.rs
+          git commit -m "feat: integrate parent material editing in desktop"
+          git push origin HEAD:codex/material-edit-desktop-rebased
