@@ -54,7 +54,7 @@ def test_birth_date_remains_authoritative_over_stale_cached_age() -> None:
         birth_date=date(2020, 6, 15),
         age_months=200,
     )
-    assert profile.age_months_on(date(2026, 9, 19)) == 9
+    assert profile.age_months_on(date(2021, 3, 15)) == 9
 
 
 def test_korean_grade_advances_at_march_school_year_boundary() -> None:
