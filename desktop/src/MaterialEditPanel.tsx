@@ -5,7 +5,7 @@ import type { GeneratedMaterial } from "./api";
 interface MaterialEditPanelProps {
   material: GeneratedMaterial;
   busy: boolean;
-  onSave: (title: string, contentMarkdown: string, note: string | null) => Promise<void>;
+  onSave: (title: string, contentMarkdown: string, note: string | null) => void | Promise<void>;
   onCancel: () => void;
 }
 
@@ -33,7 +33,7 @@ export function MaterialEditPanel({
       return;
     }
     setError(null);
-    await onSave(normalizedTitle, normalizedContent, note.trim() || null);
+    await Promise.resolve(onSave(normalizedTitle, normalizedContent, note.trim() || null));
   }
 
   return (
