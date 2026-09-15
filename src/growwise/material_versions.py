@@ -3,11 +3,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from functools import wraps
 from threading import Lock
-from typing import Concatenate, ParamSpec, TypeVar
+from typing import Concatenate
 from uuid import UUID
-
-P = ParamSpec("P")
-R = TypeVar("R")
 
 _registry_lock = Lock()
 _material_locks: dict[str, Lock] = {}
@@ -23,7 +20,7 @@ def _lock_for(material_id: UUID) -> Lock:
         return lock
 
 
-def serialize_material_successor(
+def serialize_material_successor[**P, R](
     func: Callable[Concatenate[UUID, P], R],
 ) -> Callable[Concatenate[UUID, P], R]:
     """Serialize successor creation for one material inside the Core sidecar process.
