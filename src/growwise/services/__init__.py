@@ -2,6 +2,7 @@ from .activity import ActivityPlanService, InvalidActivityTransition
 from .context import ChildContextService, ContextAnswer
 from .conversation import ConversationService, ConversationSession, ConversationTurn
 from .conversation_store import SQLiteConversationStore
+from .curriculum import CurriculumGroundedMaterialService
 from .growth import (
     AxisCoverage,
     CoverageDiversity,
@@ -25,11 +26,7 @@ from .infant import (
 )
 from .observation import ObservationEnricher, ObservationEnrichment
 from .search import NaturalLanguageSearch, SearchPlan
-from .workflow import (
-    InvalidWorkflowTransition,
-    WorkflowPolicy,
-    WorkflowRunService,
-)
+from .workflow import InvalidWorkflowTransition, WorkflowPolicy, WorkflowRunService
 
 __all__ = [
     "ActivityPlanService",
@@ -45,6 +42,7 @@ __all__ = [
     "ConversationTurn",
     "CoverageDiversity",
     "CoverageState",
+    "CurriculumGroundedMaterialService",
     "DiversityState",
     "GrowthLayer",
     "GrowthMapProjection",
