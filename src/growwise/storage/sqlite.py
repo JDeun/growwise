@@ -87,29 +87,33 @@ class SQLiteProjection:
     def _upsert_payload(self, payload: dict, source_path: Path) -> None:
         validate_schema_version(payload)
         with self._connection() as connection:
-            connection.execute(
-                """
-                INSERT INTO entities (
-                    id, entity_type, child_id, created_at, updated_at, source_path, payload_json
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(id) DO UPDATE SET
-                    entity_type=excluded.entity_type,
-                    child_id=excluded.child_id,
-                    created_at=excluded.created_at,
-                    updated_at=excluded.updated_at,
-                    source_path=excluded.source_path,
-                    payload_json=excluded.payload_json
-                """,
-                (
-                    str(payload["id"]),
-                    str(payload["entity_type"]),
-                    str(payload["child_id"]) if payload.get("child_id") else None,
-                    str(payload["created_at"]),
-                    str(payload["updated_at"]),
-                    str(source_path),
-                    json.dumps(payload, ensure_ascii=False, sort_keys=True),
-                ),
-            )
+            self._upsert_on(connection, payload, source_path)
+
+    @staticmethod
+    def _upsert_on(connection: sqlite3.Connection, payload: dict, source_path: Path) -> None:
+        connection.execute(
+            """
+            INSERT INTO entities (
+                id, entity_type, child_id, created_at, updated_at, source_path, payload_json
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                entity_type=excluded.entity_type,
+                child_id=excluded.child_id,
+                created_at=excluded.created_at,
+                updated_at=excluded.updated_at,
+                source_path=excluded.source_path,
+                payload_json=excluded.payload_json
+            """,
+            (
+                str(payload["id"]),
+                str(payload["entity_type"]),
+                str(payload["child_id"]) if payload.get("child_id") else None,
+                str(payload["created_at"]),
+                str(payload["updated_at"]),
+                str(source_path),
+                json.dumps(payload, ensure_ascii=False, sort_keys=True),
+            ),
+        )
 
     def get_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
         sql = "SELECT payload_json FROM entities WHERE id = ?"
@@ -195,17 +199,20 @@ class SQLiteProjection:
         return [json.loads(row["payload_json"]) for row in rows]
 
     def rebuild(self, records_root: Path) -> int:
+        # Atomic: clear + repopulate in ONE transaction, so a hard error mid-rebuild
+        # (e.g. UnsupportedSchemaVersion) rolls back and leaves the prior index intact
+        # instead of an emptied one.
+        self.last_rebuild_skipped = []
+        records = sorted(records_root.rglob("*.md"))
+        indexed = 0
         with self._connection() as connection:
             connection.execute("DELETE FROM entities")
-
-        self.last_rebuild_skipped = []
-        indexed = 0
-        for path in sorted(records_root.rglob("*.md")):
-            payload = self._read_record(path)
-            if payload is None:
-                continue
-            self._upsert_payload(payload, path)
-            indexed += 1
+            for path in records:
+                payload = self._read_record(path)
+                if payload is None:
+                    continue
+                self._upsert_on(connection, payload, path)
+                indexed += 1
         return indexed
 
     def _read_record(self, path: Path) -> dict | None:
