@@ -12,6 +12,8 @@ permissions:
 jobs:
   patch-and-verify:
     runs-on: ubuntu-latest
+    env:
+      VERIFICATION_ATTEMPT: "2"
     steps:
       - uses: actions/checkout@v7
         with:
