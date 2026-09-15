@@ -14,7 +14,7 @@ from growwise.generators import MaterialGenerationService
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.storage import EntityStore
 
-router = APIRouter(prefix="/v1", tags=["curriculum"])
+router = APIRouter(tags=["curriculum"])
 
 
 class CurriculumMaterialRequest(BaseModel):
