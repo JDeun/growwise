@@ -19,17 +19,25 @@ class StubHttp:
 
 def test_curriculum_adapter_normalizes_and_caches(tmp_path: Path) -> None:
     cache = SQLiteExternalCache(tmp_path / "external.sqlite3")
-    http = StubHttp({"records": [{
-        "code": "SCI-01",
-        "title": "주변의 생물을 관찰하고 특징을 설명한다",
-        "school_level": "elementary",
-        "subject": "science",
-        "domain": "life",
-        "competency": "inquiry",
-        "url": "https://example.invalid/curriculum/SCI-01",
-        "revision": "2022",
-    }]})
-    adapter = PublicCurriculumAdapter(endpoint="https://example.invalid/api", cache=cache, http=http)
+    http = StubHttp(
+        {
+            "records": [
+                {
+                    "code": "SCI-01",
+                    "title": "주변의 생물을 관찰하고 특징을 설명한다",
+                    "school_level": "elementary",
+                    "subject": "science",
+                    "domain": "life",
+                    "competency": "inquiry",
+                    "url": "https://example.invalid/curriculum/SCI-01",
+                    "revision": "2022",
+                }
+            ]
+        }
+    )
+    adapter = PublicCurriculumAdapter(
+        endpoint="https://example.invalid/api", cache=cache, http=http
+    )
 
     result = adapter.search(stage="elementary", subject="science", query="생물")
 
@@ -57,10 +65,15 @@ def test_curriculum_adapter_offline_without_cache_fails_closed(tmp_path: Path) -
 
 
 def test_curriculum_adapter_ignores_malformed_records(tmp_path: Path) -> None:
+    payload = {
+        "data": {
+            "items": [None, {}, {"title": "제목만"}, {"stage": "elementary"}]
+        }
+    }
     adapter = PublicCurriculumAdapter(
         endpoint="https://example.invalid/api",
         cache=SQLiteExternalCache(tmp_path / "external.sqlite3"),
-        http=StubHttp({"data": {"items": [None, {}, {"title": "제목만"}, {"stage": "elementary"}]}}),
+        http=StubHttp(payload),
     )
 
     result = adapter.search(stage="elementary")
