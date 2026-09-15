@@ -1,3 +1,5 @@
+import "./WorkspacePlaceholder.css";
+
 import { WORKSPACE_LABELS } from "./workspaceLabels";
 import type { WorkspaceView } from "./workspaceTypes";
 
