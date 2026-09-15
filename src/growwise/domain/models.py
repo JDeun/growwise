@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Annotated, Self
+from typing import Annotated, Any, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -30,6 +30,12 @@ class Stage(StrEnum):
     ELEMENTARY = "elementary"
     MIDDLE = "middle"
     HIGH = "high"
+
+
+class ChildSex(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+    UNSPECIFIED = "unspecified"
 
 
 class ExperienceAxis(StrEnum):
@@ -98,13 +104,31 @@ class EntityBase(BaseModel):
 
 class ChildProfile(EntityBase):
     entity_type: str = "child_profile"
-    nickname: str
+    name: str = Field(min_length=1, max_length=120)
+    nickname: str | None = Field(default=None, max_length=120)
     stage: Stage
     birth_date: date | None = None
-    # Backward-compatible cached/legacy field. When birth_date exists it is refreshed on load.
+    sex: ChildSex = ChildSex.UNSPECIFIED
+    # Backward-compatible cached/legacy field. birth_date is authoritative when present.
     age_months: Annotated[int | None, Field(default=None, ge=0, le=240)]
+    grade: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
+    school_entry_year: Annotated[int | None, Field(default=None, ge=1900, le=2200)] = None
+    primary_language: str = Field(default="ko-KR", min_length=2, max_length=35)
+    additional_languages: list[str] = Field(default_factory=list)
     interests: list[str] = Field(default_factory=list)
-    notes: str | None = None
+    preferences: dict[str, list[str]] = Field(default_factory=dict)
+    learning_goals: list[str] = Field(default_factory=list)
+    notes: str | None = Field(default=None, max_length=10_000)
+
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_name(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            migrated = dict(data)
+            if not migrated.get("name") and migrated.get("nickname"):
+                migrated["name"] = migrated["nickname"]
+            return migrated
+        return data
 
     @model_validator(mode="after")
     def derive_age_from_birth_date(self) -> Self:
