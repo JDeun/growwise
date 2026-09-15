@@ -11,6 +11,7 @@ import "./tokens.css";
 import "./brand.css";
 import "./activity-provenance.css";
 import "./print.css";
+import "./accessibility.css";
 
 applyDocumentLocale(detectBrowserLocale());
 
