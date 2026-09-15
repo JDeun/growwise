@@ -1,0 +1,24 @@
+{
+  "elements": [
+    {
+      "type": "node",
+      "id": 101,
+      "lat": 37.5665,
+      "lon": 126.978,
+      "tags": {
+        "name": "테스트 도서관",
+        "amenity": "library",
+        "website": "https://example.invalid/library"
+      }
+    },
+    {
+      "type": "way",
+      "id": 202,
+      "center": {"lat": 37.567, "lon": 126.979},
+      "tags": {
+        "name": "테스트 박물관",
+        "amenity": "museum"
+      }
+    }
+  ]
+}
