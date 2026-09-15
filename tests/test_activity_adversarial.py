@@ -16,7 +16,7 @@ from growwise.storage import EntityStore
 
 def _store_with_child(tmp_path: Path) -> tuple[EntityStore, ChildProfile]:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
     return store, child
 
@@ -70,7 +70,7 @@ def test_activity_idempotency_key_cannot_be_reused_for_different_payload(
 
 
 def test_activity_cannot_skip_directly_to_completed() -> None:
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     activity = ActivityPlan(child_id=child.id, title="촉감 놀이")
 
     with pytest.raises(InvalidActivityTransition):
@@ -78,7 +78,7 @@ def test_activity_cannot_skip_directly_to_completed() -> None:
 
 
 def test_archived_activity_is_terminal() -> None:
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     activity = ActivityPlan(child_id=child.id, title="소리 놀이")
     service = ActivityPlanService()
     service.transition(activity, ActivityStatus.ARCHIVED)
@@ -88,7 +88,7 @@ def test_archived_activity_is_terminal() -> None:
 
 
 def test_skipped_activity_remains_reversible_and_non_failure() -> None:
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     activity = ActivityPlan(child_id=child.id, title="책 보기")
     service = ActivityPlanService()
 

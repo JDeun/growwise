@@ -13,7 +13,7 @@ from growwise.storage import EntityStore
 
 def test_activity_api_flow_persists_low_pressure_states(tmp_path: Path) -> None:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
-    child = ChildProfile(nickname="수아", stage=Stage.INFANT_0_2, age_months=9)
+    child = ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9)
     store.save(child)
 
     activity = create_activity(
