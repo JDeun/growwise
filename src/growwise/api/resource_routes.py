@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
@@ -23,6 +24,7 @@ from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngest
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/resources", tags=["resources"])
+logger = logging.getLogger(__name__)
 
 
 class ResourceCreateRequest(BaseModel):
@@ -103,7 +105,7 @@ def create_resource(
 
     idempotency_store = get_resource_idempotency_store()
     request_hash = request_fingerprint(request.model_dump(mode="json"))
-    reserved_resource_id = uuid7()
+    reserved_resource_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
         try:
@@ -165,18 +167,12 @@ def update_resource(
             "updated_at": datetime.now(UTC),
         }
     )
-    rag_index = get_resource_rag_index()
 
-    # Remove old retrieval chunks before changing the authoritative record. If the SoT write fails,
-    # restore the old chunks. If re-ingesting the new generation fails, retrieval remains empty for
-    # this resource rather than serving stale pre-edit evidence.
-    rag_index.delete_resource(str(resource_id))
-    try:
-        store.save(updated)
-    except Exception:
-        ResourceIngestor(rag_index).ingest(current)
-        raise
-    ResourceIngestor(rag_index).ingest(updated)
+    # Markdown is authoritative. RAG replacement deletes old chunks and writes the new generation
+    # in its own transaction, and ResourceIngestor deliberately degrades rather than invalidating a
+    # committed source mutation when that disposable projection is unavailable.
+    store.save(updated)
+    ResourceIngestor(get_resource_rag_index()).ingest(updated)
     return updated
 
 
@@ -186,15 +182,16 @@ def delete_resource(
     store: Annotated[EntityStore, Depends(get_resource_store)],
 ) -> dict[str, bool]:
     current = _resource(store, resource_id)
-    rag_index = get_resource_rag_index()
-    rag_index.delete_resource(str(resource_id))
-    try:
-        deleted = store.delete(current)
-    except Exception:
-        # The Markdown source still exists when EntityStore.delete raises. Rebuild this resource's
-        # RAG projection so a failed source deletion cannot silently remove it from retrieval.
-        ResourceIngestor(rag_index).ingest(current)
-        raise
-    if not deleted:
+    if not store.delete(current):
         raise HTTPException(status_code=404, detail="resource_not_found")
+
+    # Source deletion is the successful operation. Retrieval cleanup is best-effort because the RAG
+    # database is rebuildable and must never veto an authoritative delete.
+    try:
+        get_resource_rag_index().delete_resource(str(resource_id))
+    except Exception:
+        logger.exception(
+            "RAG projection delete failed for resource %s; source deletion remains authoritative",
+            resource_id,
+        )
     return {"deleted": True}
