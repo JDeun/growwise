@@ -4,7 +4,16 @@ from pathlib import Path
 from time import monotonic, sleep
 
 from growwise.config import Settings
-from growwise.domain import AiEnhancementStatus, ChildProfile, LearningLog, Stage
+from growwise.domain import (
+    AiEnhancementStatus,
+    ChildProfile,
+    GeneratedMaterial,
+    LearningLog,
+    LearningRecordKind,
+    MaterialKind,
+    MaterialStatus,
+    Stage,
+)
 from growwise.jobs import Job, SQLiteJobQueue
 from growwise.services.background_ai import BackgroundAiJobRunner
 from growwise.storage import EntityStore
@@ -14,6 +23,21 @@ class ImmediateObservationProvider:
     def generate_structured(self, *, system: str, user: str, schema):
         del system, user
         return schema(tags=["공룡"], interest="공룡")
+
+
+class InspectingMaterialProvider:
+    def __init__(self) -> None:
+        self.last_user = ""
+
+    def generate_structured(self, *, system: str, user: str, schema):
+        del system
+        self.last_user = user
+        return schema(
+            title="후속 나누기 활동",
+            content_markdown="# 후속 활동\n\n실물을 나누어 보고 방법을 설명해 보세요.",
+            parent_guide_markdown="# 부모 교안\n\n아이의 설명을 먼저 들어보세요.",
+            source_refs=[],
+        )
 
 
 class InspectingJobQueue(SQLiteJobQueue):
@@ -95,5 +119,79 @@ def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) ->
         assert current.ai_status is AiEnhancementStatus.COMPLETED
         assert current.tags == ["공룡"]
         assert current.interest == "공룡"
+    finally:
+        runner.stop()
+
+
+def test_material_worker_uses_generalized_feedback_and_keeps_learner_work_local(
+    tmp_path: Path,
+) -> None:
+    settings = Settings(data_dir=tmp_path, embedding_features_enabled=False)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(name="아이", nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    learner_work = "아이 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다."
+    store.save(
+        LearningLog(
+            child_id=child.id,
+            record_kind=LearningRecordKind.MATERIAL_USE,
+            title="이전 나누기 활동",
+            parent_observation="실물을 직접 옮겨가며 풀었다.",
+            learner_work=learner_work,
+        )
+    )
+    material = GeneratedMaterial(
+        child_id=child.id,
+        kind=MaterialKind.MATH_ACTIVITY,
+        title="생활 속 나누기",
+        content_markdown="# 기본 초안",
+        parent_guide_markdown="# 기본 부모 교안",
+        status=MaterialStatus.REVIEW_PENDING,
+        generator_mode="template",
+        request_topic="생활 속 나누기",
+        request_goal="실물로 나누는 방법을 탐색한다",
+        ai_status=AiEnhancementStatus.QUEUED,
+    )
+    store.save(material)
+
+    provider = InspectingMaterialProvider()
+    queue = SQLiteJobQueue(settings.jobs_path)
+    runner = BackgroundAiJobRunner(
+        queue=queue,
+        store_factory=lambda: store,
+        provider_factory=lambda: provider,
+        lease_seconds=60,
+        max_attempts=1,
+        poll_interval_seconds=0.01,
+    )
+
+    def mark_queued(job: Job) -> None:
+        material.ai_status = AiEnhancementStatus.QUEUED
+        material.ai_job_id = job.id
+        store.save(material)
+
+    runner.start()
+    try:
+        runner.submit_material(
+            child_id=str(child.id),
+            material_id=str(material.id),
+            on_enqueued=mark_queued,
+        )
+        deadline = monotonic() + 2.0
+        while monotonic() < deadline:
+            payload = store.index.get_entity(str(material.id), entity_type="generated_material")
+            assert payload is not None
+            current = GeneratedMaterial.model_validate(payload)
+            if current.ai_status is AiEnhancementStatus.COMPLETED:
+                break
+            sleep(0.01)
+        else:
+            raise AssertionError("background material enhancement did not complete")
+
+        assert "최근 아이 산출물이 있으면" in provider.last_user
+        assert learner_work not in provider.last_user
+        assert learner_work not in current.content_markdown
+        assert learner_work in current.parent_guide_markdown
+        assert current.ai_status is AiEnhancementStatus.COMPLETED
     finally:
         runner.stop()
