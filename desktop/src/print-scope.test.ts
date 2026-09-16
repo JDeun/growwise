@@ -9,7 +9,11 @@ describe("print rendering scope", () => {
     const css = readFileSync(path, "utf8");
 
     expect(css).toContain('body[data-growwise-print-scope="approved"] .approved-card');
+    expect(css).toContain(
+      'body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"]',
+    );
     expect(css).toContain('body[data-growwise-print-scope="approved"] .print-material');
+    expect(css).toContain('body[data-growwise-print-scope="single"] .print-material');
     expect(css).toContain(".material-queue-lanes");
     expect(css).not.toContain(".material-list");
   });
@@ -21,5 +25,17 @@ describe("print rendering scope", () => {
     expect(source).toContain('document.body.setAttribute(PRINT_SCOPE_ATTRIBUTE, "approved")');
     expect(source).toContain("document.body.removeAttribute(PRINT_SCOPE_ATTRIBUTE)");
     expect(source).toContain('window.addEventListener("afterprint", cleanup, { once: true })');
+  });
+
+  it("prints the reviewed MaterialContent card instead of the hidden raw Markdown copy", () => {
+    const path = fileURLToPath(
+      new URL("./components/MaterialWorkspace.tsx", import.meta.url),
+    );
+    const source = readFileSync(path, "utf8");
+
+    expect(source).toContain('document.body.setAttribute(PRINT_SCOPE_ATTRIBUTE, "single")');
+    expect(source).toContain('card.setAttribute(PRINT_TARGET_ATTRIBUTE, "true")');
+    expect(source).toContain('event.currentTarget.closest(".approved-card")');
+    expect(source).toContain("<MaterialContent markdown={material.content_markdown} />");
   });
 });
