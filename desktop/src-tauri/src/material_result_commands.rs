@@ -15,6 +15,8 @@ pub struct MaterialResultRequest {
     tags: Vec<String>,
     experience_axes: Vec<String>,
     activity_plan_id: Option<String>,
+    #[serde(default)]
+    photo_record_ids: Vec<String>,
 }
 
 #[tauri::command]
