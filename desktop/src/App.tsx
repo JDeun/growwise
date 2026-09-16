@@ -558,7 +558,7 @@ function App() {
     setResourceSaving(true);
     setResourceError(null);
     try {
-      const updated = await updateResource(resourceId, request);
+      const updated = await updateResource(resourceId, request, childId);
       if (!scopeIsCurrent(childId, requestId)) return;
       setResources((current) =>
         current.map((resource) => (resource.id === updated.id ? updated : resource)),
@@ -581,7 +581,7 @@ function App() {
     setResourceSaving(true);
     setResourceError(null);
     try {
-      await deleteResource(resourceId);
+      await deleteResource(resourceId, childId);
       if (!scopeIsCurrent(childId, requestId)) return;
       setResources((current) => current.filter((resource) => resource.id !== resourceId));
       setSelectedResourceRefs((current) =>
