@@ -188,6 +188,8 @@ class SQLiteProjection:
             rows = connection.execute(sql, params).fetchall()
             payloads = [json.loads(row["payload_json"]) for row in rows]
             if augment_child_scope:
+                assert child_id is not None
+                assert entity_type is not None
                 linked_ids = self._child_scope_source_ids(connection, child_id=child_id)
                 if linked_ids:
                     placeholders = ",".join("?" for _ in linked_ids)
