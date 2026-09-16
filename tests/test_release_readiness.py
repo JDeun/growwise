@@ -23,6 +23,17 @@ def test_prerelease_tag_does_not_require_production_credentials(
     MODULE.check("v0.1.0-alpha.0", "macos")
 
 
+def test_stable_tag_requires_explicit_platform(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        MODULE,
+        "_load_versions",
+        lambda: {"package": "1.0.0", "cargo": "1.0.0", "tauri": "1.0.0"},
+    )
+
+    with pytest.raises(RuntimeError, match="requires --platform"):
+        MODULE.check("v1.0.0", None)
+
+
 def test_stable_macos_requires_signing_credentials(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         MODULE,

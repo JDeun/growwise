@@ -69,7 +69,7 @@ python desktop/scripts/check_release_readiness.py --tag v0.1.0-alpha.0 --platfor
 python desktop/scripts/check_release_readiness.py --tag v0.1.0-alpha.0 --platform windows
 ```
 
-For a stable version, the same commands additionally validate that the platform-specific production signing environment is present.
+For a stable version, `--platform` is mandatory and the same two commands additionally validate the platform-specific production signing environment. Run both platform checks before creating the stable tag; a bare stable `--tag` check intentionally fails rather than reporting an ambiguous success.
 
 ## Local package check
 
