@@ -11,6 +11,52 @@ from growwise.model import ModelProvider
 CURRICULUM_SOURCE = "교육부고시 제2024-23호 2024 개정 표준보육과정(0~2세)"
 CURRICULUM_EFFECTIVE_DATE = "2025-03-01"
 
+# Automatic public book lookup must never forward arbitrary parent-entered interest text. Only
+# these generic education topics may leave the device. Unknown/free-form text falls back to a
+# generic infant-picture-book query.
+_BOOK_DISCOVERY_TOPICS: tuple[str, ...] = (
+    "동물",
+    "고양이",
+    "강아지",
+    "공룡",
+    "자동차",
+    "기차",
+    "탈것",
+    "우주",
+    "별",
+    "달",
+    "자연",
+    "나무",
+    "꽃",
+    "바다",
+    "물고기",
+    "곤충",
+    "음악",
+    "노래",
+    "색깔",
+    "숫자",
+    "모양",
+    "음식",
+    "과일",
+    "가족",
+    "친구",
+    "감정",
+    "몸",
+    "목욕",
+    "잠",
+    "animals",
+    "cats",
+    "dogs",
+    "dinosaurs",
+    "vehicles",
+    "space",
+    "nature",
+    "music",
+    "colors",
+    "numbers",
+    "shapes",
+)
+
 
 class InfantCurriculumDomain(StrEnum):
     PHYSICAL_HEALTH = "신체운동·건강"
@@ -107,7 +153,9 @@ Return concise Korean when the input is Korean."""
         candidates = [
             ActivitySuggestion(
                 title="천천히 함께 살펴보기",
-                description=f"{topic}와 관련된 안전한 사물이나 그림을 가까이에서 함께 살펴봅니다.",
+                description=(
+                    f"{topic}와 관련된 안전한 사물이나 그림을 가까이에서 함께 살펴봅니다."
+                ),
                 observation_cue="무엇을 오래 바라보거나 손을 뻗는지 가볍게 관찰합니다.",
                 tags=["관찰", "상호작용"],
             ),
@@ -128,12 +176,7 @@ Return concise Korean when the input is Korean."""
 
 
 class InfantObservationHintService:
-    """Parent-facing observation prompts aligned to the five official 0-2 curriculum domains.
-
-    These prompts intentionally do not reproduce milestone tables or turn curriculum content into
-    a diagnostic checklist. They help a parent notice the child's self-directed interests and
-    interactions in ordinary life.
-    """
+    """Parent-facing prompts aligned to the five official 0-2 curriculum domains."""
 
     SYSTEM = f"""Create non-diagnostic parent observation hints for an infant aged 0-2.
 Use only these curriculum-domain labels from {CURRICULUM_SOURCE}:
@@ -183,7 +226,7 @@ Return concise Korean when the input is Korean."""
                 "하위 ",
                 "퍼센타일",
             )
-            by_domain = {}
+            by_domain: dict[InfantCurriculumDomain, ObservationHint] = {}
             for hint in result.hints:
                 text_value = f"{hint.cue} {hint.rationale}".casefold()
                 if hint.domain in allowed and not any(
@@ -261,7 +304,7 @@ Return concise Korean when the input is Korean."""
 
 
 class BoardBookRecommendationService:
-    """Prefer saved book records, then public candidates, then offline categories."""
+    """Prefer saved books, then privacy-bounded public candidates, then offline ideas."""
 
     def recommend(
         self,
@@ -306,7 +349,9 @@ class BoardBookRecommendationService:
             if title_key in seen_titles:
                 continue
             recommendations.append(
-                candidate.model_copy(update={"resource_id": None, "source": "public_discovery"})
+                candidate.model_copy(
+                    update={"resource_id": None, "source": "public_discovery"}
+                )
             )
             seen_titles.add(title_key)
 
@@ -322,13 +367,32 @@ class BoardBookRecommendationService:
         return BoardBookRecommendations(recommendations=recommendations[:limit])
 
     @staticmethod
+    def _generalized_book_query(interests: list[str]) -> str:
+        searchable = " ".join(interests).casefold()
+        topics: list[str] = []
+        for topic in _BOOK_DISCOVERY_TOPICS:
+            if topic.casefold() not in searchable or topic in topics:
+                continue
+            topics.append(topic)
+            if len(topics) >= 2:
+                break
+        if not topics:
+            return "영아 그림책"
+        return " ".join([*topics, "그림책"])
+
+    @classmethod
     def _public_discovery_candidates(
+        cls,
         *,
         interests: list[str],
         limit: int,
     ) -> list[BoardBookRecommendation]:
-        """Use only generalized interest terms for the optional public book lookup."""
-        from growwise.adapters import Data4LibraryAdapter, ExternalAdapterError, SQLiteExternalCache
+        """Look up books with allow-listed generic topics only; never raw interest text."""
+        from growwise.adapters import (
+            Data4LibraryAdapter,
+            ExternalAdapterError,
+            SQLiteExternalCache,
+        )
         from growwise.config import Settings
 
         settings = Settings()
@@ -336,8 +400,7 @@ class BoardBookRecommendationService:
         if not api_key or limit <= 0:
             return []
 
-        public_terms = [value.strip() for value in interests[:2] if value.strip()]
-        query = " ".join([*public_terms, "그림책"]).strip() or "영아 그림책"
+        query = cls._generalized_book_query(interests)
         adapter = Data4LibraryAdapter(
             auth_key=api_key,
             cache=SQLiteExternalCache(settings.external_cache_path),
@@ -390,18 +453,20 @@ class BoardBookRecommendationService:
         searchable = " ".join(
             [resource.title, resource.summary or "", *resource.tags]
         ).casefold()
-        interest_hits = sum(1 for interest in interests if interest.casefold() in searchable)
+        interest_hits = sum(
+            1 for interest in interests if interest.casefold() in searchable
+        )
         infant_stage = int(Stage.INFANT_0_2 in resource.stage_tags)
         metadata_depth = len(resource.tags) + int(bool(resource.summary))
         return interest_hits, infant_stage, metadata_depth
 
     @staticmethod
     def _reason(*, resource: ResourceRecord, interests: list[str]) -> str:
+        searchable = " ".join(
+            [resource.title, resource.summary or "", *resource.tags]
+        ).casefold()
         matched = [
-            interest
-            for interest in interests
-            if interest.casefold()
-            in " ".join([resource.title, resource.summary or "", *resource.tags]).casefold()
+            interest for interest in interests if interest.casefold() in searchable
         ]
         if matched:
             return f"현재 관심사({', '.join(matched[:2])})와 연결되는 로컬 책 기록입니다."
@@ -416,7 +481,9 @@ class BoardBookRecommendationService:
             BoardBookRecommendation(
                 title=f"{topic} 그림이 크게 보이는 보드북",
                 reason="현재 관심사와 연결된 단순하고 선명한 그림을 함께 보기 좋습니다.",
-                read_aloud_tip="그림을 가리키며 한두 단어로 말하고 아이의 반응을 기다려 주세요.",
+                read_aloud_tip=(
+                    "그림을 가리키며 한두 단어로 말하고 아이의 반응을 기다려 주세요."
+                ),
             ),
             BoardBookRecommendation(
                 title="반복되는 말과 리듬이 있는 짧은 그림책",
