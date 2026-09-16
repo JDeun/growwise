@@ -53,6 +53,7 @@ export function MaterialWorkspaceIntegration({ controller }: { controller: Mater
       onEditStart={controller.setEditingMaterialId}
       onEdit={controller.handleParentEdit}
       onPrint={controller.handlePrintMaterial}
+      onResultRecorded={() => undefined}
     />
   );
 }
