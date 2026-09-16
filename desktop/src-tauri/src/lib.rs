@@ -162,7 +162,8 @@ async fn ensure_success(
     }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
-    Err(format!("{label} ({status}): {body}"))
+    let bounded_body: String = body.chars().take(4096).collect();
+    Err(format!("{label} ({status}): {bounded_body}"))
 }
 
 #[tauri::command]
@@ -208,6 +209,19 @@ async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
     ensure_success(response, "아이 목록 조회 실패")
         .await?
         .json::<Vec<ChildProfileDto>>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn delete_child(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .delete(format!("{CORE_BASE_URL}/v1/children/{child_id}"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 데이터 영구 삭제 실패")
+        .await?
+        .json::<serde_json::Value>()
         .await
         .map_err(|error| error.to_string())
 }
@@ -784,6 +798,7 @@ pub fn run() {
             core_runtime_status,
             create_child,
             list_children,
+            delete_child,
             create_observation,
             list_observations,
             create_activity,
