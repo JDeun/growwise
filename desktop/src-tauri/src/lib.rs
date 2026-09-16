@@ -1,6 +1,7 @@
 mod core_process;
 mod discovery_commands;
 mod link_commands;
+mod material_result_commands;
 mod photo_commands;
 
 use std::fmt;
@@ -12,6 +13,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use core_process::CoreProcessManager;
 use discovery_commands::{discover_education_resources, save_discovered_resource};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
+use material_result_commands::{list_material_results, record_material_result};
 use photo_commands::{
     commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
 };
@@ -828,6 +830,8 @@ pub fn run() {
             review_material,
             revise_material,
             edit_material,
+            record_material_result,
+            list_material_results,
             get_growth_map,
             get_infant_activities,
             get_infant_observation_hints,
