@@ -13,9 +13,11 @@ uv sync --locked --extra dev
 uv run python scripts/benchmark_model.py > benchmark-model.json
 ```
 
-The report records average and p95 generation latency, whether the LLM path was actually used, and
-per-material output size/mode across representative reading, English, math, science, writing, and
-field-trip prompts.
+The report records the configured provider kind/model ID, average and p95 generation latency, whether
+the LLM path was actually used, and per-material output size/mode across representative reading,
+English, math, science, writing, and field-trip prompts. If LLM features are enabled, provider
+construction uses the same `Settings` + `create_model_provider` path as the application; invalid
+provider configuration is not silently converted into a Core-only benchmark.
 
 Acceptance procedure:
 
