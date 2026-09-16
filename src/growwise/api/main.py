@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import sqlite3
-from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
@@ -15,12 +14,6 @@ from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
-from growwise.api.photo_routes import (
-    router as photo_router,
-    start_photo_job_runner,
-    stop_photo_job_runner,
-)
-from growwise.api.privacy_routes import router as privacy_router
 from growwise.api.study_routes import router as study_router
 from growwise.config import Settings
 from growwise.domain import (
@@ -78,21 +71,9 @@ from growwise.services import (
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph, build_observation_graph
 
-
-@asynccontextmanager
-async def lifespan(_app: FastAPI):
-    start_photo_job_runner()
-    try:
-        yield
-    finally:
-        stop_photo_job_runner()
-
-
-app = FastAPI(title="GrowWise Core", version="0.1.0a0", lifespan=lifespan)
+app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(study_router)
-app.include_router(photo_router)
-app.include_router(privacy_router, prefix="/v1")
 
 
 class ChildCreateRequest(BaseModel):
@@ -378,8 +359,6 @@ def list_activities(
     child_id: UUID,
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> list[dict]:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
     return store.index.list_entities(entity_type="activity_plan", child_id=str(child_id))
 
 
@@ -394,30 +373,335 @@ def transition_activity(
         raise HTTPException(status_code=404, detail="activity_not_found")
     activity = ActivityPlan.model_validate(payload)
     try:
-        transitioned = ActivityPlanService().transition(
+        ActivityPlanService().transition(
             activity,
             request.status,
             parent_note=request.parent_note,
         )
     except InvalidActivityTransition as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(transitioned)
-    return transitioned
+    store.save(activity)
+    return activity
 
 
-@app.get("/v1/activities/{activity_id}/observations", response_model=list[LearningLog])
-def list_activity_observations(
-    activity_id: UUID,
+@app.post("/v1/resources", response_model=ResourceRecord)
+def create_resource(
+    request: ResourceCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
-) -> list[LearningLog]:
-    payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
+) -> ResourceRecord:
+    resource = ResourceRecord(**request.model_dump())
+    store.save(resource)
+    ResourceIngestor(get_rag_index()).ingest(resource)
+    return resource
+
+
+@app.get("/v1/resources")
+def list_resources(
+    store: Annotated[EntityStore, Depends(get_store)],
+    child_id: UUID | None = None,
+) -> list[dict]:
+    return store.index.list_entities(
+        entity_type="resource",
+        child_id=str(child_id) if child_id else None,
+    )
+
+
+@app.post("/v1/rag/ask")
+def ask_resources(request: RagQuestionRequest) -> dict:
+    service = GroundedRagService(
+        index=get_rag_index(),
+        provider=get_model_provider(),
+    )
+    return service.ask(
+        query=request.question,
+        child_id=str(request.child_id) if request.child_id else None,
+        limit=request.limit,
+    ).model_dump(mode="json")
+
+
+@app.post("/v1/children/{child_id}/ask")
+def ask_child_context(
+    child_id: UUID,
+    request: ChildQuestionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    return (
+        build_child_context_service(store)
+        .ask(
+            child_id=str(child_id),
+            query=request.question,
+            limit=request.limit,
+        )
+        .model_dump(mode="json")
+    )
+
+
+@app.post("/v1/children/{child_id}/conversations", response_model=ConversationSession)
+def create_conversation(
+    child_id: UUID,
+    request: ConversationCreateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> ConversationSession:
+    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    session = ConversationSession(child_id=str(child_id), title=request.title)
+    get_conversation_store().save(session)
+    return session
+
+
+@app.get("/v1/children/{child_id}/conversations")
+def list_conversations(
+    child_id: UUID,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[dict]:
+    sessions = get_conversation_store().list_for_child(str(child_id), limit=limit)
+    return [session.model_dump(mode="json") for session in sessions]
+
+
+@app.get("/v1/conversations/{session_id}", response_model=ConversationSession)
+def get_conversation(session_id: str) -> ConversationSession:
+    session = get_conversation_store().get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="conversation_not_found")
+    return session
+
+
+@app.post("/v1/conversations/{session_id}/turns")
+def append_conversation_turn(
+    session_id: str,
+    request: ConversationTurnRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    conversation_store = get_conversation_store()
+    session = conversation_store.get(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail="conversation_not_found")
+    if store.index.get_entity(session.child_id, entity_type="child_profile") is None:
+        raise HTTPException(status_code=409, detail="conversation_child_not_found")
+
+    service = ConversationService(
+        context_service=build_child_context_service(store),
+        provider=get_model_provider(),
+    )
+    answer = service.ask(session=session, question=request.question, limit=request.limit)
+    conversation_store.save(session)
+    return {
+        "session_id": session.id,
+        "thread_id": session.id,
+        "answer": answer.model_dump(mode="json"),
+        "turn_count": len(session.turns),
+    }
+
+
+@app.delete("/v1/conversations/{session_id}")
+def delete_conversation(session_id: str) -> dict[str, bool]:
+    return {"deleted": get_conversation_store().delete(session_id)}
+
+
+def validate_material_source_refs(
+    *,
+    child_id: UUID,
+    source_refs: list[str],
+    store: EntityStore,
+) -> list[str]:
+    """Resolve material provenance to existing resources within the child's scope."""
+    validated: list[str] = []
+    for ref in dict.fromkeys(source_refs):
+        if not ref.startswith("resource:"):
+            raise HTTPException(status_code=422, detail="material_source_ref_invalid")
+        raw_id = ref.removeprefix("resource:")
+        try:
+            resource_id = UUID(raw_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail="material_source_ref_invalid") from exc
+        payload = store.index.get_entity(str(resource_id), entity_type="resource")
+        if payload is None:
+            raise HTTPException(status_code=422, detail="material_source_not_found")
+        resource = ResourceRecord.model_validate(payload)
+        if resource.child_id is not None and resource.child_id != child_id:
+            raise HTTPException(status_code=409, detail="material_source_child_mismatch")
+        validated.append(f"resource:{resource.id}")
+    return validated
+
+
+@app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
+def generate_material(
+    child_id: UUID,
+    request: MaterialGenerateRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+    source_refs = validate_material_source_refs(
+        child_id=child.id,
+        source_refs=request.source_refs,
+        store=store,
+    )
+    material = MaterialGenerationService(provider=get_model_provider()).generate(
+        child=child,
+        kind=request.kind,
+        topic=request.topic,
+        goal=request.goal,
+        source_refs=source_refs,
+    )
+    material.request_topic = request.topic
+    material.request_goal = request.goal
+    store.save(material)
+    review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
+    get_material_review_graph().invoke(
+        {
+            "material_id": str(material.id),
+            "child_id": str(child.id),
+            "title": material.title,
+        },
+        config=review_config,
+    )
+    return material
+
+
+@app.get("/v1/children/{child_id}/materials")
+def list_materials(
+    child_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[dict]:
+    return store.index.list_entities(entity_type="generated_material", child_id=str(child_id))
+
+
+@app.get("/v1/materials/{material_id}", response_model=GeneratedMaterial)
+def get_material(
+    material_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
     if payload is None:
-        raise HTTPException(status_code=404, detail="activity_not_found")
-    return [
-        LearningLog.model_validate(item)
-        for item in store.index.list_entities(entity_type="learning_log")
-        if item.get("activity_plan_id") == str(activity_id)
-    ]
+        raise HTTPException(status_code=404, detail="material_not_found")
+    return GeneratedMaterial.model_validate(payload)
+
+
+@app.post("/v1/materials/{material_id}/review", response_model=GeneratedMaterial)
+def review_material(
+    material_id: UUID,
+    request: MaterialReviewRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    if material.status is MaterialStatus.REVIEW_PENDING:
+        config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
+        try:
+            review_state = get_material_review_graph().invoke(
+                Command(
+                    resume={
+                        "status": request.status.value,
+                        "note": request.note,
+                    }
+                ),
+                config=config,
+            )
+            if review_state.get("decision_status") != request.status.value:
+                raise HTTPException(status_code=409, detail="review_decision_mismatch")
+        except HTTPException:
+            raise
+        except Exception:
+            # Backward compatibility for materials created before review checkpoints existed.
+            pass
+    try:
+        MaterialReviewService().transition(material, request.status, note=request.note)
+    except InvalidMaterialTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(material)
+    return material
+
+
+@app.post("/v1/materials/{material_id}/revise", response_model=GeneratedMaterial)
+@serialize_material_successor
+def revise_material(
+    material_id: UUID,
+    request: MaterialRevisionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    if material.status is not MaterialStatus.REVISION_REQUESTED:
+        raise HTTPException(
+            status_code=409,
+            detail="material must be revision_requested before regeneration",
+        )
+
+    child_payload = store.index.get_entity(str(material.child_id), entity_type="child_profile")
+    if child_payload is None:
+        raise HTTPException(status_code=409, detail="material_child_not_found")
+    child = ChildProfile.model_validate(child_payload)
+
+    # Revision history is intentionally linear. Retrying the same parent revision must not
+    # create sibling versions; the already-persisted child version is the idempotent result.
+    existing_revisions = store.index.list_entities(
+        entity_type="generated_material",
+        child_id=str(material.child_id),
+    )
+    for candidate in existing_revisions:
+        if candidate.get("parent_material_id") == str(material.id):
+            return GeneratedMaterial.model_validate(candidate)
+
+    try:
+        revised = MaterialRevisionService(
+            MaterialGenerationService(provider=get_model_provider())
+        ).revise(material=material, child=child, note=request.note)
+    except MaterialRevisionError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+
+    store.save(revised)
+    review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
+    get_material_review_graph().invoke(
+        {
+            "material_id": str(revised.id),
+            "child_id": str(child.id),
+            "title": revised.title,
+        },
+        config=review_config,
+    )
+    return revised
+
+
+@app.post("/v1/materials/{material_id}/edit", response_model=GeneratedMaterial)
+@serialize_material_successor
+def edit_material(
+    material_id: UUID,
+    request: MaterialEditRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    versions = store.index.list_entities(
+        entity_type="generated_material", child_id=str(material.child_id)
+    )
+    if any(candidate.get("parent_material_id") == str(material.id) for candidate in versions):
+        raise HTTPException(status_code=409, detail="material_has_newer_version")
+    try:
+        edited = MaterialEditService().create_version(
+            material=material,
+            title=request.title,
+            content_markdown=request.content_markdown,
+            note=request.note,
+        )
+    except MaterialEditError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(edited)
+    get_material_review_graph().invoke(
+        {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
+        config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
+    )
+    return edited
 
 
 @app.post("/v1/observations", response_model=LearningLog)
@@ -431,12 +715,14 @@ def create_observation(
         child_id=request.child_id,
         activity_plan_id=request.activity_plan_id,
     )
+
+    idempotency_store = get_idempotency_store()
     request_hash = request_fingerprint(request.model_dump(mode="json"))
     reserved_log_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
         try:
-            claim = get_idempotency_store().claim(
+            claim = idempotency_store.claim(
                 key=idempotency_key,
                 request_hash=request_hash,
                 resource_type="learning_log",
@@ -444,12 +730,13 @@ def create_observation(
             )
         except IdempotencyConflict as exc:
             raise HTTPException(status_code=409, detail=str(exc)) from exc
+
         reserved_log_id = UUID(claim.record.resource_id)
         if not claim.acquired:
             existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is not None:
                 if claim.record.status is IdempotencyStatus.PENDING:
-                    get_idempotency_store().complete(
+                    idempotency_store.complete(
                         key=claim.record.key,
                         request_hash=claim.record.request_hash,
                         resource_id=claim.record.resource_id,
@@ -459,64 +746,132 @@ def create_observation(
                 raise HTTPException(status_code=409, detail="idempotency_resource_missing")
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
-    enrichment = None
-    provider = get_model_provider()
-    if provider is not None:
-        try:
-            enrichment = ObservationEnricher(provider).enrich(request.observation)
-        except Exception:
-            enrichment = None
-
-    log = LearningLog(
-        id=reserved_log_id,
+    workflow = WorkflowRun(
         child_id=request.child_id,
-        activity_plan_id=request.activity_plan_id,
-        parent_observation=request.observation,
-        tags=enrichment.tags if enrichment else [],
-        experience_axes=(
-            request.experience_axes or (enrichment.experience_axes if enrichment else [])
-        ),
-        interest=enrichment.interest if enrichment else None,
-        difficulty_note=enrichment.difficulty_note if enrichment else None,
-        next_activity=enrichment.next_activity if enrichment else None,
+        workflow_type="observation_ingest",
+        thread_id=str(uuid7()),
     )
+    store.save(workflow)
+
     try:
+        graph = get_observation_graph()
+        state = graph.invoke(
+            {"child_id": str(request.child_id), "observation": request.observation},
+            config={"configurable": {"thread_id": workflow.thread_id}},
+        )
+        if state.get("safety_flags"):
+            workflow.status = WorkflowStatus.FAILED
+            workflow.last_error_code = "observation_validation_failed"
+            workflow.updated_at = datetime.now(UTC)
+            store.save(workflow)
+            raise HTTPException(status_code=422, detail={"flags": state["safety_flags"]})
+
+        tags: list[str] = []
+        interest: str | None = None
+        difficulty_note: str | None = None
+        next_activity: str | None = None
+        experience_axes = list(request.experience_axes)
+        provider = get_model_provider()
+        if provider is not None:
+            try:
+                enrichment = ObservationEnricher(provider).enrich(state["normalized_observation"])
+                tags = enrichment.tags
+                interest = enrichment.interest
+                difficulty_note = enrichment.difficulty_note
+                next_activity = enrichment.next_activity
+                experience_axes = list(
+                    dict.fromkeys([*experience_axes, *enrichment.experience_axes])
+                )
+            except Exception:
+                pass
+
+        log = LearningLog(
+            id=reserved_log_id,
+            child_id=request.child_id,
+            activity_plan_id=request.activity_plan_id,
+            parent_observation=request.observation,
+            tags=tags,
+            experience_axes=experience_axes,
+            interest=interest,
+            difficulty_note=difficulty_note,
+            next_activity=next_activity,
+        )
         store.save(log)
+        workflow.status = WorkflowStatus.COMPLETED
+        workflow.output_ref = str(log.id)
+        workflow.updated_at = datetime.now(UTC)
+        store.save(workflow)
         if claim is not None and claim.acquired:
-            get_idempotency_store().complete(
+            idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
                 resource_id=claim.record.resource_id,
             )
         return log
-    except Exception:
+    except HTTPException:
         if claim is not None and claim.acquired:
-            get_idempotency_store().release(
-                key=claim.record.key,
-                request_hash=claim.record.request_hash,
-                resource_id=claim.record.resource_id,
-            )
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+        raise
+    except Exception:
+        workflow.status = WorkflowStatus.FAILED
+        workflow.last_error_code = "observation_workflow_failed"
+        workflow.updated_at = datetime.now(UTC)
+        store.save(workflow)
+        if claim is not None and claim.acquired:
+            existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
         raise
 
 
-@app.get("/v1/children/{child_id}/observations", response_model=list[LearningLog])
+@app.get("/v1/children/{child_id}/observations")
 def list_observations(
     child_id: UUID,
     store: Annotated[EntityStore, Depends(get_store)],
-) -> list[LearningLog]:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    return [
-        LearningLog.model_validate(payload)
-        for payload in store.index.list_entities(
-            entity_type="learning_log",
-            child_id=str(child_id),
-        )
-    ]
+) -> list[dict]:
+    return store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
+
+
+@app.get("/v1/activities/{activity_id}/observations")
+def list_activity_observations(
+    activity_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> list[dict]:
+    payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="activity_not_found")
+    activity = ActivityPlan.model_validate(payload)
+    logs = store.index.list_entities(
+        entity_type="learning_log",
+        child_id=str(activity.child_id),
+    )
+    return [item for item in logs if item.get("activity_plan_id") == str(activity_id)]
 
 
 @app.get("/v1/children/{child_id}/growth-map")
-def growth_map(
+def get_growth_map(
     child_id: UUID,
     store: Annotated[EntityStore, Depends(get_store)],
     days: Annotated[int, Query(ge=1, le=3650)] = 30,
@@ -525,257 +880,23 @@ def growth_map(
     if child_payload is None:
         raise HTTPException(status_code=404, detail="child_not_found")
     child = ChildProfile.model_validate(child_payload)
-    logs = [
-        LearningLog.model_validate(payload)
-        for payload in store.index.list_entities(entity_type="learning_log", child_id=str(child_id))
-    ]
-    return GrowthMapService().build(
-        child_id=child_id,
-        logs=logs,
-        stage=child.stage,
+    projection = GrowthMapService(store.index).project(
+        child_id=str(child_id),
         period_days=days,
-    ).model_dump(mode="json")
-
-
-@app.post("/v1/children/{child_id}/materials")
-def generate_material(
-    child_id: UUID,
-    request: MaterialGenerateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
-    if child_payload is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    child = ChildProfile.model_validate(child_payload)
-    service = MaterialGenerationService(
-        provider=get_model_provider(),
-        source_lookup=store.index,
+        stage=child.stage,
     )
-    material = service.generate(
-        child=child,
-        kind=request.kind,
-        topic=request.topic,
-        goal=request.goal,
-        source_refs=request.source_refs,
-    )
-    store.save(material)
-    return material.model_dump(mode="json")
-
-
-@app.get("/v1/children/{child_id}/materials")
-def list_materials(
-    child_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> list[dict]:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    return store.index.list_entities(entity_type="generated_material", child_id=str(child_id))
-
-
-@app.post("/v1/materials/{material_id}/review")
-def review_material(
-    material_id: UUID,
-    request: MaterialReviewRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    try:
-        reviewed = MaterialReviewService().transition(
-            material,
-            request.status,
-            note=request.note,
-        )
-    except InvalidMaterialTransition as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(reviewed)
-    return reviewed.model_dump(mode="json")
-
-
-@app.post("/v1/materials/{material_id}/revise")
-def revise_material(
-    material_id: UUID,
-    request: MaterialRevisionRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    service = MaterialRevisionService(provider=get_model_provider())
-    try:
-        revised = service.revise(material, note=request.note)
-    except MaterialRevisionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(revised)
-    return revised.model_dump(mode="json")
-
-
-@app.post("/v1/materials/{material_id}/edit")
-def edit_material(
-    material_id: UUID,
-    request: MaterialEditRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    try:
-        edited = MaterialEditService().edit(
-            material,
-            title=request.title,
-            content_markdown=request.content_markdown,
-            note=request.note,
-        )
-    except MaterialEditError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(edited)
-    return edited.model_dump(mode="json")
-
-
-@app.post("/v1/rag/resources/{resource_id}/ingest")
-def ingest_resource(
-    resource_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    payload = store.index.get_entity(str(resource_id), entity_type="resource")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="resource_not_found")
-    resource = ResourceRecord.model_validate(payload)
-    chunks = ResourceIngestor(get_rag_index()).ingest(resource)
-    return {"resource_id": str(resource_id), "chunks": chunks}
-
-
-@app.post("/v1/rag/ask")
-def ask_rag(request: RagQuestionRequest) -> dict:
-    service = GroundedRagService(
-        index=get_rag_index(),
-        provider=get_model_provider(),
-    )
-    return service.answer(
-        request.question,
-        child_id=str(request.child_id) if request.child_id else None,
-        limit=request.limit,
-    ).model_dump(mode="json")
+    return projection.model_dump(mode="json")
 
 
 @app.get("/v1/children/{child_id}/search")
-def search_child(
+def search_child_context(
     child_id: UUID,
-    q: Annotated[str, Query(min_length=1, max_length=2000)],
+    q: Annotated[str, Query(min_length=2, max_length=500)],
+    store: Annotated[EntityStore, Depends(get_store)],
     limit: Annotated[int, Query(ge=1, le=50)] = 20,
 ) -> dict:
-    service = NaturalLanguageSearch(build_child_context_service(get_store(get_settings())))
-    return service.search(str(child_id), q, limit=limit).model_dump(mode="json")
-
-
-@app.post("/v1/children/{child_id}/conversations")
-def create_conversation(
-    child_id: UUID,
-    request: ConversationCreateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    session = ConversationSession(child_id=child_id, title=request.title)
-    get_conversation_store().save(session)
-    return session.model_dump(mode="json")
-
-
-@app.get("/v1/children/{child_id}/conversations")
-def list_conversations(
-    child_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
-) -> list[dict]:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    return [
-        session.model_dump(mode="json")
-        for session in get_conversation_store().list_for_child(child_id, limit=limit)
-    ]
-
-
-@app.post("/v1/conversations/{session_id}/turns")
-def append_conversation_turn(
-    session_id: UUID,
-    request: ConversationTurnRequest,
-) -> dict:
-    service = ConversationService(
-        store=get_conversation_store(),
-        search=NaturalLanguageSearch(build_child_context_service(get_store(get_settings()))),
-        provider=get_model_provider(),
-    )
-    return service.ask(
-        session_id,
-        request.question,
-        limit=request.limit,
-    ).model_dump(mode="json")
-
-
-@app.post("/v1/resources")
-def create_resource(
-    request: ResourceCreateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    resource = ResourceRecord(**request.model_dump())
-    store.save(resource)
-    return resource.model_dump(mode="json")
-
-
-@app.get("/v1/resources")
-def list_resources(
-    store: Annotated[EntityStore, Depends(get_store)],
-    child_id: UUID | None = None,
-) -> list[dict]:
-    resources = store.index.list_entities(entity_type="resource")
-    if child_id is None:
-        return resources
-    return [item for item in resources if item.get("child_id") in (None, str(child_id))]
-
-
-@app.put("/v1/resources/{resource_id}")
-def update_resource(
-    resource_id: UUID,
-    request: ResourceCreateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    existing = store.index.get_entity(str(resource_id), entity_type="resource")
-    if existing is None:
-        raise HTTPException(status_code=404, detail="resource_not_found")
-    resource = ResourceRecord(id=resource_id, **request.model_dump())
-    store.save(resource)
-    return resource.model_dump(mode="json")
-
-
-@app.delete("/v1/resources/{resource_id}")
-def delete_resource(
-    resource_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict[str, bool]:
-    payload = store.index.get_entity(str(resource_id), entity_type="resource")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="resource_not_found")
-    store.delete(ResourceRecord.model_validate(payload))
-    return {"deleted": True}
-
-
-@app.get("/v1/workflows/{thread_id}")
-def get_workflow_state(thread_id: str) -> dict:
-    graph = get_material_review_graph()
-    state = graph.get_state({"configurable": {"thread_id": thread_id}})
-    return {"values": state.values, "next": state.next}
-
-
-@app.post("/v1/workflows/{thread_id}/resume")
-def resume_workflow(thread_id: str, command: dict) -> dict:
-    graph = get_material_review_graph()
-    config = {"configurable": {"thread_id": thread_id}}
-    result = graph.invoke(Command(resume=command), config=config)
-    return result
+    service = NaturalLanguageSearch(store.index, provider=get_model_provider())
+    return service.search(child_id=str(child_id), query=q, limit=limit).model_dump(mode="json")
 
 
 @app.get("/v1/children/{child_id}/infant-activities")
