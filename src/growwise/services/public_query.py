@@ -79,6 +79,39 @@ _PUBLIC_TOPIC_ALIASES: tuple[tuple[str, tuple[str, ...]], ...] = (
     ("박물관", ("박물관", "museum", "museums")),
     ("도서관", ("도서관", "library", "libraries")),
 )
+_KOREAN_TOKEN_RE = re.compile(r"[가-힣]+")
+_KOREAN_PARTICLES = (
+    "에서",
+    "에게",
+    "으로",
+    "까지",
+    "부터",
+    "처럼",
+    "보다",
+    "하고",
+    "이랑",
+    "랑",
+    "과",
+    "와",
+    "을",
+    "를",
+    "이",
+    "가",
+    "은",
+    "는",
+    "에",
+    "로",
+    "의",
+    "도",
+    "만",
+)
+
+
+def _strip_korean_particle(token: str) -> str:
+    for particle in _KOREAN_PARTICLES:
+        if token.endswith(particle) and len(token) > len(particle):
+            return token[: -len(particle)]
+    return token
 
 
 def _alias_position(text: str, alias: str) -> int | None:
@@ -86,8 +119,12 @@ def _alias_position(text: str, alias: str) -> int | None:
     if folded_alias.isascii():
         match = re.search(rf"(?<![a-z0-9]){re.escape(folded_alias)}(?![a-z0-9])", text)
         return match.start() if match else None
-    position = text.find(folded_alias)
-    return position if position >= 0 else None
+
+    for match in _KOREAN_TOKEN_RE.finditer(text):
+        token = match.group(0)
+        if token == folded_alias or _strip_korean_particle(token) == folded_alias:
+            return match.start()
+    return None
 
 
 def generalize_public_terms(values: Iterable[str], *, limit: int = 12) -> list[str]:
@@ -95,7 +132,8 @@ def generalize_public_terms(values: Iterable[str], *, limit: int = 12) -> list[s
 
     The returned list is safe to send to external discovery adapters because every output token is
     a canonical constant from ``_PUBLIC_TOPIC_ALIASES``. Unknown names, notes, IDs, and free-form
-    phrases are dropped rather than sanitized heuristically.
+    phrases are dropped rather than sanitized heuristically. Korean aliases require token-level
+    matches so a nickname or longer private token cannot accidentally leak a partial topic match.
     """
     if limit <= 0:
         return []
