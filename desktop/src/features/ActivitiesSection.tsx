@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 import type { ViewLoadState } from "../child-context-state";
-import { ViewStateNotice } from "../components";
+import { EntityLinkPanel, ViewStateNotice } from "../components";
 import {
   listActivityObservations,
   type ActivityPlan,
@@ -298,6 +298,12 @@ export function ActivitiesSection({
                       {lookup.kind === "loading" ? "관찰 확인 중…" : "연결 관찰 확인"}
                     </button>
                   </div>
+
+                  <EntityLinkPanel
+                    entityId={activity.id}
+                    ownerChildId={activity.child_id}
+                    label="다른 아이와 활동 연결"
+                  />
 
                   <div className="activity-observation-link" role="status" aria-live="polite">
                     {lookup.kind === "idle" && (
