@@ -203,3 +203,12 @@ class SQLiteJobQueue:
                     JobStatus.RUNNING,
                 ),
             )
+
+    def delete_for_child(self, child_id: str) -> int:
+        """Remove queued or completed jobs whose structured payload references one child UUID."""
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "DELETE FROM jobs WHERE payload_json LIKE ?",
+                (f"%{child_id}%",),
+            )
+        return cursor.rowcount
