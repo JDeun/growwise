@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { ViewLoadState } from "../child-context-state";
-import { ConfirmDialog, ViewStateNotice } from "../components";
+import { ConfirmDialog, EntityLinkPanel, ViewStateNotice } from "../components";
 import type { ResourceCreateInput, ResourceKind, ResourceRecord } from "../api";
 import "./ResourceLibrarySection.css";
 
@@ -329,6 +329,11 @@ export function ResourceLibrarySection({
                       ))}
                     </div>
                   )}
+                  <EntityLinkPanel
+                    entityId={selectedResource.id}
+                    ownerChildId={selectedResource.child_id}
+                    label="다른 아이와 자료 연결"
+                  />
                 </aside>
               )}
             </div>
