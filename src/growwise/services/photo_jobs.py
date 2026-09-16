@@ -120,6 +120,19 @@ class PhotoJobRunner:
             sleep(min(5.0, max(1.0, self.poll_interval_seconds * 2)))
             return
 
-        with suppress(Exception):
-            service.mark_failed(record_id, error)
-        self.queue.fail(job.id, error)
+        # AI is an enhancement, not a persistence dependency. After bounded retries, disable both
+        # providers and turn the already-saved photos/parent note into a deterministic editable
+        # draft. Only a failure in that local fallback is allowed to mark the record itself failed.
+        try:
+            service.text_provider = None
+            service.vision_provider = None
+            service.mark_queued(record_id, error=error)
+            service.process_draft(record_id)
+            self.queue.complete(job.id)
+        except KeyError:
+            self.queue.cancel(job.id)
+        except Exception as fallback_exc:
+            fallback_error = f"{type(fallback_exc).__name__}: {fallback_exc}"
+            with suppress(Exception):
+                service.mark_failed(record_id, fallback_error)
+            self.queue.fail(job.id, fallback_error)
