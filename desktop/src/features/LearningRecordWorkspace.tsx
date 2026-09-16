@@ -1,10 +1,9 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 
+import { useActiveChild } from "../active-child-context";
 import {
   createLearningRecord,
-  listChildren,
   listLearningRecords,
-  type ChildProfile,
   type ExperienceAxis,
   type LearningLog,
   type LearningRecordKind,
@@ -12,7 +11,6 @@ import {
 import { AXIS_OPTIONS } from "../presentation";
 import "./LearningRecordWorkspace.css";
 
-const LAST_CHILD_KEY = "growwise:last-child-id";
 const AI_POLL_INTERVAL_MS = 1500;
 
 type IndependentKind = Exclude<
@@ -48,8 +46,12 @@ function displayDate(record: LearningLog): string {
 }
 
 export function LearningRecordWorkspace({ active }: { active: boolean }) {
-  const [children, setChildren] = useState<ChildProfile[]>([]);
-  const [childId, setChildId] = useState("");
+  const {
+    children,
+    activeChildId: childId,
+    selectChild,
+    syncRememberedChild,
+  } = useActiveChild();
   const [records, setRecords] = useState<LearningLog[]>([]);
   const [kind, setKind] = useState<IndependentKind>("reading_reflection");
   const [title, setTitle] = useState("");
@@ -81,7 +83,10 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
   );
 
   const loadRecords = useCallback(async (targetChildId: string) => {
-    if (!targetChildId) return;
+    if (!targetChildId) {
+      setRecords([]);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
@@ -95,27 +100,17 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
 
   useEffect(() => {
     if (!active) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const loaded = await listChildren();
-        if (cancelled) return;
-        setChildren(loaded);
-        const remembered = localStorage.getItem(LAST_CHILD_KEY);
-        const selected = loaded.find((child) => child.id === remembered) ?? loaded[0];
-        const selectedId = selected?.id ?? "";
-        setChildId(selectedId);
-        if (selectedId) await loadRecords(selectedId);
-      } catch (cause) {
-        if (!cancelled) {
-          setError(cause instanceof Error ? cause.message : "아이 목록을 불러오지 못했습니다.");
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [active, loadRecords]);
+    syncRememberedChild();
+  }, [active, syncRememberedChild]);
+
+  useEffect(() => {
+    if (!active) return;
+    setSharedChildIds([]);
+    setNotice(null);
+    setRecords([]);
+    if (!childId) return;
+    void loadRecords(childId);
+  }, [active, childId, loadRecords]);
 
   useEffect(() => {
     if (!active || !childId || !hasPendingAi) return;
@@ -222,13 +217,7 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
             <span>아이</span>
             <select
               value={childId}
-              onChange={(event) => {
-                const nextId = event.target.value;
-                setChildId(nextId);
-                localStorage.setItem(LAST_CHILD_KEY, nextId);
-                setSharedChildIds([]);
-                void loadRecords(nextId);
-              }}
+              onChange={(event) => selectChild(event.target.value)}
               disabled={busy}
             >
               {children.map((child) => (
