@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useActiveChild } from "../active-child-context";
 import {
   getGrowthMap,
   listActivities,
-  listChildren,
   listMaterials,
   listObservations,
   listResources,
@@ -16,8 +16,6 @@ import {
 } from "../api";
 import type { WorkspaceView } from "../components/workspaceTypes";
 import "./HomeDashboard.css";
-
-const LAST_CHILD_KEY = "growwise:last-child-id";
 
 type DashboardData = {
   child: ChildProfile;
@@ -48,23 +46,20 @@ function newestFirst(left: LearningLog, right: LearningLog): number {
 }
 
 export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
+  const { activeChild, syncRememberedChild } = useActiveChild();
   const [state, setState] = useState<DashboardState>({ kind: "idle" });
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
+    if (!activeChild) {
+      setState({ kind: "empty" });
+      return;
+    }
     setState({ kind: "loading" });
 
     try {
-      const children = await listChildren();
-      if (currentRequest !== requestId.current) return;
-      if (children.length === 0) {
-        setState({ kind: "empty" });
-        return;
-      }
-
-      const rememberedId = window.localStorage.getItem(LAST_CHILD_KEY);
-      const child = children.find((item) => item.id === rememberedId) ?? children[0];
+      const child = activeChild;
       const results = await Promise.allSettled([
         getGrowthMap(child.id),
         listObservations(child.id),
@@ -97,13 +92,18 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         message: error instanceof Error ? error.message : "홈 요약을 불러오지 못했습니다.",
       });
     }
-  }, []);
+  }, [activeChild]);
 
   useEffect(() => {
     if (!active) {
       requestId.current += 1;
       return;
     }
+    syncRememberedChild();
+  }, [active, syncRememberedChild]);
+
+  useEffect(() => {
+    if (!active) return;
     void load();
   }, [active, load]);
 
