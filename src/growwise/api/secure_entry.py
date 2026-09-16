@@ -1,17 +1,15 @@
 from __future__ import annotations
 
 import os
-from uuid import UUID
 
 import uvicorn
-from fastapi import HTTPException, Request
+from fastapi import Request
 from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
 from growwise.config import Settings
-from growwise.services.privacy import ChildPurgeService
 
 _SESSION_TOKEN_ENV = "GROWWISE_SESSION_TOKEN"
 
@@ -29,14 +27,6 @@ install_desktop_security(app, session_token=_session_token())
 @app.exception_handler(ValidationError)
 async def domain_validation_error(_request: Request, exc: ValidationError) -> JSONResponse:
     return JSONResponse(status_code=422, content={"detail": exc.errors(include_url=False)})
-
-
-@app.delete("/v1/children/{child_id}", include_in_schema=False)
-def purge_child(child_id: UUID) -> dict[str, object]:
-    try:
-        return ChildPurgeService(Settings()).purge(str(child_id)).model_dump()
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="child_not_found") from exc
 
 
 def run() -> None:
