@@ -20,20 +20,21 @@ describe("material catalog", () => {
     expect(new Set(MATERIAL_CATALOG.map((item) => item.kind)).size).toBe(ALL_KINDS.length);
   });
 
-  it("keeps infant choices parent-led and developmentally bounded", () => {
-    expect(materialCatalogForStage("infant_0_2").map((item) => item.kind)).toEqual([
-      "activity_guide",
-      "reading_activity",
-      "english_card",
-    ]);
+  it.each(ALL_STAGES)("exposes every deterministic material kind for %s", (stage) => {
+    expect(materialCatalogForStage(stage).map((item) => item.kind)).toEqual(ALL_KINDS);
   });
 
-  it.each(ALL_STAGES.filter((stage) => stage !== "infant_0_2"))(
-    "exposes the full deterministic catalog for %s",
-    (stage) => {
-      expect(materialCatalogForStage(stage).map((item) => item.kind)).toEqual(ALL_KINDS);
-    },
-  );
+  it("presents infant kinds as parent-led play and observation rather than worksheets", () => {
+    const infantCatalog = materialCatalogForStage("infant_0_2");
+    const byKind = Object.fromEntries(infantCatalog.map((item) => [item.kind, item]));
+
+    expect(byKind.math_activity.label).toBe("수·크기 감각 놀이");
+    expect(byKind.science_inquiry.label).toBe("감각 탐색");
+    expect(byKind.writing_prompt.label).toBe("끼적이기·소리 표현");
+    expect(byKind.field_trip.label).toBe("짧은 나들이 기록");
+    expect(infantCatalog.every((item) => item.flow.includes("부모 메모"))).toBe(true);
+    expect(infantCatalog.map((item) => item.description).join(" ")).not.toContain("정답형");
+  });
 
   it.each(ALL_KINDS)("provides actionable product guidance for %s", (kind) => {
     const item = materialCatalogItem(kind);
