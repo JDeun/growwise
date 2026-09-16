@@ -3,7 +3,6 @@ from __future__ import annotations
 import sqlite3
 
 from langgraph.checkpoint.sqlite import SqliteSaver
-from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain import (
@@ -124,7 +123,11 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
     assert store.index.list_entities(child_id=str(child.id)) == []
     assert store.index.get_entity(str(sibling.id), entity_type="child_profile") is not None
     assert store.index.get_entity(str(sibling_log.id), entity_type="learning_log") is not None
-    assert not any(str(child.id) in path.read_text(errors="ignore") for path in settings.records_dir.rglob("*.*"))
+    child_id_in_records = any(
+        str(child.id) in path.read_text(errors="ignore")
+        for path in settings.records_dir.rglob("*.*")
+    )
+    assert not child_id_in_records
     assert rag.search(query="삭제할", child_id=str(child.id), limit=10) == []
     assert rag.search(query="보존", child_id=str(sibling.id), limit=10)
     assert conversations.list_for_child(str(child.id)) == []
