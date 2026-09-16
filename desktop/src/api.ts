@@ -13,7 +13,7 @@ export interface HealthResponse { status: string; operation_mode: OperationMode;
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput { nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
 export interface ChildProfile { id: string; nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
-export interface ChildPurgeResult { child_id: string; markdown_files_deleted: number; photo_files_deleted: number; rag_chunks_deleted: number; conversations_deleted: number; jobs_deleted: number; idempotency_records_deleted: number; checkpoint_threads_deleted: number; backups_may_contain_deleted_child: boolean; }
+export interface ChildPurgeResult { child_id: string; markdown_files_deleted: number; photo_files_deleted: number; rag_chunks_deleted: number; conversations_deleted: number; jobs_deleted: number; idempotency_records_deleted: number; checkpoint_threads_deleted: number; links_deleted: number; backups_may_contain_deleted_child: boolean; }
 export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; activity_plan_id?: string | null; }
 export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
 export interface GrowthAxis { axis: ExperienceAxis; state: string; observation_count: number; }
@@ -40,8 +40,9 @@ export interface PhotoUploadInput { filename: string; mime_type: string; data_ba
 export interface PhotoAsset { id: string; child_id: string; original_filename: string; mime_type: string; relative_path: string; sha256: string; byte_size: number; width: number | null; height: number | null; captured_at: string | null; metadata_summary: Record<string, string>; caption: string | null; caption_model: string | null; }
 export interface PhotoActivityRecord { id: string; child_id: string; photo_asset_ids: string[]; user_context: string | null; generated_observation: string; generation_mode: string; status: PhotoRecordStatus; job_id: string | null; error_message: string | null; suggested_tags: string[]; suggested_experience_axes: ExperienceAxis[]; suggested_interest: string | null; suggested_difficulty_note: string | null; suggested_next_activity: string | null; learning_log_id: string | null; created_at?: string; updated_at?: string; }
 export interface PhotoJobSummary { id: string; status: "pending" | "running" | "completed" | "failed" | "cancelled"; attempts: number; }
-export interface PhotoDraftResult { record: PhotoActivityRecord; assets: PhotoAsset[]; job?: PhotoJobSummary; }
+export interface PhotoDraftResult { record: PhotoActivityRecord; assets: PhotoAsset[]; job?: PhotoJobSummary | null; }
 export interface PhotoAssetContent { asset: PhotoAsset; data_base64: string; }
+export interface PhotoCreateOptions { userContext?: string; manualObservation?: string; aiAssist?: boolean; sharedChildIds?: string[]; }
 export interface BackupItem { archive: string; path: string; size_bytes: number; modified_at: string; }
 export interface BackupCreateResult { archive: string; path: string; size_bytes: number; modified_at: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; asset_count: number; }; }
 export interface BackupRestoreResult { archive: string; restored: boolean; rag_chunk_count: number; manifest: BackupCreateResult["manifest"]; }
@@ -83,7 +84,18 @@ export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map
 export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
 export const getInfantObservationHints = (childId: string) => call<InfantObservationHints>("get_infant_observation_hints", { childId });
 export const getBoardBookRecommendations = (childId: string) => call<BoardBookRecommendations>("get_board_book_recommendations", { childId });
-export const createPhotoRecord = (childId: string, files: PhotoUploadInput[], userContext?: string) => call<PhotoDraftResult>("create_photo_record", { childId, files, userContext: userContext ?? null });
+export const createPhotoRecord = (
+  childId: string,
+  files: PhotoUploadInput[],
+  options: PhotoCreateOptions = {},
+) => call<PhotoDraftResult>("create_photo_record", {
+  childId,
+  files,
+  userContext: options.userContext ?? null,
+  manualObservation: options.manualObservation ?? null,
+  aiAssist: options.aiAssist ?? true,
+  sharedChildIds: options.sharedChildIds ?? [],
+});
 export const listPhotoRecords = (childId: string) => call<PhotoActivityRecord[]>("list_photo_records", { childId });
 export const commitPhotoRecord = (recordId: string, observation?: string) => call<LearningLog>("commit_photo_record", { recordId, observation: observation ?? null });
 export const getPhotoAsset = (childId: string, assetId: string) => call<PhotoAssetContent>("get_photo_asset", { childId, assetId });
