@@ -10,6 +10,7 @@ import type {
 } from "../api";
 import { materialCatalogForStage, materialCatalogItem } from "../material-catalog";
 import { EmptyState } from "./EmptyState";
+import { EntityLinkPanel } from "./EntityLinkPanel";
 import { MaterialContent } from "./MaterialContent";
 import { MaterialCurriculumTargets } from "./MaterialCurriculumTargets";
 import { MaterialKindGuide } from "./MaterialKindGuide";
@@ -93,6 +94,16 @@ function MaterialHeading({ material }: { material: GeneratedMaterial }) {
         v{material.version} · {materialCatalogItem(material.kind).label}
       </small>
     </div>
+  );
+}
+
+function MaterialLinks({ material }: { material: GeneratedMaterial }) {
+  return (
+    <EntityLinkPanel
+      entityId={material.id}
+      ownerChildId={material.child_id}
+      label="다른 아이와 생성 자료 연결"
+    />
   );
 }
 
@@ -294,6 +305,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card draft-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialLinks material={material} />
                 <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview compact">
                   <MaterialContent markdown={material.content_markdown} />
@@ -347,6 +359,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card review-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialLinks material={material} />
                 <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview">
                   <MaterialContent markdown={material.content_markdown} />
@@ -425,6 +438,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card approved-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialLinks material={material} />
                 <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview compact">
                   <MaterialContent markdown={material.content_markdown} />
