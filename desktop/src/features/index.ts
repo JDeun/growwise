@@ -4,6 +4,7 @@ export { DataManagementSection } from "./DataManagementSection";
 export { DiscoveryWorkspace } from "./DiscoveryWorkspace";
 export { HomeDashboard } from "./HomeDashboard";
 export { InfantGuidanceSection } from "./InfantGuidanceSection";
+export { LearningRecordWorkspace } from "./LearningRecordWorkspace";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
 export { ObservationTimelineSection } from "./ObservationTimelineSection";
 export { PhotoActivityWorkspace } from "./PhotoActivityWorkspace";
