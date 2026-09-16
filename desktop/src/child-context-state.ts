@@ -25,6 +25,15 @@ export function childContextState(kind: "idle" | "loading" | "ready"): ChildCont
   return Object.fromEntries(CHILD_CONTEXT_KEYS.map((key) => [key, { kind }])) as ChildContextLoadState;
 }
 
+export function isCurrentChildScope(
+  childId: string,
+  requestId: number,
+  currentChildId: string | null,
+  currentRequestId: number,
+): boolean {
+  return childId === currentChildId && requestId === currentRequestId;
+}
+
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error && error.message.trim() ? error.message : fallback;
 }
