@@ -86,6 +86,50 @@ def test_graph_expansion_includes_global_and_explicitly_shared_neighbors(tmp_pat
     relations = {item["id"]: item["graph_relation"] for item in expanded}
     assert relations[str(global_resource.id)] == "supports"
     assert relations[str(shared_resource.id)] == "related"
+    assert {item["graph_direction"] for item in expanded} == {"outgoing"}
+
+
+def test_directional_relation_keeps_stored_source_and_target_when_traversed_both_ways(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    child = ChildProfile(name="아이", nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+
+    result = LearningLog(child_id=child.id, parent_observation="활동 결과를 기록했다.")
+    source = ResourceRecord(
+        child_id=child.id,
+        kind=ResourceKind.NOTE,
+        title="활동 원본",
+    )
+    store.save(result)
+    store.save(source)
+    EntityLinkService(store).create(
+        source_id=result.id,
+        target_id=source.id,
+        relation=EntityLinkRelation.DERIVED_FROM,
+    )
+
+    from_result = GraphContextExpander(store.index).expand(
+        child_id=str(child.id),
+        seed_ids=[str(result.id)],
+    )
+    from_source = GraphContextExpander(store.index).expand(
+        child_id=str(child.id),
+        seed_ids=[str(source.id)],
+    )
+
+    assert from_result[0]["id"] == str(source.id)
+    assert from_result[0]["graph_relation"] == "derived_from"
+    assert from_result[0]["graph_direction"] == "outgoing"
+    assert from_result[0]["graph_source_id"] == str(result.id)
+    assert from_result[0]["graph_target_id"] == str(source.id)
+
+    assert from_source[0]["id"] == str(result.id)
+    assert from_source[0]["graph_relation"] == "derived_from"
+    assert from_source[0]["graph_direction"] == "incoming"
+    assert from_source[0]["graph_source_id"] == str(result.id)
+    assert from_source[0]["graph_target_id"] == str(source.id)
 
 
 def test_child_scope_links_are_visibility_only_not_semantic_graph_edges(tmp_path: Path) -> None:
