@@ -35,6 +35,7 @@ class BackupService:
 
     MANIFEST_NAME = "manifest.json"
     MAX_ARCHIVE_MEMBERS = 100_001
+    MAX_MANIFEST_BYTES = 256 * 1024
     MAX_SINGLE_FILE_BYTES = 16 * 1024 * 1024
     MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
 
@@ -107,8 +108,10 @@ class BackupService:
             staging = Path(temp_dir)
             try:
                 with zipfile.ZipFile(archive_path, "r") as archive:
-                    manifest = self._read_manifest(archive)
+                    # Validate metadata before inflating any member. The manifest itself has a much
+                    # smaller hard limit so a hostile ZIP cannot consume memory before validation.
                     self._validate_members(archive)
+                    manifest = self._read_manifest(archive)
                     archive.extractall(staging)
             except zipfile.BadZipFile as exc:
                 raise InvalidBackup("backup archive is not a valid ZIP file") from exc
@@ -185,7 +188,13 @@ class BackupService:
 
     def _read_manifest(self, archive: zipfile.ZipFile) -> BackupManifest:
         try:
-            payload = json.loads(archive.read(self.MANIFEST_NAME))
+            with archive.open(self.MANIFEST_NAME, "r") as handle:
+                raw = handle.read(self.MAX_MANIFEST_BYTES + 1)
+            if len(raw) > self.MAX_MANIFEST_BYTES:
+                raise InvalidBackup("backup manifest is too large")
+            payload = json.loads(raw)
+        except InvalidBackup:
+            raise
         except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise InvalidBackup("missing or invalid backup manifest") from exc
         manifest = BackupManifest.model_validate(payload)
@@ -201,7 +210,15 @@ class BackupService:
             raise InvalidBackup("backup archive contains too many members")
 
         total_size = 0
+        seen_names: set[str] = set()
+        manifest_count = 0
         for info in members:
+            if info.filename in seen_names:
+                raise InvalidBackup(f"duplicate archive member: {info.filename}")
+            seen_names.add(info.filename)
+            if "\\" in info.filename or "\x00" in info.filename:
+                raise InvalidBackup(f"unsafe archive member: {info.filename}")
+
             path = PurePosixPath(info.filename)
             if path.is_absolute() or ".." in path.parts:
                 raise InvalidBackup(f"unsafe archive member: {info.filename}")
@@ -213,10 +230,17 @@ class BackupService:
             total_size += info.file_size
             if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
                 raise InvalidBackup("backup archive expands beyond the allowed size")
+
             if info.filename == cls.MANIFEST_NAME:
+                manifest_count += 1
+                if info.file_size > cls.MAX_MANIFEST_BYTES:
+                    raise InvalidBackup("backup manifest is too large")
                 continue
             if not path.parts or path.parts[0] not in {"records", "assets"}:
                 raise InvalidBackup(f"unexpected archive member: {info.filename}")
+
+        if manifest_count != 1:
+            raise InvalidBackup("backup archive must contain exactly one manifest.json")
 
     @staticmethod
     def _validate_records(records_root: Path) -> int:
