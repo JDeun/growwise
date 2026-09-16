@@ -5,7 +5,7 @@ import App from "./App";
 import PrintApprovedMaterials from "./PrintApprovedMaterials";
 import { CapabilityStatus } from "./components/CapabilityStatus";
 import { WorkspaceShell } from "./components";
-import { HomeDashboard } from "./features";
+import { HomeDashboard, PhotoActivityWorkspace } from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
 import "./styles.css";
 import "./tokens.css";
@@ -22,8 +22,9 @@ createRoot(document.getElementById("root")!).render(
       renderWorkspace={(activeView, navigate) => (
         <>
           <CapabilityStatus />
-          <App />
+          {activeView !== "photos" && <App />}
           <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
+          <PhotoActivityWorkspace active={activeView === "photos"} />
         </>
       )}
     />
