@@ -129,7 +129,7 @@ input → router → RAG/context → optional LLM → structured material
 - [x] Parent Review interrupt/resume를 material workflow 동일 thread로 통합 (`workflows/material_pipeline.py`)
 - [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
 - [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
-- [ ] 전용 PDF renderer/packaging 결정 (현재 OS print/PDF 경로; 안전한 용지/방향/여백 설정 완료)
+- [x] PDF renderer/packaging 결정 (`docs/adr/0001-pdf-export.md` — OS-native print/PDF를 공식 경로로 채택)
 - [ ] local model latency/quality benchmark (하네스 `scripts/benchmark_model.py` 완료; 실측·로컬/원격 결정=운영자)
 - [ ] 최소/권장 하드웨어 benchmark (하네스 `scripts/benchmark_hardware.py` 완료; 실기기 실측=운영자)
 
