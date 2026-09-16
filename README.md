@@ -139,7 +139,7 @@ LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounde
 - RAG: lexical + optional embedding hybrid retrieval
 - Background jobs: SQLite durable job queue
 - Desktop packaging: PyInstaller one-file Core bundled as Tauri resource
-- Export: 이식형 백업(zip)·Markdown 묶음 + 안전한 인쇄/PDF(OS 경로), 전용 렌더러는 검토 중
+- Export: 이식형 백업(zip)·Markdown 묶음 + 승인 자료 WebView/OS 네이티브 인쇄·PDF
 - Platforms: Windows + macOS
 
 자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
@@ -147,9 +147,10 @@ LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounde
 ## 현재 구현 상태
 
 **pre-1.0 / 활발한 구현 단계.** 설계 전용 저장소를 지나, local-first Core와 데스크탑 앱의
-대부분 기능이 구현·테스트된 상태다([로드맵](docs/roadmap.md) 체크리스트 대부분 완료). 남은 것은
-주로 코드사이닝/notarization, 실기기·로컬모델 벤치 *수치*, 교육 콘텐츠 라이선스 소싱, 과목별
-UX 실사용 다듬기다.
+대부분 기능이 구현·테스트된 상태다([로드맵](docs/roadmap.md) 체크리스트 대부분 완료). 저장소
+내부 기능 구현과 안전·패키징 자동화는 운영 검증을 제외하고 완료 상태이며, 남은 것은 실제
+code signing/notarization 자격증명, updater 장기 trust key 운영, 실기기·로컬모델 benchmark
+실측, 가정 dogfooding이다.
 
 현재 구현된 기반:
 
@@ -291,6 +292,7 @@ GET  /health
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
 | [docs/references.md](docs/references.md) | 참고 자료·근거 |
 | [docs/release.md](docs/release.md) | 릴리스·패키징 절차 |
+| [docs/operational-validation.md](docs/operational-validation.md) | 실기기 benchmark·서명·updater 운영 검증 절차 |
 | [docs/roadmap.md](docs/roadmap.md) | 전체 기능 완성 로드맵 |
 
 브랜드 자산은 [assets/brand](assets/brand)를 참고한다.
