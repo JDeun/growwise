@@ -6,6 +6,8 @@ import {
   type MaterialUseHistoryItem,
 } from "./api";
 
+type MaterialQuestSource = Pick<GeneratedMaterial, "id" | "child_id" | "title">;
+
 interface MaterialQuestApi {
   listResults: (materialId: string) => Promise<MaterialUseHistoryItem[]>;
   create: (childId: string, title: string, sourceRefs: string[]) => Promise<ActivityPlan>;
@@ -32,7 +34,7 @@ const pendingEnsures = new Map<string, Promise<EnsuredMaterialQuest>>();
  * twice inside a single desktop process.
  */
 export function ensureMaterialQuest(
-  material: GeneratedMaterial,
+  material: MaterialQuestSource,
   api: MaterialQuestApi = DEFAULT_API,
 ): Promise<EnsuredMaterialQuest> {
   const existing = pendingEnsures.get(material.id);
