@@ -31,6 +31,7 @@ from growwise.generators import (
     MaterialSourceEvidence,
 )
 from growwise.material_versions import serialize_material_successor
+from growwise.services.material_feedback import MaterialFeedbackService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph
@@ -208,19 +209,24 @@ def generate_material_background(
         store=store,
     )
     evidence = _source_evidence(source_refs=source_refs, store=store)
+    feedback = MaterialFeedbackService(store.index).snapshot(child_id=str(child.id))
+    effective_goal = feedback.generation_goal(request.goal)
 
     # Always return a complete deterministic draft immediately. Slow model personalization and
-    # parent-guide refinement happen later against this same stable material ID.
+    # parent-guide refinement happen later against this same stable material ID. Recent material
+    # outcomes influence only generalized scaffolding in learner-visible text; raw parent feedback
+    # remains in the local parent guide and is not sent to the model.
     material = MaterialGenerationService(provider=None).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
-        goal=request.goal,
+        goal=effective_goal,
         source_refs=source_refs,
         source_evidence=evidence,
     )
     material.request_topic = request.topic
     material.request_goal = request.goal
+    material.parent_guide_markdown = feedback.with_parent_guide(material.parent_guide_markdown)
     store.save(material)
     _init_review(material)
     queue_material_enhancement(material=material, store=store)
@@ -269,6 +275,8 @@ def revise_material_background(
     except MaterialRevisionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
+    feedback = MaterialFeedbackService(store.index).snapshot(child_id=str(material.child_id))
+    revised.parent_guide_markdown = feedback.with_parent_guide(revised.parent_guide_markdown)
     store.save(revised)
     _init_review(revised)
     queue_material_enhancement(material=revised, store=store)
