@@ -45,10 +45,19 @@ class Settings(BaseSettings):
     photo_max_images_per_record: int = Field(default=8, ge=1, le=12)
     photo_max_total_bytes: int = Field(default=60 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
 
+    # Public education-resource discovery. These adapters receive public query dimensions only;
+    # child IDs, names, observations, and notes must never be included in outbound requests.
+    data4library_api_key: str | None = None
+    data4library_endpoint: str = "https://data4library.kr/api/srchBooks"
+    data4library_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+    overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
+    overpass_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+    discovery_place_radius_m: int = Field(default=2_000, ge=100, le=20_000)
+
     # Public curriculum enrichment is disabled unless an endpoint is explicitly configured.
-    # Child identity/profile data must never be sent to this endpoint.
+    # A bundled official-source metadata catalog remains available without network access.
     curriculum_endpoint: str | None = None
-    curriculum_cache_ttl_seconds: int = 604_800
+    curriculum_cache_ttl_seconds: int = Field(default=604_800, ge=60, le=2_592_000)
 
     @property
     def records_dir(self) -> Path:
