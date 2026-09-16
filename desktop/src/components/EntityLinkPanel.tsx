@@ -1,8 +1,11 @@
-import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { useOptionalActiveChild } from "../active-child-context";
-import { getEntityBacklinks, type EntityBacklinks } from "../api";
+import {
+  getEntityBacklinks,
+  shareEntityWithChild,
+  type EntityBacklinks,
+} from "../api";
 import "./EntityLinkPanel.css";
 
 interface EntityLinkPanelProps {
@@ -30,9 +33,8 @@ export function EntityLinkPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canManageScope = Boolean(activeChildId) && (
-    ownerChildId === null || ownerChildId === activeChildId
-  );
+  const canManageScope =
+    Boolean(activeChildId) && (ownerChildId === null || ownerChildId === activeChildId);
 
   const refresh = useCallback(async () => {
     setGraph(await getEntityBacklinks(entityId));
@@ -61,11 +63,7 @@ export function EntityLinkPanel({
     setBusy(true);
     setError(null);
     try {
-      await invoke("share_entity_with_child", {
-        sourceId: entityId,
-        childId: targetChildId,
-        actingChildId: activeChildId,
-      });
+      await shareEntityWithChild(entityId, targetChildId, activeChildId);
       setTargetChildId("");
       await refresh();
     } catch (shareError) {
