@@ -18,6 +18,7 @@ from growwise.adapters import (
 from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord
 from growwise.rag import ResourceIngestor
+from growwise.services.public_query import generalize_public_terms
 from growwise.storage import EntityStore
 
 
@@ -62,9 +63,10 @@ class DiscoveryResponse(BaseModel):
 class EducationDiscoveryService:
     """Find public education resources without exporting private child records.
 
-    Private records are used only to derive short, generic query terms locally. External adapters
-    receive public search dimensions such as a topic keyword, school stage, or parent-supplied map
-    coordinates. Child IDs, names, observations, and free-form notes never cross this boundary.
+    Private records may contribute to local ranking terms, but external adapters receive only
+    allow-listed generic education topics, school stage, or parent-supplied map coordinates.
+    Child IDs, names, observations, free-form interests, activity titles, and notes never cross
+    this boundary.
     """
 
     def __init__(
@@ -89,8 +91,9 @@ class EducationDiscoveryService:
         limit: int = 12,
         offline: bool = False,
     ) -> DiscoveryResponse:
-        terms = self._query_terms(child=child, explicit_query=query)
-        public_query = " ".join(terms[:3]).strip()
+        local_terms = self._query_terms(child=child, explicit_query=query)
+        public_terms = generalize_public_terms(local_terms)
+        public_query = " ".join(public_terms[:3]).strip()
         suggestions: list[DiscoverySuggestion] = []
         source_states: list[DiscoverySourceState] = []
 
@@ -121,10 +124,10 @@ class EducationDiscoveryService:
             offline=offline,
         )
 
-        ranked = self._rank(suggestions, terms=terms)
+        ranked = self._rank(suggestions, terms=local_terms)
         return DiscoveryResponse(
             query=public_query,
-            query_terms=terms,
+            query_terms=public_terms,
             suggestions=ranked[:limit],
             sources=source_states,
         )
@@ -172,6 +175,7 @@ class EducationDiscoveryService:
         return resource
 
     def _query_terms(self, *, child: ChildProfile, explicit_query: str | None) -> list[str]:
+        """Build rich local terms for ranking; callers must not send these terms externally."""
         if explicit_query and explicit_query.strip():
             return self._normalize_terms([explicit_query])
 
@@ -376,9 +380,7 @@ class EducationDiscoveryService:
                         for key, value in {
                             "isbn13": isbn,
                             "publisher": publisher,
-                            "publication_year": self._text(
-                                record.get("publication_year")
-                            ),
+                            "publication_year": self._text(record.get("publication_year")),
                             "class_name": self._text(record.get("class_name")),
                         }.items()
                         if value
@@ -488,15 +490,9 @@ class EducationDiscoveryService:
                 continue
             domain = EducationDiscoveryService._text(record.get("domain"))
             subject = EducationDiscoveryService._text(record.get("subject"))
-            standard = EducationDiscoveryService._text(
-                record.get("achievement_standard")
-            )
-            summary = " · ".join(
-                part for part in (subject, domain, standard) if part
-            ) or None
-            curriculum_id = EducationDiscoveryService._text(
-                record.get("curriculum_id")
-            )
+            standard = EducationDiscoveryService._text(record.get("achievement_standard"))
+            summary = " · ".join(part for part in (subject, domain, standard) if part) or None
+            curriculum_id = EducationDiscoveryService._text(record.get("curriculum_id"))
             metadata = record.get("metadata")
             if not isinstance(metadata, dict):
                 metadata = {}
@@ -516,9 +512,7 @@ class EducationDiscoveryService:
                     title=title,
                     summary=summary,
                     source_name=source,
-                    source_url=EducationDiscoveryService._optional_text(
-                        record.get("source_url")
-                    ),
+                    source_url=EducationDiscoveryService._optional_text(record.get("source_url")),
                     attribution=attribution,
                     license_note=license_note,
                     cache_status=cache_status,
@@ -528,11 +522,7 @@ class EducationDiscoveryService:
                         else "현재 단계에서 확인할 수 있는 공식 교육과정 근거입니다."
                     ),
                     query_term=query or None,
-                    tags=[
-                        value
-                        for value in ("교육과정", subject, domain)
-                        if value
-                    ],
+                    tags=[value for value in ("교육과정", subject, domain) if value],
                     metadata={
                         "curriculum_id": curriculum_id,
                         **safe_metadata,
@@ -554,9 +544,7 @@ class EducationDiscoveryService:
         }
 
         def score(item: DiscoverySuggestion) -> tuple[int, int, str]:
-            haystack = " ".join(
-                [item.title, item.summary or "", *item.tags]
-            ).casefold()
+            haystack = " ".join([item.title, item.summary or "", *item.tags]).casefold()
             matches = sum(1 for term in terms if term.casefold() in haystack)
             return matches, category_priority[item.category], item.title
 
