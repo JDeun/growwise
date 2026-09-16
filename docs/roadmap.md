@@ -27,6 +27,9 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 
 > 체크 표시는 코드가 존재하는지만 보지 않고 현재 Definition of Done을 보수적으로 적용한다.
 > 부분 구현은 `[ ]`로 유지하고 현재 상태를 괄호로 기록한다.
+> 저장소 구현/자동화가 끝났고 실기기·실사용·배포 자격증명·장기 신뢰 키처럼 운영자가 직접
+> 제공해야 하는 증거 때문에만 열린 항목은 `operator-only`로 표시한다. 구체 절차는
+> `docs/operator-handoff.md`를 따른다.
 
 ## 왜 0~2세부터 시작하는가
 
@@ -112,7 +115,7 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 - [x] LLM 없이 핵심 기능 동작(Core-only degraded mode)
 - [x] export/import/backup (portable ZIP backup/restore + Desktop import/export UX + safety backup)
 
-**남은 Phase 1 검증:** 실제 가정 dogfooding. 개인 실사용 데이터는 저장소에 넣지 않는다.
+**남은 Phase 1 검증 (operator-only):** 실제 가정 dogfooding. 개인 실사용 데이터는 저장소에 넣지 않는다.
 
 ## Phase 2 — 생성 Vertical Slice
 
@@ -130,8 +133,8 @@ input → router → RAG/context → optional LLM → structured material
 - [x] revision loop (수정 요청 → deterministic/optional-AI 새 immutable version → 재검토)
 - [x] 부모 직접 편집 + immutable version 관리 + 동시 successor race guard
 - [x] PDF renderer/packaging 결정 (`docs/adr/0001-pdf-export.md` — OS-native print/PDF를 공식 경로로 채택)
-- [ ] local model latency/quality benchmark (하네스 `scripts/benchmark_model.py` 완료; 실측·로컬/원격 결정=운영자)
-- [ ] 최소/권장 하드웨어 benchmark (하네스 `scripts/benchmark_hardware.py` 완료; 실기기 실측=운영자)
+- [ ] local model latency/quality benchmark (operator-only: `scripts/benchmark_model.py` 하네스·회귀 테스트 완료; 대표 실기기/실모델 실측·품질 검토 필요)
+- [ ] 최소/권장 하드웨어 benchmark (operator-only: `scripts/benchmark_hardware.py` + Windows/macOS/Linux 회귀 경로 완료; 대표 실기기 실측 필요)
 
 ## Phase 3 — 유아·초등 전체 생성 기능
 
@@ -193,8 +196,8 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 
 - [x] Windows installer CI (NSIS)
 - [x] macOS app/dmg CI (Apple Silicon + Intel)
-- [ ] 실제 배포용 code signing/notarization 자격증명/자동화
-- [ ] Tauri updater
+- [ ] 실제 배포용 code signing/notarization 실증 (operator-only: stable preflight·Apple/Windows signing workflow 완료; 실제 자격증명 설정·stable release·클린 기기 검증 필요)
+- [ ] Tauri updater trust-root 활성화/실기기 검증 (operator-only: `tauri.release.conf.json`, `configure_updater.py`, `prepare_release_assets.py`, stable workflow 자동화 완료; 장기 키 생성·백업·secret 설정·패키지 업데이트 검증 필요)
 - [x] 모델 다운로드/삭제/무결성 검증 (`model/registry.py` — 원자적 쓰기+sha256 검증)
 - [x] storage location 관리 (`storage/location.py` — 검증+안전 relocate)
 - [x] backup/restore/import/export Desktop UX
@@ -241,6 +244,9 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] docs/code consistency audit (`test_docs_code_consistency.py` — 로드맵 코드참조 검증)
 - [x] sample/test data privacy audit (`test_repo_privacy_audit.py` — 구조적 전화/주민번호 + GROWWISE_PII_DENYLIST 실명 감사)
 - [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
+
+**저장소 구현/자동화 상태:** 완료. 남은 `[ ]`는 운영자 실측·실기기·배포 자격증명·장기
+updater 신뢰 키처럼 저장소가 대신 생성하거나 증명하면 안 되는 `operator-only` 항목이다.
 
 ## Definition of Done
 
