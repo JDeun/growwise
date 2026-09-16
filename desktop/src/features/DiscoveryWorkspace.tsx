@@ -1,6 +1,6 @@
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 
-import { listChildren, type ChildProfile } from "../api";
+import { useActiveChild } from "../active-child-context";
 import {
   discoverEducationResources,
   saveDiscoveredResource,
@@ -9,8 +9,6 @@ import {
   type DiscoverySuggestion,
 } from "../discovery-api";
 import "./DiscoveryWorkspace.css";
-
-const LAST_CHILD_KEY = "growwise:last-child-id";
 
 const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
   book: "도서",
@@ -54,8 +52,7 @@ function sourceStatusText(status: string): string {
 type Props = { active: boolean };
 
 export function DiscoveryWorkspace({ active }: Props) {
-  const [children, setChildren] = useState<ChildProfile[]>([]);
-  const [childId, setChildId] = useState("");
+  const { children, activeChildId: childId, selectChild, syncRememberedChild } = useActiveChild();
   const [query, setQuery] = useState("");
   const [result, setResult] = useState<DiscoveryResponse | null>(null);
   const [busy, setBusy] = useState(false);
@@ -64,18 +61,17 @@ export function DiscoveryWorkspace({ active }: Props) {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
 
-  const loadChildren = useCallback(async () => {
-    const next = await listChildren();
-    setChildren(next);
-    const remembered = window.localStorage.getItem(LAST_CHILD_KEY);
-    const selected = next.find((child) => child.id === remembered) ?? next[0] ?? null;
-    setChildId(selected?.id ?? "");
-  }, []);
-
   useEffect(() => {
     if (!active) return;
-    void loadChildren().catch((loadError) => setError(errorMessage(loadError)));
-  }, [active, loadChildren]);
+    syncRememberedChild();
+  }, [active, syncRememberedChild]);
+
+  useEffect(() => {
+    setResult(null);
+    setSavedIds(new Set());
+    setNotice(null);
+    setError(null);
+  }, [childId]);
 
   async function handleDiscover(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -138,12 +134,7 @@ export function DiscoveryWorkspace({ active }: Props) {
             <span>아이</span>
             <select
               value={childId}
-              onChange={(event) => {
-                setChildId(event.target.value);
-                setResult(null);
-                setSavedIds(new Set());
-                window.localStorage.setItem(LAST_CHILD_KEY, event.target.value);
-              }}
+              onChange={(event) => selectChild(event.target.value)}
               disabled={busy || children.length === 0}
             >
               {children.length === 0 && <option value="">먼저 아이 프로필을 만들어주세요</option>}
