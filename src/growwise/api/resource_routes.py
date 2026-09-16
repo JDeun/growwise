@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from growwise.config import Settings
 from growwise.domain import ResourceKind, ResourceRecord, Stage
 from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngestor
+from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/resources", tags=["resources"])
@@ -64,13 +65,32 @@ def _resource(store: EntityStore, resource_id: UUID) -> ResourceRecord:
     return ResourceRecord.model_validate(payload)
 
 
+def _require_mutation_scope(
+    resource: ResourceRecord,
+    *,
+    acting_child_id: UUID | None,
+) -> None:
+    """Keep child-scoped shared resources read-only outside their owning child context.
+
+    A resource with no child_id is a parent-wide library item and remains mutable from any child
+    view. A child-owned resource may be visible to siblings through CHILD_SCOPE, but visibility is
+    not ownership and must not grant edit/delete rights.
+    """
+    if resource.child_id is None:
+        return
+    if acting_child_id != resource.child_id:
+        raise HTTPException(status_code=403, detail="shared_resource_read_only")
+
+
 @router.put("/{resource_id}", response_model=ResourceRecord)
 def update_resource(
     resource_id: UUID,
     request: ResourceUpdateRequest,
     store: Annotated[EntityStore, Depends(get_resource_store)],
+    acting_child_id: UUID | None = None,
 ) -> ResourceRecord:
     current = _resource(store, resource_id)
+    _require_mutation_scope(current, acting_child_id=acting_child_id)
     updated = current.model_copy(
         update={
             **request.model_dump(),
@@ -96,8 +116,10 @@ def update_resource(
 def delete_resource(
     resource_id: UUID,
     store: Annotated[EntityStore, Depends(get_resource_store)],
+    acting_child_id: UUID | None = None,
 ) -> dict[str, bool]:
     current = _resource(store, resource_id)
+    _require_mutation_scope(current, acting_child_id=acting_child_id)
     rag_index = get_resource_rag_index()
     rag_index.delete_resource(str(resource_id))
     try:
@@ -109,4 +131,9 @@ def delete_resource(
         raise
     if not deleted:
         raise HTTPException(status_code=404, detail="resource_not_found")
+
+    # CHILD_SCOPE and semantic backlinks are projections around the source entity. Once the source
+    # is gone, remove all touching links so shared-resource visibility cannot leave dangling graph
+    # records behind.
+    EntityLinkService(store).delete_for_entities({str(resource_id)})
     return {"deleted": True}
