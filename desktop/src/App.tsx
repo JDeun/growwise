@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { LAST_CHILD_KEY, useActiveChild } from "./active-child-context";
 import {
   ConfirmDialog,
   MaterialWorkspaceIntegration,
@@ -92,9 +93,11 @@ type BackupConfirmation =
 
 type WriteNotice = { id: number; message: string };
 
-const LAST_CHILD_KEY = "growwise:last-child-id";
-
 function App() {
+  const {
+    selectChild: selectSharedChild,
+    upsertChild: upsertSharedChild,
+  } = useActiveChild();
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
   const [children, setChildren] = useState<ChildProfile[]>([]);
   const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
@@ -182,6 +185,7 @@ function App() {
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
       activeChildIdRef.current = child.id;
+      selectSharedChild(child.id);
       setActiveChild(child);
       setGrowthMap(null);
       setTimeline([]);
@@ -220,7 +224,6 @@ function App() {
       setMaterialError(null);
       setRevisionNotes({});
       setEditingMaterialId(null);
-      localStorage.setItem(LAST_CHILD_KEY, child.id);
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -277,7 +280,7 @@ function App() {
               },
       });
     },
-    [scopeIsCurrent],
+    [scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -307,6 +310,7 @@ function App() {
       } else {
         childContextRequestId.current += 1;
         activeChildIdRef.current = null;
+        selectSharedChild("");
         setActiveChild(null);
         setGrowthMap(null);
         setTimeline([]);
@@ -324,7 +328,7 @@ function App() {
         message: errorMessage(error, "GrowWise Core 상태를 확인할 수 없습니다."),
       });
     }
-  }, [loadChildContext]);
+  }, [loadChildContext, selectSharedChild]);
 
   useEffect(() => {
     void refresh();
@@ -407,6 +411,7 @@ function App() {
         age_months: parsedAge,
         interests: [],
       });
+      upsertSharedChild(child, { select: true });
       setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
       await loadChildContext(child);
       setNickname("");
