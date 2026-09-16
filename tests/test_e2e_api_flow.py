@@ -63,23 +63,46 @@ def _create_child(client: TestClient) -> str:
 
 
 def test_parent_journey_child_to_material_review_to_export(client: TestClient) -> None:
-    """Broad happy-path across child -> material -> review approve -> activity ->
-    observation -> growth-map -> backup export."""
+    """Broad happy-path across resource-grounded material -> review -> activity -> backup."""
     child_id = _create_child(client)
 
-    # Generate a material in deterministic template mode -> awaits parent review.
+    source_response = client.post(
+        "/v1/resources",
+        json={
+            "kind": "note",
+            "title": "고양이 관찰 메모",
+            "child_id": child_id,
+            "summary": "고양이의 귀와 꼬리 움직임을 장면별로 살펴본다.",
+            "content": "그림을 먼저 충분히 보고 아이가 발견한 특징을 자신의 말로 표현하게 한다.",
+            "source_url": None,
+            "source_name": "부모 메모",
+            "author": None,
+            "tags": ["고양이", "관찰"],
+            "stage_tags": ["elementary"],
+            "provenance": {"origin": "parent"},
+        },
+    )
+    assert source_response.status_code == 200, source_response.text
+    source = source_response.json()
+    source_ref = f"resource:{source['id']}"
+
+    # Generate in deterministic template mode with an explicitly selected source. The source title
+    # is visible even without an LLM, and the same bounded evidence is available to an LLM when on.
     generated = client.post(
         f"/v1/children/{child_id}/materials",
         json={
             "kind": "reading_activity",
             "topic": "고양이 그림책",
             "goal": "장면을 관찰하고 아이의 반응을 기다린다.",
+            "source_refs": [source_ref],
         },
     )
     assert generated.status_code == 200, generated.text
     material = generated.json()
     material_id = material["id"]
     assert material["status"] == "review_pending"
+    assert material["source_refs"] == [source_ref]
+    assert "고양이 관찰 메모" in material["content_markdown"]
 
     # Parent approves through the real review checkpoint graph.
     approved = client.post(
@@ -98,7 +121,7 @@ def test_parent_journey_child_to_material_review_to_export(client: TestClient) -
     # Create an activity and record an observation linked to it.
     activity_resp = client.post(
         f"/v1/children/{child_id}/activities",
-        json={"title": "고양이 그림 함께 보기", "source_refs": ["resource:book-1"]},
+        json={"title": "고양이 그림 함께 보기", "source_refs": [source_ref]},
     )
     assert activity_resp.status_code == 200, activity_resp.text
     activity = activity_resp.json()
