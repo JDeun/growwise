@@ -16,7 +16,7 @@ from growwise.services.privacy import ChildPurgeService
 from growwise.storage import EntityStore
 
 _ONE_PIXEL_PNG = base64.b64decode(
-    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
+    "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII="
 )
 
 
@@ -193,7 +193,7 @@ def test_child_purge_during_slow_caption_does_not_resurrect_photo_data(tmp_path:
 
 
 def test_photo_and_privacy_routes_are_registered_on_core_app() -> None:
-    paths = {route.path for route in app.routes}
+    paths = set(app.openapi()["paths"])
     assert "/v1/children/{child_id}/photo-records" in paths
     assert "/v1/photo-records/{record_id}/commit" in paths
     assert "/v1/children/{child_id}" in paths
