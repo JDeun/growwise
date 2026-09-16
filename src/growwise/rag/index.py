@@ -21,8 +21,10 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
 
 
 def _fts_query(terms: list[str]) -> str:
-    # Quote every user term so FTS operators in user input are treated as text, not syntax.
-    return " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"' for term in terms)
+    # Treat user input as literal text and use token-prefix matching. Prefix matching matters for
+    # Korean because SQLite's unicode tokenizer sees forms such as "고양이를" as one token while a
+    # parent naturally searches for the stem "고양이".
+    return " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"*' for term in terms)
 
 
 class HybridRagIndex:
@@ -211,6 +213,16 @@ class HybridRagIndex:
             connection.close()
         return len(chunks)
 
+    @staticmethod
+    def _scoped_rows(
+        connection: sqlite3.Connection,
+        child_id: str | None,
+    ) -> list[sqlite3.Row]:
+        return connection.execute(
+            "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
+            (child_id,),
+        ).fetchall()
+
     def _lexical_candidates(
         self,
         connection: sqlite3.Connection,
@@ -220,13 +232,10 @@ class HybridRagIndex:
         limit: int,
     ) -> list[sqlite3.Row]:
         if not self._fts_available or not query_terms:
-            return connection.execute(
-                "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
-                (child_id,),
-            ).fetchall()
+            return self._scoped_rows(connection, child_id)
         candidate_limit = max(200, limit * 20)
         try:
-            return connection.execute(
+            rows = connection.execute(
                 """
                 SELECT c.*
                 FROM rag_chunks AS c
@@ -237,12 +246,14 @@ class HybridRagIndex:
                 """,
                 (_fts_query(query_terms), child_id, candidate_limit),
             ).fetchall()
+            if rows:
+                return rows
+            # FTS token boundaries are language-dependent. Preserve the previous substring-search
+            # recall when FTS returns no candidate (for example Korean stems embedded in a token).
+            return self._scoped_rows(connection, child_id)
         except sqlite3.OperationalError:
             # Query tokenization/SQLite build differences must never make search unavailable.
-            return connection.execute(
-                "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
-                (child_id,),
-            ).fetchall()
+            return self._scoped_rows(connection, child_id)
 
     def search(
         self,
@@ -269,10 +280,7 @@ class HybridRagIndex:
             # Semantic ranking still needs all scoped vectors. Without a query vector, FTS5 reduces
             # the Python ranking set from O(all chunks) to O(lexical candidates).
             if query_vector is not None:
-                rows = connection.execute(
-                    "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
-                    (child_id,),
-                ).fetchall()
+                rows = self._scoped_rows(connection, child_id)
             else:
                 rows = self._lexical_candidates(
                     connection,
