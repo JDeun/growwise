@@ -14,7 +14,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from growwise.domain.models import LearningLog
+from growwise.domain.models import LearningLog, LearningRecordKind
 from growwise.domain.photo import (
     PhotoActivityRecord,
     PhotoAsset,
@@ -397,7 +397,7 @@ LearningLog."""
                 caption = self.vision_provider.caption(
                     image_base64=base64.b64encode(data).decode("ascii"),
                     mime_type=asset.mime_type,
-                    context=record.user_context or "",
+                    context="",
                 )
             except Exception:
                 continue
@@ -565,6 +565,7 @@ LearningLog."""
         tags = list(dict.fromkeys(["사진기록", *record.suggested_tags]))[:100]
         log = LearningLog(
             child_id=record.child_id,
+            record_kind=LearningRecordKind.PHOTO_ACTIVITY,
             parent_observation=final_text[:10_000],
             tags=tags,
             experience_axes=record.suggested_experience_axes,
