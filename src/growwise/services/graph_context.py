@@ -21,6 +21,11 @@ class GraphContextExpander:
     The graph is never an authorization boundary. A linked neighbor is returned only when it is
     public/unscoped, owned by the current child, or explicitly shared into the current child scope.
     ``child_scope`` itself controls visibility and is therefore excluded from semantic expansion.
+
+    Semantic links remain traversable from either endpoint for retrieval, but every returned
+    neighbor records whether traversal followed the stored source->target direction (``outgoing``)
+    or walked back from target->source (``incoming``). This keeps directional relations such as
+    ``derived_from``, ``documents``, and ``supports`` interpretable by downstream context builders.
     """
 
     def __init__(self, index: SQLiteProjection) -> None:
@@ -54,11 +59,14 @@ class GraphContextExpander:
             source_id = str(link.source_id)
             target_id = str(link.target_id)
             neighbor_id: str | None = None
+            direction: str | None = None
             if source_id in seeds:
                 neighbor_id = target_id
+                direction = "outgoing"
             elif target_id in seeds:
                 neighbor_id = source_id
-            if neighbor_id is None or neighbor_id in seen:
+                direction = "incoming"
+            if neighbor_id is None or direction is None or neighbor_id in seen:
                 continue
 
             neighbor = self.index.get_entity(neighbor_id)
@@ -76,6 +84,9 @@ class GraphContextExpander:
                 {
                     **neighbor,
                     "graph_relation": link.relation.value,
+                    "graph_direction": direction,
+                    "graph_source_id": source_id,
+                    "graph_target_id": target_id,
                     "graph_link_id": str(link.id),
                 }
             )
