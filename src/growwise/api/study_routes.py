@@ -10,6 +10,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
+from growwise.api.background_write_routes import router as background_write_router
 from growwise.api.curriculum_routes import router as curriculum_router
 from growwise.api.discovery_routes import router as discovery_router
 from growwise.api.link_routes import router as link_router
@@ -258,6 +259,7 @@ def list_study_plans(
     return store.index.list_entities(entity_type="study_plan", child_id=str(child_id))
 
 
+router.include_router(background_write_router)
 router.include_router(curriculum_router)
 router.include_router(discovery_router)
 router.include_router(resource_router)
