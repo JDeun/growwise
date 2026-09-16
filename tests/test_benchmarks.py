@@ -36,15 +36,21 @@ class _StubProvider:
         )
 
 
-def test_model_benchmark_reports_latency_and_quality() -> None:
+def test_model_benchmark_reports_latency_and_reviewable_output() -> None:
     bench = _load("benchmark_model")
-    report = bench.run_model_benchmark(_StubProvider())
-    assert report.count == 6
+    report = bench.run_model_benchmark(_StubProvider(), repeats=2, warmup_rounds=1)
+    assert report.count == 12
+    assert report.repeats == 2
+    assert report.warmup_rounds == 1
+    assert report.stage
     assert report.avg_latency_ms >= 0.0
     assert report.p95_latency_ms >= 0.0
-    assert 0.0 <= report.llm_used_ratio <= 1.0
     assert report.llm_used_ratio == 1.0  # stub returns a safe draft → llm_enhanced
-    assert all(row.content_chars > 0 for row in report.rows)
+    assert report.generator_mode_counts == {"llm_enhanced": 12}
+    assert {row.sample for row in report.rows} == {1, 2}
+    assert all(row.title == "샘플" for row in report.rows)
+    assert all(row.content_markdown.startswith("# 활동") for row in report.rows)
+    assert all(row.content_chars == len(row.content_markdown) for row in report.rows)
 
 
 def test_model_benchmark_core_only_baseline() -> None:
@@ -52,6 +58,8 @@ def test_model_benchmark_core_only_baseline() -> None:
     report = bench.run_model_benchmark(None)
     assert report.count == 6
     assert report.llm_used_ratio == 0.0  # no provider → deterministic template
+    assert report.generator_mode_counts == {"template": 6}
+    assert all(row.content_markdown for row in report.rows)
 
 
 def test_model_benchmark_cli_uses_configured_provider(
@@ -73,14 +81,21 @@ def test_model_benchmark_cli_uses_configured_provider(
     monkeypatch.setattr(bench, "Settings", lambda: settings)
     monkeypatch.setattr(bench, "create_model_provider", create_provider)
 
-    assert bench.main() == 0
+    assert bench.main(["--repeats", "2", "--warmup-rounds", "1"]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert calls == [settings]
     assert payload["provider"] == "configured"
     assert payload["provider_kind"] == "ollama"
     assert payload["model_id"] == "test-model:4b"
     assert payload["llm_features_enabled"] is True
+    assert payload["repeats"] == 2
+    assert payload["warmup_rounds"] == 1
+    assert payload["count"] == 12
     assert payload["llm_used_ratio"] == 1.0
+    assert payload["generator_mode_counts"] == {"llm_enhanced": 12}
+    assert len(payload["rows"]) == 12
+    assert all(row["title"] == "샘플" for row in payload["rows"])
+    assert all(row["content_markdown"].startswith("# 활동") for row in payload["rows"])
 
 
 def test_model_benchmark_cli_respects_disabled_llm(
@@ -100,11 +115,20 @@ def test_model_benchmark_cli_respects_disabled_llm(
         lambda _settings: pytest.fail("disabled benchmark must not construct a provider"),
     )
 
-    assert bench.main() == 0
+    assert bench.main([]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["provider"] == "core-only"
     assert payload["llm_features_enabled"] is False
     assert payload["llm_used_ratio"] == 0.0
+    assert payload["generator_mode_counts"] == {"template": 6}
+
+
+def test_model_benchmark_cli_rejects_invalid_round_counts() -> None:
+    bench = _load("benchmark_model_invalid_args", script_name="benchmark_model")
+    with pytest.raises(SystemExit, match="2"):
+        bench.main(["--repeats", "0"])
+    with pytest.raises(SystemExit, match="2"):
+        bench.main(["--warmup-rounds", "-1"])
 
 
 def test_hardware_benchmark_measures_and_classifies() -> None:
