@@ -10,6 +10,7 @@ import {
 } from "../api";
 import { AXIS_OPTIONS } from "../presentation";
 import "./LearningRecordWorkspace.css";
+import { StudyTrackingPanel } from "./StudyTrackingPanel";
 
 const AI_POLL_INTERVAL_MS = 1500;
 
@@ -290,6 +291,8 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
             {notice && <p className="learning-record-notice" role="status">{notice}</p>}
             <button className="primary-button" type="submit" disabled={busy || !title.trim() || !summary.trim()}>{busy ? "저장 중…" : `${selectedKind.label} 저장`}</button>
           </form>
+
+          <StudyTrackingPanel />
 
           <section className="learning-record-history" aria-labelledby="learning-history-title">
             <div className="section-heading compact"><div><p className="eyebrow">HISTORY</p><h3 id="learning-history-title">최근 학습 기록</h3></div><span className="badge">{records.length}건</span></div>
