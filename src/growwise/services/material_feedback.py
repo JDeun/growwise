@@ -14,6 +14,22 @@ _FEEDBACK_BLOCK_RE = re.compile(
     rf"\n*{re.escape(_FEEDBACK_BLOCK_START)}.*?{re.escape(_FEEDBACK_BLOCK_END)}\n*",
     re.DOTALL,
 )
+_INDEPENDENT_CONTEXT_KINDS = {
+    LearningRecordKind.READING_REFLECTION,
+    LearningRecordKind.DIARY,
+    LearningRecordKind.INSTITUTION,
+    LearningRecordKind.SELF_STUDY,
+    LearningRecordKind.ASSIGNMENT,
+    LearningRecordKind.OTHER,
+}
+_RECORD_KIND_LABELS = {
+    LearningRecordKind.READING_REFLECTION: "독서·독서감상",
+    LearningRecordKind.DIARY: "일기",
+    LearningRecordKind.INSTITUTION: "학교·학원·교육기관",
+    LearningRecordKind.SELF_STUDY: "자율학습",
+    LearningRecordKind.ASSIGNMENT: "과제·프로젝트",
+    LearningRecordKind.OTHER: "기타 학습",
+}
 
 
 def _inline(value: str | None, *, limit: int) -> str | None:
@@ -42,20 +58,29 @@ class MaterialFeedbackItem:
 
 
 @dataclass(frozen=True)
+class IndependentLearningItem:
+    log_id: UUID
+    kind: LearningRecordKind
+    title: str | None
+    subject: str | None
+    summary: str | None
+    interest: str | None
+    difficulty_note: str | None
+    next_activity: str | None
+
+
+@dataclass(frozen=True)
 class MaterialFeedbackSnapshot:
     items: tuple[MaterialFeedbackItem, ...] = ()
+    learning_items: tuple[IndependentLearningItem, ...] = ()
 
     @property
     def has_feedback(self) -> bool:
-        return bool(self.items)
+        return bool(self.items or self.learning_items)
 
     def generation_goal(self, requested_goal: str | None) -> str | None:
-        """Add only generalized scaffolding signals to model-visible/child-visible goal text.
-
-        Raw observations, questions, difficulties, and next-activity notes stay out of this string.
-        They are rendered only in the local parent guide below.
-        """
-        if not self.items:
+        """Add generalized continuity signals without exposing raw parent/learner text to a model."""
+        if not self.has_feedback:
             return requested_goal
 
         signals: list[str] = []
@@ -67,9 +92,27 @@ class MaterialFeedbackSnapshot:
             signals.append("최근 어려움이 기록된 부분은 더 작은 단계와 힌트로 시작한다")
         if any(item.next_activity for item in self.items):
             signals.append("이전 기록의 다음 활동 연결점을 부모가 선택해 이어갈 수 있게 한다")
+
+        kinds = {item.kind for item in self.learning_items}
+        if LearningRecordKind.READING_REFLECTION in kinds:
+            signals.append("최근 독서·감상 경험과 연결할 수 있는 선택 질문을 둔다")
+        if kinds & {LearningRecordKind.INSTITUTION, LearningRecordKind.ASSIGNMENT}:
+            signals.append("최근 학교·기관·과제 경험과 연결하되 이미 배웠다고 단정하지 않는다")
+        if LearningRecordKind.SELF_STUDY in kinds:
+            signals.append("최근 자율학습 흐름을 부모가 선택적으로 이어갈 수 있게 한다")
+        if LearningRecordKind.DIARY in kinds:
+            signals.append("최근 일상 기록과 연결 가능성을 열어두되 개인 글 내용을 직접 재사용하지 않는다")
+        if any(item.interest for item in self.learning_items):
+            signals.append("별도 학습 기록에 흥미가 남아 있으면 관련 선택지를 제공한다")
+        if any(item.difficulty_note for item in self.learning_items):
+            signals.append("별도 학습에서 어려움이 기록된 경우 더 작은 단계와 힌트를 제공한다")
+        if any(item.next_activity for item in self.learning_items):
+            signals.append("별도 학습 기록의 다음 연결점을 부모가 선택할 수 있게 한다")
+
+        signals = list(dict.fromkeys(signals))
         if not signals:
             signals.append(
-                "최근 실제 활동 관찰을 참고해 부모가 난이도와 진행 속도를 "
+                "최근 실제 활동과 별도 학습 기록을 참고해 부모가 난이도와 진행 속도를 "
                 "조절할 수 있게 한다"
             )
 
@@ -78,36 +121,65 @@ class MaterialFeedbackSnapshot:
         return f"{base} 개인화 원칙: {'; '.join(signals)}."
 
     def with_parent_guide(self, guide: str) -> str:
-        """Replace the generated feedback block with the bounded local feedback snapshot."""
+        """Replace the bounded local continuity block in the parent-only guide."""
         without_existing = _FEEDBACK_BLOCK_RE.sub("\n", guide).rstrip()
-        if not self.items:
+        if not self.has_feedback:
             return without_existing
 
-        sections = [
-            _FEEDBACK_BLOCK_START,
-            "## 최근 실제 활동에서 이어갈 점",
-            (
-                "아래 내용은 이전에 부모가 저장한 실제 활동 결과입니다. 진단·평가가 아니라 "
-                "이번 활동의 난이도와 연결점을 조절하는 참고로만 사용합니다."
-            ),
-        ]
-        for item in self.items:
-            title = item.title or "이전 활동"
-            sections.append(f"### {title}")
-            if item.observation:
-                sections.append(f"- 부모 관찰: {item.observation}")
-            if item.child_question:
-                sections.append(f"- 아이 질문·반응: {item.child_question}")
-            if item.interest:
-                sections.append(f"- 흥미를 보인 점: {item.interest}")
-            if item.difficulty_note:
-                sections.append(f"- 어려워한 점: {item.difficulty_note}")
-            if item.next_activity:
-                sections.append(f"- 다음에 이어볼 것: {item.next_activity}")
+        sections = [_FEEDBACK_BLOCK_START]
+        if self.items:
+            sections.extend(
+                [
+                    "## 최근 실제 활동에서 이어갈 점",
+                    (
+                        "아래 내용은 이전에 부모가 저장한 실제 활동 결과입니다. 진단·평가가 아니라 "
+                        "이번 활동의 난이도와 연결점을 조절하는 참고로만 사용합니다."
+                    ),
+                ]
+            )
+            for item in self.items:
+                title = item.title or "이전 활동"
+                sections.append(f"### {title}")
+                if item.observation:
+                    sections.append(f"- 부모 관찰: {item.observation}")
+                if item.child_question:
+                    sections.append(f"- 아이 질문·반응: {item.child_question}")
+                if item.interest:
+                    sections.append(f"- 흥미를 보인 점: {item.interest}")
+                if item.difficulty_note:
+                    sections.append(f"- 어려워한 점: {item.difficulty_note}")
+                if item.next_activity:
+                    sections.append(f"- 다음에 이어볼 것: {item.next_activity}")
+
+        if self.learning_items:
+            sections.extend(
+                [
+                    "## 최근 별도 학습 기록에서 이어갈 점",
+                    (
+                        "아래 내용은 독서·일기·학교·학원·자율학습 등에서 부모가 저장한 요약입니다. "
+                        "아이의 원문은 이 교안에 복제하지 않으며, 연결 아이디어로만 사용합니다."
+                    ),
+                ]
+            )
+            for item in self.learning_items:
+                label = _RECORD_KIND_LABELS.get(item.kind, "별도 학습")
+                title = item.title or label
+                sections.append(f"### {label} · {title}")
+                if item.subject:
+                    sections.append(f"- 과목·영역: {item.subject}")
+                if item.summary:
+                    sections.append(f"- 부모 요약: {item.summary}")
+                if item.interest:
+                    sections.append(f"- 흥미를 보인 점: {item.interest}")
+                if item.difficulty_note:
+                    sections.append(f"- 어려워한 점: {item.difficulty_note}")
+                if item.next_activity:
+                    sections.append(f"- 다음에 이어볼 것: {item.next_activity}")
+
         sections.extend(
             [
                 (
-                    "> 이 피드백은 아이에게 그대로 제시하거나 능력 판단에 사용하지 않고, "
+                    "> 이 연속성 정보는 아이에게 그대로 제시하거나 능력 판단에 사용하지 않고, "
                     "부모가 활동을 조절하는 데만 사용합니다."
                 ),
                 _FEEDBACK_BLOCK_END,
@@ -117,23 +189,29 @@ class MaterialFeedbackSnapshot:
 
 
 class MaterialFeedbackService:
-    """Build a bounded snapshot from recent printed/material-use outcomes for one child."""
+    """Build bounded continuity snapshots from material outcomes and independent learning records."""
 
     def __init__(self, index: SQLiteProjection) -> None:
         self.index = index
 
-    def snapshot(self, *, child_id: str, limit: int = 5) -> MaterialFeedbackSnapshot:
+    def snapshot(
+        self,
+        *,
+        child_id: str,
+        limit: int = 5,
+        learning_limit: int = 5,
+    ) -> MaterialFeedbackSnapshot:
         payloads = self.index.list_entities(
             entity_type="learning_log",
             child_id=child_id,
             limit=100,
         )
         logs = [LearningLog.model_validate(payload) for payload in payloads]
+
         material_logs = [
             log for log in logs if log.record_kind is LearningRecordKind.MATERIAL_USE
         ]
         material_logs.sort(key=lambda log: log.created_at, reverse=True)
-
         items: list[MaterialFeedbackItem] = []
         for log in material_logs[: max(0, min(limit, 10))]:
             observation = _inline(log.parent_observation, limit=900)
@@ -155,4 +233,33 @@ class MaterialFeedbackService:
                     next_activity=next_activity,
                 )
             )
-        return MaterialFeedbackSnapshot(items=tuple(items))
+
+        independent_logs = [log for log in logs if log.record_kind in _INDEPENDENT_CONTEXT_KINDS]
+        independent_logs.sort(key=lambda log: log.occurred_at or log.created_at, reverse=True)
+        learning_items: list[IndependentLearningItem] = []
+        for log in independent_logs[: max(0, min(learning_limit, 10))]:
+            title = _inline(log.title, limit=300)
+            subject = _inline(log.subject, limit=200)
+            summary = _inline(log.parent_observation, limit=900)
+            interest = _inline(log.interest, limit=500)
+            difficulty_note = _inline(log.difficulty_note, limit=700)
+            next_activity = _inline(log.next_activity, limit=700)
+            if not any((title, subject, summary, interest, difficulty_note, next_activity)):
+                continue
+            learning_items.append(
+                IndependentLearningItem(
+                    log_id=log.id,
+                    kind=log.record_kind,
+                    title=title,
+                    subject=subject,
+                    summary=summary,
+                    interest=interest,
+                    difficulty_note=difficulty_note,
+                    next_activity=next_activity,
+                )
+            )
+
+        return MaterialFeedbackSnapshot(
+            items=tuple(items),
+            learning_items=tuple(learning_items),
+        )
