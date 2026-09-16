@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import math
 import sqlite3
+from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
 
@@ -167,6 +168,7 @@ class HybridRagIndex:
         child_id: str | None,
         limit: int = 8,
         reference_date: date | None = None,
+        shared_resource_ids: Iterable[str] | None = None,
     ) -> list[dict]:
         if limit <= 0:
             return []
@@ -180,13 +182,27 @@ class HybridRagIndex:
 
         connection = self._connect()
         try:
-            rows = connection.execute(
-                """
-                SELECT * FROM rag_chunks
-                WHERE child_id IS NULL OR child_id = ?
-                """,
-                (child_id,),
-            ).fetchall()
+            rows = list(
+                connection.execute(
+                    """
+                    SELECT * FROM rag_chunks
+                    WHERE child_id IS NULL OR child_id = ?
+                    """,
+                    (child_id,),
+                ).fetchall()
+            )
+            seen_chunk_ids = {str(row["chunk_id"]) for row in rows}
+            for resource_id in dict.fromkeys(shared_resource_ids or ()):
+                shared_rows = connection.execute(
+                    "SELECT * FROM rag_chunks WHERE resource_id = ?",
+                    (str(resource_id),),
+                ).fetchall()
+                for row in shared_rows:
+                    chunk_id = str(row["chunk_id"])
+                    if chunk_id in seen_chunk_ids:
+                        continue
+                    seen_chunk_ids.add(chunk_id)
+                    rows.append(row)
         finally:
             connection.close()
 
