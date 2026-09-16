@@ -44,7 +44,9 @@
   body[data-growwise-print-scope="approved"] .material-queue-lanes,
   body[data-growwise-print-scope="approved"] .material-lane,
   body[data-growwise-print-scope="approved"] .approved-card,
-  body[data-growwise-print-scope="approved"] .approved-card * {
+  body[data-growwise-print-scope="approved"] .approved-card *,
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"],
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] * {
     visibility: visible !important;
   }
 
@@ -77,22 +79,40 @@
     background: transparent;
   }
 
-  body[data-growwise-print-scope="approved"] .approved-card {
+  body[data-growwise-print-scope="approved"] .approved-card,
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] {
     break-inside: avoid;
     margin: 0 0 12mm;
     padding: 0;
     border: 0;
     box-shadow: none;
+    background: #fff;
   }
 
-  body[data-growwise-print-scope="approved"] .approved-card .material-preview {
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+  }
+
+  body[data-growwise-print-scope="approved"] .approved-card .material-preview,
+  body[data-growwise-print-scope="single"]
+    .approved-card[data-growwise-print-target="true"]
+    .material-preview {
     max-height: none;
     overflow: visible;
   }
 
   body[data-growwise-print-scope="approved"] .approved-card .material-actions,
+  body[data-growwise-print-scope="single"]
+    .approved-card[data-growwise-print-target="true"]
+    .material-actions,
   body[data-growwise-print-scope="approved"] .print-material,
   body[data-growwise-print-scope="approved"] .print-material *,
+  body[data-growwise-print-scope="single"] .print-material,
+  body[data-growwise-print-scope="single"] .print-material *,
   .print-toolbar {
     display: none !important;
     visibility: hidden !important;
