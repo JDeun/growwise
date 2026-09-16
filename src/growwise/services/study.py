@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from growwise.domain.models import ResourceRecord
 from growwise.domain.study import MistakeRecord, StudyProgressState, StudyReflection
+from growwise.services.visibility import shared_source_ids
 from growwise.storage.sqlite import SQLiteProjection
 
 
@@ -142,10 +143,15 @@ class StudyTrackingService:
         limit: int = 5,
     ) -> list[StudyResourceRecommendation]:
         terms = {term.casefold() for term in f"{subject} {unit}".split() if term.strip()}
+        shared_ids = shared_source_ids(self.index, child_id)
         candidates: list[tuple[int, ResourceRecord]] = []
         for payload in self.index.list_entities(entity_type="resource"):
             resource = ResourceRecord.model_validate(payload)
-            if resource.child_id is not None and str(resource.child_id) != child_id:
+            if (
+                resource.child_id is not None
+                and str(resource.child_id) != child_id
+                and str(resource.id) not in shared_ids
+            ):
                 continue
             searchable = " ".join(
                 [
