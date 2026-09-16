@@ -15,7 +15,9 @@ def test_infant_catalog_is_offline_and_metadata_only() -> None:
 
     assert result.cache_status == "fresh"
     assert len(result.records) == 4
-    assert all(record["source_url"].startswith("https://i-nuri.go.kr/") for record in result.records)
+    assert all(
+        record["source_url"].startswith("https://i-nuri.go.kr/") for record in result.records
+    )
     assert all(record["metadata"]["content_policy"] == "link_only" for record in result.records)
     assert all(record.get("achievement_standard") is None for record in result.records)
     assert "재배포하지 않음" in result.license_note
