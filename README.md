@@ -3,8 +3,8 @@
 </p>
 
 <p align="center">
-  <strong>아이의 성장을 기록하고, 부모의 교육 철학에 맞춰 학습 자료를 만든다.</strong><br>
-  Local-first, parent-centered child learning tracking, knowledge organization, and material generation.
+  <strong>아이의 성장을 기록하고, 필요한 교육 자원을 찾고, 부모의 교육 철학에 맞는 자료를 만든다.</strong><br>
+  Local-first, parent-centered Personal Education OS.
 </p>
 
 <p align="center">
@@ -16,200 +16,308 @@
 </p>
 
 > [!IMPORTANT]
-> **현재 상태: pre-1.0 / 활발한 구현.** 소스와 CI 기반 unsigned 데스크탑 빌드는 사용할 수 있으나,
-> code signing/notarization을 거친 **공식 signed public release는 아직 없습니다.** GrowWise는 발달
-> **진단·평가 도구가 아니며**, 생성물은 반드시 Parent Review 승인 후에만 사용합니다.
+> **현재 상태: pre-1.0 / 활발한 구현 단계.** 소스와 CI 기반 unsigned 데스크탑 빌드는 사용할 수
+> 있지만 code signing/notarization을 거친 공식 signed public release는 아직 없다. GrowWise는
+> 발달 진단·평가 도구가 아니며, 생성물은 Parent Review 이후 사용한다.
 
 > [!NOTE]
-> **로컬·프라이버시 원칙:** 아동 데이터는 로컬에서 처리하고(Markdown = Source of Truth, SQLite =
-> 재생성 인덱스), 아이 대면 챗봇은 범위 밖입니다. 공개 저장소에는 실명·생년 등 개인정보를 커밋하지
-> 않으며, 저장소 PII 감사 테스트로 이를 강제합니다. 앱에서는 아이별 live data를 정본·RAG·대화·작업·
-> checkpoint까지 함께 영구 삭제할 수 있으며, 과거 사용자가 만든 backup ZIP은 별도 immutable snapshot으로
-> 취급합니다.
+> **Local-first.** 아동 데이터의 정본은 로컬 Markdown에 저장하고 SQLite는 재생성 가능한
+> projection/index로 사용한다. LLM과 외부 API는 보강 기능이며 핵심 기록·검색·백업의 필수재가 아니다.
 
-GrowWise는 챗봇 제품이 아니다. 핵심은 부모의 교육 철학에 맞춰 **아이의 성장과 학습을
-장기적으로 기록·정리·추적하고, 관련 자료를 수집·검색·정리하며, 필요한 학습 자료를 만드는
-개인용 교육 관리 도구**다.
+GrowWise는 챗봇이나 단순 육아 일기장이 아니다. 부모가 아이의 실제 경험을 장기적으로 기록하고,
+기록 사이의 관계를 연결하고, 현재 맥락과 관련된 공개 교육 자원을 찾고, 그 근거를 사용해 활동지나
+탐구 자료를 만드는 **개인용 교육 운영 시스템**이다.
 
-LLM은 화면의 주인공이 아니라 **백그라운드 엔진**이다. 사용자는 자연어로 "최근 수학 활동
-중 측정 관련 기록 찾아줘", "지난 한 달 동안 탐구 활동이 적었던 이유를 정리해줘", "이 책과
-아이의 현재 관심사를 바탕으로 활동지 만들어줘"처럼 요청할 수 있지만, 제품의 본질은 대화가
-아니라 **데이터·기록·자료·워크플로우를 관리하는 것**이다.
-
-개인이 운영하는 홈스쿨링용 크로스플랫폼 데스크탑 앱(Windows·macOS, Tauri)으로 시작하며,
-오프라인 우선으로 설계한다. 대상은 **0세부터 고등학교까지**다. 첫 실사용 도메인은 현재
-생후 9개월 아이에게 실제로 사용할 수 있는 **영아(0~2세) 모드**이며, 이후 유아·초등 자료
-생성, 중·고 학습 트래킹까지 확장한다.
-
-> **모토:** AI가 아이를 대신해 가르치는 것이 아니라, 부모가 자신의 교육 철학에 따라
-> 아이를 이해하고 돕기 위해 필요한 기록·자료·맥락을 관리하도록 돕는다.
+> **모토:** AI가 아이를 대신해 가르치는 것이 아니라, 부모가 자신의 교육 철학에 따라 아이를
+> 이해하고 돕기 위해 필요한 기록·자료·맥락을 관리하도록 돕는다.
 
 ---
 
-## GrowWise가 하는 일
+## 가장 중요한 사용 흐름
 
-| | 기능 | 설명 |
-|---|---|---|
-| 📝 | **교육 트래킹** | 활동·관심사·반응·어려움·질문·회고를 장기 기록 |
-| 🌱 | **성장/경험 지도** | 점수·등수 대신 아이 자신의 시간 흐름 안에서 경험 커버리지를 추적 |
-| 📚 | **자료 수집·정리** | 책·교육과정·활동 자료·외부 데이터를 provenance와 함께 관리 |
-| 🔍 | **자연어 검색/질의** | 저장된 기록·자료를 자연어로 찾고 요약·비교·답변 |
-| ✏️ | **학습자료 생성** | 독서·영어·탐방·수학·과학·글쓰기 등 자료를 안전 가드와 함께 생성 |
-| 🧭 | **활동 관리** | 부모가 선택하는 퀘스트/활동 계획과 완료 기록 |
-| ✅ | **부모 검토** | 생성물은 난이도·민감성·개인정보·scaffold 검토 후 승인 |
-| 💾 | **장기 보존** | Markdown SoT + SQLite projection으로 소유권과 검색 성능을 함께 확보 |
-
-## 데이터 흐름 한눈에 보기
-
-```mermaid
-flowchart LR
-    P[부모 입력: 관찰·자료·요청] --> MD[(Markdown = Source of Truth)]
-    MD --> IDX[(SQLite projection/index)]
-    GEN[템플릿·LLM 자료 생성] --> GUARD{안전 가드<br/>PII·인젝션·연령·편향·scaffold}
-    GUARD -->|통과| REVIEW[Parent Review]
-    GUARD -->|위반| FB[결정적 템플릿 폴백]
-    FB --> REVIEW
-    REVIEW -->|승인| MD
-    IDX --> SEARCH[검색·RAG·성장 지도]
-    MD --> EXPORT[백업/내보내기·인쇄]
+```text
+관찰·사진 기록
+      ↓
+문서 연결 / 장기 맥락
+      ↓
+공개 교육 자원 발견
+      ↓
+부모가 필요한 후보만 라이브러리에 저장
+      ↓
+저장 근거 + 아이 맥락으로 교육자료 생성
+      ↓
+Parent Review / 직접 수정 / 승인
+      ↓
+활동 → 후속 관찰 → 다시 장기 기록
 ```
 
-*LLM/embedding 장애 시에도 CRUD·검색·트래킹·템플릿 생성은 계속 동작한다(LLM-enhanced, not LLM-dependent).*
+AI가 없어도 이 흐름의 기록·연결·lexical 검색·공식 교육과정 메타데이터·라이브러리·템플릿 자료 생성은
+동작한다. AI가 있으면 태깅, semantic retrieval, 이미지 캡션, 질의 재작성, 자료 개인화 등을 보강한다.
+
+## 화면별로 무엇을 할 수 있나
+
+| 화면 | 사용자가 하는 일 | 결과 |
+| --- | --- | --- |
+| **홈** | 아이 프로필을 만들고 현재 아이를 선택 | 모든 child-scoped 화면의 기준 맥락 설정 |
+| **관찰** | 실제로 본 행동·질문·관심·어려움을 기록 | 장기 `LearningLog`, 활동 후속 관찰, 성장/검색 근거 |
+| **사진 기록** | 활동 사진과 부모 글을 저장하고 필요하면 AI 캡션/초안 보조 사용 | 사진 일기 + 검토 가능한 관찰 초안. AI 없이도 완전 동작 |
+| **성장** | 최근 경험 축과 기록 분포를 확인 | 점수·등수 없는 장기 경험 맥락 |
+| **활동** | 활동 후보를 고르고 시작·완료·건너뜀을 관리 | 활동 lifecycle과 후속 관찰 연결 |
+| **검색** | 관찰·활동·자료를 자연어/lexical로 찾고 후속 질문 | 현재 월 → 현재 연도 → 장기 아카이브 계층 검색 |
+| **발견** | 현재 관심사나 직접 입력한 주제로 공개 교육 자원 탐색 | 도서·교육과정·탐방 후보. 부모가 선택하기 전에는 정본에 들어가지 않음 |
+| **라이브러리** | 직접 저장한 자료와 `발견`에서 채택한 근거를 관리 | provenance가 있는 `ResourceRecord` + RAG 근거 |
+| **자료** | 주제·목표·근거를 선택해 활동지/독서/수학/과학/글쓰기/탐방 자료 생성 | Parent Review 대상 `GeneratedMaterial` |
+| **설정** | 상태 확인, 백업·복원·내보내기, 아이 데이터 삭제 | 로컬 데이터 수명주기 관리 |
+
+상세한 단계별 사용법은 **[docs/user-guide.md](docs/user-guide.md)**를 참고한다.
+
+---
+
+## 사진 기록: AI가 없어도 사진 일기처럼
+
+사진 기록은 AI 기능이 아니라 **기록 기능**이 우선이다.
+
+```text
+사진 선택
+  + 부모가 직접 쓴 글
+       ↓
+AI 보조 OFF ───────────────→ 즉시 부모 검토 초안
+       │
+AI 보조 ON
+       ↓
+로컬 durable background job
+       ↓
+Vision caption + 기록 초안 보강
+       ↓
+부모 검토 / 수정
+       ↓
+LearningLog 확정
+```
+
+- JPEG/PNG/WebP 파일 크기·MIME·이미지 무결성을 확인한다.
+- 사진 원본은 로컬 managed asset으로 저장하고 DB에는 hash·경로·메타데이터 관계를 저장한다.
+- 정확한 사진 GPS는 기본 보존하지 않는다.
+- 느린 로컬 VLM은 HTTP 요청을 붙잡지 않고 background worker에서 처리한다.
+- 앱이 종료되면 durable job queue에서 중단 작업을 다음 실행에 복구한다.
+- AI가 반복 실패해도 사진과 부모 글을 잃지 않고 직접 기록 가능한 draft로 전환한다.
+- 부모의 최종 `저장`은 모델 호출 없이 로컬 저장만 수행한다.
+
+### 여러 아이가 함께한 사진/활동
+
+같은 원본을 아이마다 복제하지 않는다. `EntityLink`의 `child_scope` 관계로 한 문서를 여러 아이의 문맥에
+공유하고 backlink를 유지한다. 사진 기록을 확정하면 연결된 `LearningLog`도 같은 참여 아이 문맥에서
+참조할 수 있다.
+
+```text
+하나의 가족 활동
+ ├─ 첫째 child context
+ ├─ 둘째 child context
+ └─ PhotoActivityRecord / LearningLog 원본은 하나
+```
+
+---
+
+## 공개 교육 자원 발견
+
+`발견` 화면은 GrowWise가 단순 기록장에 머물지 않도록 **아이의 현재 맥락과 외부 교육 자원을 연결**한다.
+
+검색어를 직접 입력할 수도 있고, 비워두면 로컬에서 다음 정보의 일반 키워드만 추출한다.
+
+- 아이가 부모에게 공개적으로 설정한 관심사
+- 학습 목표
+- 최근 관찰의 태그/관심사
+- 최근 활동 제목
+
+외부 API에는 child ID, 이름, 닉네임, 관찰 원문, 부모 메모, 사진을 보내지 않는다.
+
+### 현재 Discovery source
+
+| Source | 역할 | 네트워크/키 |
+| --- | --- | --- |
+| **공식 한국 교육과정 카탈로그** | 단계별 교육부·NCIC·i-누리 공식 출처 메타데이터 | 앱 번들, 오프라인 가능 |
+| **Public Curriculum Adapter** | 설정된 공공 교육과정 endpoint 검색 | 선택적 endpoint |
+| **도서관 정보나루** | 관심 주제의 도서 후보 검색 | 무료 API key 필요 |
+| **OpenStreetMap Overpass** | 부모가 지정한 위치 주변 도서관·박물관·문화시설 탐색 | key 불필요, 위치를 명시한 요청만 |
+
+외부 결과는 자동으로 장기 기록에 들어가지 않는다. 부모가 `라이브러리에 저장`을 선택하면 그때
+`ResourceRecord`를 만들고 attribution, license note, provenance를 함께 보존한 뒤 RAG에 편입한다.
+
+### Discovery 설정
+
+```bash
+# 선택: 도서관 정보나루
+GROWWISE_DATA4LIBRARY_API_KEY=...
+
+# 선택: 별도 공공 교육과정 endpoint
+GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
+```
+
+실제 API key를 저장소 `.env`, README, issue, 로그에 커밋하지 않는다. 현재 pre-1.0 개발 환경은 환경변수
+주입을 사용하며, 배포판의 credential UX는 OS credential store를 기준으로 확장한다.
+
+---
+
+## 교육자료 생성
+
+현재 생성 종류:
+
+- 활동 가이드
+- 독서 활동
+- 영어 카드
+- 수학 활동
+- 과학 탐구
+- 글쓰기 프롬프트
+- 탐방 활동
+
+자료 생성 시 라이브러리에 저장한 `resource:<UUID>`를 근거로 선택할 수 있다. 생성물은 부모 검토 상태
+머신을 거치며 수정 요청과 부모 직접 편집은 새 버전으로 보존한다. 승인된 자료만 사용/인쇄 대상으로
+취급한다.
+
+외부 교육과정 endpoint가 설정되어 있으면 `CurriculumGroundedMaterialService`가 공공 교육과정 결과를
+일반 `ResourceRecord`로 먼저 저장한 뒤 동일한 provenance contract로 자료 생성에 사용한다.
+
+---
+
+## RAG와 장기 검색
+
+GrowWise 검색은 단순히 최신순으로 결과를 자르지 않는다.
+
+1. 먼저 query relevance를 계산한다.
+2. 관련 있는 근거 안에서 **현재 월**을 우선한다.
+3. 부족하면 **현재 연도의 이전 기록**으로 확장한다.
+4. 그래도 부족하면 **장기 archive**를 사용한다.
+
+즉 `current-month → current-year → archive` 시간 계층을 사용하되, 관련 없는 최신 기록이 관련 있는 오래된
+근거보다 앞서도록 만들지는 않는다.
+
+LLM/embedding이 없으면 child-scoped lexical 검색으로 계속 동작한다.
+
+---
 
 ## LLM의 역할
 
-LLM은 적극적인 대화 상대가 아니라 다음 백그라운드 작업을 수행한다.
+GrowWise는 **LLM-enhanced이지 LLM-dependent가 아니다.**
 
-1. 기록과 자료의 분류·태깅·요약
-2. 자연어 검색 의도 해석과 RAG 질의
-3. 여러 기록 사이의 연결과 맥락 정리
-4. 교육과정/자료를 바탕으로 학습 자료 생성
-5. 다음 활동 후보 생성
-6. 생성물의 구조·안전·grounding 검토 보조
-7. 부모가 요청한 질문에 저장된 근거를 바탕으로 답변
+LLM이 하는 일:
 
-아이가 앱 안에서 LLM과 계속 대화하는 챗봇 UX는 범위 밖이다. 그런 역할은 ChatGPT,
-Claude 같은 범용 상용 LLM이 이미 잘 수행한다. GrowWise는 **가족 교육 데이터와 워크플로우에
-특화된 시스템**에 집중한다.
+1. 관찰의 선택적 태깅·요약·분류
+2. 자연어 검색 의도 해석과 RAG 질의 보조
+3. 여러 기록 사이의 맥락 정리
+4. 학습자료 문장 구성과 개인화 보강
+5. 활동 후보 생성 보조
+6. 사진 caption과 기록 초안 생성
+7. 저장된 근거를 바탕으로 한 후속 질문 응답
 
-## LLM 없이도 동작한다
+LLM이 없어도 가능한 일:
 
-GrowWise는 **LLM-enhanced이지 LLM-dependent가 아니다.** 로컬 모델이 설치되지 않았거나
-Ollama가 중단되어도 다음 핵심 기능은 계속 사용할 수 있어야 한다.
-
-- 아이 프로필과 기록 CRUD
+- 아이 프로필/관찰/사진 일기 CRUD
 - Markdown SoT / SQLite projection
-- 자료 지식베이스와 lexical 검색
-- 경험 축 기반 성장 지도
-- 활동/자료 상태 관리
-- 대화 세션 저장
+- child-scoped lexical 검색
+- current-month → current-year → archive 시간 계층
+- 공식 교육과정 메타데이터 조회
+- 외부 API adapter와 cache
+- 활동 lifecycle
+- 경험 축 성장 지도
+- 라이브러리/RAG lexical 근거
+- deterministic 학습자료 템플릿
 - Parent Review
-- deterministic 자료 템플릿과 영아 활동 fallback
+- 백업/복원/삭제
 
-LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounded synthesis, 개인화
-생성 같은 **보강 기능**으로만 동작한다. 각 AI 경로에는 deterministic fallback을 두며, provider
-호출에는 bounded timeout과 consecutive-failure circuit breaker를 적용해 장애가 반복될 때 Core가
-같은 timeout을 계속 기다리지 않게 한다.
+provider 호출에는 bounded timeout과 circuit breaker를 적용한다. 사진·Vision 작업은 일반 대화형 요청보다
+느려도 괜찮으므로 별도의 긴 timeout과 durable background job을 사용한다.
 
-## 무엇이 아닌가
+---
 
-- 아이를 대신해 답을 주는 자율 튜터가 아니다.
-- ChatGPT/Claude를 복제한 범용 챗봇이 아니다.
-- 아이를 점수화·서열화하는 평가 시스템이 아니다.
-- 발달 진단 도구가 아니다.
-- 완전한 홈스쿨링 대체재가 아니다.
+## 데이터와 프라이버시
 
-## 핵심 원칙
+- Markdown = authoritative Source of Truth
+- SQLite = rebuildable projection/index
+- 사진 = local managed assets + hash/relative path metadata
+- Desktop Core = per-run random loopback port + 256-bit session token
+- Desktop data path = OS app-data
+- 외부 adapter = 공개 검색 차원만 전달
+- Parent Review = 생성물 사용 전 필수
+- Child purge = 해당 아이 live data와 파생 데이터를 함께 정리
 
-1. **부모 중심** — AI가 아니라 부모의 판단과 교육 철학이 최종 기준이다.
-2. **기록 중심** — 생성물보다 장기적으로 누적되는 학습·관찰 맥락이 중요하다.
-3. **로컬 우선** — 아동 데이터는 가능한 로컬에서 처리한다.
-4. **근거 기반** — 검색·답변·생성에는 provenance와 출처를 남긴다.
-5. **비점수화** — 성장 지도는 성취 점수 대신 경험/관찰 커버리지를 표현한다.
-6. **검토 후 노출** — 생성 자료는 Parent Review 승인 후 사용한다.
-7. **모델 독립성** — LangChain + LangGraph 기반으로 로컬/원격 모델을 교체 가능하게 한다.
-8. **LLM 비의존성** — AI 장애가 핵심 데이터/관리 기능 장애로 전파되지 않는다.
-9. **완성형 목표** — 작은 MVP에서 멈추지 않고 전 연령·전 기능 완성을 목표로 한다.
+아이 삭제는 프로필 한 줄만 지우지 않는다. Markdown/.bak, projection, RAG, conversation, job, idempotency,
+LangGraph checkpoint, 사진 asset, entity link 등 child-scoped live data를 함께 정리한다. 기존 backup ZIP은 과거
+시점의 immutable snapshot이므로 별도로 관리한다.
 
-## 기술 방향
+---
+
+## 제품 원칙
+
+1. **부모 중심** — 부모 판단과 교육 철학이 최종 기준이다.
+2. **기록 중심** — 생성물보다 누적되는 실제 경험 맥락이 우선이다.
+3. **발견과 연결** — 기록을 외부 교육 자원과 연결해 다음 선택을 돕는다.
+4. **로컬 우선** — 아동 데이터는 가능한 로컬에서 처리한다.
+5. **근거 기반** — 검색·추천·생성에 provenance와 출처를 남긴다.
+6. **비점수화** — 또래 비교·등수·XP·streak을 핵심 동기로 쓰지 않는다.
+7. **검토 후 사용** — 생성 자료는 Parent Review를 거친다.
+8. **LLM 비의존성** — AI 장애가 핵심 기록 기능 장애가 되지 않는다.
+9. **문서 그래프** — 같은 활동/자료를 복제하기보다 EntityLink/backlink로 관계를 보존한다.
+
+---
+
+## 기술 구조
 
 - Desktop: Tauri 2 + React/TypeScript
 - Core: Python 3.12+ / FastAPI sidecar
-- Desktop IPC: React → typed Tauri commands → Rust → **per-run authenticated ephemeral loopback Core**
-- Orchestration: **LangChain + LangGraph**
-- Workflow persistence: LangGraph `SqliteSaver` + `workflow_run`
-- Storage: Markdown(Source of Truth) + SQLite projection/index
-- Model: local-first provider abstraction, 현재 Ollama adapter
-- RAG: lexical + optional embedding hybrid retrieval + current-month → current-year → archive temporal hierarchy
+- Desktop IPC: React → typed Tauri commands → Rust → authenticated ephemeral loopback Core
+- Orchestration: LangChain + LangGraph
+- Workflow persistence: LangGraph `SqliteSaver`
+- Storage: Markdown SoT + SQLite projection/index
+- RAG: lexical + optional embedding hybrid retrieval + temporal hierarchy
+- External resources: bounded adapter layer + SQLite external cache
 - Background jobs: SQLite durable job queue
-- Desktop packaging: PyInstaller one-file Core bundled as Tauri resource
-- Export: 이식형 백업(zip)·Markdown 묶음 + 승인 자료 WebView/OS 네이티브 인쇄·PDF
+- Model: local-first provider abstraction, 현재 Ollama adapter
+- Packaging: PyInstaller one-file Core bundled as Tauri resource
 - Platforms: Windows + macOS
 
-자세한 실행 구조는 [docs/architecture.md](docs/architecture.md), 안정성 invariant는
+자세한 구조는 [docs/architecture.md](docs/architecture.md), 안정성 invariant는
 [docs/hardening-contracts.md](docs/hardening-contracts.md)를 참고한다.
+
+---
 
 ## 현재 구현 상태
 
-**pre-1.0 / 활발한 구현 단계.** 설계 전용 저장소를 지나, local-first Core와 데스크탑 앱의
-대부분 기능이 구현·테스트된 상태다([로드맵](docs/roadmap.md) 체크리스트 대부분 완료). 저장소
-내부 기능 구현과 안전·패키징 자동화는 운영 검증을 제외하고 완료 상태이며, 남은 것은 실제
-code signing/notarization 자격증명, updater 장기 trust key 운영, 실기기·로컬모델 benchmark
-실측, 가정 dogfooding이다.
+**pre-1.0 / 활발한 구현 단계.** 주요 코드 기반에는 다음이 포함된다.
 
-현재 구현된 기반:
-
-- Python 3.12 package / FastAPI local Core
-- Pydantic domain model + UUIDv7 + bounded input/list/dict invariants
-- `ChildProfile`, `LearningLog`, `ActivityPlan`, `ResourceRecord`, `GeneratedMaterial`, `WorkflowRun`
-- Markdown atomic Source-of-Truth repository
-- SQLite disposable projection + deterministic Markdown rebuild
-- frontmatter 예약 키 codec과 rebuild 회귀 테스트
-- child-scoped lexical retrieval
-- Resource chunking / hybrid RAG index / optional Ollama embedding
-- relevance-first + current-month → current-year → archive RAG 시간 계층
-- 저장 기록 + Resource KB 통합 child context 질의
-- 자연어 검색 plan 생성 + deterministic fallback
-- normalized append-only multi-turn conversation + concurrent snapshot merge
-- LangChain ModelProvider abstraction + Ollama `ChatOllama` adapter
-- provider/embedding timeout + circuit breaker + deterministic/lexical fallback
-- 관찰 원문을 보존하는 선택적 LLM 태깅·메타데이터 보강
-- LangGraph observation workflow + SQLite durable checkpoint + `thread_id`
-- workflow 실행 상태/출력 참조 저장
-- crash-recoverable idempotency lease + stable reserved resource IDs
-- SQLite durable background job queue
-- 영아 활동 추천 + deterministic fallback
-- 경험 축 기반 deterministic 성장 지도
-- template-first 자료 생성 + optional LLM enhancement
-- Parent Review 상태 머신
-- Tauri 2 + React/TypeScript desktop shell
+- Python FastAPI local Core
+- Pydantic bounded domain model + UUIDv7
+- Markdown atomic SoT + SQLite rebuild
+- child-scoped lexical retrieval + optional embeddings
+- current-month → current-year → archive RAG
+- normalized append-only conversation storage
+- crash-recoverable idempotency lease
+- durable background job queue
+- 영아 활동/관찰 가이드 + deterministic fallback
+- 중·고 학습 tracking domain
+- 자료 생성 + Parent Review + immutable version chain
+- 외부 curriculum/Data4Library/Overpass adapters + bounded cache
+- parent-controlled Education Discovery
+- 사진 일기 + local Vision background processing
+- first-class `EntityLink`/backlink graph
 - 다자녀 async child-scope race guard
-- per-run random loopback port + 256-bit Bearer session token + authenticated Core handshake
-- OS app-data 기반 desktop Core 저장 경로
-- Rust `CoreProcessManager`: Core 자동 기동·소유 프로세스 종료·세션 secret 수명주기
-- PyInstaller one-file secure Core sidecar build + Tauri resource packaging 경로
-- 아이별 live-data full purge(Markdown/.bak, projection, RAG, conversation, job, idempotency, checkpoint)
-- Windows/macOS/Linux Python CI, React build, Rust `cargo check`/Clippy, authenticated packaged-Core smoke
-- pinned Python/Node/Rust toolchain + immutable GitHub Actions SHA + vulnerability/secret scan
-- GrowWise brand SVG assets
-- 이식형 백업 export/import + Markdown 묶음 아카이브(경로 traversal 방어)
-- restore 안전 snapshot + stale live/RAG cleanup
-- 불변 부모본 자료 편집·버저닝(동시 생성 직렬화)
-- 중·고 학습 트래킹
-- 콘텐츠 안전 가드 — PII·프롬프트 인젝션·연령 부적합·고정관념·scaffold(정답 대신 힌트) + 적대적 회귀 테스트
-- 모델 아티팩트 무결성 검증 레지스트리(sha256·원자적 쓰기)
-- 안전한 저장소 위치 이전(복사·검증·스왑, 데이터 무손실)
-- 접근성(ARIA·역할·키보드 내비게이션·포커스 트랩) + 안전한 자료 출력 렌더러(테이블/도형, 미신뢰 HTML 이스케이프)
-- 의존성 라이선스 기반 THIRD_PARTY_NOTICES 자동생성 + 저장소 PII 감사 테스트
+- authenticated random-port desktop Core
+- child full purge + backup/restore
+- 콘텐츠 안전 가드와 적대적 회귀 테스트
+- Windows/macOS/Linux Python CI, React test/build, Rust check/Clippy
+- dependency vulnerability/license audit + secret scan
 
-## 로컬 코어 실행
+운영 단계에서 별도로 필요한 항목은 실제 code signing/notarization 자격증명, 장기 updater trust key,
+실기기/로컬모델 benchmark, 가정 dogfooding이다.
+
+---
+
+## 로컬 Core 실행
 
 ```bash
 python -m pip install -e ".[dev]"
 growwise
 ```
 
-독립 개발용 Core 기본 API 주소:
+독립 개발용 Core 기본 주소:
 
 ```text
 http://127.0.0.1:8765
@@ -219,15 +327,26 @@ http://127.0.0.1:8765
 
 ```bash
 GROWWISE_DATA_DIR=~/.growwise
+
 GROWWISE_MODEL_PROVIDER=ollama
 GROWWISE_MODEL_ID=qwen3.5:9b
 GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
 GROWWISE_MODEL_TIMEOUT_SECONDS=12
 GROWWISE_MODEL_CIRCUIT_FAILURE_THRESHOLD=3
 GROWWISE_MODEL_CIRCUIT_RECOVERY_SECONDS=30
-GROWWISE_EMBEDDING_TIMEOUT_SECONDS=8
 GROWWISE_LLM_FEATURES_ENABLED=true
+
+GROWWISE_EMBEDDING_TIMEOUT_SECONDS=8
 GROWWISE_EMBEDDING_FEATURES_ENABLED=true
+
+GROWWISE_VISION_PROVIDER=ollama
+GROWWISE_VISION_MODEL_ID=gemma3:4b
+GROWWISE_VISION_BASE_URL=http://127.0.0.1:11434
+GROWWISE_VISION_TIMEOUT_SECONDS=300
+GROWWISE_VISION_FEATURES_ENABLED=true
+
+GROWWISE_DATA4LIBRARY_API_KEY=...
+GROWWISE_CURRICULUM_ENDPOINT=...
 ```
 
 AI 기능을 완전히 끄려면:
@@ -235,11 +354,15 @@ AI 기능을 완전히 끄려면:
 ```bash
 GROWWISE_LLM_FEATURES_ENABLED=false
 GROWWISE_EMBEDDING_FEATURES_ENABLED=false
+GROWWISE_VISION_FEATURES_ENABLED=false
 ```
 
-## Desktop 개발 실행
+사진 기록, 관찰, 활동, lexical 검색, 공식 교육과정 카탈로그, 라이브러리, deterministic 자료 생성은 계속
+사용할 수 있다.
 
-먼저 Python 개발 환경에 GrowWise를 설치한 뒤:
+---
+
+## Desktop 개발 실행
 
 ```bash
 python -m pip install -e ".[dev]"
@@ -248,15 +371,11 @@ npm install
 npm run tauri:dev
 ```
 
-Tauri는 개발 환경에서도 `growwise.api.secure_entry`를 자식 프로세스로 시작한다. 실행마다 임의의
-loopback port와 새 세션 토큰을 만들고, Core가 인증된 protocol handshake에 응답한 뒤에만 IPC를
-연결한다. 데이터는 Tauri가 제공하는 OS app-data 경로를 사용하며 앱 종료 시 자신이 시작한 Core를
-종료한다.
+Tauri는 개발 환경에서도 `growwise.api.secure_entry`를 자식 프로세스로 시작한다. 실행마다 임의의 loopback
+port와 새 세션 토큰을 만들고 authenticated protocol handshake가 성공한 뒤에만 IPC를 연결한다. 데이터는
+Tauri가 제공하는 OS app-data 경로를 사용한다.
 
 ## Desktop Core sidecar 빌드
-
-사용자 PC에 Python 설치를 요구하지 않도록 release 앱은 독립 실행 Core를 bundle resource로
-포함한다.
 
 ```bash
 python -m pip install -e ".[desktop-build]"
@@ -264,58 +383,76 @@ python desktop/scripts/build_core_sidecar.py
 python desktop/scripts/smoke_core_sidecar.py
 ```
 
-결과는 플랫폼에 따라 다음 위치에 생성된다.
+결과:
 
 ```text
 desktop/src-tauri/binaries/growwise-core
 desktop/src-tauri/binaries/growwise-core.exe
 ```
 
-실행 파일은 Git에 커밋하지 않고 CI/릴리스 과정에서 플랫폼별로 생성한다. sidecar smoke는 임의
-port/token으로 Core를 실행해 무인증 요청이 거부되는지와 authenticated handshake가 맞는지까지 확인한다.
+실행 파일은 Git에 커밋하지 않고 CI/릴리스 과정에서 플랫폼별로 생성한다. sidecar smoke는 임의 port/token으로
+Core를 실행해 무인증 요청 거부와 authenticated handshake까지 확인한다.
 
-현재 주요 API vertical slices:
+---
+
+## 주요 API vertical slices
 
 ```text
 POST   /v1/children
 DELETE /v1/children/{child_id}
+
 POST   /v1/observations
 GET    /v1/children/{child_id}/observations
-GET    /v1/children/{child_id}/search?q=...
-GET    /v1/children/{child_id}/growth-map
-GET    /v1/children/{child_id}/infant-activities
+POST   /v1/children/{child_id}/photo-records
+POST   /v1/photo-records/{record_id}/commit
+
+POST   /v1/children/{child_id}/activities
+GET    /v1/children/{child_id}/activities
+
+GET    /v1/children/{child_id}/discover
+POST   /v1/children/{child_id}/discover/save
 POST   /v1/resources
+
+GET    /v1/children/{child_id}/search?q=...
 POST   /v1/rag/ask
 POST   /v1/children/{child_id}/ask
 POST   /v1/children/{child_id}/conversations
 POST   /v1/conversations/{session_id}/turns
+
 POST   /v1/children/{child_id}/materials
+POST   /v1/children/{child_id}/materials/curriculum
 POST   /v1/materials/{material_id}/review
+
+POST   /v1/links
+GET    /v1/links/{entity_id}
+
+GET    /v1/children/{child_id}/growth-map
 GET    /health
 ```
+
+---
 
 ## 문서
 
 | 문서 | 내용 |
 | --- | --- |
-| **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 사상 — 제품의 중심** |
+| **[docs/user-guide.md](docs/user-guide.md)** | **화면별 사용법과 대표 사용자 시나리오** |
+| **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 제품 철학** |
 | [docs/vision.md](docs/vision.md) | 제품 비전·LLM 역할·성공 기준 |
-| [docs/product-spec.md](docs/product-spec.md) | 전 연령 제품 사양·트래킹·자료·검색·생성 |
-| [docs/material-product-ux.md](docs/material-product-ux.md) | 자료 생성·검토 제품 UX |
+| [docs/product-spec.md](docs/product-spec.md) | 전 연령 제품 사양 |
+| [docs/material-product-ux.md](docs/material-product-ux.md) | 자료 생성·검토 UX |
 | [docs/architecture.md](docs/architecture.md) | Tauri/Python/LangChain/LangGraph 실행 구조 |
-| [docs/hardening-contracts.md](docs/hardening-contracts.md) | 인증·복구·삭제권·race·RAG·AI fallback·공급망 invariant |
+| [docs/hardening-contracts.md](docs/hardening-contracts.md) | 인증·복구·삭제권·race·RAG·AI fallback invariant |
 | [docs/data-model.md](docs/data-model.md) | Markdown SoT·SQLite projection·상태 머신 |
 | [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스·Model Provider |
-| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 프라이버시·비감시·비진단·해석 안전성 |
+| [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 프라이버시·비감시·비진단 원칙 |
 | [docs/threat-model.md](docs/threat-model.md) | 위협 모델·데이터 보존/삭제 |
-| [docs/evaluation.md](docs/evaluation.md) | 생성/RAG/장기해석/발달 안전 평가 하니스 |
-| [docs/attribution.md](docs/attribution.md) | 라이선스·provenance·NOTICE |
+| [docs/evaluation.md](docs/evaluation.md) | 생성/RAG/장기해석/안전 평가 |
 | [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·과목별 공개 자료 후보 |
-| [docs/design-system.md](docs/design-system.md) | 브랜드·UI·성장지도·자연어 검색 디자인 규칙 |
+| [docs/design-system.md](docs/design-system.md) | 브랜드·UI 디자인 규칙 |
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
-| [docs/references.md](docs/references.md) | 참고 자료·근거 |
 | [docs/release.md](docs/release.md) | 릴리스·패키징 절차 |
-| [docs/operational-validation.md](docs/operational-validation.md) | 실기기 benchmark·서명·updater 운영 검증 절차 |
+| [docs/operational-validation.md](docs/operational-validation.md) | 실기기 benchmark·서명·updater 검증 |
 | [docs/roadmap.md](docs/roadmap.md) | 전체 기능 완성 로드맵 |
 
 브랜드 자산은 [assets/brand](assets/brand)를 참고한다.
