@@ -7,7 +7,10 @@ import type { WorkspaceView } from "./workspaceTypes";
 
 type WorkspaceShellProps = {
   initialView?: WorkspaceView;
-  renderWorkspace: (activeView: WorkspaceView) => ReactNode;
+  renderWorkspace: (
+    activeView: WorkspaceView,
+    navigate: (view: WorkspaceView) => void,
+  ) => ReactNode;
 };
 
 export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellProps) {
@@ -36,7 +39,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
         tabIndex={-1}
         data-active-workspace={activeView}
       >
-        {renderWorkspace(activeView)}
+        {renderWorkspace(activeView, handleChange)}
       </div>
     </div>
   );

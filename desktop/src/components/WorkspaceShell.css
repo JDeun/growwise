@@ -50,20 +50,12 @@
   display: none;
 }
 
-.workspace-shell[data-active-workspace="home"] .app-shell > .hero {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="home"] .app-shell > .status-grid,
-.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
+/* Home prioritizes child context plus the dedicated action/recent-record dashboard. */
+.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .skeleton-grid {
   display: grid;
 }
 
-.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .section-heading {
-  display: flex;
-}
-
-.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .skeleton-grid {
+.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
   display: grid;
 }
 

@@ -5,6 +5,7 @@ import App from "./App";
 import PrintApprovedMaterials from "./PrintApprovedMaterials";
 import { CapabilityStatus } from "./components/CapabilityStatus";
 import { WorkspaceShell } from "./components";
+import { HomeDashboard } from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
 import "./styles.css";
 import "./tokens.css";
@@ -17,7 +18,15 @@ applyDocumentLocale(detectBrowserLocale());
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <WorkspaceShell renderWorkspace={() => <><CapabilityStatus /><App /></>} />
+    <WorkspaceShell
+      renderWorkspace={(activeView, navigate) => (
+        <>
+          <CapabilityStatus />
+          <App />
+          <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
+        </>
+      )}
+    />
     <PrintApprovedMaterials />
   </StrictMode>,
 );
