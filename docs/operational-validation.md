@@ -50,8 +50,8 @@ uv run python scripts/benchmark_hardware.py > benchmark-hardware.json
 
 The harness records operating system, architecture, CPU count, visible physical RAM, deterministic
 Core generation throughput, and the current 8 GB minimum / 16 GB recommended memory tier
-classification. Windows RAM is read through the native memory-status API; POSIX hosts use the local
-system configuration interface.
+classification. Windows RAM is read through `GlobalMemoryStatusEx`; macOS RAM is read through
+Apple's `hw.memsize` sysctl; other POSIX hosts use the local `sysconf` page-size/page-count interface.
 
 Acceptance procedure:
 
