@@ -220,6 +220,22 @@ class ResourceRecord(EntityBase):
     provenance: dict[str, str] = Field(default_factory=dict)
 
 
+class CurriculumTarget(BaseModel):
+    """Machine-readable curriculum alignment without redistributing source text.
+
+    ``mapping_id`` is a GrowWise identifier, not an official achievement-standard code.
+    ``standard_codes`` is reserved for verified official codes supplied by curated data or an
+    adapter. The description is GrowWise-authored and intentionally paraphrased.
+    """
+
+    mapping_id: str = Field(min_length=1, max_length=120)
+    framework: str = Field(min_length=1, max_length=160)
+    domain: str = Field(min_length=1, max_length=120)
+    description: str = Field(min_length=1, max_length=500)
+    source_ref: str = Field(min_length=1, max_length=160)
+    standard_codes: list[str] = Field(default_factory=list)
+
+
 class GeneratedMaterial(EntityBase):
     entity_type: str = "generated_material"
     child_id: UUID
@@ -228,6 +244,7 @@ class GeneratedMaterial(EntityBase):
     content_markdown: str
     status: MaterialStatus = MaterialStatus.DRAFT
     source_refs: list[str] = Field(default_factory=list)
+    curriculum_targets: list[CurriculumTarget] = Field(default_factory=list)
     generator_mode: str = "template"
     review_note: str | None = None
     request_topic: str | None = None
