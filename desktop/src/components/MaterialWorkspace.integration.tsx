@@ -26,9 +26,12 @@ export interface MaterialWorkspaceController {
   setEditingMaterialId: (materialId: string | null) => void;
   handleParentEdit: (materialId: string, title: string, content: string, note: string | null) => void;
   handlePrintMaterial: (material: GeneratedMaterial) => void;
+  handleMaterialResultRecorded?: () => void | Promise<void>;
 }
 
 export function MaterialWorkspaceIntegration({ controller }: { controller: MaterialWorkspaceController }) {
+  const refreshAfterResult = controller.handleMaterialResultRecorded ?? (() => window.location.reload());
+
   return (
     <MaterialWorkspace
       materials={controller.materials}
@@ -53,7 +56,7 @@ export function MaterialWorkspaceIntegration({ controller }: { controller: Mater
       onEditStart={controller.setEditingMaterialId}
       onEdit={controller.handleParentEdit}
       onPrint={controller.handlePrintMaterial}
-      onResultRecorded={() => undefined}
+      onResultRecorded={refreshAfterResult}
     />
   );
 }
