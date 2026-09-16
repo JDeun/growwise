@@ -136,7 +136,11 @@ pub(crate) async fn recommend_study_resources(
         .get(format!(
             "{CORE_BASE_URL}/v1/children/{child_id}/study/resources"
         ))
-        .query(&[("subject", subject.as_str()), ("unit", unit.as_str()), ("limit", "5")])
+        .query(&[
+            ("subject", subject.as_str()),
+            ("unit", unit.as_str()),
+            ("limit", "5"),
+        ])
         .send()
         .await
         .map_err(|error| error.to_string())?;
