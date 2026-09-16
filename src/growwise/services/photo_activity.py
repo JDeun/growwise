@@ -23,6 +23,7 @@ from growwise.domain.photo import (
 )
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
+from growwise.services.child_lock import child_operation_lock
 from growwise.services.observation import ObservationEnricher
 from growwise.storage import EntityStore
 
@@ -280,6 +281,13 @@ LearningLog."""
         self.vision_provider = vision_provider
         self.max_images = max_images
 
+    def _child_exists(self, child_id: str) -> bool:
+        return self.store.index.get_entity(child_id, entity_type="child_profile") is not None
+
+    def _require_child(self, child_id: str) -> None:
+        if not self._child_exists(child_id):
+            raise KeyError("child_not_found")
+
     def prepare_draft(
         self,
         *,
@@ -288,54 +296,58 @@ LearningLog."""
         user_context: str | None,
     ) -> tuple[PhotoActivityRecord, list[PhotoAsset]]:
         """Persist upload bytes quickly without waiting for local model inference."""
-        if self.store.index.get_entity(child_id, entity_type="child_profile") is None:
-            raise KeyError("child_not_found")
         if not uploads or len(uploads) > self.max_images:
             raise PhotoValidationError("invalid_photo_count")
 
-        assets: list[PhotoAsset] = []
-        newly_created: list[Path] = []
-        saved_assets: list[PhotoAsset] = []
-        try:
-            for upload in uploads:
-                asset, created = self.asset_store.store(child_id=child_id, upload=upload)
-                if created:
-                    newly_created.append(self.asset_store.assets_root / asset.relative_path)
-                self.store.save(asset)
-                saved_assets.append(asset)
-                assets.append(asset)
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            assets: list[PhotoAsset] = []
+            newly_created: list[Path] = []
+            saved_assets: list[PhotoAsset] = []
+            try:
+                for upload in uploads:
+                    asset, created = self.asset_store.store(child_id=child_id, upload=upload)
+                    if created:
+                        newly_created.append(self.asset_store.assets_root / asset.relative_path)
+                    self.store.save(asset)
+                    saved_assets.append(asset)
+                    assets.append(asset)
 
-            clean_context = (
-                user_context.strip()
-                if user_context is not None and user_context.strip()
-                else None
-            )
-            record = PhotoActivityRecord(
-                child_id=UUID(child_id),
-                photo_asset_ids=[asset.id for asset in assets],
-                user_context=clean_context,
-                generated_observation="사진 분석을 준비하고 있습니다.",
-                generation_mode="queued",
-                status=PhotoRecordStatus.QUEUED,
-            )
-            self.store.save(record)
-            return record, assets
-        except Exception:
-            for asset in reversed(saved_assets):
-                with suppress(Exception):
-                    self.store.delete(asset)
-            for path in newly_created:
-                path.unlink(missing_ok=True)
-            raise
+                clean_context = (
+                    user_context.strip()
+                    if user_context is not None and user_context.strip()
+                    else None
+                )
+                record = PhotoActivityRecord(
+                    child_id=UUID(child_id),
+                    photo_asset_ids=[asset.id for asset in assets],
+                    user_context=clean_context,
+                    generated_observation="사진 분석을 준비하고 있습니다.",
+                    generation_mode="queued",
+                    status=PhotoRecordStatus.QUEUED,
+                )
+                self.store.save(record)
+                return record, assets
+            except Exception:
+                for asset in reversed(saved_assets):
+                    with suppress(Exception):
+                        self.store.delete(asset)
+                for path in newly_created:
+                    path.unlink(missing_ok=True)
+                raise
 
     def attach_job(self, *, record_id: str, job_id: UUID) -> PhotoActivityRecord:
         record = self.get_record(record_id)
-        if record.status is not PhotoRecordStatus.QUEUED:
-            raise PhotoValidationError("photo_record_not_queued")
-        record.job_id = job_id
-        record.updated_at = datetime.now(UTC)
-        self.store.save(record)
-        return record
+        child_id = str(record.child_id)
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            record = self.get_record(record_id)
+            if record.status in {PhotoRecordStatus.COMMITTED, PhotoRecordStatus.DISCARDED}:
+                raise PhotoValidationError("photo_record_not_attachable")
+            record.job_id = job_id
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
+            return record
 
     def create_draft(
         self,
@@ -345,7 +357,7 @@ LearningLog."""
         user_context: str | None,
     ) -> tuple[PhotoActivityRecord, list[PhotoAsset]]:
         """Compatibility helper for synchronous tests and non-desktop callers."""
-        record, assets = self.prepare_draft(
+        record, _assets = self.prepare_draft(
             child_id=child_id,
             uploads=uploads,
             user_context=user_context,
@@ -355,21 +367,27 @@ LearningLog."""
 
     def process_draft(self, record_id: str) -> PhotoActivityRecord:
         record = self.get_record(record_id)
-        if record.status in {PhotoRecordStatus.DRAFT, PhotoRecordStatus.COMMITTED}:
-            return record
-        if record.status not in {
-            PhotoRecordStatus.QUEUED,
-            PhotoRecordStatus.PROCESSING,
-            PhotoRecordStatus.FAILED,
-        }:
-            raise PhotoValidationError("photo_record_not_processable")
+        child_id = str(record.child_id)
 
-        record.status = PhotoRecordStatus.PROCESSING
-        record.generation_mode = "processing"
-        record.error_message = None
-        record.updated_at = datetime.now(UTC)
-        self.store.save(record)
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            record = self.get_record(record_id)
+            if record.status in {PhotoRecordStatus.DRAFT, PhotoRecordStatus.COMMITTED}:
+                return record
+            if record.status not in {
+                PhotoRecordStatus.QUEUED,
+                PhotoRecordStatus.PROCESSING,
+                PhotoRecordStatus.FAILED,
+            }:
+                raise PhotoValidationError("photo_record_not_processable")
+            record.status = PhotoRecordStatus.PROCESSING
+            record.generation_mode = "processing"
+            record.error_message = None
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
 
+        # Long local-model calls deliberately run outside the child lock. Deletion can proceed
+        # while inference is running; every later write reacquires the lock and rechecks profile.
         assets = self.get_assets_for_record(record_id)
         for asset in assets:
             if self.vision_provider is None:
@@ -381,24 +399,41 @@ LearningLog."""
                     mime_type=asset.mime_type,
                     context=record.user_context or "",
                 )
-                if not _unsafe_generated_text(caption):
-                    asset.caption = caption
-                    asset.caption_model = self.vision_provider.model
-                    asset.updated_at = datetime.now(UTC)
-                    self.store.save(asset)
             except Exception:
-                asset.caption = None
-                asset.caption_model = None
+                continue
+            if _unsafe_generated_text(caption):
+                continue
+            asset.caption = caption
+            asset.caption_model = self.vision_provider.model
+            asset.updated_at = datetime.now(UTC)
+            with child_operation_lock(child_id):
+                self._require_child(child_id)
+                self.store.save(asset)
 
         observation, mode = self._generate_observation(assets, record.user_context)
         record.generated_observation = observation
         record.generation_mode = mode
         self._enrich_record(record, observation)
-        record.status = PhotoRecordStatus.DRAFT
-        record.error_message = None
-        record.updated_at = datetime.now(UTC)
-        self.store.save(record)
-        return record
+
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            current = self.get_record(record_id)
+            if current.status is PhotoRecordStatus.COMMITTED:
+                return current
+            if current.status is PhotoRecordStatus.DISCARDED:
+                raise PhotoValidationError("photo_record_discarded")
+            current.generated_observation = record.generated_observation
+            current.generation_mode = record.generation_mode
+            current.suggested_tags = record.suggested_tags
+            current.suggested_experience_axes = record.suggested_experience_axes
+            current.suggested_interest = record.suggested_interest
+            current.suggested_difficulty_note = record.suggested_difficulty_note
+            current.suggested_next_activity = record.suggested_next_activity
+            current.status = PhotoRecordStatus.DRAFT
+            current.error_message = None
+            current.updated_at = datetime.now(UTC)
+            self.store.save(current)
+            return current
 
     def _enrich_record(self, record: PhotoActivityRecord, observation: str) -> None:
         if self.text_provider is None:
@@ -415,23 +450,31 @@ LearningLog."""
 
     def mark_queued(self, record_id: str, *, error: str | None = None) -> None:
         record = self.get_record(record_id)
-        if record.status is PhotoRecordStatus.COMMITTED:
-            return
-        record.status = PhotoRecordStatus.QUEUED
-        record.generation_mode = "queued"
-        record.error_message = error[:2000] if error else None
-        record.updated_at = datetime.now(UTC)
-        self.store.save(record)
+        child_id = str(record.child_id)
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            record = self.get_record(record_id)
+            if record.status is PhotoRecordStatus.COMMITTED:
+                return
+            record.status = PhotoRecordStatus.QUEUED
+            record.generation_mode = "queued"
+            record.error_message = error[:2000] if error else None
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
 
     def mark_failed(self, record_id: str, error: str) -> None:
         record = self.get_record(record_id)
-        if record.status is PhotoRecordStatus.COMMITTED:
-            return
-        record.status = PhotoRecordStatus.FAILED
-        record.generation_mode = "failed"
-        record.error_message = error[:2000]
-        record.updated_at = datetime.now(UTC)
-        self.store.save(record)
+        child_id = str(record.child_id)
+        with child_operation_lock(child_id):
+            self._require_child(child_id)
+            record = self.get_record(record_id)
+            if record.status is PhotoRecordStatus.COMMITTED:
+                return
+            record.status = PhotoRecordStatus.FAILED
+            record.generation_mode = "failed"
+            record.error_message = error[:2000]
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
 
     def _generate_observation(
         self,
@@ -494,7 +537,11 @@ LearningLog."""
 
     def commit(self, *, record_id: str, observation: str | None = None) -> LearningLog:
         with _commit_lock(record_id):
-            return self._commit_locked(record_id=record_id, observation=observation)
+            record = self.get_record(record_id)
+            child_id = str(record.child_id)
+            with child_operation_lock(child_id):
+                self._require_child(child_id)
+                return self._commit_locked(record_id=record_id, observation=observation)
 
     def _commit_locked(self, *, record_id: str, observation: str | None) -> LearningLog:
         record = self.get_record(record_id)
