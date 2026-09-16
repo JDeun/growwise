@@ -2,6 +2,7 @@ export type WorkspaceView =
   | "home"
   | "observations"
   | "photos"
+  | "learning"
   | "growth"
   | "activities"
   | "search"
