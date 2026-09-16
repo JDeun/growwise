@@ -10,6 +10,7 @@ from growwise.config import Settings
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.jobs import SQLiteJobQueue
 from growwise.rag import HybridRagIndex
+from growwise.services.child_lock import child_operation_lock
 from growwise.services.conversation_store import SQLiteConversationStore
 from growwise.services.photo_activity import PhotoAssetStore
 from growwise.storage import EntityStore
@@ -45,6 +46,12 @@ class ChildPurgeService:
         self.store = EntityStore(settings.records_dir, settings.index_path)
 
     def purge(self, child_id: str) -> ChildPurgeResult:
+        # Background model inference runs outside this lock, but every child-scoped save takes the
+        # same lock. Once purge owns it, no late worker write can recreate data after deletion.
+        with child_operation_lock(child_id):
+            return self._purge_locked(child_id)
+
+    def _purge_locked(self, child_id: str) -> ChildPurgeResult:
         profile = self.store.index.get_entity(child_id, entity_type="child_profile")
         if profile is None:
             raise KeyError("child_not_found")
