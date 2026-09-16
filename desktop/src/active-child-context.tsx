@@ -33,6 +33,7 @@ interface ActiveChildContextValue {
   loading: boolean;
   error: string | null;
   selectChild: (childId: string) => void;
+  syncRememberedChild: () => void;
   refreshChildren: (preferredId?: string | null) => Promise<ChildProfile | null>;
   upsertChild: (child: ChildProfile, options?: { select?: boolean }) => void;
 }
@@ -53,6 +54,13 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
       window.localStorage.removeItem(LAST_CHILD_KEY);
     }
   }, []);
+
+  const syncRememberedChild = useCallback(() => {
+    const rememberedId = window.localStorage.getItem(LAST_CHILD_KEY);
+    const selectedId = resolveActiveChildId(children, rememberedId, activeChildId);
+    if (selectedId !== activeChildId) setActiveChildId(selectedId);
+    if (!selectedId && rememberedId) window.localStorage.removeItem(LAST_CHILD_KEY);
+  }, [activeChildId, children]);
 
   const refreshChildren = useCallback(async (preferredId?: string | null) => {
     setLoading(true);
@@ -102,6 +110,7 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
       loading,
       error,
       selectChild,
+      syncRememberedChild,
       refreshChildren,
       upsertChild,
     }),
@@ -113,6 +122,7 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
       loading,
       refreshChildren,
       selectChild,
+      syncRememberedChild,
       upsertChild,
     ],
   );
