@@ -9,6 +9,7 @@ import {
   type ChildProfile,
   type PhotoActivityRecord,
   type PhotoAsset,
+  type PhotoRecordStatus,
   type PhotoUploadInput,
 } from "../api";
 import "./PhotoActivityWorkspace.css";
@@ -17,7 +18,17 @@ const LAST_CHILD_KEY = "growwise:last-child-id";
 const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
+const POLL_INTERVAL_MS = 2500;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+const STATUS_LABEL: Record<PhotoRecordStatus, string> = {
+  queued: "대기 중",
+  processing: "사진 분석 중",
+  draft: "검토 필요",
+  committed: "기록 완료",
+  failed: "분석 중단",
+  discarded: "사용 안 함",
+};
 
 function fileToBase64(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -41,6 +52,10 @@ function messageFrom(error: unknown): string {
   return typeof error === "string" ? error : "사진 기록 처리에 실패했습니다.";
 }
 
+function isBackgroundRecord(record: PhotoActivityRecord): boolean {
+  return record.status === "queued" || record.status === "processing";
+}
+
 type Props = { active: boolean };
 
 export function PhotoActivityWorkspace({ active }: Props) {
@@ -54,6 +69,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [draft, setDraft] = useState<PhotoActivityRecord | null>(null);
   const [draftAssets, setDraftAssets] = useState<PhotoAsset[]>([]);
   const [editedObservation, setEditedObservation] = useState("");
+  const [pendingRecordId, setPendingRecordId] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -61,9 +77,11 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const refreshRecords = useCallback(async (targetChildId: string) => {
     if (!targetChildId) {
       setRecords([]);
-      return;
+      return [] as PhotoActivityRecord[];
     }
-    setRecords(await listPhotoRecords(targetChildId));
+    const nextRecords = await listPhotoRecords(targetChildId);
+    setRecords(nextRecords);
+    return nextRecords;
   }, []);
 
   useEffect(() => {
@@ -93,6 +111,40 @@ export function PhotoActivityWorkspace({ active }: Props) {
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [files]);
 
+  useEffect(() => {
+    if (!active || !childId || !records.some(isBackgroundRecord)) return;
+    let cancelled = false;
+
+    const check = async () => {
+      try {
+        const nextRecords = await refreshRecords(childId);
+        if (cancelled) return;
+        if (!pendingRecordId) return;
+        const pending = nextRecords.find((record) => record.id === pendingRecordId);
+        if (!pending) return;
+        if (pending.status === "draft") {
+          setDraft(pending);
+          setEditedObservation(pending.generated_observation);
+          setPendingRecordId(null);
+          setNotice("사진 분석이 완료되었습니다. 초안을 확인하고 필요한 부분을 수정하세요.");
+        } else if (pending.status === "failed") {
+          setPendingRecordId(null);
+          setError(
+            "로컬 사진 분석을 완료하지 못했습니다. 사진은 안전하게 저장되어 있으며 나중에 다시 시도할 수 있습니다.",
+          );
+        }
+      } catch (pollError) {
+        if (!cancelled) setError(messageFrom(pollError));
+      }
+    };
+
+    const timer = window.setInterval(() => void check(), POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [active, childId, pendingRecordId, records, refreshRecords]);
+
   async function handleChildChange(event: ChangeEvent<HTMLSelectElement>) {
     const next = event.target.value;
     setChildId(next);
@@ -100,6 +152,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setDraftAssets([]);
     setStoredPreviews([]);
     setEditedObservation("");
+    setPendingRecordId(null);
     setError(null);
     window.localStorage.setItem(LAST_CHILD_KEY, next);
     try {
@@ -137,10 +190,11 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setDraft(null);
     setDraftAssets([]);
     setEditedObservation("");
+    setPendingRecordId(null);
   }
 
   async function handleAnalyze() {
-    if (!childId || files.length === 0 || busy) return;
+    if (!childId || files.length === 0 || busy || pendingRecordId) return;
     setBusy(true);
     setError(null);
     setNotice(null);
@@ -153,14 +207,13 @@ export function PhotoActivityWorkspace({ active }: Props) {
         })),
       );
       const result = await createPhotoRecord(childId, uploads, context.trim() || undefined);
-      setDraft(result.record);
+      setPendingRecordId(result.record.id);
+      setDraft(null);
       setDraftAssets(result.assets);
       setStoredPreviews([]);
-      setEditedObservation(result.record.generated_observation);
+      setEditedObservation("");
       setNotice(
-        result.record.generation_mode === "llm_photo_synthesis"
-          ? "사진 분석 초안을 만들었습니다. 내용이 실제 경험과 맞는지 확인한 뒤 저장하세요."
-          : "모델 보강 없이 안전한 기본 초안을 만들었습니다. 내용을 확인하고 보완하세요.",
+        "사진을 안전하게 저장했습니다. 로컬 AI가 백그라운드에서 분석 중입니다. 다른 작업공간을 사용해도 됩니다.",
       );
       await refreshRecords(childId);
     } catch (analyzeError) {
@@ -171,7 +224,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
   }
 
   async function handleCommit() {
-    if (!draft || !editedObservation.trim() || busy) return;
+    if (!draft || draft.status !== "draft" || !editedObservation.trim() || busy) return;
     setBusy(true);
     setError(null);
     try {
@@ -183,6 +236,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
       setEditedObservation("");
       setContext("");
       setFiles([]);
+      setPendingRecordId(null);
       await refreshRecords(childId);
     } catch (commitError) {
       setError(messageFrom(commitError));
@@ -210,7 +264,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
       setEditedObservation(record.generated_observation);
       setFiles([]);
       setContext(record.user_context ?? "");
-      setNotice("이전에 만든 초안과 로컬 사진 원본을 다시 열었습니다.");
+      setPendingRecordId(null);
+      setNotice("저장된 초안을 열었습니다. 실제 경험과 맞는지 확인한 뒤 기록으로 확정하세요.");
     } catch (loadError) {
       setError(messageFrom(loadError));
     } finally {
@@ -221,28 +276,37 @@ export function PhotoActivityWorkspace({ active }: Props) {
   if (!active) return null;
 
   const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
+  const hasBackgroundWork = records.some(isBackgroundRecord);
 
   return (
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
       <section className="workspace photo-workspace-card">
         <div className="section-heading">
           <div>
-            <p className="card-label">PHOTO ACTIVITY RECORD</p>
+            <p className="card-label">사진 활동 기록</p>
             <h2 id="photo-workspace-title">사진으로 활동 기록 만들기</h2>
             <p className="muted">
-              사진의 촬영 정보와 선택적 로컬 VLM 설명, 부모 메모를 합쳐 검토용 초안을 만듭니다.
-              모델이 만든 내용은 부모가 확인하고 저장하기 전까지 관찰 기록이 아닙니다.
+              사진의 촬영 정보와 로컬 AI가 읽은 장면, 부모 설명을 합쳐 검토용 초안을 만듭니다.
+              분석은 백그라운드에서 진행되며, 부모가 확인하기 전에는 관찰 기록으로 확정되지 않습니다.
             </p>
           </div>
         </div>
 
         <div className="photo-privacy-note">
-          <strong>로컬 우선</strong>
+          <strong>사진은 로컬에 보관됩니다</strong>
           <p>
-            사진 원본은 GrowWise 관리 폴더에 content hash로 저장됩니다. 정확한 GPS 좌표는 기록하지
-            않으며 외부 역지오코딩 서비스로 보내지 않습니다.
+            원본은 GrowWise 관리 폴더에 저장되고 정확한 GPS 좌표는 기록하지 않습니다. 사진 분석은
+            로컬 Ollama에서 처리하며, 느린 컴퓨터에서는 몇 분이 걸려도 다른 GrowWise 기능을 계속
+            사용할 수 있습니다.
           </p>
         </div>
+
+        {hasBackgroundWork && (
+          <div className="photo-privacy-note" role="status" aria-live="polite">
+            <strong>백그라운드 분석 진행 중</strong>
+            <p>앱을 계속 사용할 수 있습니다. 완료되면 이 화면에서 검토 가능한 초안으로 바뀝니다.</p>
+          </div>
+        )}
 
         <label className="photo-field">
           <span>아이</span>
@@ -267,7 +331,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
             accept="image/jpeg,image/png,image/webp"
             multiple
             onChange={handleFiles}
-            disabled={!childId || busy}
+            disabled={!childId || busy || pendingRecordId !== null}
           />
         </label>
 
@@ -291,7 +355,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
             onChange={(event) => setContext(event.target.value)}
             placeholder="예: 공원에서 낙엽을 주워 색을 비교했고, 아이가 같은 색을 여러 번 골랐어요."
             maxLength={10_000}
-            disabled={busy}
+            disabled={busy || pendingRecordId !== null}
           />
         </label>
 
@@ -299,9 +363,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
           className="primary-button"
           type="button"
           onClick={handleAnalyze}
-          disabled={!childId || files.length === 0 || busy}
+          disabled={!childId || files.length === 0 || busy || pendingRecordId !== null}
         >
-          {busy ? "처리 중…" : "사진에서 기록 초안 만들기"}
+          {busy ? "사진 저장 중…" : pendingRecordId ? "백그라운드 분석 중…" : "사진 저장하고 분석 시작"}
         </button>
 
         {error && (
@@ -315,24 +379,24 @@ export function PhotoActivityWorkspace({ active }: Props) {
           </p>
         )}
 
-        {draft && (
+        {draft && draft.status === "draft" && (
           <section className="photo-draft" aria-labelledby="photo-draft-title">
             <div className="activity-heading">
               <div>
-                <p className="card-label">PARENT REVIEW</p>
+                <p className="card-label">부모 확인</p>
                 <h3 id="photo-draft-title">저장 전 확인</h3>
                 <p className="muted">사진 해석이 틀렸거나 과도한 표현이 있으면 직접 수정하세요.</p>
               </div>
-              <span className="status-badge">{draft.generation_mode}</span>
+              <span className="status-badge">검토 필요</span>
             </div>
 
             {draftAssets.some((asset) => asset.caption) && (
               <details className="photo-caption-details">
-                <summary>모델이 사진에서 읽은 장면 확인</summary>
+                <summary>로컬 AI가 사진에서 읽은 장면 확인</summary>
                 {draftAssets.map((asset) => (
                   <div key={asset.id} className="photo-caption-item">
                     <strong>{asset.original_filename}</strong>
-                    <p>{asset.caption ?? "시각 캡션을 만들지 못했습니다."}</p>
+                    <p>{asset.caption ?? "장면 설명을 만들지 못했습니다."}</p>
                   </div>
                 ))}
               </details>
@@ -362,8 +426,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
       <section className="workspace photo-history">
         <div className="activity-heading">
           <div>
-            <p className="card-label">PHOTO HISTORY</p>
-            <h2>사진 기록 내역</h2>
+            <p className="card-label">사진 기록 내역</p>
+            <h2>처리 상태와 초안</h2>
           </div>
         </div>
         {records.length === 0 ? (
@@ -374,9 +438,22 @@ export function PhotoActivityWorkspace({ active }: Props) {
               <article className="quest-card" key={record.id}>
                 <div className="material-meta">
                   <strong>사진 {record.photo_asset_ids.length}장</strong>
-                  <span className={`status-badge status-${record.status}`}>{record.status}</span>
+                  <span className={`status-badge status-${record.status}`}>
+                    {STATUS_LABEL[record.status]}
+                  </span>
                 </div>
                 <p>{record.generated_observation}</p>
+                {record.status === "processing" && (
+                  <p className="muted">로컬 AI가 사진을 분석하고 있습니다. 화면을 떠나도 계속 진행됩니다.</p>
+                )}
+                {record.status === "queued" && (
+                  <p className="muted">앞선 작업이 끝나면 자동으로 분석을 시작합니다.</p>
+                )}
+                {record.status === "failed" && (
+                  <p className="form-error">
+                    분석을 완료하지 못했습니다. 원본 사진은 로컬에 보관되어 있습니다.
+                  </p>
+                )}
                 {record.status === "draft" && (
                   <button
                     className="quiet-button"
@@ -384,7 +461,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
                     onClick={() => void reopenDraft(record)}
                     disabled={busy}
                   >
-                    검토 계속
+                    초안 검토
                   </button>
                 )}
               </article>
