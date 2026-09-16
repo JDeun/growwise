@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from functools import lru_cache
-from typing import Annotated
+from typing import Annotated, Self
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,7 +43,7 @@ class LearningRecordRequest(BaseModel):
     shared_child_ids: list[UUID] = Field(default_factory=list, max_length=20)
 
     @model_validator(mode="after")
-    def independent_kind_only(self):
+    def independent_kind_only(self) -> Self:
         if self.kind not in _INDEPENDENT_KINDS:
             raise ValueError("record kind is reserved for another GrowWise capture flow")
         return self
