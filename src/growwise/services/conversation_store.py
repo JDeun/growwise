@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
 
 from .conversation import ConversationSession, ConversationTurn
@@ -72,7 +73,7 @@ class SQLiteConversationStore:
             )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_conversation_turn_order "
-                "ON conversation_turns(session_id, created_at, rowid)"
+                "ON conversation_turns(session_id, created_at)"
             )
             self._migrate_legacy_turns(connection)
 
@@ -176,8 +177,8 @@ class SQLiteConversationStore:
     ) -> ConversationSession:
         session = ConversationSession.model_validate(json.loads(row["payload_json"]))
         session.turns = cls._turns_for(connection, session.id)
-        # The row is authoritative for update ordering even for migrated legacy payloads.
-        session.updated_at = row["updated_at"]
+        # SQL ordering is authoritative even for migrated legacy payloads.
+        session.updated_at = datetime.fromisoformat(row["updated_at"])
         return session
 
     def get(self, session_id: str) -> ConversationSession | None:
