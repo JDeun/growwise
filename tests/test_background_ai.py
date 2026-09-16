@@ -123,7 +123,7 @@ def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) ->
         runner.stop()
 
 
-def test_material_worker_uses_generalized_feedback_and_keeps_learner_work_local(
+def test_material_worker_uses_generalized_feedback_and_keeps_raw_activity_data_local(
     tmp_path: Path,
 ) -> None:
     settings = Settings(data_dir=tmp_path, embedding_features_enabled=False)
@@ -131,6 +131,7 @@ def test_material_worker_uses_generalized_feedback_and_keeps_learner_work_local(
     child = ChildProfile(name="아이", nickname="아이", stage=Stage.ELEMENTARY)
     store.save(child)
     learner_work = "아이 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다."
+    process = "사과 그림을 하나씩 옮기면서 두 묶음의 개수가 같은지 확인했다."
     store.save(
         LearningLog(
             child_id=child.id,
@@ -138,6 +139,7 @@ def test_material_worker_uses_generalized_feedback_and_keeps_learner_work_local(
             title="이전 나누기 활동",
             parent_observation="실물을 직접 옮겨가며 풀었다.",
             learner_work=learner_work,
+            process=process,
         )
     )
     material = GeneratedMaterial(
@@ -189,9 +191,13 @@ def test_material_worker_uses_generalized_feedback_and_keeps_learner_work_local(
             raise AssertionError("background material enhancement did not complete")
 
         assert "최근 아이 산출물이 있으면" in provider.last_user
+        assert "최근 활동 과정이 기록돼 있으면" in provider.last_user
         assert learner_work not in provider.last_user
+        assert process not in provider.last_user
         assert learner_work not in current.content_markdown
+        assert process not in current.content_markdown
         assert learner_work in current.parent_guide_markdown
+        assert process in current.parent_guide_markdown
         assert current.ai_status is AiEnhancementStatus.COMPLETED
     finally:
         runner.stop()
