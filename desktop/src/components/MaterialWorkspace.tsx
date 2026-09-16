@@ -11,6 +11,7 @@ import type {
 import { materialCatalogForStage, materialCatalogItem } from "../material-catalog";
 import { EmptyState } from "./EmptyState";
 import { MaterialContent } from "./MaterialContent";
+import { MaterialCurriculumTargets } from "./MaterialCurriculumTargets";
 import { MaterialKindGuide } from "./MaterialKindGuide";
 import "./MaterialWorkspace.queue.css";
 
@@ -266,6 +267,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card draft-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview compact">
                   <MaterialContent markdown={material.content_markdown} />
                 </div>
@@ -318,6 +320,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card review-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview">
                   <MaterialContent markdown={material.content_markdown} />
                 </div>
@@ -395,6 +398,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <article className="material-card approved-card" key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialSources material={material} resources={resources} />
+                <MaterialCurriculumTargets targets={material.curriculum_targets} />
                 <div className="material-preview compact">
                   <MaterialContent markdown={material.content_markdown} />
                 </div>

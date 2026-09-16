@@ -1,0 +1,50 @@
+.material-curriculum-targets {
+  margin-top: 10px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.material-curriculum-targets summary {
+  padding: 9px 11px;
+  cursor: pointer;
+  color: var(--primary-strong);
+  font-size: 12px;
+  font-weight: 750;
+}
+
+.material-curriculum-list {
+  display: grid;
+  gap: 8px;
+  padding: 0 11px 11px;
+}
+
+.material-curriculum-list article {
+  display: grid;
+  gap: 5px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
+.material-curriculum-list article > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  align-items: baseline;
+}
+
+.material-curriculum-list strong {
+  font-size: 12px;
+}
+
+.material-curriculum-list span,
+.material-curriculum-list small,
+.material-curriculum-list p {
+  color: var(--ink-soft);
+  font-size: 11px;
+  line-height: 1.5;
+}
+
+.material-curriculum-list p {
+  margin: 0;
+}

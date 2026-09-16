@@ -32,9 +32,10 @@ export interface ConversationSession { id: string; child_id: string; title: stri
 export interface ConversationAnswer { session_id: string; thread_id: string; answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean; }; turn_count: number; }
 export interface ResourceCreateInput { kind: ResourceKind; title: string; child_id: string | null; summary: string | null; content: string | null; source_url: string | null; source_name: string | null; author: string | null; tags: string[]; stage_tags: string[]; provenance: Record<string, string>; }
 export interface ResourceRecord extends ResourceCreateInput { id: string; created_at?: string; updated_at?: string; }
-export interface GeneratedMaterial { id: string; child_id: string; kind: MaterialKind; title: string; content_markdown: string; status: MaterialStatus; source_refs: string[]; generator_mode: string; review_note: string | null; request_topic: string | null; request_goal: string | null; version: number; parent_material_id: string | null; version_note: string | null; created_at?: string; updated_at?: string; }
+export interface CurriculumTarget { mapping_id: string; framework: string; domain: string; description: string; source_ref: string; standard_codes: string[]; }
+export interface GeneratedMaterial { id: string; child_id: string; kind: MaterialKind; title: string; content_markdown: string; status: MaterialStatus; source_refs: string[]; curriculum_targets?: CurriculumTarget[]; generator_mode: string; review_note: string | null; request_topic: string | null; request_goal: string | null; version: number; parent_material_id: string | null; version_note: string | null; created_at?: string; updated_at?: string; }
 export interface BackupItem { archive: string; path: string; size_bytes: number; modified_at: string; }
-export interface BackupCreateResult { archive: string; path: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; }; }
+export interface BackupCreateResult { archive: string; path: string; size_bytes: number; modified_at: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; }; }
 export interface BackupRestoreResult { archive: string; restored: boolean; rag_chunk_count: number; manifest: BackupCreateResult["manifest"]; }
 
 export class CoreApiError extends Error {
