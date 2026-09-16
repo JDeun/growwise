@@ -4,7 +4,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 
 ## Current structural risk
 
-`desktop/src/App.tsx` is still a ~46 KB monolith containing connection status, child creation/switching, observations, growth map, search, conversation, resources, material generation/review/editing, activities, infant guidance, backups, and printing. The persistent workspace shell now projects those existing sections into task-oriented views while keeping the same mounted App/controller state, so the previous one-long-page information architecture is no longer the primary user surface. Component isolation and maintainability remain unfinished until the monolith is split without changing Core semantics.
+`desktop/src/App.tsx` now acts primarily as the Core-backed controller/orchestration boundary. System status, child profile, observation/growth, search/conversation, resource library, infant guidance, activities, timeline, and data-management presentation live in typed feature components. App still owns substantial feature state and mutation handlers, so future work can continue moving controller logic into feature hooks without changing Core contracts or child-scope behavior.
 
 ## P0 completion batch
 
@@ -17,7 +17,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [x] Provide visible success feedback for writes. Child profile, observation, resource, material, and activity mutations now announce completion through a persistent-in-viewport polite status notice; backup create/export/import/restore retain Settings-local status feedback, and destructive import/restore actions use the accessible app confirmation dialog.
 - [x] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast. Workspace navigation now exposes tablist/tab/tabpanel semantics with roving keyboard focus and a skip link; dialogs trap focus; form errors/status use alert/status semantics; reduced-motion overrides are present; and the primary action/text color was darkened so normal-size white/green combinations clear WCAG AA contrast.
 - [x] Add narrow-window behavior suitable for common laptop sizes (workspace navigation and content grids collapse at 900/700/600 px breakpoints, with reduced-width shell spacing on small windows).
-- [ ] Break App.tsx into feature components without changing Core semantics.
+- [x] Break App.tsx into feature components without changing Core semantics. App retains orchestration and mutation ownership while workspace presentation is split into typed feature sections.
 
 ## P1 product-quality batch
 
