@@ -28,7 +28,7 @@ export interface BoardBookRecommendations { recommendations: BoardBookRecommenda
 export interface ActivityPlan { id: string; child_id: string; title: string; status: ActivityStatus; source_refs: string[]; parent_note: string | null; started_at: string | null; completed_at: string | null; skipped_at: string | null; created_at?: string; updated_at?: string; }
 export interface SearchPlan { keywords: string[]; entity_types: string[]; limit: number; }
 export interface SearchResponse { query: string; plan: SearchPlan; results: Array<Record<string, unknown>>; }
-export interface ConversationSession { id: string; child_id: string; title: string | null; turns: Array<{ role: "user" | "assistant"; content: string; source_ids: string[]; created_at: string; }>; }
+export interface ConversationSession { id: string; child_id: string; title: string | null; turns: Array<{ role: "user" | "assistant"; content: string; source_ids: string[]; created_at: string; }>; created_at?: string; updated_at?: string; }
 export interface ConversationAnswer { session_id: string; thread_id: string; answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean; }; turn_count: number; }
 export interface ResourceCreateInput { kind: ResourceKind; title: string; child_id: string | null; summary: string | null; content: string | null; source_url: string | null; source_name: string | null; author: string | null; tags: string[]; stage_tags: string[]; provenance: Record<string, string>; }
 export interface ResourceRecord extends ResourceCreateInput { id: string; created_at?: string; updated_at?: string; }
@@ -58,6 +58,7 @@ export const transitionActivity = (activityId: string, status: ActivityStatus, p
 export const listActivityObservations = (activityId: string) => call<LearningLog[]>("list_activity_observations", { activityId });
 export const searchChildContext = (childId: string, query: string) => call<SearchResponse>("search_child_context", { childId, query });
 export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
+export const listConversations = (childId: string) => call<ConversationSession[]>("list_conversations", { childId });
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
 export const createResource = (request: ResourceCreateInput) => call<ResourceRecord>("create_resource", { request });
 export const listResources = (childId?: string) => call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
