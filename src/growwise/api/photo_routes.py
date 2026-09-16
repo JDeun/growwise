@@ -9,7 +9,6 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
-from growwise.api.link_routes import router as link_router
 from growwise.config import Settings
 from growwise.domain.photo import PhotoAsset, PhotoRecordStatus
 from growwise.jobs import SQLiteJobQueue
@@ -392,8 +391,3 @@ def get_photo_asset(
         "asset": typed_asset.model_dump(mode="json"),
         "data_base64": base64.b64encode(data).decode("ascii"),
     }
-
-
-# Generic graph routes share the same /v1 parent router. Keeping links first-class means activities,
-# observations, materials and photo records can all participate in the same backlink graph.
-router.include_router(link_router)
