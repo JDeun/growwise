@@ -190,12 +190,16 @@ def test_material_worker_uses_generalized_feedback_and_keeps_raw_activity_data_l
         else:
             raise AssertionError("background material enhancement did not complete")
 
+        assert "Goal: 실물로 나누는 방법을 탐색한다" in provider.last_user
+        assert "Internal generation guidance" in provider.last_user
         assert "최근 아이 산출물이 있으면" in provider.last_user
         assert "최근 활동 과정이 기록돼 있으면" in provider.last_user
+        assert "개인화 원칙" not in provider.last_user
         assert learner_work not in provider.last_user
         assert process not in provider.last_user
         assert learner_work not in current.content_markdown
         assert process not in current.content_markdown
+        assert "개인화 원칙" not in current.content_markdown
         assert learner_work in current.parent_guide_markdown
         assert process in current.parent_guide_markdown
         assert current.ai_status is AiEnhancementStatus.COMPLETED
