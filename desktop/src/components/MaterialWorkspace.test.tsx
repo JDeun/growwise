@@ -64,7 +64,7 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("활동 퀘스트");
+    expect(html).toContain("자료 사용과 결과");
   });
 
   it("keeps review-pending material out of the printable and closed-loop lane", () => {
@@ -72,20 +72,23 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토 필요");
     expect(html).toContain("승인하고 사용");
     expect(html).not.toContain("인쇄 / PDF 내보내기");
-    expect(html).not.toContain("활동 퀘스트");
+    expect(html).not.toContain("자료 사용과 결과");
   });
 
   it("only exposes print and closed-loop tracking after parent approval", () => {
     const html = render([{ ...base, status: "approved" }]);
     expect(html).toContain("승인·사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("활동 퀘스트");
-    expect(html).toContain("인쇄한 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.");
+    expect(html).toContain("자료 사용과 결과");
+    expect(html).toContain("이 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.");
     expect(html).not.toContain("승인하고 사용");
   });
 
-  it("communicates deterministic generation availability", () => {
+  it("communicates deterministic generation availability without implementation jargon", () => {
     const html = render([]);
-    expect(html).toContain("AI 연결 여부와 관계없이 기본 템플릿으로 생성할 수 있습니다.");
+    expect(html).toContain("AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다.");
+    expect(html).not.toContain("Core 템플릿");
+    expect(html).not.toContain("Parent Review");
+    expect(html).not.toContain("MATERIALS");
   });
 });
