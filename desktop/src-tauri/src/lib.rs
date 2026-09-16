@@ -1,15 +1,34 @@
 mod core_process;
 
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use core_process::CoreProcessManager;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-const CORE_BASE_URL: &str = "http://127.0.0.1:8765";
+#[derive(Debug)]
+struct CoreConnection {
+    base_url: String,
+    session_token: String,
+}
+
+static CORE_CONNECTION: OnceLock<CoreConnection> = OnceLock::new();
+
+struct CoreBaseUrl;
+const CORE_BASE_URL: CoreBaseUrl = CoreBaseUrl;
+
+impl fmt::Display for CoreBaseUrl {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let connection = CORE_CONNECTION.get().ok_or(fmt::Error)?;
+        formatter.write_str(&connection.base_url)
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -120,7 +139,15 @@ struct ResourceCreateInput {
 }
 
 fn client() -> Result<reqwest::Client, String> {
+    let connection = CORE_CONNECTION
+        .get()
+        .ok_or_else(|| "GrowWise Core 연결 정보가 초기화되지 않았습니다.".to_string())?;
+    let authorization = HeaderValue::from_str(&format!("Bearer {}", connection.session_token))
+        .map_err(|error| format!("GrowWise Core 인증 헤더 생성 실패: {error}"))?;
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, authorization);
     reqwest::Client::builder()
+        .default_headers(headers)
         .timeout(std::time::Duration::from_millis(8000))
         .build()
         .map_err(|error| error.to_string())
@@ -739,8 +766,16 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
-            let manager =
-                CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
+            let data_dir = app.path().app_data_dir()?;
+            fs::create_dir_all(&data_dir)?;
+            let manager = CoreProcessManager::ensure_started(&resource_dir, &data_dir)
+                .map_err(std::io::Error::other)?;
+            CORE_CONNECTION
+                .set(CoreConnection {
+                    base_url: manager.base_url().to_string(),
+                    session_token: manager.session_token().to_string(),
+                })
+                .map_err(|_| std::io::Error::other("GrowWise Core 연결이 중복 초기화되었습니다."))?;
             app.manage(manager);
             Ok(())
         })
