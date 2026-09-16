@@ -1,6 +1,10 @@
 from __future__ import annotations
 
 from pathlib import Path
+from uuid import uuid4
+
+import pytest
+from fastapi import HTTPException
 
 from growwise.api.main import app
 from growwise.api.material_result_routes import (
@@ -15,10 +19,14 @@ from growwise.domain.models import (
     ChildProfile,
     ExperienceAxis,
     GeneratedMaterial,
+    LearningLog,
+    LearningRecordKind,
     MaterialKind,
     MaterialStatus,
     Stage,
 )
+from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
+from growwise.services.entity_links import EntityLinkService
 from growwise.services.growth import GrowthMapService
 from growwise.storage import EntityStore
 
@@ -46,6 +54,31 @@ def _approved_material(store: EntityStore) -> tuple[ChildProfile, GeneratedMater
     )
     store.save(material)
     return child, material
+
+
+def _committed_photo_record(
+    store: EntityStore,
+    child: ChildProfile,
+    *,
+    observation: str = "실제 활동 사진을 부모가 검토했다.",
+) -> PhotoActivityRecord:
+    photo_log = LearningLog(
+        child_id=child.id,
+        record_kind=LearningRecordKind.PHOTO_ACTIVITY,
+        parent_observation=observation,
+        tags=["사진기록"],
+    )
+    store.save(photo_log)
+    record = PhotoActivityRecord(
+        child_id=child.id,
+        photo_asset_ids=[uuid4()],
+        generated_observation=observation,
+        generation_mode="manual_photo_diary",
+        status=PhotoRecordStatus.COMMITTED,
+        learning_log_id=photo_log.id,
+    )
+    store.save(record)
+    return record
 
 
 def test_printed_material_result_becomes_activity_and_learning_log(tmp_path: Path) -> None:
@@ -86,6 +119,100 @@ def test_printed_material_result_becomes_activity_and_learning_log(tmp_path: Pat
     links = store.index.list_entities(entity_type="entity_link")
     relations = {item["relation"] for item in links}
     assert {"supports", "documents", "derived_from"}.issubset(relations)
+
+
+def test_material_result_links_reviewed_photo_evidence_without_copying_image(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    child, material = _approved_material(store)
+    photo = _committed_photo_record(store, child)
+
+    result = record_material_result(
+        material.id,
+        MaterialResultRequest(
+            observation="활동지를 마친 뒤 결과 사진도 함께 남겼다.",
+            photo_record_ids=[photo.id],
+        ),
+        store,
+    )
+
+    links = store.index.list_entities(entity_type="entity_link")
+    evidence_links = [
+        item
+        for item in links
+        if item["source_id"] == str(photo.id)
+        and item["target_id"] == str(result.learning_log.id)
+        and item["relation"] == "documents"
+    ]
+    assert len(evidence_links) == 1
+    assert evidence_links[0]["label"] == "활동 결과 사진 기록"
+    assert store.index.get_entity(str(photo.id), entity_type="photo_activity_record") is not None
+
+
+def test_material_result_rejects_unreviewed_photo_evidence(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    child, material = _approved_material(store)
+    draft = PhotoActivityRecord(
+        child_id=child.id,
+        photo_asset_ids=[uuid4()],
+        generated_observation="아직 부모 검토 전인 사진 기록",
+        generation_mode="manual_photo_diary",
+        status=PhotoRecordStatus.DRAFT,
+    )
+    store.save(draft)
+
+    with pytest.raises(HTTPException) as exc_info:
+        record_material_result(
+            material.id,
+            MaterialResultRequest(
+                observation="검토되지 않은 사진은 결과 증거로 확정하지 않는다.",
+                photo_record_ids=[draft.id],
+            ),
+            store,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "photo_record_must_be_committed"
+
+
+def test_material_result_photo_evidence_respects_child_scope_visibility(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    child, material = _approved_material(store)
+    sibling = ChildProfile(name="형제", nickname="형제", stage=Stage.ELEMENTARY)
+    store.save(sibling)
+    sibling_photo = _committed_photo_record(store, sibling, observation="형제와 함께 한 활동 사진")
+
+    with pytest.raises(HTTPException) as exc_info:
+        record_material_result(
+            material.id,
+            MaterialResultRequest(
+                observation="공유되지 않은 형제 사진은 사용할 수 없다.",
+                photo_record_ids=[sibling_photo.id],
+            ),
+            store,
+        )
+    assert exc_info.value.status_code == 404
+    assert exc_info.value.detail == "photo_record_not_found"
+
+    EntityLinkService(store).share_with_children(
+        source_id=sibling_photo.id,
+        child_ids=[child.id],
+    )
+    result = record_material_result(
+        material.id,
+        MaterialResultRequest(
+            observation="명시적으로 공유한 공동 활동 사진은 증거로 연결한다.",
+            photo_record_ids=[sibling_photo.id],
+        ),
+        store,
+    )
+    evidence_links = [
+        item
+        for item in store.index.list_entities(entity_type="entity_link")
+        if item["source_id"] == str(sibling_photo.id)
+        and item["target_id"] == str(result.learning_log.id)
+        and item["relation"] == "documents"
+    ]
+    assert len(evidence_links) == 1
 
 
 def test_partial_result_keeps_material_activity_open_for_follow_up(tmp_path: Path) -> None:
