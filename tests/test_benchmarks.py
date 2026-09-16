@@ -164,6 +164,24 @@ def test_hardware_benchmark_reads_windows_physical_memory(
     assert bench._classify(bench._total_ram_gb()) == ("minimum", True)
 
 
+def test_hardware_benchmark_reads_macos_physical_memory(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bench = _load("benchmark_hardware_macos", script_name="benchmark_hardware")
+    calls: list[list[str]] = []
+
+    def run(command: list[str], **_kwargs: Any) -> SimpleNamespace:
+        calls.append(command)
+        return SimpleNamespace(stdout=str(16 * bench._GIB))
+
+    monkeypatch.setattr(bench.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(bench.subprocess, "run", run)
+
+    assert bench._total_ram_gb() == 16.0
+    assert bench._classify(bench._total_ram_gb()) == ("recommended", True)
+    assert calls == [["sysctl", "-n", "hw.memsize"], ["sysctl", "-n", "hw.memsize"]]
+
+
 def test_hardware_benchmark_reads_posix_physical_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -172,7 +190,7 @@ def test_hardware_benchmark_reads_posix_physical_memory(
         "SC_PAGE_SIZE": 4096,
         "SC_PHYS_PAGES": 4 * 1024 * 1024,
     }
-    monkeypatch.setattr(bench.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(bench.platform, "system", lambda: "Linux")
     monkeypatch.setattr(bench.os, "sysconf", lambda name: values[name])
 
     assert bench._total_ram_gb() == 16.0
