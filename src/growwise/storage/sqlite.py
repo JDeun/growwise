@@ -138,6 +138,23 @@ class SQLiteProjection:
             row = connection.execute(sql, params).fetchone()
         return json.loads(row["payload_json"]) if row else None
 
+    @staticmethod
+    def _child_scope_source_ids(
+        connection: sqlite3.Connection,
+        *,
+        child_id: str,
+    ) -> set[str]:
+        rows = connection.execute(
+            "SELECT payload_json FROM entities WHERE entity_type = 'entity_link' AND child_id = ?",
+            (child_id,),
+        ).fetchall()
+        source_ids: set[str] = set()
+        for row in rows:
+            payload = json.loads(row["payload_json"])
+            if payload.get("relation") == "child_scope" and payload.get("source_id"):
+                source_ids.add(str(payload["source_id"]))
+        return source_ids
+
     def list_entities(
         self,
         *,
@@ -154,17 +171,43 @@ class SQLiteProjection:
             clauses.append("child_id = ?")
             params.append(child_id)
 
+        augment_child_scope = (
+            child_id is not None
+            and entity_type is not None
+            and entity_type != "entity_link"
+        )
         sql = "SELECT payload_json FROM entities"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY updated_at DESC"
-        if limit is not None:
+        if limit is not None and not augment_child_scope:
             sql += " LIMIT ?"
             params.append(limit)
 
         with self._connection() as connection:
             rows = connection.execute(sql, params).fetchall()
-        return [json.loads(row["payload_json"]) for row in rows]
+            payloads = [json.loads(row["payload_json"]) for row in rows]
+            if augment_child_scope:
+                linked_ids = self._child_scope_source_ids(connection, child_id=child_id)
+                if linked_ids:
+                    placeholders = ",".join("?" for _ in linked_ids)
+                    linked_rows = connection.execute(
+                        f"SELECT payload_json FROM entities WHERE entity_type = ? "
+                        f"AND id IN ({placeholders})",
+                        [entity_type, *sorted(linked_ids)],
+                    ).fetchall()
+                    by_id = {str(payload["id"]): payload for payload in payloads}
+                    for row in linked_rows:
+                        payload = json.loads(row["payload_json"])
+                        by_id.setdefault(str(payload["id"]), payload)
+                    payloads = sorted(
+                        by_id.values(),
+                        key=lambda payload: str(payload.get("updated_at") or ""),
+                        reverse=True,
+                    )
+                    if limit is not None:
+                        payloads = payloads[:limit]
+        return payloads
 
     def search_entities(
         self,
