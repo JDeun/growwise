@@ -11,6 +11,11 @@ class Settings(BaseSettings):
     data_dir: Path = Path.home() / ".growwise"
     api_host: str = "127.0.0.1"
     api_port: int = 8765
+    # When set, every Core HTTP endpoint requires `Authorization: Bearer <token>`.
+    # The packaged Tauri shell generates a fresh per-process token and passes it to
+    # the sidecar through the environment. Keeping the default `None` preserves the
+    # explicit standalone/development Core workflow.
+    api_token: str | None = None
 
     model_provider: str = "ollama"
     model_id: str = "qwen3.5:9b"
