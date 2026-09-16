@@ -15,6 +15,7 @@ class ResourceChunk:
     source_url: str | None
     source_name: str | None
     tags: tuple[str, ...]
+    recorded_at: str | None = None
 
 
 def chunk_resource(
@@ -26,6 +27,7 @@ def chunk_resource(
     source_url: str | None,
     source_name: str | None,
     tags: list[str],
+    recorded_at: str | None = None,
     chunk_size: int = 900,
     chunk_overlap: int = 120,
 ) -> list[ResourceChunk]:
@@ -45,6 +47,7 @@ def chunk_resource(
             source_url=source_url,
             source_name=source_name,
             tags=tuple(tags),
+            recorded_at=recorded_at,
         )
         for index, piece in enumerate(pieces)
     ]
