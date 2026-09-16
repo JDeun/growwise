@@ -5,6 +5,7 @@ export type WorkspaceView =
   | "growth"
   | "activities"
   | "search"
+  | "discovery"
   | "library"
   | "materials"
   | "settings";
