@@ -25,5 +25,6 @@ class ResourceIngestor:
             source_url=resource.source_url,
             source_name=resource.source_name,
             tags=resource.tags,
+            recorded_at=resource.created_at.isoformat(),
         )
         return self.index.replace_resource(chunks)
