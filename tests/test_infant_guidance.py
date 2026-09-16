@@ -158,13 +158,13 @@ def test_board_book_discovery_sends_only_allowlisted_general_topics(
 
     result = BoardBookRecommendationService().recommend(
         resources=[],
-        interests=["수아는 고양이를 좋아해요", "010-1234-5678", "동물"],
+        interests=["아이 이름이 섞인 고양이 문장", "전화번호 형식 입력", "동물"],
         limit=2,
     )
 
     assert observed["keyword"] == "동물 고양이 그림책"
-    assert "수아" not in str(observed["keyword"])
-    assert "010" not in str(observed["keyword"])
+    assert "아이 이름" not in str(observed["keyword"])
+    assert "전화번호" not in str(observed["keyword"])
     assert observed["offline"] is False
     assert result.recommendations[0].source == "public_discovery"
     assert result.recommendations[0].resource_id is None
@@ -176,7 +176,7 @@ def test_board_book_discovery_sends_only_allowlisted_general_topics(
 
 def test_board_book_discovery_uses_generic_query_when_no_safe_topic_exists() -> None:
     query = BoardBookRecommendationService._generalized_book_query(
-        ["수아만의 비밀 메모", "010-1234-5678", "user@example.com"]
+        ["아이 이름만 있는 비밀 메모", "전화번호 형식 입력", "user@example.invalid"]
     )
 
     assert query == "영아 그림책"
