@@ -51,6 +51,8 @@ class JobQueue(Protocol):
 
     def complete(self, job_id: UUID) -> None: ...
 
+    def retry(self, job_id: UUID, error: str) -> None: ...
+
     def fail(self, job_id: UUID, error: str) -> None: ...
 
     def cancel(self, job_id: UUID) -> None: ...
@@ -298,6 +300,25 @@ class SQLiteJobQueue:
                 WHERE id = ?
                 """,
                 (JobStatus.COMPLETED, now, now, str(job_id)),
+            )
+
+    def retry(self, job_id: UUID, error: str) -> None:
+        now = utc_now_iso()
+        with self._connect() as connection:
+            connection.execute(
+                """
+                UPDATE jobs
+                SET status = ?, started_at = NULL, finished_at = NULL, updated_at = ?,
+                    last_error = ?, lease_expires_at = NULL
+                WHERE id = ? AND status = ?
+                """,
+                (
+                    JobStatus.PENDING,
+                    now,
+                    error[:2000],
+                    str(job_id),
+                    JobStatus.RUNNING,
+                ),
             )
 
     def fail(self, job_id: UUID, error: str) -> None:
