@@ -43,28 +43,18 @@ jobs:
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install
-        run: python -m pip install ".[hygiene]"
-      - name: Build third-party audit requirement set
-        run: |
-          python -m pip freeze > /tmp/growwise-freeze.txt
-          python - <<'PY'
-          from pathlib import Path
-
-          source = Path("/tmp/growwise-freeze.txt")
-          target = Path("/tmp/growwise-audit-requirements.txt")
-          lines = []
-          for line in source.read_text(encoding="utf-8").splitlines():
-              normalized = line.casefold()
-              if normalized.startswith(("growwise==", "growwise @", "-e file:")):
-                  continue
-              lines.append(line)
-          target.write_text("\n".join(lines) + "\n", encoding="utf-8")
-          PY
+      - name: Install uv
+        run: python -m pip install "uv==0.12.13"
+      - name: Verify lock is current
+        run: uv lock --check
+      - name: Export exact locked runtime graph
+        run: >-
+          uv export --locked --no-dev --no-emit-project --no-hashes
+          --format requirements-txt --output-file /tmp/growwise-runtime.txt
       - name: Python vulnerability audit
-        run: pip-audit --strict -r /tmp/growwise-audit-requirements.txt
+        run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-runtime.txt
       - name: Python license inventory
-        run: pip-licenses --format=markdown --with-urls
+        run: uv run --locked --extra hygiene pip-licenses --format=markdown --with-urls
 
   desktop-frontend:
     runs-on: ubuntu-latest
@@ -121,6 +111,8 @@ jobs:
         run: cargo check --locked --manifest-path desktop/src-tauri/Cargo.toml
       - name: Clippy
         run: cargo clippy --locked --manifest-path desktop/src-tauri/Cargo.toml --all-targets -- -D warnings
+      - name: Rust tests
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml --all-targets
 
   core-sidecar-smoke:
     runs-on: ubuntu-latest
@@ -134,18 +126,28 @@ jobs:
         run: python -m pip install -e ".[desktop-build]"
       - name: Build Core executable
         run: python desktop/scripts/build_core_sidecar.py
-      - name: Start bundled Core
+      - name: Start authenticated bundled Core
         env:
           GROWWISE_DATA_DIR: ${{ runner.temp }}/growwise-smoke
           GROWWISE_LLM_FEATURES_ENABLED: "false"
           GROWWISE_EMBEDDING_FEATURES_ENABLED: "false"
+          GROWWISE_API_TOKEN_FILE: ${{ runner.temp }}/growwise-core.token
         run: |
           ./desktop/src-tauri/binaries/growwise-core > /tmp/growwise-core.log 2>&1 &
           echo $! > /tmp/growwise-core.pid
           for attempt in {1..40}; do
-            if curl --fail --silent http://127.0.0.1:8765/health > /tmp/growwise-health.json; then
-              cat /tmp/growwise-health.json
-              exit 0
+            if [ -s "$GROWWISE_API_TOKEN_FILE" ]; then
+              TOKEN="$(cat "$GROWWISE_API_TOKEN_FILE")"
+              STATUS="$(curl --silent --output /tmp/growwise-unauth.json --write-out '%{http_code}' http://127.0.0.1:8765/health || true)"
+              if [ "$STATUS" != "401" ]; then
+                echo "expected unauthenticated health to return 401, got $STATUS"
+                cat /tmp/growwise-unauth.json || true
+                exit 1
+              fi
+              if curl --fail --silent -H "Authorization: Bearer $TOKEN" http://127.0.0.1:8765/health > /tmp/growwise-health.json; then
+                cat /tmp/growwise-health.json
+                exit 0
+              fi
             fi
             sleep 0.25
           done
