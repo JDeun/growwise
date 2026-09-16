@@ -6,6 +6,7 @@ import type {
   GeneratedMaterial,
   MaterialKind,
   MaterialStatus,
+  ResourceKind,
   ResourceRecord,
   Stage,
 } from "../api";
@@ -29,12 +30,20 @@ const STATUS_LABELS: Record<MaterialStatus, string> = {
 };
 
 const AI_STATUS_LABELS: Record<AiEnhancementStatus, string> = {
-  not_requested: "Core 템플릿",
-  queued: "AI 보강 대기",
-  running: "AI 보강 중",
-  completed: "AI 보강 완료",
+  not_requested: "기본 템플릿",
+  queued: "AI 보조 준비 중",
+  running: "AI 보조 적용 중",
+  completed: "AI 보조 완료",
   failed: "기본 템플릿 사용",
-  skipped: "AI 보강 생략",
+  skipped: "AI 보조 미사용",
+};
+
+const RESOURCE_KIND_LABELS: Record<ResourceKind, string> = {
+  book: "책",
+  curriculum: "교육과정",
+  web: "웹 자료",
+  note: "메모",
+  file: "파일",
 };
 
 const PRINT_SCOPE_ATTRIBUTE = "data-growwise-print-scope";
@@ -72,7 +81,7 @@ interface MaterialWorkspaceProps {
 }
 
 function sourceTitle(ref: string, resources: ResourceRecord[]): string {
-  if (!ref.startsWith("resource:")) return ref;
+  if (!ref.startsWith("resource:")) return "연결된 근거";
   const id = ref.slice("resource:".length);
   return resources.find((resource) => resource.id === id)?.title ?? "연결 자료";
 }
@@ -86,7 +95,7 @@ function MaterialSources({
 }) {
   if (material.source_refs.length === 0) return null;
   return (
-    <div className="material-sources" aria-label="생성 근거">
+    <div className="material-sources" aria-label="참고한 자료">
       {material.source_refs.map((ref) => (
         <span key={ref}>{sourceTitle(ref, resources)}</span>
       ))}
@@ -108,7 +117,7 @@ function MaterialHeading({ material }: { material: GeneratedMaterial }) {
         <h4>{material.title}</h4>
       </div>
       <small>
-        v{material.version} · {materialCatalogItem(material.kind).label}
+        {material.version}번째 버전 · {materialCatalogItem(material.kind).label}
       </small>
     </div>
   );
@@ -215,15 +224,14 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     <section className="material-workspace" aria-labelledby="materials-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">MATERIALS</p>
-          <h2 id="materials-title">만들고, 부모가 검토한 뒤 사용합니다.</h2>
+          <p className="eyebrow">학습 자료</p>
+          <h2 id="materials-title">만들고, 부모가 확인한 뒤 사용합니다.</h2>
           <p className="muted">
-            AI 연결 여부와 관계없이 기본 템플릿으로 생성할 수 있습니다. 기본 초안과 부모용
-            교안은 즉시 저장되고, AI 개인화는 백그라운드에서 보강됩니다. 승인 전 자료는
-            인쇄하거나 PDF로 내보낼 수 없습니다.
+            AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다. 만든 초안은 먼저 저장되고,
+            사용할 내용은 부모가 확인해 승인합니다. 승인 전 자료는 인쇄하거나 PDF로 내보낼 수 없습니다.
           </p>
         </div>
-        <span className="badge">Parent Review</span>
+        <span className="badge">부모 확인</span>
       </div>
 
       <div className="material-queue-summary" aria-label="자료 처리 현황">
@@ -294,8 +302,8 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         </label>
         {resources.length > 0 && (
           <fieldset className="resource-grounding-picker">
-            <legend>근거로 사용할 내 자료(선택)</legend>
-            <p className="muted">선택한 자료만 명시적으로 생성 맥락에 연결됩니다.</p>
+            <legend>참고할 내 자료(선택)</legend>
+            <p className="muted">선택한 자료만 새 자료의 내용을 만들 때 참고합니다.</p>
             <div className="resource-grounding-list">
               {resources.map((resource) => {
                 const ref = `resource:${resource.id}`;
@@ -309,7 +317,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     />
                     <span>
                       <strong>{resource.title}</strong>
-                      <small>{resource.kind}</small>
+                      <small>{RESOURCE_KIND_LABELS[resource.kind]}</small>
                     </span>
                   </label>
                 );
@@ -318,7 +326,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           </fieldset>
         )}
         <button className="primary-button" type="submit" disabled={busy || !topic.trim()}>
-          {busy ? "기본 초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
+          {busy ? "초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
         </button>
         {error && (
           <p className="form-error" role="alert">
@@ -331,7 +339,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         <section className="material-lane" aria-labelledby="draft-lane-title">
           <div className="lane-heading">
             <div>
-              <span className="material-lane-step">STEP 1</span>
+              <span className="material-lane-step">1단계</span>
               <h3 id="draft-lane-title">초안</h3>
             </div>
             <span>{drafts.length}</span>
@@ -380,7 +388,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         <section className="material-lane" aria-labelledby="review-lane-title">
           <div className="lane-heading">
             <div>
-              <span className="material-lane-step">STEP 2</span>
+              <span className="material-lane-step">2단계</span>
               <h3 id="review-lane-title">부모 검토</h3>
             </div>
             <span>{reviewQueue.length}</span>
@@ -454,7 +462,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         <section className="material-lane" aria-labelledby="approved-lane-title">
           <div className="lane-heading">
             <div>
-              <span className="material-lane-step">STEP 3</span>
+              <span className="material-lane-step">3단계</span>
               <h3 id="approved-lane-title">승인·사용</h3>
             </div>
             <span>{approved.length}</span>
@@ -500,7 +508,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           <summary>사용하지 않는 자료 {inactive.length}개</summary>
           {inactive.map((material) => (
             <p key={material.id}>
-              {material.title} · {STATUS_LABELS[material.status]} · v{material.version}
+              {material.title} · {STATUS_LABELS[material.status]} · {material.version}번째 버전
             </p>
           ))}
         </details>
