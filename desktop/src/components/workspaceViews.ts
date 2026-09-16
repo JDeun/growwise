@@ -4,6 +4,7 @@ export const WORKSPACE_VIEWS: readonly WorkspaceView[] = [
   "home",
   "observations",
   "photos",
+  "learning",
   "growth",
   "activities",
   "search",
