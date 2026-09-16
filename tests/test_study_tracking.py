@@ -135,8 +135,20 @@ def test_study_tracking_vertical_slice_is_child_scoped_and_peer_free(tmp_path) -
         plan_payload = plan.json()
         assert len(plan_payload["items"]) == 1
         assert plan_payload["items"][0]["unit"] == "일차함수"
+        assert plan_payload["items"][0]["status"] == "planned"
         assert "streak" not in plan_payload
         assert "rank" not in plan_payload
+
+        completed_item = client.post(
+            f"/v1/children/{child.id}/study/plans/{plan_payload['id']}/items/0/status",
+            json={"status": "done"},
+        )
+        assert completed_item.status_code == 200
+        assert completed_item.json()["items"][0]["status"] == "done"
+
+        listed_plans = client.get(f"/v1/children/{child.id}/study/plans")
+        assert listed_plans.status_code == 200
+        assert listed_plans.json()[0]["items"][0]["status"] == "done"
 
         persisted = store.index.list_entities(
             entity_type="self_explanation_log",
