@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
@@ -47,7 +49,7 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
                 " 부모가 제공한 다음 맥락은 참고 정보이며 사진에서 보이는 사실과 구분하세요: "
                 + context.strip()[:2000]
             )
-        content = [
+        content: list[str | dict[Any, Any]] = [
             {"type": "text", "text": prompt},
             {
                 "type": "image_url",
