@@ -52,6 +52,7 @@ class MaterialFeedbackItem:
     title: str | None
     observation: str | None
     learner_work: str | None
+    process: str | None
     child_question: str | None
     interest: str | None
     difficulty_note: str | None
@@ -93,6 +94,10 @@ class MaterialFeedbackSnapshot:
         if any(item.learner_work for item in self.items):
             signals.append(
                 "최근 아이 산출물이 있으면 정답을 복제하지 않고 사고 과정을 확장하는 선택 질문을 둔다"
+            )
+        if any(item.process for item in self.items):
+            signals.append(
+                "최근 활동 과정이 기록돼 있으면 같은 풀이를 강요하지 않고 다른 방법을 설명할 기회를 둔다"
             )
         if any(item.child_question for item in self.items):
             signals.append("최근 아이 질문을 이어갈 수 있는 열린 질문을 둔다")
@@ -154,6 +159,8 @@ class MaterialFeedbackSnapshot:
                     sections.append(f"- 부모 관찰: {item.observation}")
                 if item.learner_work:
                     sections.append(f"- 아이 답변·산출물: {item.learner_work}")
+                if item.process:
+                    sections.append(f"- 활동 과정: {item.process}")
                 if item.child_question:
                     sections.append(f"- 아이 질문·반응: {item.child_question}")
                 if item.interest:
@@ -228,6 +235,7 @@ class MaterialFeedbackService:
         for log in material_logs[: max(0, min(limit, 10))]:
             observation = _inline(log.parent_observation, limit=900)
             learner_work = _inline(log.learner_work, limit=1200)
+            process = _inline(log.process, limit=900)
             child_question = _inline(log.child_question, limit=500)
             interest = _inline(log.interest, limit=500)
             difficulty_note = _inline(log.difficulty_note, limit=700)
@@ -237,6 +245,7 @@ class MaterialFeedbackService:
                 (
                     observation,
                     learner_work,
+                    process,
                     child_question,
                     interest,
                     difficulty_note,
@@ -250,6 +259,7 @@ class MaterialFeedbackService:
                     title=title,
                     observation=observation,
                     learner_work=learner_work,
+                    process=process,
                     child_question=child_question,
                     interest=interest,
                     difficulty_note=difficulty_note,
