@@ -281,6 +281,7 @@ export interface GeneratedMaterial {
 export interface MaterialResultInput {
   outcome: "completed" | "partial" | "skipped";
   observation: string;
+  learner_work?: string | null;
   process?: string | null;
   child_question?: string | null;
   interest?: string | null;
@@ -289,6 +290,7 @@ export interface MaterialResultInput {
   tags?: string[];
   experience_axes?: ExperienceAxis[];
   activity_plan_id?: string | null;
+  photo_record_ids?: string[];
 }
 export interface MaterialResultResponse { activity: ActivityPlan; learning_log: LearningLog; }
 export interface MaterialUseHistoryItem { activity: ActivityPlan; learning_logs: LearningLog[]; }
@@ -501,6 +503,7 @@ export const recordMaterialResult = (materialId: string, input: MaterialResultIn
     materialId,
     request: {
       ...input,
+      learner_work: input.learner_work ?? null,
       process: input.process ?? null,
       child_question: input.child_question ?? null,
       interest: input.interest ?? null,
@@ -509,6 +512,7 @@ export const recordMaterialResult = (materialId: string, input: MaterialResultIn
       tags: input.tags ?? [],
       experience_axes: input.experience_axes ?? [],
       activity_plan_id: input.activity_plan_id ?? null,
+      photo_record_ids: input.photo_record_ids ?? [],
     },
   });
 export const listMaterialResults = (materialId: string) =>
