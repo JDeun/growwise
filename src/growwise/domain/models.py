@@ -8,6 +8,11 @@ from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from uuid6 import uuid7
 
+ShortText = Annotated[str, Field(min_length=1, max_length=200)]
+TagText = Annotated[str, Field(min_length=1, max_length=120)]
+LanguageCode = Annotated[str, Field(min_length=2, max_length=35)]
+SourceRef = Annotated[str, Field(min_length=1, max_length=500)]
+
 
 def utc_now() -> datetime:
     return datetime.now(UTC)
@@ -121,11 +126,11 @@ class ChildProfile(EntityBase):
     education_system: EducationSystem = EducationSystem.KR
     grade_override: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
     grade_override_reason: str | None = Field(default=None, max_length=500)
-    primary_language: str = Field(default="ko-KR", min_length=2, max_length=35)
-    additional_languages: list[str] = Field(default_factory=list)
-    interests: list[str] = Field(default_factory=list)
-    preferences: dict[str, list[str]] = Field(default_factory=dict)
-    learning_goals: list[str] = Field(default_factory=list)
+    primary_language: LanguageCode = "ko-KR"
+    additional_languages: list[LanguageCode] = Field(default_factory=list, max_length=20)
+    interests: list[TagText] = Field(default_factory=list, max_length=100)
+    preferences: dict[str, list[str]] = Field(default_factory=dict, max_length=100)
+    learning_goals: list[ShortText] = Field(default_factory=list, max_length=100)
     notes: str | None = Field(default=None, max_length=10_000)
 
     @model_validator(mode="before")
@@ -144,6 +149,11 @@ class ChildProfile(EntityBase):
             self.age_months = age_in_months(self.birth_date)
         if self.grade_override is not None:
             self.grade = self.grade_override
+        for key, values in self.preferences.items():
+            if not key or len(key) > 120 or len(values) > 100:
+                raise ValueError("preference keys must be 1..120 chars with at most 100 values")
+            if any(not value or len(value) > 200 for value in values):
+                raise ValueError("preference values must be 1..200 chars")
         return self
 
     def age_months_on(self, on_date: date) -> int | None:
@@ -179,12 +189,12 @@ class ChildProfile(EntityBase):
 class ActivityPlan(EntityBase):
     entity_type: str = "activity_plan"
     child_id: UUID
-    title: str
-    description: str | None = None
+    title: str = Field(min_length=1, max_length=500)
+    description: str | None = Field(default=None, max_length=20_000)
     status: ActivityStatus = ActivityStatus.SUGGESTED
-    source_refs: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
-    parent_note: str | None = None
+    source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
+    parent_note: str | None = Field(default=None, max_length=10_000)
     started_at: datetime | None = None
     completed_at: datetime | None = None
     skipped_at: datetime | None = None
@@ -194,30 +204,38 @@ class LearningLog(EntityBase):
     entity_type: str = "learning_log"
     child_id: UUID
     activity_plan_id: UUID | None = None
-    parent_observation: str
-    process: str | None = None
-    child_question: str | None = None
-    interest: str | None = None
-    difficulty_note: str | None = None
-    next_activity: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+    parent_observation: str = Field(min_length=1, max_length=10_000)
+    process: str | None = Field(default=None, max_length=10_000)
+    child_question: str | None = Field(default=None, max_length=4_000)
+    interest: str | None = Field(default=None, max_length=2_000)
+    difficulty_note: str | None = Field(default=None, max_length=4_000)
+    next_activity: str | None = Field(default=None, max_length=4_000)
+    tags: list[TagText] = Field(default_factory=list, max_length=100)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
 
 
 class ResourceRecord(EntityBase):
     entity_type: str = "resource"
     child_id: UUID | None = None
     kind: ResourceKind
-    title: str
-    summary: str | None = None
-    content: str | None = None
-    source_url: str | None = None
-    source_name: str | None = None
-    author: str | None = None
+    title: str = Field(min_length=1, max_length=500)
+    summary: str | None = Field(default=None, max_length=20_000)
+    content: str | None = Field(default=None, max_length=500_000)
+    source_url: str | None = Field(default=None, max_length=2_048)
+    source_name: str | None = Field(default=None, max_length=500)
+    author: str | None = Field(default=None, max_length=500)
     published_at: datetime | None = None
-    tags: list[str] = Field(default_factory=list)
-    stage_tags: list[Stage] = Field(default_factory=list)
-    provenance: dict[str, str] = Field(default_factory=dict)
+    tags: list[TagText] = Field(default_factory=list, max_length=100)
+    stage_tags: list[Stage] = Field(default_factory=list, max_length=10)
+    provenance: dict[str, str] = Field(default_factory=dict, max_length=100)
+
+    @model_validator(mode="after")
+    def validate_provenance_bounds(self) -> Self:
+        if any(not key or len(key) > 200 for key in self.provenance):
+            raise ValueError("provenance keys must be 1..200 chars")
+        if any(len(value) > 4_000 for value in self.provenance.values()):
+            raise ValueError("provenance values must be at most 4000 chars")
+        return self
 
 
 class CurriculumTarget(BaseModel):
@@ -233,34 +251,37 @@ class CurriculumTarget(BaseModel):
     domain: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
     source_ref: str = Field(min_length=1, max_length=160)
-    standard_codes: list[str] = Field(default_factory=list)
+    standard_codes: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
+        default_factory=list,
+        max_length=50,
+    )
 
 
 class GeneratedMaterial(EntityBase):
     entity_type: str = "generated_material"
     child_id: UUID
     kind: MaterialKind
-    title: str
-    content_markdown: str
+    title: str = Field(min_length=1, max_length=500)
+    content_markdown: str = Field(min_length=1, max_length=100_000)
     status: MaterialStatus = MaterialStatus.DRAFT
-    source_refs: list[str] = Field(default_factory=list)
-    curriculum_targets: list[CurriculumTarget] = Field(default_factory=list)
-    generator_mode: str = "template"
-    review_note: str | None = None
-    request_topic: str | None = None
-    request_goal: str | None = None
+    source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
+    curriculum_targets: list[CurriculumTarget] = Field(default_factory=list, max_length=100)
+    generator_mode: str = Field(default="template", min_length=1, max_length=120)
+    review_note: str | None = Field(default=None, max_length=10_000)
+    request_topic: str | None = Field(default=None, max_length=500)
+    request_goal: str | None = Field(default=None, max_length=2_000)
     version: int = Field(default=1, ge=1)
     parent_material_id: UUID | None = None
-    version_note: str | None = None
+    version_note: str | None = Field(default=None, max_length=10_000)
 
 
 class WorkflowRun(EntityBase):
     entity_type: str = "workflow_run"
     child_id: UUID
-    workflow_type: str
-    thread_id: str
+    workflow_type: str = Field(min_length=1, max_length=120)
+    thread_id: str = Field(min_length=1, max_length=500)
     status: WorkflowStatus = WorkflowStatus.RUNNING
-    attempt_count: int = 1
-    input_ref: str | None = None
-    output_ref: str | None = None
-    last_error_code: str | None = None
+    attempt_count: int = Field(default=1, ge=1, le=10_000)
+    input_ref: str | None = Field(default=None, max_length=500)
+    output_ref: str | None = Field(default=None, max_length=500)
+    last_error_code: str | None = Field(default=None, max_length=500)
