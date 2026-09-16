@@ -5,7 +5,6 @@ from collections.abc import Callable
 from contextlib import suppress
 from datetime import UTC, datetime
 from time import sleep
-from uuid import UUID
 
 from growwise.domain import (
     AiEnhancementStatus,
@@ -254,7 +253,10 @@ class BackgroundAiJobRunner:
         for ref in material.source_refs:
             if not ref.startswith("resource:"):
                 continue
-            payload = store.index.get_entity(ref.removeprefix("resource:"), entity_type="resource")
+            payload = store.index.get_entity(
+                ref.removeprefix("resource:"),
+                entity_type="resource",
+            )
             if payload is None:
                 continue
             resource = ResourceRecord.model_validate(payload)
