@@ -11,6 +11,7 @@ from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.jobs import SQLiteJobQueue
 from growwise.rag import HybridRagIndex
 from growwise.services.conversation_store import SQLiteConversationStore
+from growwise.services.photo_activity import PhotoAssetStore
 from growwise.storage import EntityStore
 
 
@@ -18,6 +19,7 @@ from growwise.storage import EntityStore
 class ChildPurgeResult:
     child_id: str
     markdown_files_deleted: int
+    photo_files_deleted: int
     rag_chunks_deleted: int
     conversations_deleted: int
     jobs_deleted: int
@@ -32,10 +34,10 @@ class ChildPurgeResult:
 class ChildPurgeService:
     """Permanently delete one child's live data while preserving unrelated family data.
 
-    Derived stores are cleaned first. The authoritative Markdown records are deleted last so an
-    interruption remains retryable: until the final step, the child profile still provides the IDs
-    needed to locate checkpoints and idempotency metadata. Existing backup ZIPs are intentionally
-    not rewritten; callers must disclose that historical backups can still contain deleted data.
+    Derived stores are cleaned first. Managed photo binaries are deleted before the authoritative
+    Markdown records; the child profile remains available until the final step so an interrupted
+    purge is retryable. Existing backup ZIPs are intentionally not rewritten, so callers must
+    disclose that historical backups can still contain deleted data.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -67,16 +69,23 @@ class ChildPurgeService:
         idempotency_deleted = SQLiteIdempotencyStore(
             self.settings.idempotency_path
         ).delete_resources(resource_ids)
+        photo_files_deleted = PhotoAssetStore(
+            self.settings.assets_dir,
+            max_file_bytes=self.settings.photo_max_file_bytes,
+        ).delete_child(child_id)
         markdown_deleted = self.store.purge_child(child_id)
 
         if self.store.index.get_entity(child_id, entity_type="child_profile") is not None:
             raise RuntimeError("child purge verification failed: profile still indexed")
         if self.store.index.list_entities(child_id=child_id):
             raise RuntimeError("child purge verification failed: child records still indexed")
+        if (self.settings.photo_assets_dir / child_id).exists():
+            raise RuntimeError("child purge verification failed: photo assets still exist")
 
         return ChildPurgeResult(
             child_id=child_id,
             markdown_files_deleted=markdown_deleted,
+            photo_files_deleted=photo_files_deleted,
             rag_chunks_deleted=rag_deleted,
             conversations_deleted=conversations_deleted,
             jobs_deleted=jobs_deleted,
