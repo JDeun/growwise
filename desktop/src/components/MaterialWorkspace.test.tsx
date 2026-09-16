@@ -46,6 +46,7 @@ function render(materials: GeneratedMaterial[]) {
       onEditStart={noop}
       onEdit={noop}
       onPrint={noop}
+      onResultRecorded={noop}
     />,
   );
 }
@@ -63,19 +64,22 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
+    expect(html).toContain("활동 결과 기록");
   });
 
-  it("keeps review-pending material out of the printable lane", () => {
+  it("keeps review-pending material out of the printable and result-capture lane", () => {
     const html = render([base]);
     expect(html).toContain("부모 검토 필요");
     expect(html).toContain("승인하고 사용");
     expect(html).not.toContain("인쇄 / PDF 내보내기");
+    expect(html).not.toContain("활동 결과 기록");
   });
 
-  it("only exposes print and PDF export after parent approval", () => {
+  it("only exposes print and result capture after parent approval", () => {
     const html = render([{ ...base, status: "approved" }]);
     expect(html).toContain("승인·사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
+    expect(html).toContain("활동 결과 기록");
     expect(html).not.toContain("승인하고 사용");
   });
 
