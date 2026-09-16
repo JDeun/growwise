@@ -133,7 +133,14 @@ questions."""
         for neighbor in graph_neighbors:
             source_id = f"graph:{neighbor['id']}"
             relation = str(neighbor.get("graph_relation") or "related")
-            sources.append((source_id, f"relation={relation}\n{_entity_text(neighbor)}"))
+            direction = str(neighbor.get("graph_direction") or "unknown")
+            link_source = str(neighbor.get("graph_source_id") or "")
+            link_target = str(neighbor.get("graph_target_id") or "")
+            graph_header = (
+                f"relation={relation} direction={direction} "
+                f"source={link_source} target={link_target}"
+            )
+            sources.append((source_id, f"{graph_header}\n{_entity_text(neighbor)}"))
 
         # A graph edge can point back to evidence already returned through lexical/RAG retrieval.
         # Keep the first representation so the LLM sees a stable, bounded evidence set.
