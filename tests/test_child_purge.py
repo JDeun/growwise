@@ -19,6 +19,7 @@ from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.jobs import SQLiteJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
+from growwise.services.entity_links import EntityLinkService
 from growwise.services.privacy import ChildPurgeService
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
@@ -72,6 +73,18 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
     store.save(sibling_resource)
     ResourceIngestor(rag).ingest(sibling_resource)
 
+    links = EntityLinkService(store)
+    # Both directions matter for privacy cleanup: a surviving sibling-owned source shared into the
+    # deleted child and a soon-to-be-deleted source shared out to a surviving sibling.
+    inbound_share = links.share_with_children(
+        source_id=sibling_resource.id,
+        child_ids=[child.id],
+    )[0]
+    outbound_share = links.share_with_children(
+        source_id=resource.id,
+        child_ids=[sibling.id],
+    )[0]
+
     conversations = SQLiteConversationStore(settings.conversations_path)
     target_session = ConversationSession(child_id=str(child.id))
     target_session.turns.append(ConversationTurn(role="user", content="삭제할 대화"))
@@ -118,11 +131,16 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
 
     assert result.child_id == str(child.id)
     assert result.markdown_files_deleted >= 5
+    assert result.links_deleted >= 2
     assert result.backups_may_contain_deleted_child is True
     assert store.index.get_entity(str(child.id), entity_type="child_profile") is None
     assert store.index.list_entities(child_id=str(child.id)) == []
     assert store.index.get_entity(str(sibling.id), entity_type="child_profile") is not None
     assert store.index.get_entity(str(sibling_log.id), entity_type="learning_log") is not None
+    assert store.index.get_entity(str(sibling_resource.id), entity_type="resource") is not None
+    assert store.index.get_entity(str(inbound_share.id), entity_type="entity_link") is None
+    assert store.index.get_entity(str(outbound_share.id), entity_type="entity_link") is None
+    assert links.child_scope_targets(sibling_resource.id) == []
     child_id_in_records = any(
         str(child.id) in path.read_text(errors="ignore")
         for path in settings.records_dir.rglob("*.*")
