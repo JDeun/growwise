@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
+from growwise.api.resource_routes import router as resource_router
 from growwise.api.study_routes import router as study_router
 from growwise.config import Settings
 from growwise.domain import (
@@ -77,6 +78,7 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(study_router)
+app.include_router(resource_router, prefix="/v1")
 
 
 class ChildCreateRequest(BaseModel):
