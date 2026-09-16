@@ -27,6 +27,9 @@ class MaterialEditService:
         if not normalized_content:
             raise MaterialEditError("edited material content cannot be empty")
 
+        curriculum_targets = [
+            target.model_copy(deep=True) for target in material.curriculum_targets
+        ]
         return GeneratedMaterial(
             child_id=material.child_id,
             kind=material.kind,
@@ -34,6 +37,7 @@ class MaterialEditService:
             content_markdown=normalized_content,
             status=MaterialStatus.REVIEW_PENDING,
             source_refs=list(material.source_refs),
+            curriculum_targets=curriculum_targets,
             generator_mode="parent_edit",
             review_note=None,
             request_topic=material.request_topic,
