@@ -11,6 +11,7 @@ import type {
 import { materialCatalogForStage, materialCatalogItem } from "../material-catalog";
 import { EmptyState } from "./EmptyState";
 import { MaterialContent } from "./MaterialContent";
+import { MaterialKindGuide } from "./MaterialKindGuide";
 import "./MaterialWorkspace.queue.css";
 
 const STATUS_LABELS: Record<MaterialStatus, string> = {
@@ -188,6 +189,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             ))}
           </div>
         </fieldset>
+
+        <MaterialKindGuide item={selectedCatalogItem} />
+
         <label className="material-topic-field">
           <span>주제</span>
           <input
@@ -204,7 +208,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             value={goal}
             onChange={(event) => onGoalChange(event.target.value)}
             maxLength={300}
-            placeholder="예: 정답보다 관찰 질문을 중심으로"
+            placeholder={selectedCatalogItem.goalPlaceholder}
             disabled={busy}
           />
         </label>
