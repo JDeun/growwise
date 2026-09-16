@@ -5,6 +5,8 @@ from collections.abc import Iterable
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.storage import SQLiteProjection
 
+from .visibility import entity_visible_to_child, shared_source_ids
+
 _GRAPH_RELATIONS = {
     EntityLinkRelation.RELATED,
     EntityLinkRelation.DERIVED_FROM,
@@ -62,8 +64,9 @@ class GraphContextExpander:
             neighbor = self.index.get_entity(neighbor_id)
             if neighbor is None or neighbor.get("entity_type") in {"entity_link", "child_profile"}:
                 continue
-            if not self._visible(
-                neighbor,
+            if not entity_visible_to_child(
+                self.index,
+                entity_id=neighbor_id,
                 child_id=child_id,
                 shared_ids=visible_shared_ids,
             ):
@@ -83,30 +86,4 @@ class GraphContextExpander:
         return neighbors
 
     def shared_source_ids(self, child_id: str) -> set[str]:
-        """Return entity IDs explicitly shared into ``child_id`` through child_scope links."""
-        source_ids: set[str] = set()
-        for payload in self.index.list_entities(
-            entity_type="entity_link",
-            child_id=child_id,
-        ):
-            try:
-                link = EntityLink.model_validate(payload)
-            except Exception:
-                continue
-            if link.relation is EntityLinkRelation.CHILD_SCOPE:
-                source_ids.add(str(link.source_id))
-        return source_ids
-
-    @staticmethod
-    def _visible(
-        payload: dict,
-        *,
-        child_id: str,
-        shared_ids: set[str],
-    ) -> bool:
-        owner = payload.get("child_id")
-        if owner is None:
-            return True
-        if str(owner) == child_id:
-            return True
-        return str(payload.get("id") or "") in shared_ids
+        return shared_source_ids(self.index, child_id)
