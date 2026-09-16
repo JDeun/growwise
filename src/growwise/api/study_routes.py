@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from growwise.api.curriculum_routes import router as curriculum_router
+from growwise.api.privacy_routes import router as privacy_router
 from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
 from growwise.domain.models import ChildProfile, Stage
@@ -255,3 +256,4 @@ def list_study_plans(
 
 router.include_router(curriculum_router)
 router.include_router(resource_router)
+router.include_router(privacy_router)
