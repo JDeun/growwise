@@ -41,6 +41,9 @@ pub(crate) async fn create_photo_record(
     child_id: String,
     files: Vec<PhotoUploadInput>,
     user_context: Option<String>,
+    manual_observation: Option<String>,
+    ai_assist: bool,
+    shared_child_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
     let base_url = core_base_url()?;
     let response = photo_client()?
@@ -48,11 +51,14 @@ pub(crate) async fn create_photo_record(
         .json(&serde_json::json!({
             "files": files,
             "user_context": user_context,
+            "manual_observation": manual_observation,
+            "ai_assist": ai_assist,
+            "shared_child_ids": shared_child_ids,
         }))
         .send()
         .await
         .map_err(|error| error.to_string())?;
-    ensure_success(response, "사진 기록 초안 생성 실패")
+    ensure_success(response, "사진 기록 저장 실패")
         .await?
         .json::<serde_json::Value>()
         .await
