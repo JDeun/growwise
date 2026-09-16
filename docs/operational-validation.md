@@ -4,6 +4,9 @@ This document covers the remaining GrowWise Definition-of-Done checks that canno
 completed from repository CI alone. Do not mark the corresponding roadmap items complete until the
 real device, credential, or long-lived signing-key work below has actually been performed.
 
+All repository-side harnesses and release automation are expected to be complete before these steps.
+A compact operator handoff is also available in `docs/operator-handoff.md`.
+
 ## 1. Local model latency and quality
 
 Run on each representative machine with the intended GrowWise model provider configured. The
@@ -63,11 +66,14 @@ Acceptance procedure:
 4. Publish only generalized hardware classes and benchmark values, not personally identifying device
    metadata.
 
+GitHub Actions Windows/macOS runners provide cross-platform regression coverage for the harness, but
+they are not representative household hardware and therefore do not close this item.
+
 ## 3. Production code signing and notarization
 
-The workflow and preflight are already implemented; production trust requires credentials owned by
-the release operator. Configure the secrets listed in `docs/release.md`, then create a stable
-`vX.Y.Z` tag only after normal CI and the three-platform Desktop Package workflow are green.
+The workflow and preflight are implemented. The remaining work requires credentials owned by the
+release operator. Configure the secrets listed in `docs/release.md`, then create a stable `vX.Y.Z`
+tag only after normal CI and the three-platform Desktop Package workflow are green.
 
 Required operational proof before checking the roadmap item:
 
@@ -80,36 +86,58 @@ Required operational proof before checking the roadmap item:
 
 Never commit certificate files, certificate passwords, Apple credentials, or other signing secrets.
 
-## 4. Tauri updater activation
+## 4. Tauri updater trust-root activation
+
+Repository-side updater preparation is automated:
+
+- `desktop/src-tauri/tauri.release.conf.json` isolates updater artifacts to stable builds.
+- `desktop/scripts/configure_updater.py` installs/wires the updater plugin from a public key.
+- `desktop/scripts/check_release_readiness.py` validates updater configuration and requires the
+  private signing key for stable builds when updater artifacts are enabled.
+- `.github/workflows/package.yml` collects updater bundles/signatures.
+- `desktop/scripts/prepare_release_assets.py` normalizes assets and generates static `latest.json`.
 
 Tauri updater artifact verification is mandatory and cannot be disabled. Activation therefore waits
-for a long-lived updater signing keypair. The Tauri 2 updater documentation is the authoritative
-reference: `https://v2.tauri.app/plugin/updater/`.
+only for a durable long-lived updater signing keypair owned by the release operator. The Tauri 2
+updater documentation remains the authoritative external reference:
+`https://v2.tauri.app/plugin/updater/`.
 
-When the release operator is ready:
+When durable secret backup is available:
 
 ```bash
 cd desktop
 npm run tauri signer generate -- -w ~/.tauri/growwise-updater.key
+cd ..
+python desktop/scripts/configure_updater.py \
+  --public-key-file ~/.tauri/growwise-updater.key.pub
 ```
 
 Then:
 
 1. Back up the private key and its password in durable secret storage outside the repository. Losing
    this key prevents publishing trusted updates to already-installed clients.
-2. Commit only the public key deliberately in Tauri updater configuration.
-3. Add/enable `tauri-plugin-updater`, HTTPS update endpoints, and
-   `bundle.createUpdaterArtifacts: true`.
-4. Store the private signing key/password in the release secret store used by GitHub Actions.
-5. Extend the release workflow to publish the generated updater bundle signatures and update JSON.
-6. Test no-update, valid-update, bad-signature, interrupted-download, and rollback/recovery behavior
-   on packaged Windows and macOS clients before checking the roadmap item.
+2. Review and commit only the generated public/code changes, including the public updater key,
+   updater Rust wiring, refreshed `Cargo.lock`, and release overlay.
+3. Store `TAURI_SIGNING_PRIVATE_KEY` and, when applicable,
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` in GitHub Actions secrets.
+4. Create a stable release and verify that updater bundles, `.sig` files, and `latest.json` are
+   published for Windows x64, macOS arm64, and macOS x64.
+5. Test no-update, valid-update, bad-signature, interrupted-download, and recovery behavior on
+   packaged Windows and macOS clients before checking the roadmap item.
 
 Do not generate a disposable key merely to make CI green. The first public updater key is part of the
 installed application's long-term trust root.
 
+## 5. Household dogfooding
+
+The Phase 1 code path is complete, but real household usefulness cannot be proven by synthetic CI.
+Use the packaged app over normal day-to-day use and verify the infant workflow, observations,
+activities, search, Parent Review, materials, backup/restore, and long-term growth context. Keep
+household records private; public evidence should contain only generalized findings.
+
 ## Completion rule
 
-Repository CI can verify harnesses, packaging code, safety checks, and unsigned/ad-hoc validation
-artifacts. The four roadmap items above move to complete only when their real operational evidence
-exists. Keep personal household dogfooding data and release secrets outside the public repository.
+Repository CI can verify implementation, harnesses, packaging code, safety checks, cross-platform
+regressions, and unsigned/ad-hoc validation artifacts. The remaining roadmap items move to complete
+only when their real operator-owned evidence exists. Keep household dogfooding data and release
+secrets outside the public repository.

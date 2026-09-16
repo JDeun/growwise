@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -70,3 +71,47 @@ def test_stable_windows_accepts_complete_signing_environment(
         monkeypatch.setenv(name, "configured")
 
     MODULE.check("v1.0.0", "windows")
+
+
+def test_stable_updater_requires_private_signing_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        MODULE,
+        "_load_versions",
+        lambda: {"package": "1.0.0", "cargo": "1.0.0", "tauri": "1.0.0"},
+    )
+    monkeypatch.setattr(MODULE, "_check_updater_config", lambda: True)
+    for name in (
+        "WINDOWS_CERTIFICATE",
+        "WINDOWS_CERTIFICATE_PASSWORD",
+        "WINDOWS_TIMESTAMP_URL",
+    ):
+        monkeypatch.setenv(name, "configured")
+    monkeypatch.delenv("TAURI_SIGNING_PRIVATE_KEY", raising=False)
+
+    with pytest.raises(RuntimeError, match="Tauri updater signing"):
+        MODULE.check("v1.0.0", "windows")
+
+
+def test_updater_config_requires_https_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    config = tmp_path / "tauri.release.conf.json"
+    config.write_text(
+        json.dumps(
+            {
+                "bundle": {"createUpdaterArtifacts": True},
+                "plugins": {
+                    "updater": {
+                        "pubkey": "PUBLIC-KEY",
+                        "endpoints": ["http://example.test/latest.json"],
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(MODULE, "RELEASE_CONFIG", config)
+
+    with pytest.raises(RuntimeError, match="HTTPS"):
+        MODULE._check_updater_config()

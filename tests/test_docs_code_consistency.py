@@ -38,7 +38,7 @@ _SKIP_SUFFIXES = {
 _SKIP_LEADING = "-.#[{*/"
 
 # Roots under which referenced files and symbols must be found.
-_FILE_ROOTS = ("tests", "src", "scripts")
+_FILE_ROOTS = ("tests", "src", "scripts", "desktop/scripts")
 _SYMBOL_ROOTS = ("src/growwise", "tests", "desktop/src")
 _SYMBOL_PATTERNS = ("*.py", "*.ts", "*.tsx")
 
@@ -104,7 +104,7 @@ def _file_exists(name: str) -> bool:
         if (_REPO / name).is_file():
             return True
         needle = "/" + name
-        for base in ("src", "tests", "scripts"):
+        for base in ("src", "tests", "scripts", "desktop/scripts"):
             root = _REPO / base
             if root.is_dir() and any(
                 str(path).replace("\\", "/").endswith(needle) for path in root.rglob("*.py")
