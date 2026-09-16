@@ -1,4 +1,5 @@
 mod core_process;
+mod discovery_commands;
 mod link_commands;
 mod photo_commands;
 
@@ -9,6 +10,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use core_process::CoreProcessManager;
+use discovery_commands::{discover_education_resources, save_discovered_resource};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
 use photo_commands::{
     commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
@@ -834,6 +836,8 @@ pub fn run() {
             list_photo_records,
             commit_photo_record,
             get_photo_asset,
+            discover_education_resources,
+            save_discovered_resource,
             share_entity_with_child,
             get_entity_backlinks,
             list_backups,
