@@ -29,8 +29,8 @@ use serde::{Deserialize, Serialize};
 use study_commands::{
     create_study_plan, get_study_weak_map, list_self_explanations, list_study_mistakes,
     list_study_plans, list_study_progress, list_study_reflections, recommend_study_resources,
-    record_self_explanation, record_study_mistake, record_study_progress,
-    record_study_reflection, update_study_plan_item_status,
+    record_self_explanation, record_study_mistake, record_study_progress, record_study_reflection,
+    update_study_plan_item_status,
 };
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
