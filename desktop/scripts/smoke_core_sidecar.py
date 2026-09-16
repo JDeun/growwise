@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import secrets
+import socket
 import subprocess
 import tempfile
 import time
@@ -11,28 +14,67 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 BINARIES = ROOT / "desktop" / "src-tauri" / "binaries"
-HEALTH_URL = "http://127.0.0.1:8765/health"
 
 
 def binary_name() -> str:
     return "growwise-core.exe" if os.name == "nt" else "growwise-core"
 
 
-def wait_until_healthy(process: subprocess.Popen[str], *, timeout_seconds: float) -> str:
+def reserve_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def authorized_request(url: str, token: str) -> urllib.request.Request:
+    return urllib.request.Request(
+        url,
+        headers={"Authorization": f"Bearer {token}"},
+        method="GET",
+    )
+
+
+def wait_until_healthy(
+    process: subprocess.Popen[str],
+    *,
+    base_url: str,
+    token: str,
+    timeout_seconds: float,
+) -> str:
     deadline = time.monotonic() + timeout_seconds
     last_error: Exception | None = None
+    handshake_url = f"{base_url}/_desktop/handshake"
     while time.monotonic() < deadline:
         exit_code = process.poll()
         if exit_code is not None:
             raise RuntimeError(f"GrowWise Core exited before health check: {exit_code}")
         try:
-            with urllib.request.urlopen(HEALTH_URL, timeout=0.75) as response:
-                if response.status == 200:
-                    return response.read().decode("utf-8")
-        except (OSError, urllib.error.URLError) as exc:
+            with urllib.request.urlopen(
+                authorized_request(handshake_url, token),
+                timeout=0.75,
+            ) as response:
+                payload = response.read().decode("utf-8")
+                parsed = json.loads(payload)
+                if (
+                    response.status == 200
+                    and parsed.get("product") == "growwise-core"
+                    and parsed.get("protocol_version") == 1
+                ):
+                    return payload
+        except (OSError, ValueError, urllib.error.URLError) as exc:
             last_error = exc
         time.sleep(0.25)
     raise TimeoutError(f"GrowWise Core health check timed out: {last_error}")
+
+
+def assert_unauthorized(base_url: str) -> None:
+    try:
+        urllib.request.urlopen(f"{base_url}/health", timeout=0.75)
+    except urllib.error.HTTPError as exc:
+        if exc.code == 401:
+            return
+        raise RuntimeError(f"unauthenticated Core request returned HTTP {exc.code}") from exc
+    raise RuntimeError("unauthenticated Core request unexpectedly succeeded")
 
 
 def stop_process(process: subprocess.Popen[str]) -> None:
@@ -87,9 +129,15 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
     with tempfile.TemporaryDirectory(prefix="growwise-sidecar-smoke-") as temp_dir:
         temp = Path(temp_dir)
         log_path = temp / "core.log"
+        port = reserve_port()
+        token = secrets.token_hex(32)
+        base_url = f"http://127.0.0.1:{port}"
         env = os.environ.copy()
         env.update(
             {
+                "GROWWISE_API_HOST": "127.0.0.1",
+                "GROWWISE_API_PORT": str(port),
+                "GROWWISE_SESSION_TOKEN": token,
                 "GROWWISE_DATA_DIR": str(temp / "data"),
                 "GROWWISE_LLM_FEATURES_ENABLED": "false",
                 "GROWWISE_EMBEDDING_FEATURES_ENABLED": "false",
@@ -106,8 +154,20 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
                     text=True,
                 )
                 try:
-                    payload = wait_until_healthy(process, timeout_seconds=timeout_seconds)
+                    payload = wait_until_healthy(
+                        process,
+                        base_url=base_url,
+                        token=token,
+                        timeout_seconds=timeout_seconds,
+                    )
+                    assert_unauthorized(base_url)
+                    with urllib.request.urlopen(
+                        authorized_request(f"{base_url}/health", token),
+                        timeout=0.75,
+                    ) as response:
+                        health = response.read().decode("utf-8")
                     print(payload)
+                    print(health)
                 finally:
                     stop_process(process)
         except Exception:
