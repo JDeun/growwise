@@ -3,9 +3,6 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable
 from datetime import UTC, date, datetime
 from enum import IntEnum
-from typing import TypeVar
-
-T = TypeVar("T")
 
 
 class TemporalTier(IntEnum):
@@ -59,7 +56,7 @@ def temporal_tier(
     return TemporalTier.ARCHIVE
 
 
-def hierarchical_temporal_order(
+def hierarchical_temporal_order[T](
     items: Iterable[T],
     *,
     timestamp: Callable[[T], str | datetime | date | None],
