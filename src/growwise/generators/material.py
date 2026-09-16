@@ -389,7 +389,7 @@ requested schema."""
             (
                 f'<source_evidence ref="{html.escape(item.source_ref, quote=True)}" '
                 f'title="{html.escape(item.title, quote=True)}">\n'
-                f"{item.excerpt}\n"
+                f"{html.escape(item.excerpt)}\n"
                 "</source_evidence>"
             )
             for item in source_evidence
