@@ -14,6 +14,7 @@ import { EntityLinkPanel } from "./EntityLinkPanel";
 import { MaterialContent } from "./MaterialContent";
 import { MaterialCurriculumTargets } from "./MaterialCurriculumTargets";
 import { MaterialKindGuide } from "./MaterialKindGuide";
+import { MaterialResultPanel } from "./MaterialResultPanel";
 import "./MaterialWorkspace.queue.css";
 
 const STATUS_LABELS: Record<MaterialStatus, string> = {
@@ -56,6 +57,7 @@ interface MaterialWorkspaceProps {
     note: string | null,
   ) => void | Promise<void>;
   onPrint: (material: GeneratedMaterial) => void;
+  onResultRecorded: () => void | Promise<void>;
 }
 
 function sourceTitle(ref: string, resources: ResourceRecord[]): string {
@@ -131,6 +133,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     onEditStart,
     onEdit,
     onPrint,
+    onResultRecorded,
   } = props;
 
   const catalog = materialCatalogForStage(stage);
@@ -199,7 +202,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         <article>
           <span>3. 승인·사용</span>
           <strong>{approved.length}</strong>
-          <small>인쇄·PDF 가능</small>
+          <small>인쇄·PDF·결과 기록</small>
         </article>
       </div>
 
@@ -462,6 +465,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     새 편집본 만들기
                   </button>
                 </div>
+                <MaterialResultPanel material={material} onRecorded={onResultRecorded} />
               </article>
             ))
           )}
