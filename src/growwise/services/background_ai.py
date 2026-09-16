@@ -240,13 +240,21 @@ class BackgroundAiJobRunner:
 
         evidence = self._material_source_evidence(material=material, store=store)
         feedback = MaterialFeedbackService(store.index).snapshot(child_id=child_id)
-        effective_goal = feedback.generation_goal(material.request_goal)
+        guidance_parts: list[str] = []
+        if material.version_note and material.version_note.strip():
+            guidance_parts.append(f"부모 수정 요청: {material.version_note.strip()}")
+        feedback_guidance = feedback.generation_guidance()
+        if feedback_guidance:
+            guidance_parts.append(feedback_guidance)
+        generation_guidance = "\n".join(guidance_parts) or None
+
         with BACKGROUND_AI_LOCK:
             candidate = MaterialGenerationService(provider=provider).generate(
                 child=child,
                 kind=material.kind,
                 topic=material.request_topic or material.title,
-                goal=effective_goal,
+                goal=material.request_goal,
+                generation_guidance=generation_guidance,
                 source_refs=material.source_refs,
                 source_evidence=evidence,
             )
