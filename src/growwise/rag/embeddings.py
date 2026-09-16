@@ -4,6 +4,7 @@ from typing import Protocol
 
 from langchain_ollama import OllamaEmbeddings
 
+from growwise.config import Settings
 from growwise.model.resilience import FailureCircuit
 
 
@@ -19,20 +20,34 @@ class OllamaEmbeddingProvider:
         *,
         model: str,
         base_url: str,
-        timeout_seconds: float = 8.0,
-        failure_threshold: int = 3,
-        recovery_seconds: float = 30.0,
+        timeout_seconds: float | None = None,
+        failure_threshold: int | None = None,
+        recovery_seconds: float | None = None,
     ) -> None:
-        if timeout_seconds <= 0:
+        settings = Settings()
+        effective_timeout = (
+            settings.embedding_timeout_seconds if timeout_seconds is None else timeout_seconds
+        )
+        effective_threshold = (
+            settings.model_circuit_failure_threshold
+            if failure_threshold is None
+            else failure_threshold
+        )
+        effective_recovery = (
+            settings.model_circuit_recovery_seconds
+            if recovery_seconds is None
+            else recovery_seconds
+        )
+        if effective_timeout <= 0:
             raise ValueError("timeout_seconds must be positive")
         self._circuit = FailureCircuit(
-            failure_threshold=failure_threshold,
-            recovery_seconds=recovery_seconds,
+            failure_threshold=effective_threshold,
+            recovery_seconds=effective_recovery,
         )
         self._embedding = OllamaEmbeddings(
             model=model,
             base_url=base_url,
-            client_kwargs={"timeout": timeout_seconds},
+            client_kwargs={"timeout": effective_timeout},
         )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
