@@ -4,6 +4,7 @@ import {
   createActivity,
   createObservation,
   transitionActivity,
+  type ActivityStatus,
   type ExperienceAxis,
   type GeneratedMaterial,
 } from "../api";
@@ -33,6 +34,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const [nextActivity, setNextActivity] = useState("");
   const [axes, setAxes] = useState<ExperienceAxis[]>([]);
   const [activityId, setActivityId] = useState<string | null>(null);
+  const [activityStatus, setActivityStatus] = useState<ActivityStatus | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -52,7 +54,45 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setNextActivity("");
     setAxes([]);
     setActivityId(null);
+    setActivityStatus(null);
     setError(null);
+  }
+
+  async function ensureOutcome(
+    linkedActivityId: string,
+    currentStatus: ActivityStatus,
+  ): Promise<ActivityStatus> {
+    let status = currentStatus;
+
+    if (outcome === "partial") {
+      if (status === "suggested" || status === "skipped") {
+        const updated = await transitionActivity(linkedActivityId, "active");
+        status = updated.status;
+        setActivityStatus(status);
+      }
+      return status;
+    }
+
+    if (outcome === "completed") {
+      if (status === "suggested" || status === "skipped") {
+        const updated = await transitionActivity(linkedActivityId, "active");
+        status = updated.status;
+        setActivityStatus(status);
+      }
+      if (status === "active") {
+        const updated = await transitionActivity(linkedActivityId, "completed");
+        status = updated.status;
+        setActivityStatus(status);
+      }
+      return status;
+    }
+
+    if (status === "suggested" || status === "active") {
+      const updated = await transitionActivity(linkedActivityId, "skipped");
+      status = updated.status;
+      setActivityStatus(status);
+    }
+    return status;
   }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -67,24 +107,21 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setError(null);
     try {
       let linkedActivityId = activityId;
-      if (!linkedActivityId) {
+      let linkedActivityStatus = activityStatus;
+      if (!linkedActivityId || !linkedActivityStatus) {
         const activity = await createActivity(
           material.child_id,
           material.title,
           [`material:${material.id}`],
         );
         linkedActivityId = activity.id;
+        linkedActivityStatus = activity.status;
         setActivityId(activity.id);
+        setActivityStatus(activity.status);
       }
 
-      if (outcome === "partial") {
-        await transitionActivity(linkedActivityId, "active");
-      } else if (outcome === "completed") {
-        await transitionActivity(linkedActivityId, "active");
-        await transitionActivity(linkedActivityId, "completed");
-      } else {
-        await transitionActivity(linkedActivityId, "skipped");
-      }
+      linkedActivityStatus = await ensureOutcome(linkedActivityId, linkedActivityStatus);
+      setActivityStatus(linkedActivityStatus);
 
       const details = [
         section("활동 과정", process),
