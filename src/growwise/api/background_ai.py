@@ -56,16 +56,22 @@ def queue_learning_log_enrichment(*, log: LearningLog, store: EntityStore) -> Jo
         return None
     runner = get_background_ai_runner()
     runner.start()
+
+    def mark_queued(job: Job) -> None:
+        log.ai_status = AiEnhancementStatus.QUEUED
+        log.ai_job_id = job.id
+        store.save(log)
+
     try:
-        job = runner.submit_observation(child_id=str(log.child_id), log_id=str(log.id))
+        return runner.submit_observation(
+            child_id=str(log.child_id),
+            log_id=str(log.id),
+            on_enqueued=mark_queued,
+        )
     except Exception:
         log.ai_status = AiEnhancementStatus.FAILED
         store.save(log)
         return None
-    log.ai_status = AiEnhancementStatus.QUEUED
-    log.ai_job_id = job.id
-    store.save(log)
-    return job
 
 
 def queue_material_enhancement(*, material: GeneratedMaterial, store: EntityStore) -> Job | None:
@@ -75,13 +81,19 @@ def queue_material_enhancement(*, material: GeneratedMaterial, store: EntityStor
         return None
     runner = get_background_ai_runner()
     runner.start()
+
+    def mark_queued(job: Job) -> None:
+        material.ai_status = AiEnhancementStatus.QUEUED
+        material.ai_job_id = job.id
+        store.save(material)
+
     try:
-        job = runner.submit_material(child_id=str(material.child_id), material_id=str(material.id))
+        return runner.submit_material(
+            child_id=str(material.child_id),
+            material_id=str(material.id),
+            on_enqueued=mark_queued,
+        )
     except Exception:
         material.ai_status = AiEnhancementStatus.FAILED
         store.save(material)
         return None
-    material.ai_status = AiEnhancementStatus.QUEUED
-    material.ai_job_id = job.id
-    store.save(material)
-    return job
