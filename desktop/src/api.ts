@@ -47,13 +47,17 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
   catch (error) { throw new CoreApiError(typeof error === "string" ? error : error instanceof Error ? error.message : "GrowWise Core 요청에 실패했습니다."); }
 }
 
+function operationId(): string {
+  return crypto.randomUUID();
+}
+
 export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
 export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
 export const listChildren = () => call<ChildProfile[]>("list_children");
-export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request });
+export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request, operationId: operationId() });
 export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
-export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs });
+export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs, operationId: operationId() });
 export const listActivities = (childId: string) => call<ActivityPlan[]>("list_activities", { childId });
 export const transitionActivity = (activityId: string, status: ActivityStatus, parentNote?: string) => call<ActivityPlan>("transition_activity", { activityId, status, parentNote: parentNote ?? null });
 export const listActivityObservations = (activityId: string) => call<LearningLog[]>("list_activity_observations", { activityId });
