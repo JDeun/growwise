@@ -1,15 +1,18 @@
 mod core_process;
 
+use std::env;
 use std::fs;
 use std::path::PathBuf;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use core_process::CoreProcessManager;
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
 const CORE_BASE_URL: &str = "http://127.0.0.1:8765";
+const CORE_TOKEN_ENV: &str = "GROWWISE_DESKTOP_CORE_TOKEN";
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -120,7 +123,19 @@ struct ResourceCreateInput {
 }
 
 fn client() -> Result<reqwest::Client, String> {
+    let token = env::var(CORE_TOKEN_ENV)
+        .map_err(|_| "GrowWise Core 세션 토큰이 없습니다. Core를 다시 시작해 주세요.".to_string())?;
+    if token.trim().is_empty() {
+        return Err("GrowWise Core 세션 토큰이 비어 있습니다.".to_string());
+    }
+    let mut authorization = HeaderValue::from_str(&format!("Bearer {token}"))
+        .map_err(|error| format!("GrowWise Core 인증 헤더를 만들 수 없습니다: {error}"))?;
+    authorization.set_sensitive(true);
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, authorization);
+
     reqwest::Client::builder()
+        .default_headers(headers)
         .timeout(std::time::Duration::from_millis(8000))
         .build()
         .map_err(|error| error.to_string())
@@ -185,9 +200,13 @@ async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
+async fn create_observation(
+    request: ObservationCreateInput,
+    operation_id: String,
+) -> Result<LearningLogDto, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/observations"))
+        .header("Idempotency-Key", operation_id)
         .json(&request)
         .send()
         .await
@@ -218,9 +237,11 @@ async fn create_activity(
     child_id: String,
     title: String,
     source_refs: Vec<String>,
+    operation_id: String,
 ) -> Result<serde_json::Value, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"))
+        .header("Idempotency-Key", operation_id)
         .json(&serde_json::json!({"title": title, "source_refs": source_refs, "parent_note": null}))
         .send()
         .await
@@ -739,8 +760,9 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
-            let manager =
-                CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
+            let app_data_dir = app.path().app_data_dir()?;
+            let manager = CoreProcessManager::ensure_started(&resource_dir, &app_data_dir)
+                .map_err(std::io::Error::other)?;
             app.manage(manager);
             Ok(())
         })
