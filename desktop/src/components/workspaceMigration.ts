@@ -8,6 +8,7 @@ export const WORKSPACE_MIGRATION: Record<WorkspaceLayoutKey, WorkspaceView> = {
   growth: "growth",
   activities: "activities",
   search: "search",
+  discovery: "discovery",
   library: "library",
   materials: "materials",
   settings: "settings",
