@@ -1,6 +1,7 @@
 export { CapabilityBanner } from "./CapabilityBanner";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
+export { EntityLinkPanel } from "./EntityLinkPanel";
 export { MaterialWorkspace } from "./MaterialWorkspace";
 export {
   MaterialWorkspaceIntegration,
