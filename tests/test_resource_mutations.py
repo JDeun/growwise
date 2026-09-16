@@ -1,10 +1,12 @@
 from pathlib import Path
 
 import pytest
+from fastapi import HTTPException
 
 from growwise.api import resource_routes
-from growwise.domain import ResourceKind, ResourceRecord
+from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
 
@@ -59,6 +61,68 @@ def test_resource_update_and_delete_keep_markdown_sqlite_and_rag_in_sync(
     assert not path.exists()
     assert store.index.get_entity(str(original.id), entity_type="resource") is None
     assert rag.search(query="freshsignal", child_id=None) == []
+
+
+def test_shared_child_resource_is_read_only_outside_owner_context(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    rag = HybridRagIndex(tmp_path / "rag.sqlite3")
+    owner = ChildProfile(name="원소유", nickname="원소유", stage=Stage.ELEMENTARY)
+    sibling = ChildProfile(name="공유아이", nickname="공유아이", stage=Stage.ELEMENTARY)
+    store.save(owner)
+    store.save(sibling)
+    resource = ResourceRecord(
+        child_id=owner.id,
+        kind=ResourceKind.NOTE,
+        title="함께 보는 자료",
+        content="sharedtoken evidence",
+        provenance={"origin": "mutation-test"},
+    )
+    store.save(resource)
+    ResourceIngestor(rag).ingest(resource)
+    EntityLinkService(store).share_with_children(source_id=resource.id, child_ids=[sibling.id])
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", lambda: rag)
+
+    with pytest.raises(HTTPException) as update_error:
+        resource_routes.update_resource(
+            resource.id,
+            _request("형제가 바꾼 제목", "tampered evidence"),
+            store,
+            acting_child_id=sibling.id,
+        )
+    assert update_error.value.status_code == 403
+    assert update_error.value.detail == "shared_resource_read_only"
+
+    with pytest.raises(HTTPException) as delete_error:
+        resource_routes.delete_resource(
+            resource.id,
+            store,
+            acting_child_id=sibling.id,
+        )
+    assert delete_error.value.status_code == 403
+    assert delete_error.value.detail == "shared_resource_read_only"
+    assert store.index.get_entity(str(resource.id), entity_type="resource") is not None
+    assert len(store.index.list_entities(entity_type="entity_link")) == 1
+
+    updated = resource_routes.update_resource(
+        resource.id,
+        _request("원소유가 바꾼 제목", "ownertoken evidence"),
+        store,
+        acting_child_id=owner.id,
+    )
+    assert updated.title == "원소유가 바꾼 제목"
+    assert rag.search(query="ownertoken", child_id=str(owner.id))
+
+    result = resource_routes.delete_resource(
+        resource.id,
+        store,
+        acting_child_id=owner.id,
+    )
+    assert result == {"deleted": True}
+    assert store.index.get_entity(str(resource.id), entity_type="resource") is None
+    assert store.index.list_entities(entity_type="entity_link") == []
 
 
 def test_resource_update_restores_old_rag_chunks_when_source_write_fails(
