@@ -39,8 +39,10 @@ uv sync --locked --extra dev
 uv run python scripts/benchmark_hardware.py > benchmark-hardware.json
 ```
 
-The harness records CPU count, visible RAM, deterministic Core generation throughput, and the current
-8 GB minimum / 16 GB recommended memory tier classification.
+The harness records operating system, architecture, CPU count, visible physical RAM, deterministic
+Core generation throughput, and the current 8 GB minimum / 16 GB recommended memory tier
+classification. Windows RAM is read through the native memory-status API; POSIX hosts use the local
+system configuration interface.
 
 Acceptance procedure:
 
