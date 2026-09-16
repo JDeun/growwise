@@ -5,6 +5,7 @@ mod learning_record_commands;
 mod link_commands;
 mod material_result_commands;
 mod photo_commands;
+mod study_commands;
 
 use std::fmt;
 use std::fs;
@@ -25,6 +26,12 @@ use photo_commands::{
 };
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
+use study_commands::{
+    create_study_plan, get_study_weak_map, list_self_explanations, list_study_mistakes,
+    list_study_plans, list_study_progress, list_study_reflections, recommend_study_resources,
+    record_self_explanation, record_study_mistake, record_study_progress,
+    record_study_reflection, update_study_plan_item_status,
+};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
@@ -836,6 +843,19 @@ pub fn run() {
             list_observations,
             create_learning_record,
             list_learning_records,
+            record_study_progress,
+            list_study_progress,
+            record_study_mistake,
+            list_study_mistakes,
+            record_study_reflection,
+            list_study_reflections,
+            record_self_explanation,
+            list_self_explanations,
+            get_study_weak_map,
+            recommend_study_resources,
+            create_study_plan,
+            list_study_plans,
+            update_study_plan_item_status,
             create_activity,
             list_activities,
             transition_activity,
