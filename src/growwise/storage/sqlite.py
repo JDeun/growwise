@@ -115,6 +115,19 @@ class SQLiteProjection:
             ),
         )
 
+    def delete_entity(self, entity_id: str, *, entity_type: str | None = None) -> bool:
+        clauses = ["id = ?"]
+        params: list[str] = [entity_id]
+        if entity_type is not None:
+            clauses.append("entity_type = ?")
+            params.append(entity_type)
+        with self._connection() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM entities WHERE {' AND '.join(clauses)}",
+                params,
+            )
+        return cursor.rowcount > 0
+
     def get_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
         sql = "SELECT payload_json FROM entities WHERE id = ?"
         params: list[str] = [entity_id]
