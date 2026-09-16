@@ -6,6 +6,7 @@ use super::{client, ensure_success, CORE_BASE_URL};
 pub(crate) async fn share_entity_with_child(
     source_id: String,
     child_id: String,
+    acting_child_id: String,
 ) -> Result<Value, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/links"))
@@ -14,6 +15,7 @@ pub(crate) async fn share_entity_with_child(
             "target_id": child_id,
             "relation": "child_scope",
             "label": null,
+            "acting_child_id": acting_child_id,
         }))
         .send()
         .await
