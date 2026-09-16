@@ -14,8 +14,11 @@ PhotoMimeType = Literal["image/jpeg", "image/png", "image/webp"]
 
 
 class PhotoRecordStatus(StrEnum):
+    QUEUED = "queued"
+    PROCESSING = "processing"
     DRAFT = "draft"
     COMMITTED = "committed"
+    FAILED = "failed"
     DISCARDED = "discarded"
 
 
@@ -43,7 +46,7 @@ class PhotoAsset(EntityBase):
 
 
 class PhotoActivityRecord(EntityBase):
-    """Parent-reviewable draft synthesized from one or more activity photos."""
+    """Parent-reviewable activity record synthesized from one or more local photos."""
 
     entity_type: str = "photo_activity_record"
     child_id: UUID
@@ -52,4 +55,6 @@ class PhotoActivityRecord(EntityBase):
     generated_observation: str = Field(min_length=1, max_length=10_000)
     generation_mode: str = Field(min_length=1, max_length=160)
     status: PhotoRecordStatus = PhotoRecordStatus.DRAFT
+    job_id: UUID | None = None
+    error_message: str | None = Field(default=None, max_length=2_000)
     learning_log_id: UUID | None = None
