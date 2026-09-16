@@ -34,19 +34,20 @@ describe("ChildProfileSection first-run onboarding", () => {
   it("frames the first child as the only required setup", () => {
     const markup = renderFirstRun();
 
-    expect(markup).toContain("2-MINUTE SETUP");
+    expect(markup).toContain("빠른 시작");
     expect(markup).toContain("필수 설정은 첫 아이 프로필 하나뿐입니다");
-    expect(markup).toContain("FIRST CHILD");
+    expect(markup).toContain("첫 프로필");
     expect(markup).toContain("첫 프로필 저장");
   });
 
-  it("keeps local AI explicitly optional", () => {
+  it("keeps AI optional without exposing implementation setup commands", () => {
     const markup = renderFirstRun();
 
-    expect(markup).toContain("AI 선택 사항");
-    expect(markup).toContain("로컬 AI 보강 연결 · 선택");
-    expect(markup).toContain("Core-only");
-    expect(markup).toContain("ollama serve");
-    expect(markup).toContain("ollama pull qwen3.5:9b");
+    expect(markup).toContain("AI는 선택 사항");
+    expect(markup).toContain("AI 보조 기능 · 선택");
+    expect(markup).toContain("나중에 설정에서 연결할 수 있습니다");
+    expect(markup).not.toContain("Core-only");
+    expect(markup).not.toContain("ollama serve");
+    expect(markup).not.toContain("ollama pull");
   });
 });
