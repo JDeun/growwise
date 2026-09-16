@@ -130,8 +130,12 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
   return <ActiveChildContext.Provider value={value}>{content}</ActiveChildContext.Provider>;
 }
 
+export function useOptionalActiveChild(): ActiveChildContextValue | null {
+  return useContext(ActiveChildContext);
+}
+
 export function useActiveChild(): ActiveChildContextValue {
-  const value = useContext(ActiveChildContext);
+  const value = useOptionalActiveChild();
   if (!value) throw new Error("useActiveChild must be used inside ActiveChildProvider");
   return value;
 }
