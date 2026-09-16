@@ -24,12 +24,18 @@ class Settings(BaseSettings):
 
     # Child photos are more sensitive than ordinary public enrichment. Vision therefore has a
     # dedicated local endpoint rather than inheriting a potentially remote text-provider URL.
+    # Photo analysis is deliberately long-running and background-friendly: consumer hardware may
+    # need minutes rather than seconds for one multimodal inference.
     vision_provider: str = "ollama"
     vision_model_id: str = "gemma3:4b"
     vision_base_url: str = "http://127.0.0.1:11434"
     vision_features_enabled: bool = True
-    vision_timeout_seconds: float = Field(default=20.0, gt=0.0, le=180.0)
+    vision_timeout_seconds: float = Field(default=300.0, gt=0.0, le=1800.0)
+    photo_text_timeout_seconds: float = Field(default=300.0, gt=0.0, le=1800.0)
     photo_remote_text_allowed: bool = False
+    photo_job_lease_seconds: int = Field(default=7200, ge=60, le=86_400)
+    photo_job_max_attempts: int = Field(default=3, ge=1, le=10)
+    photo_job_poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
 
     embedding_model_id: str = "nomic-embed-text"
     embedding_timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
