@@ -140,6 +140,11 @@ jobs:
           }
           $config | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 desktop/src-tauri/tauri.windows.conf.json
       - name: Build desktop bundle
+        if: matrix.platform != 'macos' || !startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-')
+        working-directory: desktop
+        run: npm run tauri -- build --bundles ${{ matrix.bundles }}
+      - name: Build signed and notarized macOS bundle
+        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
         working-directory: desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
