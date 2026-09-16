@@ -15,6 +15,7 @@ import ctypes
 import json
 import os
 import platform
+import subprocess
 import time
 from dataclasses import asdict, dataclass
 
@@ -58,6 +59,25 @@ def _windows_total_ram_gb() -> float | None:
     return round(status.ullTotalPhys / _GIB, 2)
 
 
+def _darwin_total_ram_gb() -> float | None:
+    """Return macOS physical RAM via Apple's hw.memsize sysctl."""
+
+    try:
+        result = subprocess.run(
+            ["sysctl", "-n", "hw.memsize"],
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=2,
+        )
+        total_bytes = int(result.stdout.strip())
+    except (OSError, ValueError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return None
+    if total_bytes <= 0:
+        return None
+    return round(total_bytes / _GIB, 2)
+
+
 def _posix_total_ram_gb() -> float | None:
     try:
         page_size = int(os.sysconf("SC_PAGE_SIZE"))
@@ -70,8 +90,11 @@ def _posix_total_ram_gb() -> float | None:
 
 
 def _total_ram_gb() -> float | None:
-    if platform.system() == "Windows":
+    system = platform.system()
+    if system == "Windows":
         return _windows_total_ram_gb()
+    if system == "Darwin":
+        return _darwin_total_ram_gb()
     return _posix_total_ram_gb()
 
 
