@@ -164,8 +164,9 @@ export function ResourceLibrarySection({
     <section className="resource-section">
       <div className="resource-grid">
         <form className="resource-form" onSubmit={onSubmit}>
-          <p className="card-label">RESOURCE LIBRARY</p>
-          <h3>자료를 지식베이스에 넣습니다.</h3>
+          <p className="card-label">참고 자료 추가</p>
+          <h3>나중에 다시 쓸 자료를 저장합니다.</h3>
+          <p className="muted">책, 교육과정, 웹 자료나 직접 적은 메모를 한곳에 모아 검색하고 학습 자료를 만들 때 참고할 수 있습니다.</p>
           <label>
             <span>종류</span>
             <select
@@ -202,7 +203,7 @@ export function ResourceLibrarySection({
         <div className="resource-browser">
           <div className="resource-browser-heading">
             <div>
-              <p className="card-label">INDEXED RESOURCES</p>
+              <p className="card-label">저장된 참고 자료</p>
               <h3>
                 {loadState.kind === "ready"
                   ? `${filteredResources.length} / ${resources.length}건`
@@ -253,7 +254,7 @@ export function ResourceLibrarySection({
             <ViewStateNotice
               kind="loading"
               title="자료 목록을 불러오는 중입니다."
-              description="저장된 자료를 아이 범위에 맞춰 확인합니다."
+              description="선택한 아이의 자료와 함께 볼 수 있는 공유 자료를 확인합니다."
             />
           )}
           {loadState.kind === "error" && (
@@ -363,7 +364,7 @@ export function ResourceLibrarySection({
                 <aside className="resource-detail" aria-label="선택한 자료 상세">
                   <div className="resource-detail-heading">
                     <div>
-                      <p className="card-label">RESOURCE DETAIL</p>
+                      <p className="card-label">자료 상세</p>
                       <h4>{selectedResource.title}</h4>
                     </div>
                     <button
@@ -380,7 +381,7 @@ export function ResourceLibrarySection({
                       <dd>{RESOURCE_KIND_LABELS[selectedResource.kind]}</dd>
                     </div>
                     <div>
-                      <dt>범위</dt>
+                      <dt>사용 범위</dt>
                       <dd>{resourceScopeLabel(selectedResource, activeChildId)}</dd>
                     </div>
                     {selectedResource.source_name && (
@@ -401,12 +402,12 @@ export function ResourceLibrarySection({
                   {selectedResource.summary && <p>{selectedResource.summary}</p>}
                   {selectedResource.content && <pre>{selectedResource.content}</pre>}
                   {Object.keys(selectedResource.provenance).length > 0 && (
-                    <div className="resource-provenance">
-                      <strong>Provenance</strong>
+                    <details className="resource-provenance">
+                      <summary>출처 세부 정보</summary>
                       {Object.entries(selectedResource.provenance).map(([key, value]) => (
                         <span key={key}>{key}: {value}</span>
                       ))}
-                    </div>
+                    </details>
                   )}
                   <EntityLinkPanel
                     entityId={selectedResource.id}
@@ -424,7 +425,7 @@ export function ResourceLibrarySection({
         <form className="resource-edit-panel" onSubmit={(event) => void handleUpdate(event)}>
           <div className="resource-detail-heading">
             <div>
-              <p className="card-label">EDIT RESOURCE</p>
+              <p className="card-label">자료 편집</p>
               <h3>자료 수정</h3>
             </div>
             <button
@@ -473,7 +474,7 @@ export function ResourceLibrarySection({
         title="자료 삭제"
         description={
           deleteTarget
-            ? `‘${deleteTarget.title}’ 자료를 지식베이스와 검색 인덱스에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
+            ? `‘${deleteTarget.title}’ 자료를 저장 목록과 검색에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.`
             : ""
         }
         confirmLabel="자료 삭제"
