@@ -69,6 +69,7 @@ from growwise.services import (
     ObservationEnricher,
     SQLiteConversationStore,
 )
+from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph, build_observation_graph
 
@@ -246,10 +247,14 @@ def validate_activity_link(
     payload = store.index.get_entity(str(activity_plan_id), entity_type="activity_plan")
     if payload is None:
         raise HTTPException(status_code=404, detail="activity_not_found")
-    activity = ActivityPlan.model_validate(payload)
-    if activity.child_id != child_id:
+    if not entity_visible_to_child(
+        store.index,
+        entity_id=str(activity_plan_id),
+        child_id=str(child_id),
+        entity_type="activity_plan",
+    ):
         raise HTTPException(status_code=409, detail="activity_child_mismatch")
-    return activity
+    return ActivityPlan.model_validate(payload)
 
 
 @app.get("/health")
@@ -410,15 +415,22 @@ def list_resources(
 
 
 @app.post("/v1/rag/ask")
-def ask_resources(request: RagQuestionRequest) -> dict:
+def ask_resources(
+    request: RagQuestionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    child_id = str(request.child_id) if request.child_id else None
+    if child_id is not None and store.index.get_entity(child_id, entity_type="child_profile") is None:
+        raise HTTPException(status_code=404, detail="child_not_found")
     service = GroundedRagService(
         index=get_rag_index(),
         provider=get_model_provider(),
     )
     return service.ask(
         query=request.question,
-        child_id=str(request.child_id) if request.child_id else None,
+        child_id=child_id,
         limit=request.limit,
+        shared_resource_ids=(shared_source_ids(store.index, child_id) if child_id else None),
     ).model_dump(mode="json")
 
 
@@ -511,6 +523,7 @@ def validate_material_source_refs(
 ) -> list[str]:
     """Resolve material provenance to existing resources within the child's scope."""
     validated: list[str] = []
+    visible_shared_ids = shared_source_ids(store.index, str(child_id))
     for ref in dict.fromkeys(source_refs):
         if not ref.startswith("resource:"):
             raise HTTPException(status_code=422, detail="material_source_ref_invalid")
@@ -522,9 +535,15 @@ def validate_material_source_refs(
         payload = store.index.get_entity(str(resource_id), entity_type="resource")
         if payload is None:
             raise HTTPException(status_code=422, detail="material_source_not_found")
-        resource = ResourceRecord.model_validate(payload)
-        if resource.child_id is not None and resource.child_id != child_id:
+        if not entity_visible_to_child(
+            store.index,
+            entity_id=str(resource_id),
+            child_id=str(child_id),
+            entity_type="resource",
+            shared_ids=visible_shared_ids,
+        ):
             raise HTTPException(status_code=409, detail="material_source_child_mismatch")
+        resource = ResourceRecord.model_validate(payload)
         validated.append(f"resource:{resource.id}")
     return validated
 
@@ -908,11 +927,7 @@ def list_activity_observations(
     payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
     if payload is None:
         raise HTTPException(status_code=404, detail="activity_not_found")
-    activity = ActivityPlan.model_validate(payload)
-    logs = store.index.list_entities(
-        entity_type="learning_log",
-        child_id=str(activity.child_id),
-    )
+    logs = store.index.list_entities(entity_type="learning_log")
     return [item for item in logs if item.get("activity_plan_id") == str(activity_id)]
 
 
@@ -1014,11 +1029,18 @@ def recommend_board_books(
     if child.stage is not Stage.INFANT_0_2:
         raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")
 
+    visible_shared_ids = shared_source_ids(store.index, str(child_id))
     resource_payloads = store.index.list_entities(entity_type="resource")
     resources = [
         ResourceRecord.model_validate(payload)
         for payload in resource_payloads
-        if payload.get("child_id") in (None, str(child_id))
+        if entity_visible_to_child(
+            store.index,
+            entity_id=str(payload.get("id") or ""),
+            child_id=str(child_id),
+            entity_type="resource",
+            shared_ids=visible_shared_ids,
+        )
     ]
     result = BoardBookRecommendationService().recommend(
         resources=resources,
