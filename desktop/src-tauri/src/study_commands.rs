@@ -152,10 +152,7 @@ pub(crate) async fn recommend_study_resources(
 }
 
 #[tauri::command]
-pub(crate) async fn create_study_plan(
-    child_id: String,
-    request: Value,
-) -> Result<Value, String> {
+pub(crate) async fn create_study_plan(child_id: String, request: Value) -> Result<Value, String> {
     post_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/plans"),
         &request,
