@@ -6,6 +6,7 @@ from contextlib import suppress
 from time import sleep
 
 from growwise.jobs import Job, SQLiteJobQueue
+from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
 from growwise.services.photo_activity import PhotoActivityService
 
 PHOTO_ANALYSIS_JOB = "photo_activity_analysis"
@@ -101,7 +102,10 @@ class PhotoJobRunner:
             if str(record.child_id) != child_id:
                 raise ValueError("photo job child scope mismatch")
             self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
-            service.process_draft(record_id)
+            # Share one background-only execution lane with text enrichment/material generation so
+            # slow multimodal and text jobs do not compete for consumer VRAM/unified memory.
+            with BACKGROUND_AI_LOCK:
+                service.process_draft(record_id)
             self.queue.complete(job.id)
             return
         except KeyError:
