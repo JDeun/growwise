@@ -1,0 +1,161 @@
+.learning-record-workspace {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.learning-child-picker,
+.learning-record-form label {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.learning-child-picker {
+  max-width: 28rem;
+}
+
+.learning-record-form {
+  display: grid;
+  gap: 1rem;
+  padding: 1.1rem;
+  border: 1px solid var(--border);
+  border-radius: 18px;
+  background: var(--surface);
+}
+
+.learning-kind-picker,
+.learning-axis-picker,
+.learning-shared-children {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.learning-kind-picker legend,
+.learning-axis-picker legend,
+.learning-shared-children legend,
+.learning-record-form label > span,
+.learning-child-picker > span {
+  margin-bottom: 0.45rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.learning-kind-picker > div {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.65rem;
+}
+
+.learning-kind-picker label {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.55rem;
+  padding: 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.learning-kind-picker label.selected {
+  border-color: var(--primary);
+}
+
+.learning-kind-picker label > span {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.learning-kind-picker small,
+.learning-record-meta,
+.learning-record-card-heading small {
+  color: var(--ink-soft);
+}
+
+.learning-record-two-column {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.8rem;
+}
+
+.learning-record-form textarea {
+  min-height: 6.5rem;
+  resize: vertical;
+}
+
+.learning-axis-picker > div,
+.learning-shared-children > div,
+.learning-record-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.learning-shared-children label {
+  display: inline-flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.learning-record-notice {
+  margin: 0;
+  padding: 0.75rem 0.9rem;
+  border-radius: 12px;
+  background: var(--primary-soft);
+}
+
+.learning-record-history,
+.learning-record-list {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.learning-record-card {
+  display: grid;
+  gap: 0.7rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: var(--surface);
+}
+
+.learning-record-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.8rem;
+}
+
+.learning-record-card-heading > div {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.learning-record-card-heading span,
+.learning-record-tags span {
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.learning-record-card p,
+.learning-record-card details {
+  margin: 0;
+}
+
+.learning-work-text {
+  margin-top: 0.55rem !important;
+  white-space: pre-wrap;
+}
+
+.learning-record-tags span {
+  padding: 0.3rem 0.55rem;
+  border-radius: 999px;
+  background: var(--surface-soft);
+}
+
+@media (max-width: 900px) {
+  .learning-kind-picker > div,
+  .learning-record-two-column {
+    grid-template-columns: 1fr;
+  }
+}
