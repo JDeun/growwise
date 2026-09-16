@@ -31,7 +31,7 @@ from growwise.generators import (
     MaterialSourceEvidence,
 )
 from growwise.material_versions import serialize_material_successor
-from growwise.services.entity_links import EntityLinkService
+from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph
 
@@ -88,17 +88,21 @@ def _validate_activity_link(
     payload = store.index.get_entity(str(activity_plan_id), entity_type="activity_plan")
     if payload is None:
         raise HTTPException(status_code=404, detail="activity_not_found")
-    activity = ActivityPlan.model_validate(payload)
-    shared_children = EntityLinkService(store).child_scope_targets(activity.id)
-    if activity.child_id != child_id and child_id not in shared_children:
+    if not entity_visible_to_child(
+        store.index,
+        entity_id=str(activity_plan_id),
+        child_id=str(child_id),
+        entity_type="activity_plan",
+    ):
         raise HTTPException(status_code=409, detail="activity_child_mismatch")
-    return activity
+    return ActivityPlan.model_validate(payload)
 
 
 def _validate_source_refs(
     *, child_id: UUID, source_refs: list[str], store: EntityStore
 ) -> list[str]:
     validated: list[str] = []
+    visible_shared_ids = shared_source_ids(store.index, str(child_id))
     for ref in dict.fromkeys(source_refs):
         if not ref.startswith("resource:"):
             raise HTTPException(status_code=422, detail="material_source_ref_invalid")
@@ -110,14 +114,15 @@ def _validate_source_refs(
         payload = store.index.get_entity(str(resource_id), entity_type="resource")
         if payload is None:
             raise HTTPException(status_code=422, detail="material_source_not_found")
-        resource = ResourceRecord.model_validate(payload)
-        shared_children = EntityLinkService(store).child_scope_targets(resource.id)
-        if (
-            resource.child_id is not None
-            and resource.child_id != child_id
-            and child_id not in shared_children
+        if not entity_visible_to_child(
+            store.index,
+            entity_id=str(resource_id),
+            child_id=str(child_id),
+            entity_type="resource",
+            shared_ids=visible_shared_ids,
         ):
             raise HTTPException(status_code=409, detail="material_source_child_mismatch")
+        resource = ResourceRecord.model_validate(payload)
         validated.append(f"resource:{resource.id}")
     return validated
 
