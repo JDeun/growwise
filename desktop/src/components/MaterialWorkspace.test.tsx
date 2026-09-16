@@ -51,17 +51,31 @@ function render(materials: GeneratedMaterial[]) {
 }
 
 describe("MaterialWorkspace", () => {
+  it("separates draft, parent-review, and approved-use stages", () => {
+    const html = render([
+      { ...base, id: "draft", status: "draft" },
+      { ...base, id: "review", status: "review_pending" },
+      { ...base, id: "approved", status: "approved" },
+    ]);
+    expect(html).toContain("1. 초안");
+    expect(html).toContain("2. 부모 검토");
+    expect(html).toContain("3. 승인·사용");
+    expect(html).toContain("부모 검토로 보내기");
+    expect(html).toContain("승인하고 사용");
+    expect(html).toContain("인쇄 / PDF 내보내기");
+  });
+
   it("keeps review-pending material out of the printable lane", () => {
     const html = render([base]);
     expect(html).toContain("부모 검토 필요");
     expect(html).toContain("승인하고 사용");
-    expect(html).not.toContain("인쇄 / PDF 저장");
+    expect(html).not.toContain("인쇄 / PDF 내보내기");
   });
 
-  it("only exposes print after parent approval", () => {
+  it("only exposes print and PDF export after parent approval", () => {
     const html = render([{ ...base, status: "approved" }]);
-    expect(html).toContain("사용 가능");
-    expect(html).toContain("인쇄 / PDF 저장");
+    expect(html).toContain("승인·사용");
+    expect(html).toContain("인쇄 / PDF 내보내기");
     expect(html).not.toContain("승인하고 사용");
   });
 
