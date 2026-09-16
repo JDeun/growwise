@@ -195,7 +195,6 @@ def test_review_decision_mismatch_is_rejected(
     assert exc_info.value.status_code == 409
 
 
-
 def test_revision_api_preserves_request_lineage_and_is_retry_safe(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -234,8 +233,10 @@ def test_revision_api_preserves_request_lineage_and_is_retry_safe(
     assert revised.version == 2
     assert revised.parent_material_id == material.id
     assert revised.request_topic == "달의 모양"
-    assert "관찰한 차이를 말로 설명한다." in (revised.request_goal or "")
-    assert "질문 수를 줄이고 관찰 중심으로" in (revised.request_goal or "")
+    assert revised.request_goal == "관찰한 차이를 말로 설명한다."
+    assert revised.version_note == "질문 수를 줄이고 관찰 중심으로 바꿔주세요."
+    assert "질문 수를 줄이고 관찰 중심으로" not in revised.content_markdown
+    assert "개인화 원칙" not in revised.content_markdown
     assert graph.calls[-1][1]["configurable"]["thread_id"] == f"material-review:{revised.id}"
 
     call_count = len(graph.calls)
@@ -245,6 +246,7 @@ def test_revision_api_preserves_request_lineage_and_is_retry_safe(
         store,
     )
     assert retried.id == revised.id
+    assert retried.version_note == revised.version_note
     assert len(graph.calls) == call_count
 
 
@@ -264,7 +266,6 @@ def test_revision_api_rejects_material_without_revision_request(
     with pytest.raises(HTTPException) as exc_info:
         api.revise_material(material.id, MaterialRevisionRequest(), store)
     assert exc_info.value.status_code == 409
-
 
 
 def test_material_api_rejects_missing_source_ref(
@@ -367,6 +368,9 @@ def test_reading_material_vertical_slice_preserves_provenance_through_revision(
     assert second.parent_material_id == first.id
     assert second.source_refs == [source_ref]
     assert second.status is MaterialStatus.REVIEW_PENDING
+    assert second.request_goal == first.request_goal
+    assert second.version_note == "질문을 하나로 줄여주세요."
+    assert "질문을 하나로 줄여주세요." not in second.content_markdown
 
     approved = api.review_material(
         second.id,
