@@ -33,6 +33,7 @@ def _fsync_dir(directory: Path) -> None:
     finally:
         os.close(dir_fd)
 
+
 _RESERVED_METADATA_KEYS = {
     "content": "__growwise_content",
     "handler": "__growwise_handler",
@@ -174,3 +175,46 @@ class MarkdownRepository:
                 if os.path.exists(tmp_name):
                     os.unlink(tmp_name)
         return recovered
+
+    @staticmethod
+    def _belongs_to_child(path: Path, child_id: str) -> bool:
+        """Identify child-owned current or backup records, including corrupt recoverable files."""
+        try:
+            post = frontmatter.load(path)
+            payload = _decode_metadata(dict(post.metadata))
+            return str(payload.get("child_id") or "") == child_id or (
+                payload.get("entity_type") == "child_profile" and str(payload.get("id")) == child_id
+            )
+        except Exception:
+            # Privacy deletion must not silently retain a corrupt file whose metadata cannot be
+            # parsed. UUID text is sufficiently specific to serve as a conservative fallback.
+            try:
+                return child_id in path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                return child_id in path.name
+
+    def purge_child(self, child_id: str) -> int:
+        """Delete every authoritative and one-generation backup record owned by one child.
+
+        This operation is intentionally idempotent. Callers rebuild disposable projections after
+        it completes. Files with corrupt frontmatter are conservatively removed when they contain
+        the child's UUID so privacy deletion cannot be defeated by a malformed record.
+        """
+        targets = [
+            path
+            for path in self.root.rglob("*")
+            if path.is_file()
+            and (path.name.endswith(".md") or path.name.endswith(".md.bak"))
+            and self._belongs_to_child(path, child_id)
+        ]
+        deleted = 0
+        for path in targets:
+            lock_path = path.with_suffix("") if path.name.endswith(".md.bak") else path
+            with self._lock_for(lock_path):
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    continue
+                deleted += 1
+                _fsync_dir(path.parent)
+        return deleted
