@@ -8,6 +8,7 @@ export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
 export type MaterialKind = "activity_guide" | "reading_activity" | "english_card" | "math_activity" | "science_inquiry" | "writing_prompt" | "field_trip";
 export type MaterialStatus = "draft" | "review_pending" | "revision_requested" | "approved" | "rejected" | "archived";
 export type PhotoRecordStatus = "queued" | "processing" | "draft" | "committed" | "failed" | "discarded";
+export type EntityLinkRelation = "child_scope" | "related" | "derived_from" | "documents" | "supports";
 
 export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_configured: boolean; llm_reachable: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
@@ -43,6 +44,9 @@ export interface PhotoJobSummary { id: string; status: "pending" | "running" | "
 export interface PhotoDraftResult { record: PhotoActivityRecord; assets: PhotoAsset[]; job?: PhotoJobSummary | null; }
 export interface PhotoAssetContent { asset: PhotoAsset; data_base64: string; }
 export interface PhotoCreateOptions { userContext?: string; manualObservation?: string; aiAssist?: boolean; sharedChildIds?: string[]; }
+export interface EntityLink { id: string; child_id: string | null; source_id: string; target_id: string; relation: EntityLinkRelation; label: string | null; created_at?: string; updated_at?: string; }
+export interface EntityLinkGraphItem { link: EntityLink; entity: Record<string, unknown> | null; }
+export interface EntityBacklinks { incoming: EntityLinkGraphItem[]; outgoing: EntityLinkGraphItem[]; }
 export interface BackupItem { archive: string; path: string; size_bytes: number; modified_at: string; }
 export interface BackupCreateResult { archive: string; path: string; size_bytes: number; modified_at: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; asset_count: number; }; }
 export interface BackupRestoreResult { archive: string; restored: boolean; rag_chunk_count: number; manifest: BackupCreateResult["manifest"]; }
@@ -99,6 +103,8 @@ export const createPhotoRecord = (
 export const listPhotoRecords = (childId: string) => call<PhotoActivityRecord[]>("list_photo_records", { childId });
 export const commitPhotoRecord = (recordId: string, observation?: string) => call<LearningLog>("commit_photo_record", { recordId, observation: observation ?? null });
 export const getPhotoAsset = (childId: string, assetId: string) => call<PhotoAssetContent>("get_photo_asset", { childId, assetId });
+export const shareEntityWithChild = (sourceId: string, childId: string) => call<EntityLink>("share_entity_with_child", { sourceId, childId });
+export const getEntityBacklinks = (entityId: string) => call<EntityBacklinks>("get_entity_backlinks", { entityId });
 export const listBackups = () => call<BackupItem[]>("list_backups");
 export const createBackup = () => call<BackupCreateResult>("create_backup");
 export const restoreBackup = (archiveName: string) => call<BackupRestoreResult>("restore_backup", { archiveName });
