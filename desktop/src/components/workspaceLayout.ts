@@ -4,6 +4,7 @@ export type WorkspaceLayoutKey =
   | "child-context"
   | "observations"
   | "photos"
+  | "learning-records"
   | "growth"
   | "activities"
   | "search"
@@ -16,6 +17,7 @@ export const WORKSPACE_LAYOUT: Record<WorkspaceView, readonly WorkspaceLayoutKey
   home: ["child-context"],
   observations: ["observations"],
   photos: ["photos"],
+  learning: ["learning-records"],
   growth: ["growth"],
   activities: ["activities"],
   search: ["search"],
