@@ -18,7 +18,11 @@ def test_concurrent_session_snapshots_merge_distinct_turns(tmp_path) -> None:
     first.turns.append(ConversationTurn(role="user", content="첫 질문", created_at=base))
     first.updated_at = base
     second.turns.append(
-        ConversationTurn(role="user", content="동시에 온 다른 질문", created_at=base + timedelta(seconds=1))
+        ConversationTurn(
+            role="user",
+            content="동시에 온 다른 질문",
+            created_at=base + timedelta(seconds=1),
+        )
     )
     second.updated_at = base + timedelta(seconds=1)
 
