@@ -54,6 +54,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const [results, setResults] = useState<LearningLog[]>([]);
   const [outcome, setOutcome] = useState<MaterialUseOutcome>("completed");
   const [observation, setObservation] = useState("");
+  const [learnerWork, setLearnerWork] = useState("");
   const [process, setProcess] = useState("");
   const [childQuestion, setChildQuestion] = useState("");
   const [interest, setInterest] = useState("");
@@ -153,6 +154,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   function resetForm() {
     setOutcome("completed");
     setObservation("");
+    setLearnerWork("");
     setProcess("");
     setChildQuestion("");
     setInterest("");
@@ -233,6 +235,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
       const request = {
         outcome,
         observation: mainObservation,
+        learner_work: learnerWork.trim() || null,
         process: process.trim() || null,
         child_question: childQuestion.trim() || null,
         interest: interest.trim() || null,
@@ -401,6 +404,17 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
               onChange={(event) => setObservation(event.target.value)}
               maxLength={10000}
               placeholder="예: 얼음이 녹는 모습을 예상보다 오래 지켜보고, 물이 생긴 이유를 물었다."
+              disabled={busy}
+            />
+          </label>
+
+          <label>
+            <span>아이 답변·산출물</span>
+            <textarea
+              value={learnerWork}
+              onChange={(event) => setLearnerWork(event.target.value)}
+              maxLength={10000}
+              placeholder="예: 활동지에 쓴 답, 독서감상문, 풀이 과정, 관찰 기록 등 아이가 실제로 남긴 내용을 옮겨 적습니다."
               disabled={busy}
             />
           </label>
