@@ -1,7 +1,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { useActiveChild } from "../active-child-context";
+import { useOptionalActiveChild } from "../active-child-context";
 import { getEntityBacklinks, type EntityBacklinks } from "../api";
 import "./EntityLinkPanel.css";
 
@@ -21,14 +21,18 @@ export function EntityLinkPanel({
   ownerChildId = null,
   label = "다른 아이와 연결",
 }: EntityLinkPanelProps) {
-  const { children, activeChildId } = useActiveChild();
+  const activeChildContext = useOptionalActiveChild();
+  const children = activeChildContext?.children ?? [];
+  const activeChildId = activeChildContext?.activeChildId ?? "";
   const [open, setOpen] = useState(false);
   const [graph, setGraph] = useState<EntityBacklinks | null>(null);
   const [targetChildId, setTargetChildId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const canManageScope = ownerChildId === null || ownerChildId === activeChildId;
+  const canManageScope = Boolean(activeChildId) && (
+    ownerChildId === null || ownerChildId === activeChildId
+  );
 
   const refresh = useCallback(async () => {
     setGraph(await getEntityBacklinks(entityId));
@@ -97,7 +101,7 @@ export function EntityLinkPanel({
             </div>
           )}
 
-          {!canManageScope ? (
+          {!activeChildContext ? null : !canManageScope ? (
             <p className="muted">
               공유받은 문서의 연결 범위는 원래 아이 화면에서만 변경할 수 있습니다.
             </p>
