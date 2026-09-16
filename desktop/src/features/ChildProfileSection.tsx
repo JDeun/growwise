@@ -1,6 +1,5 @@
 import { useEffect, useState, type FormEvent } from "react";
 
-import { useActiveChild } from "../active-child-context";
 import type { ChildContextLoadState } from "../child-context-state";
 import { ViewStateNotice } from "../components";
 import { getHealth, type ChildProfile, type GrowthMap, type Stage } from "../api";
@@ -50,14 +49,8 @@ export function ChildProfileSection({
   onSubmit,
   onSelectChild,
 }: ChildProfileSectionProps) {
-  const { selectChild, upsertChild } = useActiveChild();
   const firstRun = children.length === 0;
   const [modelOnboarding, setModelOnboarding] = useState<ModelOnboardingState>({ kind: "idle" });
-
-  useEffect(() => {
-    if (!activeChild) return;
-    upsertChild(activeChild, { select: true });
-  }, [activeChild, upsertChild]);
 
   useEffect(() => {
     let cancelled = false;
@@ -159,11 +152,7 @@ export function ChildProfileSection({
             <span>아이 선택</span>
             <select
               value={activeChild?.id ?? ""}
-              onChange={(event) => {
-                const childId = event.target.value;
-                selectChild(childId);
-                onSelectChild(childId);
-              }}
+              onChange={(event) => onSelectChild(event.target.value)}
             >
               {children.map((child) => (
                 <option key={child.id} value={child.id}>
