@@ -25,7 +25,8 @@ from growwise.services.photo_activity import (
 from growwise.services.photo_jobs import PhotoJobRunner
 from growwise.storage import EntityStore
 
-router = APIRouter(prefix="/v1", tags=["photo-activity"])
+# This router is mounted under study_routes, whose prefix is already /v1.
+router = APIRouter(tags=["photo-activity"])
 
 # 15 MiB expands to just under 21 MiB in base64. Bound the encoded representation as well as the
 # decoded bytes so an authenticated local caller cannot send an unbounded string into validation.
@@ -214,6 +215,9 @@ def list_photo_records(
 ) -> list[dict[str, object]]:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
+    # Opening the photo workspace after an app restart wakes the durable worker and reclaims any
+    # analysis that was interrupted while Core was shutting down.
+    get_photo_job_runner().start()
     return [
         record.model_dump(mode="json")
         for record in _service(settings, store).list_for_child(str(child_id))
