@@ -53,6 +53,34 @@ selects a variant, so retrying the same request does not randomly change the bas
 shape. Infant templates are separately written as parent-led play/observation guides rather than
 worksheet-style tasks.
 
+### Content templates vs. presentation templates
+
+GrowWise deliberately separates **what the material says** from **how an approved material is laid
+out for use**.
+
+- Content templates define the pedagogical sequence, curriculum alignment, source grounding, and
+  deterministic fallback text.
+- Presentation templates are desktop-only print metadata. They never change the stored Markdown or
+  Parent Review state.
+- The normal review screen keeps the existing safe Markdown renderer and parent guide UI.
+- When an approved material is printed or exported to PDF, the presentation template adds a dedicated
+  writable worksheet page after the material body. If a parent guide exists, a compact copy is placed
+  on that worksheet page so the parent does not need a separate third page.
+
+| kind | print worksheet | writable zones |
+| --- | --- | --- |
+| `activity_guide` | 활동 실행 시트 | 준비·환경 / 아이 반응·관찰 / 다음 활동 연결 |
+| `reading_activity` | 읽기 대화 시트 | 읽기 전 예상 / 기억에 남은 장면·말 / 읽은 뒤 질문·생활 연결 |
+| `english_card` | 영어 표현 카드 시트 | 오늘의 표현 / 아이의 말·몸짓 반응 / 다음에 써볼 상황 |
+| `math_activity` | 수학 탐구 시트 | 문제 상황·실물 / 아이의 방법 / 다른 방법·설명 |
+| `science_inquiry` | 과학 탐구 시트 | 예측 / 관찰·실험 / 결과·설명 |
+| `writing_prompt` | 쓰기 초안 시트 | 말·그림으로 생각 열기 / 첫 초안 / 다시 쓰고 돌아보기 |
+| `field_trip` | 현장학습 기록 시트 | 가기 전 궁금증 / 현장 관찰·사진 메모 / 돌아와서 연결 |
+
+The presentation catalog is deterministic and exhaustive for all material kinds. Layout differences
+are implemented with print CSS and `data-presentation-layout`; they do not require an LLM and do not
+modify the generated content artifact.
+
 ### Curriculum alignment
 
 The template receives deterministic curriculum targets before any model call:
