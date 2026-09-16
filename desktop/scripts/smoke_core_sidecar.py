@@ -62,6 +62,24 @@ def stop_process(process: subprocess.Popen[str]) -> None:
         process.wait(timeout=5)
 
 
+def wait_until_releasable(path: Path, *, timeout_seconds: float = 5.0) -> None:
+    """Wait for Windows child processes to release a recently closed log handle."""
+    if os.name != "nt" or not path.exists():
+        return
+
+    deadline = time.monotonic() + timeout_seconds
+    probe = path.with_name(f"{path.name}.release-probe")
+    while True:
+        try:
+            path.replace(probe)
+            probe.replace(path)
+            return
+        except PermissionError as exc:
+            if time.monotonic() >= deadline:
+                raise RuntimeError(f"GrowWise Core did not release log file: {path}") from exc
+            time.sleep(0.1)
+
+
 def smoke(binary: Path, *, timeout_seconds: float) -> None:
     if not binary.is_file():
         raise FileNotFoundError(binary)
@@ -77,25 +95,30 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
                 "GROWWISE_EMBEDDING_FEATURES_ENABLED": "false",
             }
         )
-        with log_path.open("w", encoding="utf-8") as log_file:
-            process = subprocess.Popen(
-                [str(binary)],
-                cwd=ROOT,
-                env=env,
-                stdout=log_file,
-                stderr=subprocess.STDOUT,
-                text=True,
-            )
-            try:
-                payload = wait_until_healthy(process, timeout_seconds=timeout_seconds)
-                print(payload)
-            except Exception:
-                stop_process(process)
-                log_file.flush()
+        try:
+            with log_path.open("w", encoding="utf-8") as log_file:
+                process = subprocess.Popen(
+                    [str(binary)],
+                    cwd=ROOT,
+                    env=env,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                )
+                try:
+                    payload = wait_until_healthy(process, timeout_seconds=timeout_seconds)
+                    print(payload)
+                finally:
+                    stop_process(process)
+        except Exception:
+            if log_path.exists():
                 print(log_path.read_text(encoding="utf-8", errors="replace"))
-                raise
-            finally:
-                stop_process(process)
+            raise
+        finally:
+            # On Windows, taskkill can return just before the PyInstaller child releases
+            # its inherited stdout handle. Waiting here keeps TemporaryDirectory cleanup
+            # from turning a successful health smoke into a spurious WinError 32 failure.
+            wait_until_releasable(log_path)
 
 
 def main() -> None:
