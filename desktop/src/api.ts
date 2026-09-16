@@ -7,6 +7,8 @@ export type ActivityStatus = "suggested" | "active" | "completed" | "skipped" | 
 export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
 export type MaterialKind = "activity_guide" | "reading_activity" | "english_card" | "math_activity" | "science_inquiry" | "writing_prompt" | "field_trip";
 export type MaterialStatus = "draft" | "review_pending" | "revision_requested" | "approved" | "rejected" | "archived";
+export type AiEnhancementStatus = "not_requested" | "queued" | "running" | "completed" | "failed" | "skipped";
+export type LearningRecordKind = "observation" | "photo_activity" | "material_use" | "reading_reflection" | "diary" | "institution" | "self_study" | "assignment" | "other";
 export type PhotoRecordStatus = "queued" | "processing" | "draft" | "committed" | "failed" | "discarded";
 export type EntityLinkRelation = "child_scope" | "related" | "derived_from" | "documents" | "supports";
 
@@ -16,7 +18,8 @@ export interface ChildCreateInput { nickname: string; stage: Stage; age_months: 
 export interface ChildProfile { id: string; nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
 export interface ChildPurgeResult { child_id: string; markdown_files_deleted: number; photo_files_deleted: number; rag_chunks_deleted: number; conversations_deleted: number; jobs_deleted: number; idempotency_records_deleted: number; checkpoint_threads_deleted: number; links_deleted: number; backups_may_contain_deleted_child: boolean; }
 export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; activity_plan_id?: string | null; }
-export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
+export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; record_kind: LearningRecordKind; title: string | null; occurred_at: string | null; subject: string | null; institution: string | null; learner_work: string | null; parent_observation: string; process: string | null; child_question: string | null; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; difficulty_note: string | null; next_activity: string | null; ai_status: AiEnhancementStatus; ai_job_id: string | null; created_at: string | null; updated_at?: string | null; }
+export interface LearningRecordInput { kind: Exclude<LearningRecordKind, "observation" | "photo_activity" | "material_use">; title: string; occurred_at?: string | null; subject?: string | null; institution?: string | null; summary: string; learner_work?: string | null; process?: string | null; interest?: string | null; difficulty_note?: string | null; next_activity?: string | null; tags?: string[]; experience_axes?: ExperienceAxis[]; shared_child_ids?: string[]; }
 export interface GrowthAxis { axis: ExperienceAxis; state: string; observation_count: number; }
 export interface GrowthLayer { key: "whole_person" | "learning" | "stage_focus"; label: string; axes: GrowthAxis[]; }
 export type DiversityState = "insufficient_data" | "varied" | "mixed" | "concentrated";
@@ -36,7 +39,10 @@ export interface ConversationAnswer { session_id: string; thread_id: string; ans
 export interface ResourceCreateInput { kind: ResourceKind; title: string; child_id: string | null; summary: string | null; content: string | null; source_url: string | null; source_name: string | null; author: string | null; tags: string[]; stage_tags: string[]; provenance: Record<string, string>; }
 export interface ResourceRecord extends ResourceCreateInput { id: string; created_at?: string; updated_at?: string; }
 export interface CurriculumTarget { mapping_id: string; framework: string; domain: string; description: string; source_ref: string; standard_codes: string[]; }
-export interface GeneratedMaterial { id: string; child_id: string; kind: MaterialKind; title: string; content_markdown: string; status: MaterialStatus; source_refs: string[]; curriculum_targets?: CurriculumTarget[]; generator_mode: string; review_note: string | null; request_topic: string | null; request_goal: string | null; version: number; parent_material_id: string | null; version_note: string | null; created_at?: string; updated_at?: string; }
+export interface GeneratedMaterial { id: string; child_id: string; kind: MaterialKind; title: string; content_markdown: string; parent_guide_markdown: string; status: MaterialStatus; source_refs: string[]; curriculum_targets?: CurriculumTarget[]; generator_mode: string; ai_status: AiEnhancementStatus; ai_job_id: string | null; review_note: string | null; request_topic: string | null; request_goal: string | null; version: number; parent_material_id: string | null; version_note: string | null; created_at?: string; updated_at?: string; }
+export interface MaterialResultInput { outcome: "completed" | "partial" | "skipped"; observation: string; process?: string | null; child_question?: string | null; interest?: string | null; difficulty_note?: string | null; next_activity?: string | null; tags?: string[]; experience_axes?: ExperienceAxis[]; activity_plan_id?: string | null; }
+export interface MaterialResultResponse { activity: ActivityPlan; learning_log: LearningLog; }
+export interface MaterialUseHistoryItem { activity: ActivityPlan; learning_logs: LearningLog[]; }
 export interface PhotoUploadInput { filename: string; mime_type: string; data_base64: string; }
 export interface PhotoAsset { id: string; child_id: string; original_filename: string; mime_type: string; relative_path: string; sha256: string; byte_size: number; width: number | null; height: number | null; captured_at: string | null; metadata_summary: Record<string, string>; caption: string | null; caption_model: string | null; }
 export interface PhotoActivityRecord { id: string; child_id: string; photo_asset_ids: string[]; user_context: string | null; generated_observation: string; generation_mode: string; status: PhotoRecordStatus; job_id: string | null; error_message: string | null; suggested_tags: string[]; suggested_experience_axes: ExperienceAxis[]; suggested_interest: string | null; suggested_difficulty_note: string | null; suggested_next_activity: string | null; learning_log_id: string | null; created_at?: string; updated_at?: string; }
@@ -65,8 +71,10 @@ export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_
 export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
 export const listChildren = () => call<ChildProfile[]>("list_children");
 export const deleteChild = (childId: string) => call<ChildPurgeResult>("delete_child", { childId });
-export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request });
+export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation_background", { request });
 export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
+export const createLearningRecord = (childId: string, input: LearningRecordInput) => call<LearningLog>("create_learning_record", { childId, request: { ...input, occurred_at: input.occurred_at ?? null, subject: input.subject ?? null, institution: input.institution ?? null, learner_work: input.learner_work ?? null, process: input.process ?? null, interest: input.interest ?? null, difficulty_note: input.difficulty_note ?? null, next_activity: input.next_activity ?? null, tags: input.tags ?? [], experience_axes: input.experience_axes ?? [], shared_child_ids: input.shared_child_ids ?? [] } });
+export const listLearningRecords = (childId: string) => call<LearningLog[]>("list_learning_records", { childId });
 export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs });
 export const listActivities = (childId: string) => call<ActivityPlan[]>("list_activities", { childId });
 export const transitionActivity = (activityId: string, status: ActivityStatus, parentNote?: string) => call<ActivityPlan>("transition_activity", { activityId, status, parentNote: parentNote ?? null });
@@ -79,11 +87,13 @@ export const createResource = (request: ResourceCreateInput) => call<ResourceRec
 export const listResources = (childId?: string) => call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
 export const updateResource = (resourceId: string, request: ResourceCreateInput) => call<ResourceRecord>("update_resource", { resourceId, request });
 export const deleteResource = (resourceId: string) => call<{ deleted: boolean }>("delete_resource", { resourceId });
-export const generateMaterial = (childId: string, kind: MaterialKind, topic: string, goal?: string, sourceRefs: string[] = []) => call<GeneratedMaterial>("generate_material", { childId, kind, topic, goal: goal ?? null, sourceRefs });
+export const generateMaterial = (childId: string, kind: MaterialKind, topic: string, goal?: string, sourceRefs: string[] = []) => call<GeneratedMaterial>("generate_material_background", { childId, kind, topic, goal: goal ?? null, sourceRefs });
 export const listMaterials = (childId: string) => call<GeneratedMaterial[]>("list_materials", { childId });
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) => call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
-export const reviseMaterial = (materialId: string, note?: string) => call<GeneratedMaterial>("revise_material", { materialId, note: note ?? null });
+export const reviseMaterial = (materialId: string, note?: string) => call<GeneratedMaterial>("revise_material_background", { materialId, note: note ?? null });
 export const editMaterial = (materialId: string, title: string, contentMarkdown: string, note?: string | null) => call<GeneratedMaterial>("edit_material", { materialId, title, contentMarkdown, note: note ?? null });
+export const recordMaterialResult = (materialId: string, input: MaterialResultInput) => call<MaterialResultResponse>("record_material_result", { materialId, request: { ...input, process: input.process ?? null, child_question: input.child_question ?? null, interest: input.interest ?? null, difficulty_note: input.difficulty_note ?? null, next_activity: input.next_activity ?? null, tags: input.tags ?? [], experience_axes: input.experience_axes ?? [], activity_plan_id: input.activity_plan_id ?? null } });
+export const listMaterialResults = (materialId: string) => call<MaterialUseHistoryItem[]>("list_material_results", { materialId });
 export const getGrowthMap = (childId: string) => call<GrowthMap>("get_growth_map", { childId });
 export const getInfantActivities = (childId: string) => call<InfantActivitySuggestions>("get_infant_activities", { childId });
 export const getInfantObservationHints = (childId: string) => call<InfantObservationHints>("get_infant_observation_hints", { childId });
