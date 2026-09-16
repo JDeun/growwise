@@ -79,7 +79,10 @@ class MaterialFeedbackSnapshot:
         return bool(self.items or self.learning_items)
 
     def generation_goal(self, requested_goal: str | None) -> str | None:
-        """Add generalized continuity signals without exposing raw parent/learner text to a model."""
+        """Add generalized continuity signals without exposing raw parent/learner text.
+
+        The generated goal may be sent to a model, but raw parent and learner text is not.
+        """
         if not self.has_feedback:
             return requested_goal
 
@@ -101,7 +104,9 @@ class MaterialFeedbackSnapshot:
         if LearningRecordKind.SELF_STUDY in kinds:
             signals.append("최근 자율학습 흐름을 부모가 선택적으로 이어갈 수 있게 한다")
         if LearningRecordKind.DIARY in kinds:
-            signals.append("최근 일상 기록과 연결 가능성을 열어두되 개인 글 내용을 직접 재사용하지 않는다")
+            signals.append(
+                "최근 일상 기록과 연결 가능성을 열어두되 개인 글 내용을 직접 재사용하지 않는다"
+            )
         if any(item.interest for item in self.learning_items):
             signals.append("별도 학습 기록에 흥미가 남아 있으면 관련 선택지를 제공한다")
         if any(item.difficulty_note for item in self.learning_items):
@@ -189,7 +194,7 @@ class MaterialFeedbackSnapshot:
 
 
 class MaterialFeedbackService:
-    """Build bounded continuity snapshots from material outcomes and independent learning records."""
+    """Build bounded continuity snapshots from outcomes and independent learning records."""
 
     def __init__(self, index: SQLiteProjection) -> None:
         self.index = index
