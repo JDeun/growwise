@@ -1,5 +1,7 @@
+mod background_write_commands;
 mod core_process;
 mod discovery_commands;
+mod learning_record_commands;
 mod link_commands;
 mod material_result_commands;
 mod photo_commands;
@@ -10,8 +12,12 @@ use std::path::PathBuf;
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use background_write_commands::{
+    create_observation_background, generate_material_background, revise_material_background,
+};
 use core_process::CoreProcessManager;
 use discovery_commands::{discover_education_resources, save_discovered_resource};
+use learning_record_commands::{create_learning_record, list_learning_records};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
 use material_result_commands::{list_material_results, record_material_result};
 use photo_commands::{
@@ -463,9 +469,17 @@ async fn generate_material(
     goal: Option<String>,
     source_refs: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
-        .json(&serde_json::json!({"kind": kind, "topic": topic, "goal": goal, "source_refs": source_refs}))
-        .send().await.map_err(|error| error.to_string())?;
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
+        .json(&serde_json::json!({
+            "kind": kind,
+            "topic": topic,
+            "goal": goal,
+            "source_refs": source_refs,
+        }))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
     ensure_success(response, "학습 자료 생성 실패")
         .await?
         .json::<serde_json::Value>()
@@ -812,7 +826,10 @@ pub fn run() {
             list_children,
             delete_child,
             create_observation,
+            create_observation_background,
             list_observations,
+            create_learning_record,
+            list_learning_records,
             create_activity,
             list_activities,
             transition_activity,
@@ -826,9 +843,11 @@ pub fn run() {
             update_resource,
             delete_resource,
             generate_material,
+            generate_material_background,
             list_materials,
             review_material,
             revise_material,
+            revise_material_background,
             edit_material,
             record_material_result,
             list_material_results,
