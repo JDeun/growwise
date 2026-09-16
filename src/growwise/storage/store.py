@@ -58,3 +58,9 @@ class EntityStore:
             with suppress(OSError):
                 backup.unlink(missing_ok=True)
         return True
+
+    def purge_child(self, child_id: str) -> int:
+        """Permanently remove one child's Markdown records and rebuild the disposable index."""
+        deleted_files = self.markdown.purge_child(child_id)
+        self.index.rebuild(self.markdown.root)
+        return deleted_files
