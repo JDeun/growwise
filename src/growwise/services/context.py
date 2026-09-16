@@ -32,6 +32,25 @@ _FORBIDDEN_ANSWER_MARKERS = (
     "하위 ",
     "퍼센타일",
 )
+_ENTITY_TEXT_LIMIT = 12_000
+_ENTITY_TEXT_FIELDS = (
+    ("title", "제목"),
+    ("record_kind", "기록 유형"),
+    ("subject", "과목·영역"),
+    ("institution", "기관"),
+    ("parent_observation", "부모 기록"),
+    ("learner_work", "아이 글·결과물"),
+    ("process", "과정"),
+    ("child_question", "아이 질문·반응"),
+    ("interest", "흥미"),
+    ("difficulty_note", "어려움"),
+    ("next_activity", "다음 활동"),
+    ("summary", "요약"),
+    ("content", "내용"),
+    ("content_markdown", "자료 내용"),
+    ("generated_observation", "생성 관찰"),
+    ("description", "설명"),
+)
 
 
 def _unsafe_answer(value: str) -> bool:
@@ -40,19 +59,24 @@ def _unsafe_answer(value: str) -> bool:
 
 
 def _entity_text(payload: dict) -> str:
-    for key in (
-        "parent_observation",
-        "title",
-        "summary",
-        "content",
-        "content_markdown",
-        "generated_observation",
-        "description",
-    ):
+    """Compose bounded evidence without dropping learner-authored work behind a summary field."""
+    sections: list[str] = []
+    remaining = _ENTITY_TEXT_LIMIT
+    for key, label in _ENTITY_TEXT_FIELDS:
         value = payload.get(key)
-        if isinstance(value, str) and value.strip():
-            return value.strip()[:12_000]
-    return str(payload)[:12_000]
+        if not isinstance(value, str) or not value.strip() or remaining <= 0:
+            continue
+        normalized = value.strip()
+        prefix = f"{label}: "
+        available = max(0, remaining - len(prefix) - 1)
+        if available <= 0:
+            break
+        section = f"{prefix}{normalized[:available]}"
+        sections.append(section)
+        remaining -= len(section) + 1
+    if sections:
+        return "\n".join(sections)[:_ENTITY_TEXT_LIMIT]
+    return str(payload)[:_ENTITY_TEXT_LIMIT]
 
 
 class ChildContextService:
