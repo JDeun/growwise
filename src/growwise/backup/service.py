@@ -129,7 +129,9 @@ class BackupService:
                     f"expected {manifest.asset_count}, got {actual_asset_count}"
                 )
             if manifest.asset_count and assets_root is None:
-                raise InvalidBackup("backup contains assets but no managed asset destination was provided")
+                raise InvalidBackup(
+                    "backup contains assets but no managed asset destination was provided"
+                )
 
             records_ready = staging / "records-ready"
             if staged_records.exists():
