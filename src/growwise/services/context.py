@@ -33,11 +33,32 @@ _FORBIDDEN_ANSWER_MARKERS = (
     "퍼센타일",
 )
 _ENTITY_TEXT_LIMIT = 12_000
+_CONTEXT_ENTITY_TYPES = (
+    "learning_log",
+    "activity_plan",
+    "study_unit_progress",
+    "mistake_record",
+    "study_reflection",
+    "self_explanation_log",
+    "study_plan",
+)
 _ENTITY_TEXT_FIELDS = (
     ("title", "제목"),
     ("record_kind", "기록 유형"),
     ("subject", "과목·영역"),
+    ("unit", "단원·주제"),
     ("institution", "기관"),
+    ("state", "학습 상태"),
+    ("note", "학습 메모"),
+    ("mistake_type", "실수 유형"),
+    ("prompt", "문제·상황"),
+    ("learner_response", "아이 답·풀이"),
+    ("corrected_understanding", "다시 확인한 이해"),
+    ("worked_well", "잘 된 점"),
+    ("difficult_point", "어려웠던 점"),
+    ("next_step", "다음 단계"),
+    ("explanation", "자기설명"),
+    ("open_question", "남은 질문"),
     ("parent_observation", "부모 기록"),
     ("learner_work", "아이 글·결과물"),
     ("process", "과정"),
@@ -58,6 +79,25 @@ def _unsafe_answer(value: str) -> bool:
     return any(marker in lowered for marker in _FORBIDDEN_ANSWER_MARKERS)
 
 
+def _append_bounded_section(
+    sections: list[str],
+    *,
+    label: str,
+    value: str,
+    remaining: int,
+) -> int:
+    normalized = value.strip()
+    if not normalized or remaining <= 0:
+        return remaining
+    prefix = f"{label}: "
+    available = max(0, remaining - len(prefix) - 1)
+    if available <= 0:
+        return remaining
+    section = f"{prefix}{normalized[:available]}"
+    sections.append(section)
+    return remaining - len(section) - 1
+
+
 def _entity_text(payload: dict) -> str:
     """Compose bounded evidence without dropping learner-authored work behind a summary field."""
     sections: list[str] = []
@@ -66,14 +106,38 @@ def _entity_text(payload: dict) -> str:
         value = payload.get(key)
         if not isinstance(value, str) or not value.strip() or remaining <= 0:
             continue
-        normalized = value.strip()
-        prefix = f"{label}: "
-        available = max(0, remaining - len(prefix) - 1)
-        if available <= 0:
-            break
-        section = f"{prefix}{normalized[:available]}"
-        sections.append(section)
-        remaining -= len(section) + 1
+        remaining = _append_bounded_section(
+            sections,
+            label=label,
+            value=value,
+            remaining=remaining,
+        )
+
+    items = payload.get("items")
+    if isinstance(items, list) and remaining > 0:
+        for index, item in enumerate(items[:8], 1):
+            if not isinstance(item, dict):
+                continue
+            subject = str(item.get("subject") or "").strip()
+            unit = str(item.get("unit") or "").strip()
+            focus = str(item.get("focus") or "").strip()
+            status = str(item.get("status") or "").strip()
+            parts = [part for part in (subject, unit) if part]
+            heading = " · ".join(parts) or f"항목 {index}"
+            detail = heading
+            if focus:
+                detail += f" | {focus}"
+            if status:
+                detail += f" | 상태={status}"
+            remaining = _append_bounded_section(
+                sections,
+                label=f"계획 항목 {index}",
+                value=detail,
+                remaining=remaining,
+            )
+            if remaining <= 0:
+                break
+
     if sections:
         return "\n".join(sections)[:_ENTITY_TEXT_LIMIT]
     return str(payload)[:_ENTITY_TEXT_LIMIT]
@@ -104,7 +168,7 @@ questions."""
         records = self.entity_index.search_entities(
             child_id=child_id,
             query_text=query,
-            entity_types=("learning_log", "activity_plan"),
+            entity_types=_CONTEXT_ENTITY_TYPES,
             limit=limit,
         )
         chunks = self.rag_index.search(
