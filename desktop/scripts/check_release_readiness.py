@@ -65,11 +65,15 @@ def check(tag: str | None, platform: str | None) -> None:
 
         stable = "-" not in version
         if stable:
+            if platform is None:
+                raise RuntimeError(
+                    "stable release preflight requires --platform windows or --platform macos"
+                )
             if platform == "macos":
                 _check_macos_credentials()
             elif platform == "windows":
                 _check_windows_credentials()
-            elif platform:
+            else:
                 raise RuntimeError(f"unsupported release platform: {platform}")
 
     print(
