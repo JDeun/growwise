@@ -1,9 +1,7 @@
 import type { FormEvent } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
-  createActivity,
-  listMaterialResults,
   recordMaterialResult,
   transitionActivity,
   type ActivityPlan,
@@ -11,6 +9,7 @@ import {
   type GeneratedMaterial,
   type LearningLog,
 } from "../api";
+import { ensureMaterialQuest } from "../material-quest";
 import { AXIS_OPTIONS } from "../presentation";
 import "./MaterialResultPanel.css";
 
@@ -51,23 +50,30 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const [axes, setAxes] = useState<ExperienceAxis[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const onRecordedRef = useRef(onRecorded);
 
-  const materialRef = `material:${material.id}`;
+  useEffect(() => {
+    onRecordedRef.current = onRecorded;
+  }, [onRecorded]);
 
   const reloadQuest = useCallback(async () => {
     setLoadState("loading");
     setError(null);
     try {
-      const history = await listMaterialResults(material.id);
-      const current = history[0] ?? null;
-      setActivity(current?.activity ?? null);
-      setResults(current?.learning_logs ?? []);
+      const ensured = await ensureMaterialQuest({
+        id: material.id,
+        child_id: material.child_id,
+        title: material.title,
+      });
+      setActivity(ensured.item.activity);
+      setResults(ensured.item.learning_logs);
       setLoadState("ready");
+      if (ensured.created) await onRecordedRef.current();
     } catch (cause) {
       setLoadState("error");
       setError(cause instanceof Error ? cause.message : "퀘스트 상태를 불러오지 못했습니다.");
     }
-  }, [material.id]);
+  }, [material.child_id, material.id, material.title]);
 
   useEffect(() => {
     void reloadQuest();
@@ -108,9 +114,15 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
 
   async function ensureActivity(): Promise<ActivityPlan> {
     if (activity) return activity;
-    const created = await createActivity(material.child_id, material.title, [materialRef]);
-    setActivity(created);
-    return created;
+    const ensured = await ensureMaterialQuest({
+      id: material.id,
+      child_id: material.child_id,
+      title: material.title,
+    });
+    setActivity(ensured.item.activity);
+    setResults(ensured.item.learning_logs);
+    if (ensured.created) await onRecordedRef.current();
+    return ensured.item.activity;
   }
 
   async function setQuestStatus(target: "active" | "completed" | "skipped"): Promise<ActivityPlan> {
