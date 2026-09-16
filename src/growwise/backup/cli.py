@@ -38,6 +38,7 @@ def create_backup(settings: Settings, name: str | None = None) -> dict[str, obje
     archive = managed_archive_path(settings, name or default_archive_name())
     manifest = BackupService().create(
         records_root=settings.records_dir,
+        assets_root=settings.assets_dir,
         destination=archive,
     )
     return {
@@ -82,6 +83,7 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     manifest = BackupService().restore(
         archive_path=archive,
         records_root=settings.records_dir,
+        assets_root=settings.assets_dir,
         index_path=settings.index_path,
     )
     rag_chunk_count = rebuild_rag_projection(settings)
@@ -97,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Manage GrowWise portable backups")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
-    create_parser = subparsers.add_parser("create", help="create a portable Markdown backup")
+    create_parser = subparsers.add_parser("create", help="create a portable GrowWise backup")
     create_parser.add_argument("--name", help="managed .zip filename")
 
     subparsers.add_parser("list", help="list managed backups")
