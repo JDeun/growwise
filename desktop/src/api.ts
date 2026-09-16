@@ -47,7 +47,7 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
   catch (error) { throw new CoreApiError(typeof error === "string" ? error : error instanceof Error ? error.message : "GrowWise Core 요청에 실패했습니다."); }
 }
 
-function operationId(): string {
+export function createOperationId(): string {
   return crypto.randomUUID();
 }
 
@@ -55,9 +55,9 @@ export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
 export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
 export const listChildren = () => call<ChildProfile[]>("list_children");
-export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request, operationId: operationId() });
+export const createObservation = (request: ObservationCreateInput, operationId = createOperationId()) => call<LearningLog>("create_observation", { request, operationId });
 export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
-export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs, operationId: operationId() });
+export const createActivity = (childId: string, title: string, sourceRefs: string[] = [], operationId = createOperationId()) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs, operationId });
 export const listActivities = (childId: string) => call<ActivityPlan[]>("list_activities", { childId });
 export const transitionActivity = (activityId: string, status: ActivityStatus, parentNote?: string) => call<ActivityPlan>("transition_activity", { activityId, status, parentNote: parentNote ?? null });
 export const listActivityObservations = (activityId: string) => call<LearningLog[]>("list_activity_observations", { activityId });
@@ -65,7 +65,7 @@ export const searchChildContext = (childId: string, query: string) => call<Searc
 export const createConversation = (childId: string) => call<ConversationSession>("create_conversation", { childId });
 export const listConversations = (childId: string) => call<ConversationSession[]>("list_conversations", { childId });
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
-export const createResource = (request: ResourceCreateInput) => call<ResourceRecord>("create_resource", { request });
+export const createResource = (request: ResourceCreateInput, operationId = createOperationId()) => call<ResourceRecord>("create_resource", { request, operationId });
 export const listResources = (childId?: string) => call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
 export const updateResource = (resourceId: string, request: ResourceCreateInput) => call<ResourceRecord>("update_resource", { resourceId, request });
 export const deleteResource = (resourceId: string) => call<{ deleted: boolean }>("delete_resource", { resourceId });
