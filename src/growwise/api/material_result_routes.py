@@ -16,6 +16,7 @@ from growwise.domain.models import (
     ExperienceAxis,
     GeneratedMaterial,
     LearningLog,
+    LearningRecordKind,
     MaterialStatus,
 )
 from growwise.services.activity import ActivityPlanService, InvalidActivityTransition
@@ -178,6 +179,8 @@ def record_material_result(
         log = LearningLog(
             child_id=material.child_id,
             activity_plan_id=activity.id,
+            record_kind=LearningRecordKind.MATERIAL_USE,
+            title=material.title,
             parent_observation=request.observation,
             process=request.process,
             child_question=request.child_question,
