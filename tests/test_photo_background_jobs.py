@@ -36,7 +36,11 @@ def _child(store: EntityStore) -> ChildProfile:
     return child
 
 
-def _service(settings: Settings, *, vision_provider=None) -> tuple[PhotoActivityService, EntityStore]:
+def _service(
+    settings: Settings,
+    *,
+    vision_provider=None,
+) -> tuple[PhotoActivityService, EntityStore]:
     store = EntityStore(settings.records_dir, settings.index_path)
     return (
         PhotoActivityService(
@@ -119,9 +123,12 @@ def test_photo_worker_returns_request_to_queue_then_builds_draft(tmp_path: Path)
         while time.monotonic() < deadline:
             current = service.get_record(str(record.id))
             queued_job = queue.get(job.id)
-            if current.status is PhotoRecordStatus.DRAFT and queued_job is not None:
-                if queued_job.status is JobStatus.COMPLETED:
-                    break
+            if (
+                current.status is PhotoRecordStatus.DRAFT
+                and queued_job is not None
+                and queued_job.status is JobStatus.COMPLETED
+            ):
+                break
             time.sleep(0.02)
         else:
             raise AssertionError("background photo job did not complete")
