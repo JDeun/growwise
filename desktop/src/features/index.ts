@@ -5,6 +5,7 @@ export { HomeDashboard } from "./HomeDashboard";
 export { InfantGuidanceSection } from "./InfantGuidanceSection";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
 export { ObservationTimelineSection } from "./ObservationTimelineSection";
+export { PhotoActivityWorkspace } from "./PhotoActivityWorkspace";
 export { ResourceLibrarySection } from "./ResourceLibrarySection";
 export { SearchConversationSection } from "./SearchConversationSection";
 export { SystemStatusSection } from "./SystemStatusSection";
