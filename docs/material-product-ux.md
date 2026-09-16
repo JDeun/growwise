@@ -3,13 +3,21 @@
 The desktop material workflow mirrors Core/API/IPC state rather than inventing a second lifecycle.
 
 1. Generation remains available through deterministic templates when the optional LLM is unavailable.
-2. Parent Review is a visible lane, not a hidden status field.
-3. Draft, review-pending, and revision-requested material cannot expose print/PDF actions.
-4. Only `approved` material is presented as ready to use.
-5. Revision and direct parent editing create immutable successors through existing IPC commands.
-6. Selected resource provenance is shown with human-readable titles during review.
-7. Rejected/archived material remains recoverable but visually de-emphasized.
-8. Busy state disables duplicate mutations and errors are announced with `role=alert`.
+2. The desktop write path saves a deterministic draft first and runs optional LLM enhancement in a
+   durable background job. A parent never waits on model inference to preserve the request.
+3. Every generated material has two outputs: child-facing material and a parent-facing teaching
+   guide. The parent guide also exists in deterministic/no-LLM mode.
+4. Parent Review is a visible lane, not a hidden status field.
+5. Draft, review-pending, and revision-requested material cannot expose print/PDF actions.
+6. Only `approved` material is presented as ready to use.
+7. An approved material is registered as a real `ActivityPlan(status=suggested)` quest, so it appears
+   in the global Quest Board as `생성됨` before the activity is started.
+8. Revision and direct parent editing create immutable successors through existing IPC commands.
+9. Selected resource provenance is shown with human-readable titles during review.
+10. Rejected/archived material remains recoverable but visually de-emphasized.
+11. Busy state disables duplicate mutations and errors are announced with `role=alert`.
+12. A printed/used material has a dedicated structured result path. The result becomes a
+    `LearningLog(record_kind=material_use)` and can inform later material generation.
 
 ## How material generation works
 
@@ -25,16 +33,29 @@ verified curriculum alignment
             +
 explicitly selected ResourceRecord evidence
             ↓
-deterministic material template
+deterministic child material + deterministic parent guide
             ↓
-optional LLM enhancement
+save immediately as the authoritative draft
+            ↓
+optional durable background LLM enhancement
             ↓
 scaffold / safety / malformed-output guards
             ↓
 review_pending draft
             ↓
 Parent Review → approve / edit / request revision / reject
+            ↓
+approved material → suggested Quest
+            ↓
+start / complete / skip → structured result record
+            ↓
+LearningLog feedback → later material scaffolding + parent guide
 ```
+
+The background job exposes `queued → running → completed/failed` state. Model failure never removes
+the deterministic draft or its parent guide. Background photo/text jobs share the same execution lock
+so local GPU or unified-memory workloads do not compete unnecessarily; interactive chat/query paths
+are not put behind that background lock.
 
 ### Material families
 
@@ -51,7 +72,19 @@ Parent Review → approve / edit / request revision / reject
 Each kind has multiple deterministic variants. A stable hash of material kind, stage, and topic
 selects a variant, so retrying the same request does not randomly change the basic pedagogical
 shape. Infant templates are separately written as parent-led play/observation guides rather than
-worksheet-style tasks.
+worksheet-style tasks, and all seven material families remain available for the infant stage.
+
+### Child material vs. parent teaching guide
+
+A material is intentionally a two-output artifact.
+
+- `content_markdown` is the child/activity-facing content.
+- `parent_guide_markdown` tells the parent how to prepare, facilitate, scaffold, observe, simplify or
+  stop the activity, and what evidence is useful to record afterward.
+- The parent guide is generated deterministically first; optional LLM enhancement may improve it but
+  is not required for the guide to exist.
+- Direct parent edits preserve the guide instead of silently dropping it from the next version.
+- Raw parent result notes are never copied into the child-facing material.
 
 ### Content templates vs. presentation templates
 
@@ -66,6 +99,7 @@ out for use**.
 - When an approved material is printed or exported to PDF, the presentation template adds a dedicated
   writable worksheet page after the material body. If a parent guide exists, a compact copy is placed
   on that worksheet page so the parent does not need a separate third page.
+- Quest controls and result-entry UI are never included in the printed output.
 
 | kind | print worksheet | writable zones |
 | --- | --- | --- |
@@ -80,6 +114,47 @@ out for use**.
 The presentation catalog is deterministic and exhaustive for all material kinds. Layout differences
 are implemented with print CSS and `data-presentation-layout`; they do not require an LLM and do not
 modify the generated content artifact.
+
+### Quest lifecycle and physical-activity result capture
+
+Approval means the material is ready to become an activity, not that the child completed it. The
+Desktop therefore registers one real activity quest per approved material and keeps completion and
+result capture separate.
+
+```text
+approved GeneratedMaterial
+        ↓
+ActivityPlan: suggested  →  active  →  completed / skipped
+        ↓
+structured material result
+        ↓
+LearningLog(record_kind=material_use)
+```
+
+The result form stores parent observation, process, child question/reaction, interest, difficulty,
+next activity, tags, and experience axes as separate fields. `GeneratedMaterial → ActivityPlan →
+LearningLog` relationships are also represented as first-class entity links. A completed quest is not
+shown as `결과 기록됨` until an actual result `LearningLog` exists.
+
+### Closed-loop feedback privacy
+
+Recent `material_use` records are allowed to influence later material generation, but GrowWise keeps
+the privacy boundary explicit.
+
+- Raw parent observation/result text remains local and may be shown in the parent teaching guide as a
+  continuity note.
+- Raw result text is not sent to the optional material-enhancement LLM.
+- The model receives only generalized scaffolding signals such as “recent difficulty was recorded” or
+  “a follow-up question exists”.
+- General observations and another child's material-use records are not mixed into this material
+  feedback snapshot.
+- The child-facing worksheet never exposes the parent's raw difficulty/assessment notes.
+
+This closes the product loop without making an external model the authority over the child's record:
+
+```text
+create → review → print/use → result → LearningLog → next scaffold/parent guide
+```
 
 ### Curriculum alignment
 
@@ -102,6 +177,7 @@ bounded evidence containing the resource title plus saved summary/content excerp
 - maximum excerpt per selected resource: 4,000 characters
 - maximum source-evidence budget passed to a generation: 12,000 characters
 - non-selected resource evidence is discarded
+- source ref, title, and excerpt are escaped before insertion into the evidence envelope
 - resource text is marked as **untrusted evidence**, so prompt-like text inside a saved document is
   never an instruction to the model
 - source refs remain attached to the generated material for provenance and review
@@ -115,7 +191,8 @@ Discovery candidate → parent saves it → ResourceRecord/RAG → parent select
 
 ### LLM unavailable or unsafe output
 
-The deterministic template is built **before** the optional LLM call. If the provider is unavailable,
-times out, returns malformed output, fabricates unsafe content, violates scaffold rules, or the
-request contains review-bypass/prompt-injection markers, GrowWise keeps or restores the deterministic
-template. The resulting artifact still enters Parent Review rather than being auto-approved.
+The deterministic template and parent guide are built **before** the optional LLM job. If the provider
+is unavailable, times out, returns malformed output, fabricates unsafe content, violates scaffold
+rules, or the request contains review-bypass/prompt-injection markers, GrowWise keeps or restores the
+deterministic artifact. The resulting material still enters Parent Review rather than being
+auto-approved.
