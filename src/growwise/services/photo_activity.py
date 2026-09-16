@@ -13,7 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
-from growwise.domain.models import LearningLog
+from growwise.domain.models import ExperienceAxis, LearningLog
 from growwise.domain.photo import PhotoActivityRecord, PhotoAsset, PhotoRecordStatus
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
@@ -411,7 +411,7 @@ LearningLog."""
             raise PhotoValidationError("empty_photo_observation")
 
         tags = ["사진기록"]
-        experience_axes = []
+        experience_axes: list[ExperienceAxis] = []
         interest = None
         difficulty_note = None
         next_activity = None
