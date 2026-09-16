@@ -1,4 +1,5 @@
 mod core_process;
+mod photo_commands;
 
 use std::fmt;
 use std::fs;
@@ -7,6 +8,7 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use core_process::CoreProcessManager;
+use photo_commands::{commit_photo_record, create_photo_record, get_photo_asset, list_photo_records};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -824,6 +826,10 @@ pub fn run() {
             get_infant_activities,
             get_infant_observation_hints,
             get_board_book_recommendations,
+            create_photo_record,
+            list_photo_records,
+            commit_photo_record,
+            get_photo_asset,
             list_backups,
             create_backup,
             restore_backup,
