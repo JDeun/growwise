@@ -29,7 +29,7 @@ jobs:
       - name: Verify lock is current
         run: uv lock --check
       - name: Ruff
-        run: uv run ruff check src tests desktop/scripts
+        run: uv run ruff check src tests scripts desktop/scripts
       - name: Mypy
         run: uv run mypy src/growwise
       - name: Test
