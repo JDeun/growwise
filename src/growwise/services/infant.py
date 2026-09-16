@@ -1,11 +1,16 @@
 from __future__ import annotations
 
 from enum import StrEnum
+from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from growwise.domain import ResourceKind, ResourceRecord, Stage
+from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.model import ModelProvider
+
+if TYPE_CHECKING:
+    from growwise.config import Settings
+    from growwise.storage import EntityStore
 
 CURRICULUM_SOURCE = "교육부고시 제2024-23호 2024 개정 표준보육과정(0~2세)"
 CURRICULUM_EFFECTIVE_DATE = "2025-03-01"
@@ -46,10 +51,13 @@ class InfantObservationHints(BaseModel):
 
 class BoardBookRecommendation(BaseModel):
     resource_id: str | None = None
+    discovery_candidate_id: str | None = Field(default=None, max_length=120)
     title: str
     reason: str
     read_aloud_tip: str
     source: str = "local_library_or_offline_fallback"
+    source_name: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=2_048)
 
 
 class BoardBookRecommendations(BaseModel):
@@ -166,8 +174,18 @@ Return concise Korean when the input is Korean."""
             )
             allowed = set(InfantCurriculumDomain)
             forbidden = (
-                "adhd", "autism", "diagnos", "자폐", "발달장애", "진단",
-                "비정상", "또래보다", "또래 평균", "상위 ", "하위 ", "퍼센타일",
+                "adhd",
+                "autism",
+                "diagnos",
+                "자폐",
+                "발달장애",
+                "진단",
+                "비정상",
+                "또래보다",
+                "또래 평균",
+                "상위 ",
+                "하위 ",
+                "퍼센타일",
             )
             by_domain = {}
             for hint in result.hints:
@@ -247,7 +265,7 @@ Return concise Korean when the input is Korean."""
 
 
 class BoardBookRecommendationService:
-    """Recommend local book resources first, with an offline category fallback."""
+    """Prefer saved book records, then public discovery candidates, then offline categories."""
 
     def recommend(
         self,
@@ -255,6 +273,7 @@ class BoardBookRecommendationService:
         resources: list[ResourceRecord],
         interests: list[str],
         limit: int = 3,
+        discovery_candidates: list[BoardBookRecommendation] | None = None,
     ) -> BoardBookRecommendations:
         books = [resource for resource in resources if resource.kind is ResourceKind.BOOK]
         scored = sorted(
@@ -271,12 +290,109 @@ class BoardBookRecommendationService:
                     "끝까지 읽기보다 아이가 오래 보는 그림에서 멈추고 짧게 말해 주세요."
                 ),
                 source="local_library",
+                source_name=resource.source_name,
+                source_url=resource.source_url,
             )
             for resource in scored[:limit]
         ]
-        if recommendations:
-            return BoardBookRecommendations(recommendations=recommendations)
-        return BoardBookRecommendations(recommendations=self._fallback(interests=interests)[:limit])
+        seen_titles = {item.title.casefold() for item in recommendations}
+
+        for candidate in discovery_candidates or []:
+            if len(recommendations) >= limit:
+                break
+            title_key = candidate.title.casefold()
+            if title_key in seen_titles:
+                continue
+            recommendations.append(
+                candidate.model_copy(update={"resource_id": None, "source": "public_discovery"})
+            )
+            seen_titles.add(title_key)
+
+        for fallback in self._fallback(interests=interests):
+            if len(recommendations) >= limit:
+                break
+            title_key = fallback.title.casefold()
+            if title_key in seen_titles:
+                continue
+            recommendations.append(fallback)
+            seen_titles.add(title_key)
+
+        return BoardBookRecommendations(recommendations=recommendations[:limit])
+
+    def recommend_with_discovery(
+        self,
+        *,
+        settings: Settings,
+        store: EntityStore,
+        child: ChildProfile,
+        resources: list[ResourceRecord],
+        limit: int = 3,
+    ) -> BoardBookRecommendations:
+        """Supplement saved books with public discovery without persisting candidates."""
+        local_book_count = sum(
+            1 for resource in resources if resource.kind is ResourceKind.BOOK
+        )
+        if local_book_count >= limit or not (settings.data4library_api_key or "").strip():
+            return self.recommend(
+                resources=resources,
+                interests=child.interests,
+                limit=limit,
+            )
+
+        from growwise.rag import HybridRagIndex, ResourceIngestor
+        from growwise.services.discovery import (
+            DiscoveryCategory,
+            EducationDiscoveryService,
+        )
+
+        public_terms = [
+            value.strip()
+            for value in [*child.interests[:2], *child.learning_goals[:1]]
+            if value.strip()
+        ]
+        query = " ".join([*public_terms[:2], "그림책"]).strip() or "영아 그림책"
+        try:
+            discovery = EducationDiscoveryService(
+                settings=settings,
+                store=store,
+                ingestor=ResourceIngestor(HybridRagIndex(settings.rag_index_path)),
+            ).discover(
+                child=child,
+                query=query,
+                limit=max(12, limit * 4),
+            )
+        except Exception:
+            return self.recommend(
+                resources=resources,
+                interests=child.interests,
+                limit=limit,
+            )
+
+        public_candidates = [
+            BoardBookRecommendation(
+                discovery_candidate_id=suggestion.candidate_id,
+                title=suggestion.title,
+                reason=(
+                    f"{suggestion.rationale} 공개 도서 후보이므로 영아용 판형·내용 적합성은 "
+                    "상세 정보를 확인해 주세요."
+                ),
+                read_aloud_tip=(
+                    "책의 상세 정보를 확인한 뒤, 아이가 오래 보는 그림에서 멈추고 "
+                    "짧게 말해 주세요."
+                ),
+                source="public_discovery",
+                source_name=suggestion.source_name,
+                source_url=suggestion.source_url,
+            )
+            for suggestion in discovery.suggestions
+            if suggestion.category is DiscoveryCategory.BOOK
+        ]
+        return self.recommend(
+            resources=resources,
+            interests=child.interests,
+            limit=limit,
+            discovery_candidates=public_candidates,
+        )
 
     @staticmethod
     def _score(*, resource: ResourceRecord, interests: list[str]) -> tuple[int, int, int]:
