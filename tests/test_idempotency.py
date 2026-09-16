@@ -75,7 +75,7 @@ def test_concurrent_claim_observes_pending_owner(tmp_path):
     assert duplicate.record.status is IdempotencyStatus.PENDING
 
 
-def test_failed_owner_can_release_and_retry_same_resource_key(tmp_path):
+def test_failed_owner_release_reuses_same_reserved_resource_id(tmp_path):
     store = SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3")
     fingerprint = request_fingerprint({"value": 1})
     first = store.claim(
@@ -97,7 +97,71 @@ def test_failed_owner_can_release_and_retry_same_resource_key(tmp_path):
         resource_id="log-2",
     )
     assert retry.acquired is True
-    assert retry.record.resource_id == "log-2"
+    assert retry.record.resource_id == "log-1"
+
+
+def test_stale_pending_claim_is_reacquired_after_crash(tmp_path):
+    path = tmp_path / "idempotency.sqlite3"
+    store = SQLiteIdempotencyStore(path)
+    fingerprint = request_fingerprint({"value": 1})
+    first = store.claim(
+        key="request-1",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-1",
+    )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE idempotency_records SET lease_expires_at = ? WHERE key = ?",
+            ("2000-01-01T00:00:00+00:00", "request-1"),
+        )
+
+    retry = store.claim(
+        key="request-1",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-2",
+    )
+
+    assert first.record.resource_id == "log-1"
+    assert retry.acquired is True
+    assert retry.record.resource_id == "log-1"
+    assert retry.record.lease_expires_at is not None
+
+
+def test_resource_type_mismatch_is_rejected(tmp_path):
+    store = SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3")
+    fingerprint = request_fingerprint({"value": 1})
+    store.claim(
+        key="request-1",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-1",
+    )
+
+    with pytest.raises(IdempotencyConflict, match="resource type"):
+        store.claim(
+            key="request-1",
+            request_hash=fingerprint,
+            resource_type="activity_plan",
+            resource_id="activity-1",
+        )
+
+
+def test_delete_resources_removes_only_purged_resource_metadata(tmp_path):
+    store = SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3")
+    for key, resource_id in (("one", "log-1"), ("two", "log-2")):
+        store.record(
+            key=key,
+            request_hash=request_fingerprint({"key": key}),
+            resource_type="learning_log",
+            resource_id=resource_id,
+        )
+
+    assert store.delete_resources({"log-1"}) == 1
+    assert store.get("one") is None
+    assert store.get("two") is not None
 
 
 def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path):
@@ -125,3 +189,4 @@ def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path)
     assert record is not None
     assert record.resource_id == "log-1"
     assert record.status is IdempotencyStatus.COMPLETED
+    assert record.lease_expires_at is None
