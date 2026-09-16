@@ -5,10 +5,13 @@ import json
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from pathlib import Path
 from typing import Any
+
+
+DEFAULT_IDEMPOTENCY_LEASE_SECONDS = 300
 
 
 class IdempotencyConflict(ValueError):
@@ -48,13 +51,31 @@ def request_fingerprint(payload: Mapping[str, Any]) -> str:
     return hashlib.sha256(encoded).hexdigest()
 
 
+def _utc_now(now: datetime | None = None) -> datetime:
+    value = now or datetime.now(UTC)
+    if value.tzinfo is None:
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
+
+
+def _parse_utc(value: str) -> datetime:
+    parsed = datetime.fromisoformat(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
 class SQLiteIdempotencyStore:
     """Durable registry for retry-safe and concurrency-safe create operations.
 
     A create request first claims a key with a deterministic resource ID. Concurrent callers using
     the same key and payload observe the existing pending claim instead of repeating side effects.
-    The owner marks the claim completed only after the resource is durably stored. If work fails,
-    the pending claim can be released so a later retry may safely acquire it again.
+    A pending claim is a lease, not a permanent lock: after its lease expires a later retry may
+    reacquire *the same resource ID*. This closes the crash window where a process dies after
+    reserving an ID (or even after writing its source record) but before marking the claim complete.
+
+    Reacquisition intentionally never allocates a new resource ID for an existing key. Callers can
+    therefore safely replay source writes without creating duplicate logical records.
     """
 
     def __init__(self, path: Path) -> None:
@@ -65,6 +86,7 @@ class SQLiteIdempotencyStore:
     def _connect(self) -> sqlite3.Connection:
         connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
+        connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
     def _ensure_schema(self) -> None:
@@ -127,10 +149,16 @@ class SQLiteIdempotencyStore:
         request_hash: str,
         resource_type: str,
         resource_id: str,
+        lease_seconds: int = DEFAULT_IDEMPOTENCY_LEASE_SECONDS,
+        now: datetime | None = None,
     ) -> IdempotencyClaim:
         if not key.strip():
             raise ValueError("idempotency key must not be empty")
-        now = datetime.now(UTC).isoformat()
+        if lease_seconds <= 0:
+            raise ValueError("idempotency lease must be positive")
+
+        current = _utc_now(now)
+        current_iso = current.isoformat()
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -141,10 +169,32 @@ class SQLiteIdempotencyStore:
             ).fetchone()
             if existing_row is not None:
                 existing = self._row_to_record(existing_row)
-                if existing.request_hash != request_hash:
+                if existing.request_hash != request_hash or existing.resource_type != resource_type:
                     raise IdempotencyConflict(
                         "idempotency key was already used for a different request"
                     )
+
+                if existing.status is IdempotencyStatus.PENDING:
+                    lease_anchor = _parse_utc(existing.updated_at or existing.created_at)
+                    if current >= lease_anchor + timedelta(seconds=lease_seconds):
+                        connection.execute(
+                            "UPDATE idempotency_records SET updated_at = ? WHERE key = ?",
+                            (current_iso, key),
+                        )
+                        connection.commit()
+                        return IdempotencyClaim(
+                            record=IdempotencyRecord(
+                                key=existing.key,
+                                request_hash=existing.request_hash,
+                                resource_type=existing.resource_type,
+                                resource_id=existing.resource_id,
+                                created_at=existing.created_at,
+                                status=IdempotencyStatus.PENDING,
+                                updated_at=current_iso,
+                            ),
+                            acquired=True,
+                        )
+
                 connection.commit()
                 return IdempotencyClaim(record=existing, acquired=False)
 
@@ -157,9 +207,9 @@ class SQLiteIdempotencyStore:
                     request_hash,
                     resource_type,
                     resource_id,
-                    now,
+                    current_iso,
                     IdempotencyStatus.PENDING,
-                    now,
+                    current_iso,
                 ),
             )
             connection.commit()
@@ -174,12 +224,40 @@ class SQLiteIdempotencyStore:
                 request_hash=request_hash,
                 resource_type=resource_type,
                 resource_id=resource_id,
-                created_at=now,
+                created_at=current_iso,
                 status=IdempotencyStatus.PENDING,
-                updated_at=now,
+                updated_at=current_iso,
             ),
             acquired=True,
         )
+
+    def renew(
+        self,
+        *,
+        key: str,
+        request_hash: str,
+        resource_id: str,
+        now: datetime | None = None,
+    ) -> bool:
+        """Extend a pending claim lease without changing its reserved resource ID."""
+        current_iso = _utc_now(now).isoformat()
+        connection = self._connect()
+        try:
+            cursor = connection.execute(
+                "UPDATE idempotency_records SET updated_at = ? "
+                "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ?",
+                (
+                    current_iso,
+                    key,
+                    request_hash,
+                    resource_id,
+                    IdempotencyStatus.PENDING,
+                ),
+            )
+            connection.commit()
+            return cursor.rowcount > 0
+        finally:
+            connection.close()
 
     def complete(
         self,
@@ -187,8 +265,9 @@ class SQLiteIdempotencyStore:
         key: str,
         request_hash: str,
         resource_id: str,
+        now: datetime | None = None,
     ) -> IdempotencyRecord:
-        now = datetime.now(UTC).isoformat()
+        current_iso = _utc_now(now).isoformat()
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
@@ -204,7 +283,7 @@ class SQLiteIdempotencyStore:
                 raise IdempotencyConflict("idempotency completion does not match the claim")
             connection.execute(
                 "UPDATE idempotency_records SET status = ?, updated_at = ? WHERE key = ?",
-                (IdempotencyStatus.COMPLETED, now, key),
+                (IdempotencyStatus.COMPLETED, current_iso, key),
             )
             connection.commit()
         except Exception:
@@ -219,7 +298,7 @@ class SQLiteIdempotencyStore:
             resource_id=existing.resource_id,
             created_at=existing.created_at,
             status=IdempotencyStatus.COMPLETED,
-            updated_at=now,
+            updated_at=current_iso,
         )
 
     def release(
@@ -261,5 +340,5 @@ class SQLiteIdempotencyStore:
         return self.complete(
             key=key,
             request_hash=request_hash,
-            resource_id=resource_id,
+            resource_id=claim.record.resource_id,
         )
