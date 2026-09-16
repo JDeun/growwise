@@ -25,13 +25,15 @@ GrowWise uses a **template-first, evidence-grounded, optionally LLM-enhanced** p
 not start from an empty prompt and is not allowed to invent a product structure freely.
 
 ```text
-parent request: kind + topic + goal
+parent request: kind + topic + public goal
             +
 child context: stage + age + interests
             +
 verified curriculum alignment
             +
 explicitly selected ResourceRecord evidence
+            +
+private generation guidance from prior structured records
             ↓
 deterministic child material + deterministic parent guide
             ↓
@@ -49,7 +51,7 @@ approved material → suggested Quest
             ↓
 start / complete / skip → structured result record
             ↓
-LearningLog feedback → later material scaffolding + parent guide
+LearningLog feedback → later private guidance + local parent guide
 ```
 
 The background job exposes `queued → running → completed/failed` state. Model failure never removes
@@ -81,6 +83,12 @@ A material is intentionally a two-output artifact.
 - `content_markdown` is the child/activity-facing content.
 - `parent_guide_markdown` tells the parent how to prepare, facilitate, scaffold, observe, simplify or
   stop the activity, and what evidence is useful to record afterward.
+- `request_goal` is the public goal entered by the parent. It may appear in the child-facing material
+  and parent guide.
+- `generation_guidance` is ephemeral model-only metadata. It contains generalized continuity or
+  revision scaffolding and is never rendered as a goal, label, or metadata block in either output.
+- A parent revision request is preserved as `version_note`; it may shape a regenerated version through
+  private guidance but is not appended to the learner-visible goal.
 - The parent guide is generated deterministically first; optional LLM enhancement may improve it but
   is not required for the guide to exist.
 - Direct parent edits preserve the guide instead of silently dropping it from the next version.
@@ -131,29 +139,39 @@ structured material result
 LearningLog(record_kind=material_use)
 ```
 
-The result form stores parent observation, process, child question/reaction, interest, difficulty,
-next activity, tags, and experience axes as separate fields. `GeneratedMaterial → ActivityPlan →
-LearningLog` relationships are also represented as first-class entity links. A completed quest is not
-shown as `결과 기록됨` until an actual result `LearningLog` exists.
+The result form stores parent observation, learner work/result, process, child question/reaction,
+interest, difficulty, next activity, tags, experience axes, and optional reviewed photo-record links
+as separate fields. `GeneratedMaterial → ActivityPlan → LearningLog` relationships are also
+represented as first-class entity links. A completed quest is not shown as `결과 기록됨` until an
+actual result `LearningLog` exists.
 
 ### Closed-loop feedback privacy
 
-Recent `material_use` records are allowed to influence later material generation, but GrowWise keeps
-the privacy boundary explicit.
+Recent `material_use` records and structured independent-learning records may influence later material
+generation, but GrowWise separates public output, private model guidance, and local parent context.
 
-- Raw parent observation/result text remains local and may be shown in the parent teaching guide as a
-  continuity note.
-- Raw result text is not sent to the optional material-enhancement LLM.
-- The model receives only generalized scaffolding signals such as “recent difficulty was recorded” or
-  “a follow-up question exists”.
-- General observations and another child's material-use records are not mixed into this material
-  feedback snapshot.
-- The child-facing worksheet never exposes the parent's raw difficulty/assessment notes.
+- The learner-visible goal is always the parent's original public `request_goal`. Closed-loop signals
+  and parent revision notes are never concatenated into that printed goal.
+- Material-use `learner_work`, activity process, parent observation, child question, interest,
+  difficulty, and next-activity text remain local. Bounded values may be shown in the parent teaching
+  guide so the parent can continue from the actual previous activity.
+- The optional enhancement model receives only generalized continuity signals such as “learner work
+  exists”, “a process was recorded”, “recent difficulty was recorded”, or “a follow-up question
+  exists”. Raw material-use text is not inserted into that guidance.
+- For independent records such as reading reflection, diary, school/academy learning, self-study, and
+  assignments, the parent guide may show bounded parent-entered metadata/summary/process for local
+  continuity. Learner-authored `learner_work` is not copied into the next parent guide; only its
+  existence becomes a generalized signal.
+- General observations and another child's material-use or independent-learning records are not mixed
+  into this material feedback snapshot.
+- The child-facing worksheet never exposes raw parent difficulty/assessment notes, learner work,
+  activity process, internal `generation_guidance`, or revision-note metadata.
 
-This closes the product loop without making an external model the authority over the child's record:
+This closes the product loop without making a model the authority over the child's record:
 
 ```text
-create → review → print/use → result → LearningLog → next scaffold/parent guide
+create → review → print/use → structured result / independent learning record
+       → LearningLog → local parent continuity + private generalized guidance → next material
 ```
 
 ### Curriculum alignment
@@ -193,6 +211,6 @@ Discovery candidate → parent saves it → ResourceRecord/RAG → parent select
 
 The deterministic template and parent guide are built **before** the optional LLM job. If the provider
 is unavailable, times out, returns malformed output, fabricates unsafe content, violates scaffold
-rules, or the request contains review-bypass/prompt-injection markers, GrowWise keeps or restores the
-deterministic artifact. The resulting material still enters Parent Review rather than being
-auto-approved.
+rules, or the request/internal guidance contains review-bypass or prompt-injection markers, GrowWise
+keeps or restores the deterministic artifact. The resulting material still enters Parent Review
+rather than being auto-approved.
