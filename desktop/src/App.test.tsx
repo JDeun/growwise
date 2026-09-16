@@ -2,10 +2,15 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
 import App from "./App";
+import { ActiveChildProvider } from "./active-child-context";
 
 describe("App feature composition", () => {
   it("renders the controller shell through extracted feature sections", () => {
-    const html = renderToStaticMarkup(<App />);
+    const html = renderToStaticMarkup(
+      <ActiveChildProvider>
+        <App />
+      </ActiveChildProvider>,
+    );
     expect(html).toContain("GrowWise");
     expect(html).toContain("Personal Education OS");
     expect(html).toContain("GrowWise Core");
