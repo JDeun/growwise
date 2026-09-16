@@ -37,7 +37,7 @@ class GraphContextExpander:
         if not seeds:
             return []
 
-        visible_shared_ids = self._child_scope_source_ids(child_id)
+        visible_shared_ids = self.shared_source_ids(child_id)
         neighbors: list[dict] = []
         seen = set(seeds)
 
@@ -82,7 +82,8 @@ class GraphContextExpander:
 
         return neighbors
 
-    def _child_scope_source_ids(self, child_id: str) -> set[str]:
+    def shared_source_ids(self, child_id: str) -> set[str]:
+        """Return entity IDs explicitly shared into ``child_id`` through child_scope links."""
         source_ids: set[str] = set()
         for payload in self.index.list_entities(
             entity_type="entity_link",
