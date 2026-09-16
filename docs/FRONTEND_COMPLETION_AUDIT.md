@@ -27,7 +27,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [x] Activity lifecycle UX: suggested -> active -> completed/skipped -> linked observation. Activities now expose the four-step lifecycle, state counts, per-plan progress, valid skip/restart paths, and on-demand linked-observation lookup with explicit guidance for creating follow-up observations.
 - [x] Material queue segmented by draft/review/approved and print/export affordances. Materials now expose separate draft, Parent Review, and approved-use stages; drafts explicitly enter review, only approved materials expose print/PDF export, and inactive records remain available in a secondary archive view.
 - [x] Resource library search/filter/detail/edit/delete flows. Library now supports local text/kind filtering, a metadata/provenance detail pane, in-place editing, and confirmed deletion backed by synchronized Markdown, SQLite, and RAG mutations.
-- [ ] Conversation history/session affordances and evidence presentation.
+- [x] Conversation history/session affordances and evidence presentation. Search now lists child-scoped saved sessions, derives readable session labels from prior user questions, opens persisted transcripts, separates per-answer source IDs from conversational context, and states explicitly that conversation text is never reused as factual evidence.
 - [ ] Onboarding for first child and optional local-model setup.
 - [x] Consistent confirmation dialogs instead of browser `window.confirm` for destructive backup import/restore operations.
 

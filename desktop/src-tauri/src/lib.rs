@@ -313,6 +313,22 @@ async fn create_conversation(child_id: String) -> Result<serde_json::Value, Stri
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
+async fn list_conversations(child_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .get(format!(
+            "{CORE_BASE_URL}/v1/children/{child_id}/conversations"
+        ))
+        .query(&[("limit", "50")])
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "대화 기록 조회 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
 async fn append_conversation_turn(
     session_id: String,
     question: String,
@@ -741,6 +757,7 @@ pub fn run() {
             list_activity_observations,
             search_child_context,
             create_conversation,
+            list_conversations,
             append_conversation_turn,
             create_resource,
             list_resources,
