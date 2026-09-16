@@ -22,9 +22,19 @@ class Settings(BaseSettings):
     model_circuit_recovery_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
     llm_features_enabled: bool = True
 
+    # Vision is optional and independently degradable. The default model is intentionally
+    # separate from the text model because many small local text models do not accept images.
+    vision_model_id: str = "gemma3:4b"
+    vision_features_enabled: bool = True
+    vision_timeout_seconds: float = Field(default=20.0, gt=0.0, le=180.0)
+
     embedding_model_id: str = "nomic-embed-text"
     embedding_timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
     embedding_features_enabled: bool = True
+
+    photo_max_file_bytes: int = Field(default=15 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
+    photo_max_images_per_record: int = Field(default=8, ge=1, le=12)
+    photo_max_total_bytes: int = Field(default=60 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
 
     # Public curriculum enrichment is disabled unless an endpoint is explicitly configured.
     # Child identity/profile data must never be sent to this endpoint.
@@ -34,6 +44,14 @@ class Settings(BaseSettings):
     @property
     def records_dir(self) -> Path:
         return self.data_dir / "records"
+
+    @property
+    def assets_dir(self) -> Path:
+        return self.data_dir / "assets"
+
+    @property
+    def photo_assets_dir(self) -> Path:
+        return self.assets_dir / "photos"
 
     @property
     def index_path(self) -> Path:
