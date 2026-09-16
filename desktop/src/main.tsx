@@ -5,7 +5,12 @@ import App from "./App";
 import PrintApprovedMaterials from "./PrintApprovedMaterials";
 import { CapabilityStatus } from "./components/CapabilityStatus";
 import { WorkspaceShell } from "./components";
-import { DiscoveryWorkspace, HomeDashboard, PhotoActivityWorkspace } from "./features";
+import {
+  DiscoveryWorkspace,
+  HomeDashboard,
+  LearningRecordWorkspace,
+  PhotoActivityWorkspace,
+} from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
 import "./styles.css";
 import "./tokens.css";
@@ -22,9 +27,12 @@ createRoot(document.getElementById("root")!).render(
       renderWorkspace={(activeView, navigate) => (
         <>
           <CapabilityStatus />
-          {activeView !== "photos" && activeView !== "discovery" && <App />}
+          {activeView !== "photos" && activeView !== "discovery" && activeView !== "learning" && (
+            <App />
+          )}
           <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
           <PhotoActivityWorkspace active={activeView === "photos"} />
+          <LearningRecordWorkspace active={activeView === "learning"} />
           <DiscoveryWorkspace active={activeView === "discovery"} />
         </>
       )}
