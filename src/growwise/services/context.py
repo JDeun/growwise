@@ -83,7 +83,12 @@ questions."""
             entity_types=("learning_log", "activity_plan"),
             limit=limit,
         )
-        chunks = self.rag_index.search(query=query, child_id=child_id, limit=limit)
+        chunks = self.rag_index.search(
+            query=query,
+            child_id=child_id,
+            limit=limit,
+            shared_resource_ids=self.graph.shared_source_ids(child_id),
+        )
 
         seed_ids = [str(record["id"]) for record in records]
         seed_ids.extend(str(chunk["resource_id"]) for chunk in chunks if chunk.get("resource_id"))
