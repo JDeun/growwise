@@ -88,8 +88,10 @@ def test_independent_learning_continuity_is_local_and_never_copies_learner_work(
         record_kind=LearningRecordKind.READING_REFLECTION,
         title="우주 책 독서감상",
         subject="과학 독서",
+        institution="학교 도서관",
         parent_observation="행성의 크기 비교에 관심을 보였다고 부모가 요약했다.",
         learner_work="아이만 쓴 민감한 독서감상 원문은 복제하면 안 된다.",
+        process="먼저 표를 만든 뒤 행성의 크기를 비교했다.",
         interest="행성 크기 비교",
         difficulty_note="거리 단위는 아직 낯설어했다.",
         next_activity="구슬 크기로 행성을 비교해본다.",
@@ -111,7 +113,11 @@ def test_independent_learning_continuity_is_local_and_never_copies_learner_work(
     goal = snapshot.generation_goal("우주를 탐색한다")
     assert goal is not None
     assert "최근 독서·감상 경험" in goal
+    assert "별도 학습의 아이 산출물이 있으면" in goal
+    assert "별도 학습 과정이 기록돼 있으면" in goal
     assert "우주 책 독서감상" not in goal
+    assert "학교 도서관" not in goal
+    assert "먼저 표를 만든 뒤" not in goal
     assert "행성의 크기" not in goal
     assert "거리 단위" not in goal
     assert "구슬 크기" not in goal
@@ -121,6 +127,9 @@ def test_independent_learning_continuity_is_local_and_never_copies_learner_work(
     assert "최근 별도 학습 기록에서 이어갈 점" in guide
     assert "우주 책 독서감상" in guide
     assert "과학 독서" in guide
+    assert "기관: 학교 도서관" in guide
+    assert "학습 과정: 먼저 표를 만든 뒤 행성의 크기를 비교했다." in guide
+    assert "아이 산출물: 저장됨" in guide
     assert "행성의 크기 비교에 관심" in guide
     assert "거리 단위는 아직 낯설어했다." in guide
     assert "구슬 크기로 행성을 비교해본다." in guide
@@ -176,8 +185,10 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
             record_kind=LearningRecordKind.INSTITUTION,
             title="학교 수학 기록",
             subject="분수",
+            institution="방과후 수학 교실",
             parent_observation="학교에서 반과 사분의 일을 다뤘다고 부모가 적었다.",
             learner_work="아이 과제 원문은 생성 자료에 복제하면 안 된다.",
+            process="분수 막대를 먼저 놓고 그림으로 다시 옮겼다.",
             difficulty_note="분모가 달라지면 헷갈려했다.",
         )
     )
@@ -201,6 +212,8 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
     assert "사과 그림을 하나씩" not in material.content_markdown
     assert "세 묶음으로 나누는 것은 어려워했다." not in material.content_markdown
     assert "학교 수학 기록" not in material.content_markdown
+    assert "방과후 수학 교실" not in material.content_markdown
+    assert "분수 막대를 먼저" not in material.content_markdown
     assert "분모가 달라지면 헷갈려했다." not in material.content_markdown
     assert "아이 과제 원문" not in material.content_markdown
     assert "부모만 보는 구체 관찰 문장" in material.parent_guide_markdown
@@ -208,6 +221,9 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
     assert "사과 그림을 하나씩 옮기면서 두 묶음이 같은지 확인했다." in material.parent_guide_markdown
     assert "간식을 둘로 나누는 놀이를 이어간다." in material.parent_guide_markdown
     assert "학교 수학 기록" in material.parent_guide_markdown
+    assert "기관: 방과후 수학 교실" in material.parent_guide_markdown
+    assert "학습 과정: 분수 막대를 먼저 놓고 그림으로 다시 옮겼다." in material.parent_guide_markdown
+    assert "아이 산출물: 저장됨" in material.parent_guide_markdown
     assert "학교에서 반과 사분의 일을 다뤘다고 부모가 적었다." in material.parent_guide_markdown
     assert "아이 과제 원문" not in material.parent_guide_markdown
     assert material.request_goal == "실물로 나누는 방법을 탐색한다"
