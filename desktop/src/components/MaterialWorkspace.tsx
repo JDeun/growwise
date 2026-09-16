@@ -24,6 +24,9 @@ const STATUS_LABELS: Record<MaterialStatus, string> = {
   archived: "보관됨",
 };
 
+const PRINT_SCOPE_ATTRIBUTE = "data-growwise-print-scope";
+const PRINT_TARGET_ATTRIBUTE = "data-growwise-print-target";
+
 interface MaterialWorkspaceProps {
   materials: GeneratedMaterial[];
   resources: ResourceRecord[];
@@ -132,6 +135,30 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
   const editingMaterial = editingMaterialId
     ? materials.find((material) => material.id === editingMaterialId) ?? null
     : null;
+
+  function printApprovedCard(material: GeneratedMaterial, card: Element | null) {
+    if (!card) return;
+
+    document
+      .querySelectorAll(`[${PRINT_TARGET_ATTRIBUTE}="true"]`)
+      .forEach((node) => node.removeAttribute(PRINT_TARGET_ATTRIBUTE));
+    card.setAttribute(PRINT_TARGET_ATTRIBUTE, "true");
+    document.body.setAttribute(PRINT_SCOPE_ATTRIBUTE, "single");
+
+    const cleanup = () => {
+      card.removeAttribute(PRINT_TARGET_ATTRIBUTE);
+      document.body.removeAttribute(PRINT_SCOPE_ATTRIBUTE);
+      window.removeEventListener("afterprint", cleanup);
+    };
+
+    window.addEventListener("afterprint", cleanup, { once: true });
+    try {
+      onPrint(material);
+    } catch (printError) {
+      cleanup();
+      throw printError;
+    }
+  }
 
   return (
     <section className="material-workspace" aria-labelledby="materials-title">
@@ -406,7 +433,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                   <button
                     className="primary-button"
                     type="button"
-                    onClick={() => onPrint(material)}
+                    onClick={(event) =>
+                      printApprovedCard(material, event.currentTarget.closest(".approved-card"))
+                    }
                   >
                     인쇄 / PDF 내보내기
                   </button>

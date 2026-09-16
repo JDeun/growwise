@@ -22,11 +22,15 @@
 }
 
 @media (max-width: 700px) {
-  .print-toolbar span { display: none; }
+  .print-toolbar span {
+    display: none;
+  }
 }
 
 @media print {
-  @page { margin: 18mm; }
+  @page {
+    margin: 18mm;
+  }
 
   body {
     background: #fff;
@@ -36,42 +40,81 @@
     visibility: hidden !important;
   }
 
-  .material-list,
-  .material-list *,
-  .material-card:has(.status-approved),
-  .material-card:has(.status-approved) * {
+  body[data-growwise-print-scope="approved"] .material-workspace,
+  body[data-growwise-print-scope="approved"] .material-queue-lanes,
+  body[data-growwise-print-scope="approved"] .material-lane,
+  body[data-growwise-print-scope="approved"] .approved-card,
+  body[data-growwise-print-scope="approved"] .approved-card *,
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"],
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] * {
     visibility: visible !important;
   }
 
-  .material-list {
+  body[data-growwise-print-scope="approved"] .material-workspace {
     position: absolute;
     inset: 0;
     width: 100%;
+    margin: 0;
+    padding: 0;
+    border: 0;
+    box-shadow: none;
+    background: #fff;
   }
 
-  .material-list > :not(.material-card:has(.status-approved)) {
+  body[data-growwise-print-scope="approved"] .material-workspace > :not(.material-queue-lanes),
+  body[data-growwise-print-scope="approved"] .material-lane > :not(.approved-card) {
     display: none !important;
   }
 
-  .material-card:has(.status-approved) {
+  body[data-growwise-print-scope="approved"] .material-queue-lanes,
+  body[data-growwise-print-scope="approved"] .material-lane,
+  body[data-growwise-print-scope="approved"] .approved-card {
     display: block;
+  }
+
+  body[data-growwise-print-scope="approved"] .material-lane {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    background: transparent;
+  }
+
+  body[data-growwise-print-scope="approved"] .approved-card,
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] {
     break-inside: avoid;
     margin: 0 0 12mm;
     padding: 0;
     border: 0;
     box-shadow: none;
+    background: #fff;
   }
 
-  .material-card:has(.status-approved) pre {
+  body[data-growwise-print-scope="single"] .approved-card[data-growwise-print-target="true"] {
+    display: block;
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    margin: 0;
+  }
+
+  body[data-growwise-print-scope="approved"] .approved-card .material-preview,
+  body[data-growwise-print-scope="single"]
+    .approved-card[data-growwise-print-target="true"]
+    .material-preview {
     max-height: none;
     overflow: visible;
-    padding: 0;
-    background: transparent;
-    white-space: pre-wrap;
   }
 
-  .material-card .review-actions,
+  body[data-growwise-print-scope="approved"] .approved-card .material-actions,
+  body[data-growwise-print-scope="single"]
+    .approved-card[data-growwise-print-target="true"]
+    .material-actions,
+  body[data-growwise-print-scope="approved"] .print-material,
+  body[data-growwise-print-scope="approved"] .print-material *,
+  body[data-growwise-print-scope="single"] .print-material,
+  body[data-growwise-print-scope="single"] .print-material *,
   .print-toolbar {
     display: none !important;
+    visibility: hidden !important;
   }
 }
