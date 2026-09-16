@@ -21,11 +21,11 @@ const session: ConversationSession = {
 };
 
 describe("SearchConversationSection", () => {
-  it("derives a readable session title from the first user question", () => {
+  it("derives a readable conversation title from the first user question", () => {
     expect(conversationSessionLabel(session)).toContain("고양이 그림");
   });
 
-  it("renders per-answer evidence separately from conversation context", () => {
+  it("renders per-answer evidence without exposing raw identifiers as primary copy", () => {
     const markup = renderToStaticMarkup(
       <SearchConversationSection
         searchQuery=""
@@ -39,7 +39,7 @@ describe("SearchConversationSection", () => {
             thread_id: "thread-1",
             answer: {
               answer: "관련 기록을 찾았습니다.",
-              source_ids: ["learning-log-1", "resource-2"],
+              source_ids: ["record:learning-log-1", "resource:resource-2"],
               insufficient_evidence: false,
             },
             turn_count: 2,
@@ -55,10 +55,12 @@ describe("SearchConversationSection", () => {
       />,
     );
 
-    expect(markup).toContain("현재 세션");
-    expect(markup).toContain("원본 근거");
-    expect(markup).toContain("learning-log-1");
-    expect(markup).toContain("resource-2");
-    expect(markup).toContain("대화 문장은 사실 근거로 재사용하지 않습니다");
+    expect(markup).toContain("현재 대화");
+    expect(markup).toContain("연결된 원본 근거");
+    expect(markup).toContain("기록 1");
+    expect(markup).toContain("참고 자료 2");
+    expect(markup).toContain("이전 답변 자체는 새 답변의 근거로 사용하지 않습니다");
+    expect(markup).not.toContain("BOUNDED MULTI-TURN");
+    expect(markup).not.toContain("child scope");
   });
 });
