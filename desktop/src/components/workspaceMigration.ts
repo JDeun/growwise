@@ -5,6 +5,7 @@ export const WORKSPACE_MIGRATION: Record<WorkspaceLayoutKey, WorkspaceView> = {
   "child-context": "home",
   observations: "observations",
   photos: "photos",
+  "learning-records": "learning",
   growth: "growth",
   activities: "activities",
   search: "search",
