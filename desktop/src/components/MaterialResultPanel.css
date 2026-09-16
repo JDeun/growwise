@@ -1,0 +1,88 @@
+.material-result-panel {
+  display: grid;
+  gap: 0.9rem;
+  margin-top: 0.85rem;
+  padding: 1rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.material-result-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.material-result-heading > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.material-result-heading small,
+.material-result-panel legend,
+.material-result-panel label > span {
+  color: var(--text-muted);
+}
+
+.material-result-panel label {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.material-result-panel textarea {
+  min-height: 5.5rem;
+  resize: vertical;
+}
+
+.material-result-outcomes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.material-result-outcomes legend,
+.material-result-axes legend {
+  margin-bottom: 0.5rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.material-result-outcomes label {
+  display: inline-flex;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.material-result-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+}
+
+.material-result-axes {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.material-result-axes > div {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+@media (max-width: 760px) {
+  .material-result-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .material-result-heading {
+    flex-direction: column;
+  }
+}
