@@ -7,24 +7,24 @@
   padding: 7px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(251, 249, 246, 0.92);
+  background: rgba(251, 249, 246, 0.96);
   box-shadow: 0 10px 30px rgba(53, 48, 40, 0.06);
-  backdrop-filter: blur(14px);
 }
 
 .workspace-nav-items {
   display: grid;
-  grid-template-columns: repeat(8, minmax(0, 1fr));
+  grid-template-columns: repeat(6, minmax(0, 1fr));
   gap: 6px;
 }
 
 .workspace-nav-item {
   min-width: 0;
+  min-height: 56px;
   border: 0;
   border-radius: 11px;
   background: transparent;
   color: var(--ink-soft);
-  padding: 9px 8px;
+  padding: 9px 10px;
   cursor: pointer;
   text-align: left;
 }
@@ -42,13 +42,14 @@
   overflow: hidden;
   color: inherit;
   font-size: 10px;
+  line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
   opacity: 0.76;
 }
 
 .workspace-nav-item:hover {
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.82);
   color: var(--ink);
 }
 
@@ -57,13 +58,13 @@
   color: var(--primary-strong);
 }
 
-@media (max-width: 900px) {
+@media (max-width: 1050px) {
   .workspace-nav-items {
     grid-template-columns: repeat(4, minmax(0, 1fr));
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 760px) {
   .workspace-nav {
     position: static;
     width: min(100% - 24px, 1180px);
@@ -73,7 +74,11 @@
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
+  .workspace-nav-item {
+    min-height: 48px;
+  }
+
   .workspace-nav-item small {
-    white-space: normal;
+    display: none;
   }
 }
