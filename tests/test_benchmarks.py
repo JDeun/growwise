@@ -209,7 +209,7 @@ def test_hardware_benchmark_reads_posix_physical_memory(
         "SC_PHYS_PAGES": 4 * 1024 * 1024,
     }
     monkeypatch.setattr(bench.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(bench.os, "sysconf", lambda name: values[name])
+    monkeypatch.setattr(bench.os, "sysconf", lambda name: values[name], raising=False)
 
     assert bench._total_ram_gb() == 16.0
     assert bench._classify(bench._total_ram_gb()) == ("recommended", True)
@@ -220,7 +220,7 @@ def test_hardware_benchmark_rejects_invalid_memory_probe(
 ) -> None:
     bench = _load("benchmark_hardware_invalid", script_name="benchmark_hardware")
     monkeypatch.setattr(bench.platform, "system", lambda: "Linux")
-    monkeypatch.setattr(bench.os, "sysconf", lambda _name: -1)
+    monkeypatch.setattr(bench.os, "sysconf", lambda _name: -1, raising=False)
 
     assert bench._total_ram_gb() is None
     assert bench._classify(None) == ("unknown", None)
