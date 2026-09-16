@@ -9,6 +9,7 @@ from .curriculum_resources import (
 from .data4library import Data4LibraryAdapter
 from .http import JsonHttpClient
 from .license_filter import filter_licensed, is_commercial_safe, normalize_license
+from .official_curriculum_catalog import OfficialKoreanCurriculumCatalogAdapter
 from .overpass import OverpassAdapter
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "ExternalAdapterError",
     "ExternalUnavailable",
     "JsonHttpClient",
+    "OfficialKoreanCurriculumCatalogAdapter",
     "OverpassAdapter",
     "PublicCurriculumAdapter",
     "SQLiteExternalCache",
