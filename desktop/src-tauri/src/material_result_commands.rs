@@ -7,6 +7,7 @@ use super::{client, ensure_success, CORE_BASE_URL};
 pub struct MaterialResultRequest {
     outcome: String,
     observation: String,
+    learner_work: Option<String>,
     process: Option<String>,
     child_question: Option<String>,
     interest: Option<String>,
