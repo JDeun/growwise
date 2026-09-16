@@ -10,7 +10,6 @@ from enum import StrEnum
 from pathlib import Path
 from typing import Any
 
-
 DEFAULT_IDEMPOTENCY_LEASE_SECONDS = 300
 _RELEASED_AT = datetime(1970, 1, 1, tzinfo=UTC).isoformat()
 
@@ -115,7 +114,8 @@ class SQLiteIdempotencyStore:
             }
             if "status" not in columns:
                 connection.execute(
-                    "ALTER TABLE idempotency_records ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'"
+                    "ALTER TABLE idempotency_records ADD COLUMN status TEXT NOT NULL "
+                    "DEFAULT 'completed'"
                 )
             if "updated_at" not in columns:
                 connection.execute(
