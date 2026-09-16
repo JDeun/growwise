@@ -54,6 +54,7 @@ class BackgroundAiJobRunner:
         self._stop = threading.Event()
         self._wake = threading.Event()
         self._guard = threading.Lock()
+        self._submission_guard = threading.Lock()
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
@@ -77,29 +78,56 @@ class BackgroundAiJobRunner:
         if thread is not None:
             thread.join(timeout=1.0)
 
-    def submit_observation(self, *, child_id: str, log_id: str) -> Job:
-        job = self.queue.enqueue(
-            OBSERVATION_ENRICHMENT_JOB,
-            {"child_id": child_id, "log_id": log_id},
-        )
+    def submit_observation(
+        self,
+        *,
+        child_id: str,
+        log_id: str,
+        on_enqueued: Callable[[Job], None] | None = None,
+    ) -> Job:
+        with self._submission_guard:
+            job = self.queue.enqueue(
+                OBSERVATION_ENRICHMENT_JOB,
+                {"child_id": child_id, "log_id": log_id},
+            )
+            try:
+                if on_enqueued is not None:
+                    on_enqueued(job)
+            except Exception:
+                self.queue.cancel(job.id)
+                raise
         self._wake.set()
         return job
 
-    def submit_material(self, *, child_id: str, material_id: str) -> Job:
-        job = self.queue.enqueue(
-            MATERIAL_ENHANCEMENT_JOB,
-            {"child_id": child_id, "material_id": material_id},
-        )
+    def submit_material(
+        self,
+        *,
+        child_id: str,
+        material_id: str,
+        on_enqueued: Callable[[Job], None] | None = None,
+    ) -> Job:
+        with self._submission_guard:
+            job = self.queue.enqueue(
+                MATERIAL_ENHANCEMENT_JOB,
+                {"child_id": child_id, "material_id": material_id},
+            )
+            try:
+                if on_enqueued is not None:
+                    on_enqueued(job)
+            except Exception:
+                self.queue.cancel(job.id)
+                raise
         self._wake.set()
         return job
 
     def _run(self) -> None:
         while not self._stop.is_set():
-            job = self.queue.claim_next(
-                job_types=_TEXT_JOB_TYPES,
-                lease_seconds=self.lease_seconds,
-                max_attempts=self.max_attempts,
-            )
+            with self._submission_guard:
+                job = self.queue.claim_next(
+                    job_types=_TEXT_JOB_TYPES,
+                    lease_seconds=self.lease_seconds,
+                    max_attempts=self.max_attempts,
+                )
             if job is None:
                 self._wake.wait(timeout=self.poll_interval_seconds)
                 self._wake.clear()
