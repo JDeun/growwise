@@ -23,6 +23,7 @@ from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
 from growwise.services.activity import ActivityPlanService, InvalidActivityTransition
 from growwise.services.child_lock import child_operation_lock
 from growwise.services.entity_links import EntityLinkService
+from growwise.services.material_quest import ensure_material_quest, material_quest_ref
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 
@@ -80,10 +81,6 @@ def _approved_material(store: EntityStore, material_id: UUID) -> GeneratedMateri
     return material
 
 
-def _material_ref(material_id: UUID) -> str:
-    return f"material:{material_id}"
-
-
 def _load_activity_for_material(
     *,
     store: EntityStore,
@@ -96,7 +93,7 @@ def _load_activity_for_material(
     activity = ActivityPlan.model_validate(payload)
     if activity.child_id != material.child_id:
         raise HTTPException(status_code=409, detail="activity_child_mismatch")
-    if _material_ref(material.id) not in activity.source_refs:
+    if material_quest_ref(material.id) not in activity.source_refs:
         raise HTTPException(status_code=409, detail="activity_material_mismatch")
     return activity
 
@@ -143,19 +140,24 @@ def _activity_for_result(
             material=material,
             activity_plan_id=request.activity_plan_id,
         )
-    else:
-        activity = ActivityPlan(
-            child_id=material.child_id,
-            title=material.title,
-            description="GrowWise에서 승인한 교육자료를 사용한 실제 활동",
-            source_refs=[_material_ref(material.id)],
-            experience_axes=list(request.experience_axes),
+        activity.experience_axes = list(
+            dict.fromkeys([*activity.experience_axes, *request.experience_axes])
         )
-        store.save(activity)
+    else:
+        # Desktop normally registers the quest as soon as an approved material card mounts. This
+        # backend fallback is also idempotent, so legacy/API callers cannot create another quest
+        # merely because they omitted activity_plan_id on a later result submission.
+        try:
+            activity = ensure_material_quest(
+                store=store,
+                material=material,
+                experience_axes=request.experience_axes,
+            )
+        except KeyError as exc:
+            raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+        except ValueError as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    activity.experience_axes = list(
-        dict.fromkeys([*activity.experience_axes, *request.experience_axes])
-    )
     _transition_for_outcome(activity, outcome=request.outcome)
     store.save(activity)
     return activity
@@ -282,7 +284,7 @@ def list_material_results(
     store: Annotated[EntityStore, Depends(get_material_result_store)],
 ) -> list[MaterialUseHistoryItem]:
     material = _approved_material(store, material_id)
-    material_ref = _material_ref(material.id)
+    material_ref = material_quest_ref(material.id)
     activities = [
         ActivityPlan.model_validate(payload)
         for payload in store.index.list_entities(
