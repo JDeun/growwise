@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import subprocess
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -180,6 +181,23 @@ def test_hardware_benchmark_reads_macos_physical_memory(
     assert bench._total_ram_gb() == 16.0
     assert bench._classify(bench._total_ram_gb()) == ("recommended", True)
     assert calls == [["sysctl", "-n", "hw.memsize"], ["sysctl", "-n", "hw.memsize"]]
+
+
+def test_hardware_benchmark_macos_probe_timeout_is_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    bench = _load("benchmark_hardware_macos_timeout", script_name="benchmark_hardware")
+    monkeypatch.setattr(bench.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        bench.subprocess,
+        "run",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            subprocess.TimeoutExpired(cmd="sysctl", timeout=2)
+        ),
+    )
+
+    assert bench._total_ram_gb() is None
+    assert bench._classify(None) == ("unknown", None)
 
 
 def test_hardware_benchmark_reads_posix_physical_memory(
