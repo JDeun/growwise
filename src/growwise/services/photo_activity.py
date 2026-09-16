@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 import tempfile
+import threading
 from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from growwise.domain.models import LearningLog
 from growwise.domain.photo import PhotoActivityRecord, PhotoAsset, PhotoRecordStatus
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
+from growwise.services.observation import ObservationEnricher
 from growwise.storage import EntityStore
 
 
@@ -52,6 +54,13 @@ _FORBIDDEN_INTERPRETATION_MARKERS = (
 )
 _DATE_PATTERN = re.compile(rb"(20\d{2}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})")
 _JPEG_SOF_MARKERS = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB}
+_COMMIT_LOCKS: dict[str, threading.Lock] = {}
+_COMMIT_LOCKS_GUARD = threading.Lock()
+
+
+def _commit_lock(record_id: str) -> threading.Lock:
+    with _COMMIT_LOCKS_GUARD:
+        return _COMMIT_LOCKS.setdefault(record_id, threading.Lock())
 
 
 def _detect_mime(data: bytes) -> str:
@@ -377,6 +386,10 @@ LearningLog."""
         return "\n\n".join(lines)[:10_000]
 
     def commit(self, *, record_id: str, observation: str | None = None) -> LearningLog:
+        with _commit_lock(record_id):
+            return self._commit_locked(record_id=record_id, observation=observation)
+
+    def _commit_locked(self, *, record_id: str, observation: str | None) -> LearningLog:
         payload = self.store.index.get_entity(record_id, entity_type="photo_activity_record")
         if payload is None:
             raise KeyError("photo_record_not_found")
@@ -396,10 +409,31 @@ LearningLog."""
         final_text = (observation or record.generated_observation).strip()
         if not final_text:
             raise PhotoValidationError("empty_photo_observation")
+
+        tags = ["사진기록"]
+        experience_axes = []
+        interest = None
+        difficulty_note = None
+        next_activity = None
+        if self.text_provider is not None:
+            try:
+                enrichment = ObservationEnricher(self.text_provider).enrich(final_text)
+                tags = list(dict.fromkeys([*tags, *enrichment.tags]))[:100]
+                experience_axes = enrichment.experience_axes
+                interest = enrichment.interest
+                difficulty_note = enrichment.difficulty_note
+                next_activity = enrichment.next_activity
+            except Exception:
+                pass
+
         log = LearningLog(
             child_id=record.child_id,
             parent_observation=final_text[:10_000],
-            tags=["사진기록"],
+            tags=tags,
+            experience_axes=experience_axes,
+            interest=interest,
+            difficulty_note=difficulty_note,
+            next_activity=next_activity,
         )
         self.store.save(log)
         record.status = PhotoRecordStatus.COMMITTED
