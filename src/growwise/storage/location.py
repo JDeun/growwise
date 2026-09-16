@@ -50,6 +50,37 @@ def _nearest_existing_ancestor(path: Path) -> Path:
     return ancestor
 
 
+def _validate_relocation_paths(
+    *,
+    source_root: Path,
+    source_index: Path,
+    dest_root: Path,
+    dest_index: Path,
+) -> None:
+    if dest_root == source_root or _is_nested(dest_root, source_root):
+        raise StorageLocationError(
+            "destination and source root must not be the same or nested within each other"
+        )
+
+    if source_index == dest_index:
+        raise StorageLocationError("source and destination index paths must be different")
+
+    # Index files are disposable projections but they must never live in a tree that the relocate
+    # commit phase will delete. Without these guards a successfully rebuilt destination index could
+    # be removed by source cleanup, or a source index could be mistaken for destination content.
+    if dest_index.is_relative_to(source_root):
+        raise StorageLocationError("destination index must not be inside the source record tree")
+    if source_index.is_relative_to(dest_root):
+        raise StorageLocationError("source index must not be inside the destination record tree")
+
+    # Keep record trees pure Markdown SoT directories. SQLite files inside either record root are
+    # otherwise copied as opaque files by relocation and can be deleted/reopened at surprising times.
+    if source_index.is_relative_to(source_root):
+        raise StorageLocationError("source index must not be inside the source record tree")
+    if dest_index.is_relative_to(dest_root):
+        raise StorageLocationError("destination index must not be inside the destination record tree")
+
+
 class StorageLocation:
     """Helpers to validate a data directory and safely relocate records + index.
 
@@ -103,12 +134,15 @@ class StorageLocation:
         dest_root_path = StorageLocation.validate(dest_root)
         dest_index_path = Path(dest_index).expanduser().resolve()
 
-        if dest_root_path == source_root_path or _is_nested(dest_root_path, source_root_path):
-            # Nested paths are fatal: relocating a dir into its own subtree (or vice-versa)
-            # would let the source removal delete the only surviving copy.
-            raise StorageLocationError(
-                "destination and source root must not be the same or nested within each other"
-            )
+        _validate_relocation_paths(
+            source_root=source_root_path,
+            source_index=source_index_path,
+            dest_root=dest_root_path,
+            dest_index=dest_index_path,
+        )
+
+        # Validate the directory that will contain the destination index before copying anything.
+        StorageLocation.validate(dest_index_path.parent)
 
         source_records = _markdown_records(source_root_path)
 
