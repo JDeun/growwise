@@ -1,12 +1,11 @@
-import { ChangeEvent, useCallback, useEffect, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { useActiveChild } from "../active-child-context";
 import {
   commitPhotoRecord,
   createPhotoRecord,
   getPhotoAsset,
-  listChildren,
   listPhotoRecords,
-  type ChildProfile,
   type PhotoActivityRecord,
   type PhotoAsset,
   type PhotoRecordStatus,
@@ -14,7 +13,6 @@ import {
 } from "../api";
 import "./PhotoActivityWorkspace.css";
 
-const LAST_CHILD_KEY = "growwise:last-child-id";
 const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
@@ -59,8 +57,13 @@ function isBackgroundRecord(record: PhotoActivityRecord): boolean {
 type Props = { active: boolean };
 
 export function PhotoActivityWorkspace({ active }: Props) {
-  const [children, setChildren] = useState<ChildProfile[]>([]);
-  const [childId, setChildId] = useState("");
+  const {
+    children,
+    activeChildId: childId,
+    selectChild,
+    syncRememberedChild,
+  } = useActiveChild();
+  const recordsRequestId = useRef(0);
   const [sharedChildIds, setSharedChildIds] = useState<string[]>([]);
   const [records, setRecords] = useState<PhotoActivityRecord[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -78,35 +81,41 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
 
   const refreshRecords = useCallback(async (targetChildId: string) => {
+    const requestId = ++recordsRequestId.current;
     if (!targetChildId) {
       setRecords([]);
       return [] as PhotoActivityRecord[];
     }
     const nextRecords = await listPhotoRecords(targetChildId);
+    if (requestId !== recordsRequestId.current) return [] as PhotoActivityRecord[];
     setRecords(nextRecords);
     return nextRecords;
   }, []);
 
   useEffect(() => {
+    if (!active) {
+      recordsRequestId.current += 1;
+      return;
+    }
+    syncRememberedChild();
+  }, [active, syncRememberedChild]);
+
+  useEffect(() => {
     if (!active) return;
-    let cancelled = false;
-    void (async () => {
-      try {
-        const result = await listChildren();
-        if (cancelled) return;
-        setChildren(result);
-        const remembered = window.localStorage.getItem(LAST_CHILD_KEY);
-        const selected = result.find((child) => child.id === remembered) ?? result[0] ?? null;
-        setChildId(selected?.id ?? "");
-        if (selected) await refreshRecords(selected.id);
-      } catch (loadError) {
-        if (!cancelled) setError(messageFrom(loadError));
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [active, refreshRecords]);
+    setSharedChildIds([]);
+    setRecords([]);
+    setFiles([]);
+    setStoredPreviews([]);
+    setContext("");
+    setManualObservation("");
+    setDraft(null);
+    setDraftAssets([]);
+    setEditedObservation("");
+    setPendingRecordId(null);
+    setError(null);
+    setNotice(null);
+    void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
+  }, [active, childId, refreshRecords]);
 
   useEffect(() => {
     const urls = files.map((file) => URL.createObjectURL(file));
@@ -152,22 +161,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
     };
   }, [active, childId, pendingRecordId, records, refreshRecords]);
 
-  async function handleChildChange(event: ChangeEvent<HTMLSelectElement>) {
-    const next = event.target.value;
-    setChildId(next);
-    setSharedChildIds([]);
-    setDraft(null);
-    setDraftAssets([]);
-    setStoredPreviews([]);
-    setEditedObservation("");
-    setPendingRecordId(null);
-    setError(null);
-    window.localStorage.setItem(LAST_CHILD_KEY, next);
-    try {
-      await refreshRecords(next);
-    } catch (loadError) {
-      setError(messageFrom(loadError));
-    }
+  function handleChildChange(event: ChangeEvent<HTMLSelectElement>) {
+    selectChild(event.target.value);
   }
 
   function toggleSharedChild(targetChildId: string) {
@@ -411,7 +406,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
           <textarea
             value={manualObservation}
             onChange={(event) => setManualObservation(event.target.value)}
-            placeholder="예: 오늘 둘이 공원에서 낙엽을 모았다. 수아가 노란 잎을 골라 나란히 놓았고 함께 색을 비교했다."
+            placeholder="예: 오늘 둘이 공원에서 낙엽을 모았다. 아이가 노란 잎을 골라 나란히 놓았고 함께 색을 비교했다."
             maxLength={10_000}
             disabled={busy || pendingRecordId !== null}
           />
