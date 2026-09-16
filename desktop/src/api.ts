@@ -463,10 +463,13 @@ export const createResource = (request: ResourceCreateInput) =>
   call<ResourceRecord>("create_resource", { request });
 export const listResources = (childId?: string) =>
   call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
-export const updateResource = (resourceId: string, request: ResourceCreateInput) =>
-  call<ResourceRecord>("update_resource", { resourceId, request });
-export const deleteResource = (resourceId: string) =>
-  call<{ deleted: boolean }>("delete_resource", { resourceId });
+export const updateResource = (
+  resourceId: string,
+  request: ResourceCreateInput,
+  actingChildId: string,
+) => call<ResourceRecord>("update_resource", { resourceId, request, actingChildId });
+export const deleteResource = (resourceId: string, actingChildId: string) =>
+  call<{ deleted: boolean }>("delete_resource", { resourceId, actingChildId });
 export const generateMaterial = (
   childId: string,
   kind: MaterialKind,
@@ -537,8 +540,11 @@ export const commitPhotoRecord = (recordId: string, observation?: string) =>
   call<LearningLog>("commit_photo_record", { recordId, observation: observation ?? null });
 export const getPhotoAsset = (childId: string, assetId: string) =>
   call<PhotoAssetContent>("get_photo_asset", { childId, assetId });
-export const shareEntityWithChild = (sourceId: string, childId: string) =>
-  call<EntityLink>("share_entity_with_child", { sourceId, childId });
+export const shareEntityWithChild = (
+  sourceId: string,
+  childId: string,
+  actingChildId: string,
+) => call<EntityLink>("share_entity_with_child", { sourceId, childId, actingChildId });
 export const getEntityBacklinks = (entityId: string) =>
   call<EntityBacklinks>("get_entity_backlinks", { entityId });
 export const listBackups = () => call<BackupItem[]>("list_backups");
