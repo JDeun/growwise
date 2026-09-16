@@ -7,7 +7,7 @@ from growwise.domain import (
     MaterialStatus,
     Stage,
 )
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialGenerationService, MaterialSourceEvidence
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 
 
@@ -17,6 +17,31 @@ class FailingProvider:
 
     def generate_structured(self, *, system: str, user: str, schema):
         raise RuntimeError("provider unavailable")
+
+
+class CapturingProvider:
+    def __init__(self) -> None:
+        self.system = ""
+        self.user = ""
+
+    def generate_text(self, *, system: str, user: str) -> str:
+        self.system = system
+        self.user = user
+        return ""
+
+    def generate_structured(self, *, system: str, user: str, schema):
+        self.system = system
+        self.user = user
+        return schema(
+            title="물 관찰 과학 탐구",
+            content_markdown=(
+                "# 물 관찰 과학 탐구\n\n"
+                "## 예측\n먼저 어떻게 될지 예상해 봅니다.\n\n"
+                "## 관찰\n직접 관찰하고 차이를 말해 봅니다.\n\n"
+                "## 힌트\n막히면 정답 대신 관찰할 한 가지를 다시 제안합니다."
+            ),
+            source_refs=["resource:source-1"],
+        )
 
 
 def test_material_generation_works_without_llm() -> None:
@@ -37,6 +62,60 @@ def test_material_generation_works_without_llm() -> None:
     assert material.generator_mode == "template"
     assert "고양이 그림책" in material.content_markdown
     assert material.source_refs == ["resource:book-1"]
+
+
+def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
+    child = ChildProfile(
+        nickname="아이",
+        stage=Stage.ELEMENTARY,
+        age_months=96,
+        interests=["물"],
+    )
+    provider = CapturingProvider()
+    material = MaterialGenerationService(provider=provider).generate(
+        child=child,
+        kind=MaterialKind.SCIENCE_INQUIRY,
+        topic="물의 상태 변화",
+        source_refs=["resource:source-1"],
+        source_evidence=[
+            MaterialSourceEvidence(
+                source_ref="resource:source-1",
+                title="부모가 선택한 물 관찰 자료",
+                excerpt="얼음이 녹는 동안 모양과 물의 양을 관찰한다.",
+            ),
+            MaterialSourceEvidence(
+                source_ref="resource:not-selected",
+                title="선택하지 않은 자료",
+                excerpt="이 내용은 모델에게 전달되면 안 된다.",
+            ),
+        ],
+    )
+
+    assert material.generator_mode == "llm_enhanced"
+    assert "부모가 선택한 물 관찰 자료" in provider.user
+    assert "얼음이 녹는 동안" in provider.user
+    assert "untrusted evidence" in provider.user
+    assert "선택하지 않은 자료" not in provider.user
+    assert material.source_refs == ["resource:source-1"]
+
+
+def test_template_names_selected_resource_even_without_llm() -> None:
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    material = MaterialGenerationService(provider=None).generate(
+        child=child,
+        kind=MaterialKind.READING_ACTIVITY,
+        topic="동물 이야기",
+        source_refs=["resource:source-1"],
+        source_evidence=[
+            MaterialSourceEvidence(
+                source_ref="resource:source-1",
+                title="동물 도감",
+                excerpt="동물의 서식지를 비교한다.",
+            )
+        ],
+    )
+
+    assert "동물 도감 (`resource:source-1`)" in material.content_markdown
 
 
 def test_material_generation_falls_back_when_provider_fails() -> None:
