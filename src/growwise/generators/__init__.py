@@ -1,5 +1,5 @@
 from .editing import MaterialEditError, MaterialEditService
-from .material import MaterialDraft, MaterialGenerationService
+from .material import MaterialDraft, MaterialGenerationService, MaterialSourceEvidence
 from .revision import MaterialRevisionError, MaterialRevisionService
 from .scaffold import ScaffoldCheck, ScaffoldGuard
 
@@ -10,6 +10,7 @@ __all__ = [
     "MaterialGenerationService",
     "MaterialRevisionError",
     "MaterialRevisionService",
+    "MaterialSourceEvidence",
     "ScaffoldCheck",
     "ScaffoldGuard",
 ]
