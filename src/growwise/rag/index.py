@@ -63,7 +63,8 @@ class HybridRagIndex:
                 """
             )
             columns = {
-                row["name"] for row in connection.execute("PRAGMA table_info(rag_chunks)").fetchall()
+                row["name"]
+                for row in connection.execute("PRAGMA table_info(rag_chunks)").fetchall()
             }
             if "recorded_at" not in columns:
                 connection.execute("ALTER TABLE rag_chunks ADD COLUMN recorded_at TEXT")
