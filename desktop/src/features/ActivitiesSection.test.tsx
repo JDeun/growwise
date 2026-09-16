@@ -20,7 +20,7 @@ const plans = [
     child_id: "child-1",
     title: "블록 쌓기",
     status: "completed" as const,
-    source_refs: [],
+    source_refs: ["material:material-1"],
     parent_note: null,
     started_at: "2026-09-14T09:00:00+09:00",
     completed_at: "2026-09-14T09:30:00+09:00",
@@ -29,7 +29,7 @@ const plans = [
 ];
 
 describe("ActivitiesSection", () => {
-  it("shows the full activity lifecycle and follow-up observation affordance", () => {
+  it("shows the quest board lifecycle and result-data affordance", () => {
     const html = renderToStaticMarkup(
       <ActivitiesSection
         suggestions={null}
@@ -45,13 +45,18 @@ describe("ActivitiesSection", () => {
       />,
     );
 
-    expect(html).toContain("1. 선택");
-    expect(html).toContain("2. 진행");
-    expect(html).toContain("3. 마침");
-    expect(html).toContain("4. 관찰");
+    expect(html).toContain("QUEST BOARD");
+    expect(html).toContain("활동 퀘스트");
+    expect(html).toContain("생성됨");
     expect(html).toContain("진행 중");
-    expect(html).toContain("완료");
-    expect(html).toContain("연결 관찰 확인");
-    expect(html).toContain("후속 관찰은 관찰 작업공간에서 이 활동을 선택해 저장하면 자동으로 연결됩니다.");
+    expect(html).toContain("완료됨");
+    expect(html).toContain("결과 기록됨");
+    expect(html).toContain("생성 자료");
+    expect(html).toContain("고양이 그림책 읽기 퀘스트 진행 상태");
+    expect(html).toContain(">생성<");
+    expect(html).toContain(">진행<");
+    expect(html).toContain(">완료<");
+    expect(html).toContain(">결과<");
+    expect(html).toContain("결과 기록 확인 중");
   });
 });
