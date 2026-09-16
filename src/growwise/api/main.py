@@ -420,7 +420,10 @@ def ask_resources(
     store: Annotated[EntityStore, Depends(get_store)],
 ) -> dict:
     child_id = str(request.child_id) if request.child_id else None
-    if child_id is not None and store.index.get_entity(child_id, entity_type="child_profile") is None:
+    if (
+        child_id is not None
+        and store.index.get_entity(child_id, entity_type="child_profile") is None
+    ):
         raise HTTPException(status_code=404, detail="child_not_found")
     service = GroundedRagService(
         index=get_rag_index(),
