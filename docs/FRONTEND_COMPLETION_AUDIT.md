@@ -28,7 +28,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [x] Material queue segmented by draft/review/approved and print/export affordances. Materials now expose separate draft, Parent Review, and approved-use stages; drafts explicitly enter review, only approved materials expose print/PDF export, and inactive records remain available in a secondary archive view.
 - [x] Resource library search/filter/detail/edit/delete flows. Library now supports local text/kind filtering, a metadata/provenance detail pane, in-place editing, and confirmed deletion backed by synchronized Markdown, SQLite, and RAG mutations.
 - [x] Conversation history/session affordances and evidence presentation. Search now lists child-scoped saved sessions, derives readable session labels from prior user questions, opens persisted transcripts, separates per-answer source IDs from conversational context, and states explicitly that conversation text is never reused as factual evidence.
-- [ ] Onboarding for first child and optional local-model setup.
+- [x] Onboarding for first child and optional local-model setup. First run now presents Core connection, first-child creation, and optional local-AI setup as a three-step flow; the UI explicitly states that only the child profile is required and that Core-only workflows remain available when Ollama is not running.
 - [x] Consistent confirmation dialogs instead of browser `window.confirm` for destructive backup import/restore operations.
 
 ## Definition of done

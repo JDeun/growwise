@@ -9,8 +9,9 @@ describe("App feature composition", () => {
     expect(html).toContain("GrowWise");
     expect(html).toContain("Personal Education OS");
     expect(html).toContain("GrowWise Core");
-    expect(html).toContain("NEW CHILD");
-    expect(html).toContain("아이 프로필을 만들어 주세요.");
+    expect(html).toContain("FIRST CHILD");
+    expect(html).toContain("첫 아이 프로필을 만들어 주세요.");
+    expect(html).toContain("AI 선택 사항");
     expect(html).toContain("DATA MANAGEMENT");
   });
 });
