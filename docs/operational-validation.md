@@ -6,31 +6,38 @@ real device, credential, or long-lived signing-key work below has actually been 
 
 ## 1. Local model latency and quality
 
-Run on each representative machine with the intended GrowWise model provider configured:
+Run on each representative machine with the intended GrowWise model provider configured. The
+recommended evidence run performs one untimed warm-up round and three measured rounds:
 
 ```bash
 uv sync --locked --extra dev
-uv run python scripts/benchmark_model.py > benchmark-model.json
+uv run python scripts/benchmark_model.py --warmup-rounds 1 --repeats 3 > benchmark-model.json
 ```
 
-The report records the configured provider kind/model ID, average and p95 generation latency, whether
-the LLM path was actually used, and per-material output size/mode across representative reading,
-English, math, science, writing, and field-trip prompts. If LLM features are enabled, provider
-construction uses the same `Settings` + `create_model_provider` path as the application; invalid
-provider configuration is not silently converted into a Core-only benchmark.
+The report records the configured provider kind/model ID, stage, warm-up/measured round counts,
+average and p95 generation latency, generator-mode counts, whether the LLM path was actually used,
+and the exact synthetic generated title/Markdown for every measured sample. The synthetic output is
+included so a reviewer can inspect the same artifacts that produced the timing/fallback evidence;
+it contains no household child data.
+
+If LLM features are enabled, provider construction uses the same `Settings` +
+`create_model_provider` path as the application; invalid provider configuration is not silently
+converted into a Core-only benchmark.
 
 Acceptance procedure:
 
-1. Confirm `provider` is `configured` and `llm_used_ratio` is non-zero. A `core-only` report is only
-   the deterministic fallback baseline and does not close the local-model benchmark item.
-2. Run the same model/configuration more than once after a warm-up run so model load time is not
-   confused with steady-state generation latency.
-3. Review generated material manually for useful structure and Parent Review suitability; the
-   harness intentionally provides only a lightweight automated quality proxy.
+1. Confirm `provider` is `configured`, `llm_used_ratio` is non-zero, and inspect
+   `generator_mode_counts`. A `core-only` report is only the deterministic fallback baseline and does
+   not close the local-model benchmark item.
+2. Use at least one warm-up round and multiple measured repeats so model load time is not confused
+   with steady-state generation latency. Keep the exact command/round counts with the result.
+3. Review every measured `title` + `content_markdown` sample for useful structure, age/stage fit,
+   scaffold quality, obvious factual problems, and Parent Review suitability. Automated mode/count
+   fields are not a substitute for this review.
 4. Record the model name/quantization, machine class, RAM/VRAM, operating system, and measured
    latency in release notes or a separate non-personal benchmark report.
-5. Do not commit machine usernames, home paths, device serials, child data, or private model/API
-   credentials.
+5. Do not commit machine usernames, home paths, device serials, household child data, or private
+   model/API credentials.
 
 ## 2. Minimum and recommended hardware
 
