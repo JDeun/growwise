@@ -22,11 +22,14 @@ class Settings(BaseSettings):
     model_circuit_recovery_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
     llm_features_enabled: bool = True
 
-    # Vision is optional and independently degradable. The default model is intentionally
-    # separate from the text model because many small local text models do not accept images.
+    # Child photos are more sensitive than ordinary public enrichment. Vision therefore has a
+    # dedicated local endpoint rather than inheriting a potentially remote text-provider URL.
+    vision_provider: str = "ollama"
     vision_model_id: str = "gemma3:4b"
+    vision_base_url: str = "http://127.0.0.1:11434"
     vision_features_enabled: bool = True
     vision_timeout_seconds: float = Field(default=20.0, gt=0.0, le=180.0)
+    photo_remote_text_allowed: bool = False
 
     embedding_model_id: str = "nomic-embed-text"
     embedding_timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
