@@ -154,10 +154,10 @@ export function ActivitiesSection({
       <section className="activity-section">
         <div className="activity-heading">
           <div>
-            <p className="card-label">NEW QUESTS</p>
+            <p className="card-label">활동 후보</p>
             <h3>새 활동 후보</h3>
             <p className="muted">
-              추천은 자동 과제가 아닙니다. 부모가 선택한 후보만 퀘스트 보드에 추가됩니다.
+              추천은 자동 과제가 아닙니다. 부모가 선택한 후보만 활동 목록에 추가됩니다.
             </p>
           </div>
           <button
@@ -190,7 +190,7 @@ export function ActivitiesSection({
                   disabled={planBusy}
                   onClick={() => onSaveActivity(suggestion.title)}
                 >
-                  퀘스트로 저장
+                  활동으로 저장
                 </button>
               </article>
             ))}
@@ -201,8 +201,8 @@ export function ActivitiesSection({
       <section className="quest-section">
         <div className="activity-heading">
           <div>
-            <p className="card-label">QUEST BOARD</p>
-            <h3>활동 퀘스트</h3>
+            <p className="card-label">활동 목록</p>
+            <h3>내 활동</h3>
             <p className="muted">
               생성한 자료와 선택한 활동을 상태별로 관리합니다. 완료 여부와 실제 결과 기록은 별도로
               표시됩니다.
@@ -215,26 +215,26 @@ export function ActivitiesSection({
 
         {loadState.kind === "ready" && plans.length > 0 && (
           <>
-            <div className="activity-lifecycle" aria-label="퀘스트 현황">
+            <div className="activity-lifecycle" aria-label="활동 현황">
               <article>
                 <div><strong>생성됨</strong><span>{counts.generated}</span></div>
-                <small>아직 시작하지 않은 퀘스트</small>
+                <small>아직 시작하지 않은 활동</small>
               </article>
               <article>
                 <div><strong>진행 중</strong><span>{counts.active}</span></div>
-                <small>현재 수행 중인 퀘스트</small>
+                <small>현재 진행 중인 활동</small>
               </article>
               <article>
                 <div><strong>완료됨</strong><span>{counts.completed}</span></div>
-                <small>활동 상태가 완료된 퀘스트</small>
+                <small>완료로 표시한 활동</small>
               </article>
               <article>
                 <div><strong>결과 기록됨</strong><span>{counts.result}</span></div>
-                <small>관찰 데이터까지 회수된 퀘스트</small>
+                <small>관찰 기록까지 연결된 활동</small>
               </article>
             </div>
 
-            <div className="quest-filters" aria-label="퀘스트 필터">
+            <div className="quest-filters" aria-label="활동 필터">
               {QUEST_FILTERS.map((item) => (
                 <button
                   key={item.value}
@@ -253,14 +253,14 @@ export function ActivitiesSection({
         {loadState.kind === "loading" && (
           <ViewStateNotice
             kind="loading"
-            title="퀘스트 목록을 불러오는 중입니다."
+            title="활동 목록을 불러오는 중입니다."
             description="저장한 활동 상태와 결과 기록을 확인합니다."
           />
         )}
         {loadState.kind === "error" && (
           <ViewStateNotice
             kind="error"
-            title="퀘스트 목록을 불러오지 못했습니다."
+            title="활동 목록을 불러오지 못했습니다."
             description={loadState.message}
             action={
               <button className="quiet-button" type="button" onClick={onRetryPlans}>
@@ -272,14 +272,14 @@ export function ActivitiesSection({
         {loadState.kind === "ready" && plans.length === 0 && (
           <ViewStateNotice
             kind="empty"
-            title="아직 퀘스트가 없습니다."
+            title="아직 저장한 활동이 없습니다."
             description="활동 후보를 저장하거나 승인된 생성 자료로 활동을 시작하면 이곳에서 관리합니다."
           />
         )}
         {loadState.kind === "ready" && plans.length > 0 && filteredPlans.length === 0 && (
           <ViewStateNotice
             kind="empty"
-            title="이 상태의 퀘스트가 없습니다."
+            title="이 상태의 활동이 없습니다."
             description="다른 상태 필터를 선택해 보세요."
           />
         )}
@@ -323,7 +323,7 @@ export function ActivitiesSection({
 
                   {activity.parent_note && <p>{activity.parent_note}</p>}
 
-                  <div className="activity-stage-track" aria-label={`${activity.title} 퀘스트 진행 상태`}>
+                  <div className="activity-stage-track" aria-label={`${activity.title} 활동 진행 상태`}>
                     {[
                       [1, "생성"],
                       [2, "진행"],
@@ -344,7 +344,7 @@ export function ActivitiesSection({
                         disabled={planBusy}
                         onClick={() => onTransition(activity.id, "active")}
                       >
-                        퀘스트 시작
+                        활동 시작
                       </button>
                     )}
                     {activity.status === "active" && (
@@ -392,8 +392,8 @@ export function ActivitiesSection({
                     )}
                     {lookup.kind === "ready" && resultCount === 0 && (
                       <p>
-                        아직 결과 기록이 없습니다. 생성 자료 퀘스트라면 자료 카드의 ‘활동 결과 기록’을,
-                        일반 퀘스트라면 관찰 화면에서 이 활동을 선택해 기록할 수 있습니다.
+                        아직 결과 기록이 없습니다. 생성 자료에서 시작한 활동이라면 자료 카드의 ‘활동 결과 기록’을,
+                        일반 활동이라면 관찰 화면에서 이 활동을 선택해 기록할 수 있습니다.
                       </p>
                     )}
                     {lookup.kind === "ready" && latestLog && (
