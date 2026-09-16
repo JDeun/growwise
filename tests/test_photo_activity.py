@@ -69,6 +69,7 @@ def test_photo_activity_draft_survives_without_any_model_and_commits_learning_lo
         observation="블록을 쌓고 무너뜨리는 놀이를 여러 번 반복했다.",
     )
     assert log.child_id == child.id
+    assert log.record_kind.value == "photo_activity"
     assert log.parent_observation.startswith("블록을 쌓고")
     assert "사진기록" in log.tags
 
