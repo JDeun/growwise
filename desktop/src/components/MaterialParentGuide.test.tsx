@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import type { GeneratedMaterial, MaterialKind } from "../api";
 import { MaterialParentGuide } from "./MaterialParentGuide";
 
-function material(kind: MaterialKind, guide: string | undefined = "## 진행\n천천히 관찰합니다."): GeneratedMaterial {
+function material(kind: MaterialKind, guide = "## 진행\n천천히 관찰합니다."): GeneratedMaterial {
   return {
     id: "material-1",
     child_id: "child-1",
@@ -42,7 +42,7 @@ describe("MaterialParentGuide", () => {
   });
 
   it("keeps the printable worksheet even when no parent guide was generated", () => {
-    const html = renderToStaticMarkup(<MaterialParentGuide material={material("field_trip", undefined)} />);
+    const html = renderToStaticMarkup(<MaterialParentGuide material={material("field_trip", "")} />);
 
     expect(html).toContain("현장학습 기록 시트");
     expect(html).toContain("가기 전 궁금증");
