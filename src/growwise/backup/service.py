@@ -12,7 +12,6 @@ from pathlib import Path, PurePosixPath
 import frontmatter
 from pydantic import BaseModel
 
-from growwise.backup.naming import unique_backup_token
 from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
 from growwise.storage.sqlite import SQLiteProjection
 
@@ -104,9 +103,10 @@ class BackupService:
             else:
                 restore_source.mkdir(parents=True)
 
-            previous = records_root.with_name(
-                f"{records_root.name}.pre-restore-{unique_backup_token()}"
-            )
+            # Keep the rollback copy INSIDE the temporary restore directory. It exists only for
+            # the duration of this transaction and is therefore removed automatically after a
+            # successful restore instead of leaving sensitive records.pre-restore-* directories.
+            previous = staging / "previous-records"
             moved_previous = False
             try:
                 if records_root.exists():
