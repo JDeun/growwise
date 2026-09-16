@@ -41,6 +41,7 @@ def test_material_feedback_uses_only_same_child_material_use_logs(tmp_path) -> N
         title="달 관찰 활동",
         parent_observation="그림자의 모양을 오래 비교했다.",
         learner_work="달 모양을 세 칸으로 나누어 직접 그리고 화살표를 덧붙였다.",
+        process="먼저 모양별로 묶은 뒤 날짜 카드를 옆에 놓아 순서를 비교했다.",
         child_question="왜 매일 모양이 달라져?",
         interest="달의 모양 변화",
         difficulty_note="날짜 순서로 배열하는 부분은 어려워했다.",
@@ -56,7 +57,9 @@ def test_material_feedback_uses_only_same_child_material_use_logs(tmp_path) -> N
     assert goal is not None
     assert "개인화 원칙" in goal
     assert "아이 산출물" in goal
+    assert "활동 과정" in goal
     assert "달 모양을 세 칸" not in goal
+    assert "모양별로 묶은 뒤" not in goal
     assert "달의 모양 변화" not in goal
     assert "날짜 순서" not in goal
     assert "왜 매일" not in goal
@@ -64,6 +67,7 @@ def test_material_feedback_uses_only_same_child_material_use_logs(tmp_path) -> N
     guide = snapshot.with_parent_guide("# 기존 부모 교안\n")
     assert "그림자의 모양을 오래 비교했다." in guide
     assert "달 모양을 세 칸으로 나누어 직접 그리고 화살표를 덧붙였다." in guide
+    assert "먼저 모양별로 묶은 뒤 날짜 카드를 옆에 놓아 순서를 비교했다." in guide
     assert "왜 매일 모양이 달라져?" in guide
     assert "달의 모양 변화" in guide
     assert "날짜 순서로 배열하는 부분은 어려워했다." in guide
@@ -159,6 +163,7 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
             title="이전 수학 놀이",
             parent_observation="부모만 보는 구체 관찰 문장",
             learner_work="아이 답안 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다.",
+            process="사과 그림을 하나씩 옮기면서 두 묶음이 같은지 확인했다.",
             child_question="이것도 반으로 나눌 수 있어?",
             interest="반으로 나누기",
             difficulty_note="세 묶음으로 나누는 것은 어려워했다.",
@@ -193,12 +198,14 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
     assert "개인화 원칙" in material.content_markdown
     assert "부모만 보는 구체 관찰 문장" not in material.content_markdown
     assert "아이 답안 원문" not in material.content_markdown
+    assert "사과 그림을 하나씩" not in material.content_markdown
     assert "세 묶음으로 나누는 것은 어려워했다." not in material.content_markdown
     assert "학교 수학 기록" not in material.content_markdown
     assert "분모가 달라지면 헷갈려했다." not in material.content_markdown
     assert "아이 과제 원문" not in material.content_markdown
     assert "부모만 보는 구체 관찰 문장" in material.parent_guide_markdown
     assert "아이 답안 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다." in material.parent_guide_markdown
+    assert "사과 그림을 하나씩 옮기면서 두 묶음이 같은지 확인했다." in material.parent_guide_markdown
     assert "간식을 둘로 나누는 놀이를 이어간다." in material.parent_guide_markdown
     assert "학교 수학 기록" in material.parent_guide_markdown
     assert "학교에서 반과 사분의 일을 다뤘다고 부모가 적었다." in material.parent_guide_markdown
