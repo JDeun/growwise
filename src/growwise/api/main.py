@@ -37,6 +37,7 @@ from growwise.generators import (
     MaterialGenerationService,
     MaterialRevisionError,
     MaterialRevisionService,
+    MaterialSourceEvidence,
 )
 from growwise.idempotency import (
     IdempotencyConflict,
@@ -74,6 +75,8 @@ from growwise.workflows import build_material_review_graph, build_observation_gr
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(study_router)
+
+_MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
 
 
 class ChildCreateRequest(BaseModel):
@@ -526,6 +529,41 @@ def validate_material_source_refs(
     return validated
 
 
+def material_source_evidence(
+    *,
+    source_refs: list[str],
+    store: EntityStore,
+) -> list[MaterialSourceEvidence]:
+    """Load bounded excerpts for already validated resource refs.
+
+    Source content remains untrusted. The generator wraps these excerpts as evidence and applies
+    its own total prompt budget, so a large saved resource cannot monopolize the model context.
+    """
+    evidence: list[MaterialSourceEvidence] = []
+    for ref in source_refs:
+        raw_id = ref.removeprefix("resource:")
+        payload = store.index.get_entity(raw_id, entity_type="resource")
+        if payload is None:
+            continue
+        resource = ResourceRecord.model_validate(payload)
+        parts: list[str] = []
+        if resource.summary:
+            parts.append(f"요약: {resource.summary.strip()}")
+        if resource.content:
+            content = resource.content.strip()
+            if content and content != (resource.summary or "").strip():
+                parts.append(f"내용: {content}")
+        excerpt = "\n\n".join(parts)[:_MATERIAL_SOURCE_EXCERPT_CHARS]
+        evidence.append(
+            MaterialSourceEvidence(
+                source_ref=ref,
+                title=resource.title,
+                excerpt=excerpt,
+            )
+        )
+    return evidence
+
+
 @app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
 def generate_material(
     child_id: UUID,
@@ -541,12 +579,14 @@ def generate_material(
         source_refs=request.source_refs,
         store=store,
     )
+    source_evidence = material_source_evidence(source_refs=source_refs, store=store)
     material = MaterialGenerationService(provider=get_model_provider()).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
         goal=request.goal,
         source_refs=source_refs,
+        source_evidence=source_evidence,
     )
     material.request_topic = request.topic
     material.request_goal = request.goal
@@ -651,10 +691,16 @@ def revise_material(
         if candidate.get("parent_material_id") == str(material.id):
             return GeneratedMaterial.model_validate(candidate)
 
+    source_evidence = material_source_evidence(source_refs=material.source_refs, store=store)
     try:
         revised = MaterialRevisionService(
             MaterialGenerationService(provider=get_model_provider())
-        ).revise(material=material, child=child, note=request.note)
+        ).revise(
+            material=material,
+            child=child,
+            note=request.note,
+            source_evidence=source_evidence,
+        )
     except MaterialRevisionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
