@@ -29,7 +29,7 @@ const plans = [
 ];
 
 describe("ActivitiesSection", () => {
-  it("shows the quest board lifecycle and result-data affordance", () => {
+  it("shows the activity lifecycle and result-data affordance without quest pressure language", () => {
     const html = renderToStaticMarkup(
       <ActivitiesSection
         suggestions={null}
@@ -45,18 +45,20 @@ describe("ActivitiesSection", () => {
       />,
     );
 
-    expect(html).toContain("QUEST BOARD");
-    expect(html).toContain("활동 퀘스트");
+    expect(html).toContain("활동 목록");
+    expect(html).toContain("내 활동");
     expect(html).toContain("생성됨");
     expect(html).toContain("진행 중");
     expect(html).toContain("완료됨");
     expect(html).toContain("결과 기록됨");
     expect(html).toContain("생성 자료");
-    expect(html).toContain("고양이 그림책 읽기 퀘스트 진행 상태");
+    expect(html).toContain("고양이 그림책 읽기 활동 진행 상태");
     expect(html).toContain(">생성<");
     expect(html).toContain(">진행<");
     expect(html).toContain(">완료<");
     expect(html).toContain(">결과<");
     expect(html).toContain("결과 기록 확인 중");
+    expect(html).not.toContain("QUEST BOARD");
+    expect(html).not.toContain("활동 퀘스트");
   });
 });
