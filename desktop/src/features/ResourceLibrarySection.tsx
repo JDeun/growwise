@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from "react";
 
+import { useOptionalActiveChild } from "../active-child-context";
 import type { ViewLoadState } from "../child-context-state";
 import { ConfirmDialog, EntityLinkPanel, ViewStateNotice } from "../components";
 import type { ResourceCreateInput, ResourceKind, ResourceRecord } from "../api";
@@ -7,8 +8,6 @@ import { canMutateResourceInChildView, resourceScopeLabel } from "../resource-sc
 import "./ResourceLibrarySection.css";
 
 type ResourceKindFilter = "all" | ResourceKind;
-
-const LAST_CHILD_KEY = "growwise:last-child-id";
 
 const RESOURCE_KIND_LABELS: Record<ResourceKind, string> = {
   note: "메모",
@@ -76,6 +75,8 @@ export function ResourceLibrarySection({
   onUpdate,
   onDelete,
 }: ResourceLibrarySectionProps) {
+  const activeChildContext = useOptionalActiveChild();
+  const activeChildId = activeChildContext?.activeChildId || null;
   const [query, setQuery] = useState("");
   const [kindFilter, setKindFilter] = useState<ResourceKindFilter>("all");
   const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
@@ -87,8 +88,6 @@ export function ResourceLibrarySection({
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null);
   const [mutationBusy, setMutationBusy] = useState(false);
 
-  const activeChildId =
-    typeof window === "undefined" ? null : window.localStorage.getItem(LAST_CHILD_KEY);
   const filteredResources = useMemo(
     () => filterResources(resources, query, kindFilter),
     [kindFilter, query, resources],
