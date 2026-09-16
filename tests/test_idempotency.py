@@ -75,7 +75,7 @@ def test_concurrent_claim_observes_pending_owner(tmp_path):
     assert duplicate.record.status is IdempotencyStatus.PENDING
 
 
-def test_failed_owner_can_release_and_retry_same_resource_key(tmp_path):
+def test_failed_owner_can_release_and_retry_same_reserved_resource_key(tmp_path):
     store = SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3")
     fingerprint = request_fingerprint({"value": 1})
     first = store.claim(
@@ -97,7 +97,9 @@ def test_failed_owner_can_release_and_retry_same_resource_key(tmp_path):
         resource_id="log-2",
     )
     assert retry.acquired is True
-    assert retry.record.resource_id == "log-2"
+    # Ambiguous failures must never mint a second logical resource. The idempotency row keeps the
+    # original reservation so a source commit that happened just before a crash can be recovered.
+    assert retry.record.resource_id == "log-1"
 
 
 def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path):
