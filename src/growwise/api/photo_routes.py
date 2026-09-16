@@ -9,6 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
+from growwise.api.link_routes import router as link_router
 from growwise.config import Settings
 from growwise.domain.photo import PhotoAsset, PhotoRecordStatus
 from growwise.jobs import SQLiteJobQueue
@@ -16,6 +17,7 @@ from growwise.model.factory import create_model_provider
 from growwise.model.ollama import OllamaProvider
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
+from growwise.services.entity_links import EntityLinkError, EntityLinkService
 from growwise.services.photo_activity import (
     PhotoActivityService,
     PhotoAssetStore,
@@ -42,6 +44,9 @@ class PhotoUploadInput(BaseModel):
 class PhotoDraftRequest(BaseModel):
     files: list[PhotoUploadInput] = Field(min_length=1, max_length=12)
     user_context: str | None = Field(default=None, max_length=10_000)
+    manual_observation: str | None = Field(default=None, max_length=10_000)
+    ai_assist: bool = True
+    shared_child_ids: list[UUID] = Field(default_factory=list, max_length=20)
 
 
 class PhotoCommitRequest(BaseModel):
@@ -101,15 +106,20 @@ def get_photo_vision_provider() -> OllamaVisionProvider | None:
         return None
 
 
-def _service(settings: Settings, store: EntityStore) -> PhotoActivityService:
+def _service(
+    settings: Settings,
+    store: EntityStore,
+    *,
+    ai_enabled: bool = True,
+) -> PhotoActivityService:
     return PhotoActivityService(
         store=store,
         asset_store=PhotoAssetStore(
             settings.assets_dir,
             max_file_bytes=settings.photo_max_file_bytes,
         ),
-        text_provider=get_photo_text_provider(),
-        vision_provider=get_photo_vision_provider(),
+        text_provider=get_photo_text_provider() if ai_enabled else None,
+        vision_provider=get_photo_vision_provider() if ai_enabled else None,
         max_images=settings.photo_max_images_per_record,
     )
 
@@ -164,6 +174,22 @@ def _decode_uploads(request: PhotoDraftRequest, settings: Settings) -> list[Phot
     return uploads
 
 
+def _shared_children(
+    *,
+    primary_child_id: UUID,
+    requested: list[UUID],
+    store: EntityStore,
+) -> list[UUID]:
+    shared: list[UUID] = []
+    for child_id in dict.fromkeys(requested):
+        if child_id == primary_child_id:
+            continue
+        if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+            raise HTTPException(status_code=404, detail="shared_child_not_found")
+        shared.append(child_id)
+    return shared
+
+
 @router.post(
     "/children/{child_id}/photo-records",
     status_code=status.HTTP_202_ACCEPTED,
@@ -174,27 +200,75 @@ def create_photo_record(
     settings: Annotated[Settings, Depends(get_photo_settings)],
     store: Annotated[EntityStore, Depends(get_photo_store)],
 ) -> dict[str, object]:
+    shared_child_ids = _shared_children(
+        primary_child_id=child_id,
+        requested=request.shared_child_ids,
+        store=store,
+    )
     uploads = _decode_uploads(request, settings)
-    service = _service(settings, store)
+
+    manual_text = (request.manual_observation or "").strip()
+    context_text = (request.user_context or "").strip()
+    ai_service = _service(settings, store, ai_enabled=request.ai_assist)
+    can_assist = request.ai_assist and (
+        ai_service.text_provider is not None or ai_service.vision_provider is not None
+    )
+    # In manual mode the parent's text is the record. If they only supplied a context note, keep
+    # that as the editable draft. No model is required to reach the parent-review state.
+    effective_context = context_text
+    if not can_assist and manual_text:
+        effective_context = manual_text
+
     try:
-        record, assets = service.prepare_draft(
+        record, assets = ai_service.prepare_draft(
             child_id=str(child_id),
             uploads=uploads,
-            user_context=request.user_context,
+            user_context=effective_context or None,
         )
+        if shared_child_ids:
+            EntityLinkService(store).share_with_children(
+                source_id=record.id,
+                child_ids=shared_child_ids,
+            )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
-    except PhotoValidationError as exc:
+    except (PhotoValidationError, EntityLinkError) as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    if not can_assist:
+        manual_service = _service(settings, store, ai_enabled=False)
+        record = manual_service.process_draft(str(record.id))
+        if manual_text and record.generated_observation != manual_text:
+            # Deterministic processing can append metadata-only fallback text. Parent-authored text
+            # wins in manual diary mode and is stored verbatim until the parent edits it again.
+            record.generated_observation = manual_text[:10_000]
+            record.generation_mode = "manual_photo_diary"
+            store.save(record)
+        else:
+            record.generation_mode = "manual_photo_diary"
+            store.save(record)
+        return {
+            "record": record.model_dump(mode="json"),
+            "assets": [asset.model_dump(mode="json") for asset in assets],
+            "job": None,
+        }
 
     runner = get_photo_job_runner()
     runner.start()
     try:
         job = runner.submit(child_id=str(child_id), record_id=str(record.id))
-        record = service.attach_job(record_id=str(record.id), job_id=job.id)
+        record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
     except Exception as exc:
-        service.mark_failed(str(record.id), f"background_queue_error: {exc}")
-        raise HTTPException(status_code=503, detail="photo_background_queue_unavailable") from exc
+        # Queue failure must not make a locally-saved diary unusable. Convert immediately to a
+        # deterministic parent-editable draft rather than returning a hard dependency on AI.
+        fallback_service = _service(settings, store, ai_enabled=False)
+        fallback_service.mark_queued(str(record.id), error=f"background_queue_error: {exc}")
+        record = fallback_service.process_draft(str(record.id))
+        return {
+            "record": record.model_dump(mode="json"),
+            "assets": [asset.model_dump(mode="json") for asset in assets],
+            "job": None,
+        }
 
     return {
         "record": record.model_dump(mode="json"),
@@ -234,7 +308,8 @@ def get_photo_record(
     service = _service(settings, store)
     try:
         record = service.get_record(str(record_id))
-        if record.child_id != child_id:
+        shared_children = EntityLinkService(store).child_scope_targets(record.id)
+        if record.child_id != child_id and child_id not in shared_children:
             raise KeyError("photo_record_not_found")
         assets = service.get_assets_for_record(str(record_id))
     except KeyError as exc:
@@ -278,13 +353,21 @@ def commit_photo_record(
     store: Annotated[EntityStore, Depends(get_photo_store)],
 ) -> dict[str, object]:
     try:
-        log = _service(settings, store).commit(
+        service = _service(settings, store)
+        record = service.get_record(str(record_id))
+        shared_child_ids = EntityLinkService(store).child_scope_targets(record.id)
+        log = service.commit(
             record_id=str(record_id),
             observation=request.observation,
         )
+        if shared_child_ids:
+            EntityLinkService(store).share_with_children(
+                source_id=log.id,
+                child_ids=shared_child_ids,
+            )
     except KeyError as exc:
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
-    except PhotoValidationError as exc:
+    except (PhotoValidationError, EntityLinkError) as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     return log.model_dump(mode="json")
 
@@ -309,3 +392,8 @@ def get_photo_asset(
         "asset": typed_asset.model_dump(mode="json"),
         "data_base64": base64.b64encode(data).decode("ascii"),
     }
+
+
+# Generic graph routes share the same /v1 parent router. Keeping links first-class means activities,
+# observations, materials and photo records can all participate in the same backlink graph.
+router.include_router(link_router)
