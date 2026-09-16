@@ -3,9 +3,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import {
   createActivity,
-  createObservation,
-  listActivities,
-  listObservations,
+  listMaterialResults,
+  recordMaterialResult,
   transitionActivity,
   type ActivityPlan,
   type ExperienceAxis,
@@ -30,11 +29,6 @@ const QUEST_STATUS = {
   skipped: "건너뜀",
   archived: "보관됨",
 } as const;
-
-function section(label: string, value: string): string | null {
-  const trimmed = value.trim();
-  return trimmed ? `${label}: ${trimmed}` : null;
-}
 
 function activityTimestamp(activity: ActivityPlan | null): string | null {
   if (!activity) return null;
@@ -64,27 +58,16 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setLoadState("loading");
     setError(null);
     try {
-      const [activities, observations] = await Promise.all([
-        listActivities(material.child_id),
-        listObservations(material.child_id),
-      ]);
-      const linkedActivity =
-        activities.find((candidate) => candidate.source_refs.includes(materialRef)) ?? null;
-      const linkedResults = linkedActivity
-        ? observations
-            .filter((log) => log.activity_plan_id === linkedActivity.id)
-            .sort((left, right) =>
-              String(right.created_at ?? "").localeCompare(String(left.created_at ?? "")),
-            )
-        : [];
-      setActivity(linkedActivity);
-      setResults(linkedResults);
+      const history = await listMaterialResults(material.id);
+      const current = history[0] ?? null;
+      setActivity(current?.activity ?? null);
+      setResults(current?.learning_logs ?? []);
       setLoadState("ready");
     } catch (cause) {
       setLoadState("error");
       setError(cause instanceof Error ? cause.message : "퀘스트 상태를 불러오지 못했습니다.");
     }
-  }, [material.child_id, materialRef]);
+  }, [material.id]);
 
   useEffect(() => {
     void reloadQuest();
@@ -184,29 +167,18 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setBusy(true);
     setError(null);
     try {
-      const linkedActivity = await setQuestStatus(
-        outcome === "partial" ? "active" : outcome,
-      );
-      setActivity(linkedActivity);
-
-      const details = [
-        section("활동 과정", process),
-        section("아이 질문·반응", childQuestion),
-        section("흥미", interest),
-        section("어려움", difficulty),
-        section("다음에 해볼 것", nextActivity),
-      ].filter((item): item is string => item !== null);
-      const text = details.length > 0
-        ? `${mainObservation}\n\n${details.join("\n")}`
-        : mainObservation;
-
-      await createObservation({
-        child_id: material.child_id,
-        observation: text,
+      const response = await recordMaterialResult(material.id, {
+        outcome,
+        observation: mainObservation,
+        process: process.trim() || null,
+        child_question: childQuestion.trim() || null,
+        interest: interest.trim() || null,
+        difficulty_note: difficulty.trim() || null,
+        next_activity: nextActivity.trim() || null,
         experience_axes: axes,
-        activity_plan_id: linkedActivity.id,
+        activity_plan_id: activity?.id ?? null,
       });
-
+      setActivity(response.activity);
       await reloadQuest();
       await onRecorded();
       resetForm();
@@ -321,7 +293,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
           <div className="material-result-heading">
             <div>
               <strong>이 자료로 활동한 결과</strong>
-              <small>저장하면 관찰 기록과 성장 맥락에 다시 반영됩니다.</small>
+              <small>각 입력값을 구조화해서 저장하고 다음 추천·자료 생성에 다시 사용합니다.</small>
             </div>
             <button
               className="quiet-button"
