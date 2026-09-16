@@ -39,6 +39,7 @@ class MaterialUseOutcome(StrEnum):
 class MaterialResultRequest(BaseModel):
     outcome: MaterialUseOutcome = MaterialUseOutcome.COMPLETED
     observation: str = Field(min_length=1, max_length=10_000)
+    learner_work: str | None = Field(default=None, max_length=10_000)
     process: str | None = Field(default=None, max_length=10_000)
     child_question: str | None = Field(default=None, max_length=4_000)
     interest: str | None = Field(default=None, max_length=2_000)
@@ -235,6 +236,7 @@ def record_material_result(
             record_kind=LearningRecordKind.MATERIAL_USE,
             title=material.title,
             parent_observation=request.observation,
+            learner_work=request.learner_work,
             process=request.process,
             child_question=request.child_question,
             interest=request.interest,
