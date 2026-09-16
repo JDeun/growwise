@@ -23,7 +23,9 @@
 > [!NOTE]
 > **로컬·프라이버시 원칙:** 아동 데이터는 로컬에서 처리하고(Markdown = Source of Truth, SQLite =
 > 재생성 인덱스), 아이 대면 챗봇은 범위 밖입니다. 공개 저장소에는 실명·생년 등 개인정보를 커밋하지
-> 않으며, 저장소 PII 감사 테스트로 이를 강제합니다.
+> 않으며, 저장소 PII 감사 테스트로 이를 강제합니다. 앱에서는 아이별 live data를 정본·RAG·대화·작업·
+> checkpoint까지 함께 영구 삭제할 수 있으며, 과거 사용자가 만든 backup ZIP은 별도 immutable snapshot으로
+> 취급합니다.
 
 GrowWise는 챗봇 제품이 아니다. 핵심은 부모의 교육 철학에 맞춰 **아이의 성장과 학습을
 장기적으로 기록·정리·추적하고, 관련 자료를 수집·검색·정리하며, 필요한 학습 자료를 만드는
@@ -105,7 +107,9 @@ Ollama가 중단되어도 다음 핵심 기능은 계속 사용할 수 있어야
 - deterministic 자료 템플릿과 영아 활동 fallback
 
 LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounded synthesis, 개인화
-생성 같은 **보강 기능**으로만 동작한다. 각 AI 경로에는 deterministic fallback을 둔다.
+생성 같은 **보강 기능**으로만 동작한다. 각 AI 경로에는 deterministic fallback을 두며, provider
+호출에는 bounded timeout과 consecutive-failure circuit breaker를 적용해 장애가 반복될 때 Core가
+같은 timeout을 계속 기다리지 않게 한다.
 
 ## 무엇이 아닌가
 
@@ -131,18 +135,19 @@ LLM과 embedding은 자동 태깅, semantic retrieval, 질의 재작성, grounde
 
 - Desktop: Tauri 2 + React/TypeScript
 - Core: Python 3.12+ / FastAPI sidecar
-- Desktop IPC: React → typed Tauri commands → Rust → localhost Core
+- Desktop IPC: React → typed Tauri commands → Rust → **per-run authenticated ephemeral loopback Core**
 - Orchestration: **LangChain + LangGraph**
 - Workflow persistence: LangGraph `SqliteSaver` + `workflow_run`
 - Storage: Markdown(Source of Truth) + SQLite projection/index
 - Model: local-first provider abstraction, 현재 Ollama adapter
-- RAG: lexical + optional embedding hybrid retrieval
+- RAG: lexical + optional embedding hybrid retrieval + current-month → current-year → archive temporal hierarchy
 - Background jobs: SQLite durable job queue
 - Desktop packaging: PyInstaller one-file Core bundled as Tauri resource
 - Export: 이식형 백업(zip)·Markdown 묶음 + 승인 자료 WebView/OS 네이티브 인쇄·PDF
 - Platforms: Windows + macOS
 
-자세한 실행 구조는 [docs/architecture.md](docs/architecture.md)를 참고한다.
+자세한 실행 구조는 [docs/architecture.md](docs/architecture.md), 안정성 invariant는
+[docs/hardening-contracts.md](docs/hardening-contracts.md)를 참고한다.
 
 ## 현재 구현 상태
 
@@ -155,32 +160,40 @@ code signing/notarization 자격증명, updater 장기 trust key 운영, 실기�
 현재 구현된 기반:
 
 - Python 3.12 package / FastAPI local Core
-- Pydantic domain model + UUIDv7
+- Pydantic domain model + UUIDv7 + bounded input/list/dict invariants
 - `ChildProfile`, `LearningLog`, `ActivityPlan`, `ResourceRecord`, `GeneratedMaterial`, `WorkflowRun`
 - Markdown atomic Source-of-Truth repository
 - SQLite disposable projection + deterministic Markdown rebuild
 - frontmatter 예약 키 codec과 rebuild 회귀 테스트
 - child-scoped lexical retrieval
 - Resource chunking / hybrid RAG index / optional Ollama embedding
+- relevance-first + current-month → current-year → archive RAG 시간 계층
 - 저장 기록 + Resource KB 통합 child context 질의
 - 자연어 검색 plan 생성 + deterministic fallback
-- bounded multi-turn conversation session + SQLite persistence
+- normalized append-only multi-turn conversation + concurrent snapshot merge
 - LangChain ModelProvider abstraction + Ollama `ChatOllama` adapter
+- provider/embedding timeout + circuit breaker + deterministic/lexical fallback
 - 관찰 원문을 보존하는 선택적 LLM 태깅·메타데이터 보강
 - LangGraph observation workflow + SQLite durable checkpoint + `thread_id`
 - workflow 실행 상태/출력 참조 저장
+- crash-recoverable idempotency lease + stable reserved resource IDs
 - SQLite durable background job queue
 - 영아 활동 추천 + deterministic fallback
 - 경험 축 기반 deterministic 성장 지도
 - template-first 자료 생성 + optional LLM enhancement
 - Parent Review 상태 머신
 - Tauri 2 + React/TypeScript desktop shell
-- Tauri IPC를 통한 Core health / profile create / growth-map 조회
-- Rust `CoreProcessManager`: 개발 Core 자동 기동·소유 프로세스 종료
-- PyInstaller one-file Core sidecar build + Tauri resource packaging 경로
-- Windows/macOS/Linux Python CI, React build, Rust `cargo check`, packaged-Core smoke test
+- 다자녀 async child-scope race guard
+- per-run random loopback port + 256-bit Bearer session token + authenticated Core handshake
+- OS app-data 기반 desktop Core 저장 경로
+- Rust `CoreProcessManager`: Core 자동 기동·소유 프로세스 종료·세션 secret 수명주기
+- PyInstaller one-file secure Core sidecar build + Tauri resource packaging 경로
+- 아이별 live-data full purge(Markdown/.bak, projection, RAG, conversation, job, idempotency, checkpoint)
+- Windows/macOS/Linux Python CI, React build, Rust `cargo check`/Clippy, authenticated packaged-Core smoke
+- pinned Python/Node/Rust toolchain + immutable GitHub Actions SHA + vulnerability/secret scan
 - GrowWise brand SVG assets
 - 이식형 백업 export/import + Markdown 묶음 아카이브(경로 traversal 방어)
+- restore 안전 snapshot + stale live/RAG cleanup
 - 불변 부모본 자료 편집·버저닝(동시 생성 직렬화)
 - 중·고 학습 트래킹
 - 콘텐츠 안전 가드 — PII·프롬프트 인젝션·연령 부적합·고정관념·scaffold(정답 대신 힌트) + 적대적 회귀 테스트
@@ -196,7 +209,7 @@ python -m pip install -e ".[dev]"
 growwise
 ```
 
-기본 API 주소:
+독립 개발용 Core 기본 API 주소:
 
 ```text
 http://127.0.0.1:8765
@@ -209,6 +222,10 @@ GROWWISE_DATA_DIR=~/.growwise
 GROWWISE_MODEL_PROVIDER=ollama
 GROWWISE_MODEL_ID=qwen3.5:9b
 GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
+GROWWISE_MODEL_TIMEOUT_SECONDS=12
+GROWWISE_MODEL_CIRCUIT_FAILURE_THRESHOLD=3
+GROWWISE_MODEL_CIRCUIT_RECOVERY_SECONDS=30
+GROWWISE_EMBEDDING_TIMEOUT_SECONDS=8
 GROWWISE_LLM_FEATURES_ENABLED=true
 GROWWISE_EMBEDDING_FEATURES_ENABLED=true
 ```
@@ -231,8 +248,10 @@ npm install
 npm run tauri:dev
 ```
 
-Tauri가 `127.0.0.1:8765`에서 기존 Core를 발견하지 못하면 개발 환경의 Python으로
-`growwise.api.main`을 자동 기동한다. 앱 종료 시 GrowWise가 직접 시작한 Core만 종료한다.
+Tauri는 개발 환경에서도 `growwise.api.secure_entry`를 자식 프로세스로 시작한다. 실행마다 임의의
+loopback port와 새 세션 토큰을 만들고, Core가 인증된 protocol handshake에 응답한 뒤에만 IPC를
+연결한다. 데이터는 Tauri가 제공하는 OS app-data 경로를 사용하며 앱 종료 시 자신이 시작한 Core를
+종료한다.
 
 ## Desktop Core sidecar 빌드
 
@@ -242,6 +261,7 @@ Tauri가 `127.0.0.1:8765`에서 기존 Core를 발견하지 못하면 개발 환
 ```bash
 python -m pip install -e ".[desktop-build]"
 python desktop/scripts/build_core_sidecar.py
+python desktop/scripts/smoke_core_sidecar.py
 ```
 
 결과는 플랫폼에 따라 다음 위치에 생성된다.
@@ -251,25 +271,27 @@ desktop/src-tauri/binaries/growwise-core
 desktop/src-tauri/binaries/growwise-core.exe
 ```
 
-실행 파일은 Git에 커밋하지 않고 CI/릴리스 과정에서 플랫폼별로 생성한다.
+실행 파일은 Git에 커밋하지 않고 CI/릴리스 과정에서 플랫폼별로 생성한다. sidecar smoke는 임의
+port/token으로 Core를 실행해 무인증 요청이 거부되는지와 authenticated handshake가 맞는지까지 확인한다.
 
 현재 주요 API vertical slices:
 
 ```text
-POST /v1/children
-POST /v1/observations
-GET  /v1/children/{child_id}/observations
-GET  /v1/children/{child_id}/search?q=...
-GET  /v1/children/{child_id}/growth-map
-GET  /v1/children/{child_id}/infant-activities
-POST /v1/resources
-POST /v1/rag/ask
-POST /v1/children/{child_id}/ask
-POST /v1/children/{child_id}/conversations
-POST /v1/conversations/{session_id}/turns
-POST /v1/children/{child_id}/materials
-POST /v1/materials/{material_id}/review
-GET  /health
+POST   /v1/children
+DELETE /v1/children/{child_id}
+POST   /v1/observations
+GET    /v1/children/{child_id}/observations
+GET    /v1/children/{child_id}/search?q=...
+GET    /v1/children/{child_id}/growth-map
+GET    /v1/children/{child_id}/infant-activities
+POST   /v1/resources
+POST   /v1/rag/ask
+POST   /v1/children/{child_id}/ask
+POST   /v1/children/{child_id}/conversations
+POST   /v1/conversations/{session_id}/turns
+POST   /v1/children/{child_id}/materials
+POST   /v1/materials/{material_id}/review
+GET    /health
 ```
 
 ## 문서
@@ -281,6 +303,7 @@ GET  /health
 | [docs/product-spec.md](docs/product-spec.md) | 전 연령 제품 사양·트래킹·자료·검색·생성 |
 | [docs/material-product-ux.md](docs/material-product-ux.md) | 자료 생성·검토 제품 UX |
 | [docs/architecture.md](docs/architecture.md) | Tauri/Python/LangChain/LangGraph 실행 구조 |
+| [docs/hardening-contracts.md](docs/hardening-contracts.md) | 인증·복구·삭제권·race·RAG·AI fallback·공급망 invariant |
 | [docs/data-model.md](docs/data-model.md) | Markdown SoT·SQLite projection·상태 머신 |
 | [docs/integrations.md](docs/integrations.md) | 외부 API·데이터 소스·Model Provider |
 | [docs/privacy-and-safety.md](docs/privacy-and-safety.md) | 프라이버시·비감시·비진단·해석 안전성 |
