@@ -128,7 +128,7 @@ def test_infant_guidance_api_is_child_scoped_and_has_offline_book_fallback(
     )
 
 
-def test_board_book_discovery_sends_only_generalized_interest_query(
+def test_board_book_discovery_sends_only_allowlisted_general_topics(
     tmp_path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     observed: dict[str, object] = {}
@@ -158,11 +158,13 @@ def test_board_book_discovery_sends_only_generalized_interest_query(
 
     result = BoardBookRecommendationService().recommend(
         resources=[],
-        interests=["고양이", "동물", "세 번째 관심사"],
+        interests=["수아는 고양이를 좋아해요", "010-1234-5678", "동물"],
         limit=2,
     )
 
-    assert observed["keyword"] == "고양이 동물 그림책"
+    assert observed["keyword"] == "동물 고양이 그림책"
+    assert "수아" not in str(observed["keyword"])
+    assert "010" not in str(observed["keyword"])
     assert observed["offline"] is False
     assert result.recommendations[0].source == "public_discovery"
     assert result.recommendations[0].resource_id is None
@@ -170,6 +172,14 @@ def test_board_book_discovery_sends_only_generalized_interest_query(
     assert result.recommendations[0].source_url == "https://example.invalid/book/1"
     assert "적합성" in result.recommendations[0].reason
     assert result.recommendations[1].source == "local_library_or_offline_fallback"
+
+
+def test_board_book_discovery_uses_generic_query_when_no_safe_topic_exists() -> None:
+    query = BoardBookRecommendationService._generalized_book_query(
+        ["수아만의 비밀 메모", "010-1234-5678", "user@example.com"]
+    )
+
+    assert query == "영아 그림책"
 
 
 def test_infant_guidance_rejects_non_infant_stage(tmp_path) -> None:
