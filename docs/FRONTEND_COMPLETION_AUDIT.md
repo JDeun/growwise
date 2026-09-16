@@ -25,7 +25,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 - [x] Timeline filters and record detail view. Observations can be filtered by text, experience axis, activity linkage and period; selecting a record opens a detail panel with activity, axes, interests, tags and next-activity context.
 - [x] Growth map visual hierarchy and explainability. Growth now presents summary metrics, relative experience-axis coverage, three explained observation lenses, diversity context, and an explicit interpretation guide that states counts are record distribution rather than ability, achievement, or diagnosis.
 - [x] Activity lifecycle UX: suggested -> active -> completed/skipped -> linked observation. Activities now expose the four-step lifecycle, state counts, per-plan progress, valid skip/restart paths, and on-demand linked-observation lookup with explicit guidance for creating follow-up observations.
-- [ ] Material queue segmented by draft/review/approved and print/export affordances.
+- [x] Material queue segmented by draft/review/approved and print/export affordances. Materials now expose separate draft, Parent Review, and approved-use stages; drafts explicitly enter review, only approved materials expose print/PDF export, and inactive records remain available in a secondary archive view.
 - [ ] Resource library search/filter/detail/edit/delete flows.
 - [ ] Conversation history/session affordances and evidence presentation.
 - [ ] Onboarding for first child and optional local-model setup.
