@@ -789,7 +789,9 @@ pub fn run() {
                     base_url: manager.base_url().to_string(),
                     session_token: manager.session_token().to_string(),
                 })
-                .map_err(|_| std::io::Error::other("GrowWise Core 연결이 중복 초기화되었습니다."))?;
+                .map_err(|_| {
+                    std::io::Error::other("GrowWise Core 연결이 중복 초기화되었습니다.")
+                })?;
             app.manage(manager);
             Ok(())
         })
