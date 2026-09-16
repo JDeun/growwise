@@ -121,7 +121,9 @@ def test_printed_material_result_becomes_activity_and_learning_log(tmp_path: Pat
     assert {"supports", "documents", "derived_from"}.issubset(relations)
 
 
-def test_material_result_links_reviewed_photo_evidence_without_copying_image(tmp_path: Path) -> None:
+def test_material_result_links_reviewed_photo_evidence_without_copying_image(
+    tmp_path: Path,
+) -> None:
     store = _store(tmp_path)
     child, material = _approved_material(store)
     photo = _committed_photo_record(store, child)
