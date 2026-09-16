@@ -1,6 +1,7 @@
 export { ActivitiesSection } from "./ActivitiesSection";
 export { ChildProfileSection } from "./ChildProfileSection";
 export { DataManagementSection } from "./DataManagementSection";
+export { HomeDashboard } from "./HomeDashboard";
 export { InfantGuidanceSection } from "./InfantGuidanceSection";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
 export { ObservationTimelineSection } from "./ObservationTimelineSection";
