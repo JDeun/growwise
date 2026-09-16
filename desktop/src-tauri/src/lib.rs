@@ -435,9 +435,11 @@ async fn list_resources(child_id: Option<String>) -> Result<serde_json::Value, S
 async fn update_resource(
     resource_id: String,
     request: ResourceCreateInput,
+    acting_child_id: String,
 ) -> Result<serde_json::Value, String> {
     let response = client()?
         .put(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .query(&[("acting_child_id", acting_child_id.as_str())])
         .json(&request)
         .send()
         .await
@@ -449,9 +451,13 @@ async fn update_resource(
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-async fn delete_resource(resource_id: String) -> Result<serde_json::Value, String> {
+async fn delete_resource(
+    resource_id: String,
+    acting_child_id: String,
+) -> Result<serde_json::Value, String> {
     let response = client()?
         .delete(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .query(&[("acting_child_id", acting_child_id.as_str())])
         .send()
         .await
         .map_err(|error| error.to_string())?;
