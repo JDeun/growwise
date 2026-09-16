@@ -78,7 +78,6 @@ logger = logging.getLogger(__name__)
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(study_router)
-app.include_router(resource_router, prefix="/v1")
 
 
 class ChildCreateRequest(BaseModel):
@@ -991,6 +990,11 @@ def recommend_board_books(
         limit=limit,
     )
     return result.model_dump(mode="json")
+
+
+# Resource routes are mounted after all route modules and endpoint definitions have fully initialized.
+# This avoids copying a partially initialized APIRouter during import cycles.
+app.include_router(resource_router, prefix="/v1")
 
 
 def run() -> None:
