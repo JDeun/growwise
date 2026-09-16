@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialStatus
 
-from .material import MaterialGenerationService
+from .material import MaterialGenerationService, MaterialSourceEvidence
 
 
 class MaterialRevisionError(ValueError):
@@ -21,6 +21,7 @@ class MaterialRevisionService:
         material: GeneratedMaterial,
         child: ChildProfile,
         note: str | None = None,
+        source_evidence: list[MaterialSourceEvidence] | None = None,
     ) -> GeneratedMaterial:
         if material.status is not MaterialStatus.REVISION_REQUESTED:
             raise MaterialRevisionError("material must be revision_requested before regeneration")
@@ -43,6 +44,7 @@ class MaterialRevisionService:
             topic=topic,
             goal=goal,
             source_refs=material.source_refs,
+            source_evidence=source_evidence,
         )
         revised.title = material.title
         revised.version = material.version + 1
