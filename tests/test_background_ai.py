@@ -11,18 +11,39 @@ from growwise.storage import EntityStore
 
 
 class ImmediateObservationProvider:
-    def __init__(self, store: EntityStore, log_id: str) -> None:
-        self.store = store
-        self.log_id = log_id
-
     def generate_structured(self, *, system: str, user: str, schema):
         del system, user
+        return schema(tags=["공룡"], interest="공룡")
+
+
+class InspectingJobQueue(SQLiteJobQueue):
+    def __init__(self, path: Path, *, store: EntityStore, log_id: str) -> None:
+        super().__init__(path)
+        self.store = store
+        self.log_id = log_id
+        self.observed_queued_before_claim = False
+
+    def claim_next(
+        self,
+        *,
+        job_types: tuple[str, ...] | None = None,
+        lease_seconds: int = 3600,
+        max_attempts: int = 3,
+    ) -> Job | None:
+        job = super().claim_next(
+            job_types=job_types,
+            lease_seconds=lease_seconds,
+            max_attempts=max_attempts,
+        )
+        if job is None:
+            return None
         payload = self.store.index.get_entity(self.log_id, entity_type="learning_log")
         assert payload is not None
         current = LearningLog.model_validate(payload)
         assert current.ai_status is AiEnhancementStatus.QUEUED
-        assert current.ai_job_id is not None
-        return schema(tags=["공룡"], interest="공룡")
+        assert current.ai_job_id == job.id
+        self.observed_queued_before_claim = True
+        return job
 
 
 def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) -> None:
@@ -33,11 +54,15 @@ def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) ->
     log = LearningLog(child_id=child.id, parent_observation="공룡 책을 오래 읽었다.")
     store.save(log)
 
-    provider = ImmediateObservationProvider(store, str(log.id))
+    queue = InspectingJobQueue(
+        settings.jobs_path,
+        store=store,
+        log_id=str(log.id),
+    )
     runner = BackgroundAiJobRunner(
-        queue=SQLiteJobQueue(settings.jobs_path),
+        queue=queue,
         store_factory=lambda: store,
-        provider_factory=lambda: provider,
+        provider_factory=ImmediateObservationProvider,
         lease_seconds=60,
         max_attempts=1,
         poll_interval_seconds=0.01,
@@ -66,6 +91,7 @@ def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) ->
         else:
             raise AssertionError("background observation enrichment did not complete")
 
+        assert queue.observed_queued_before_claim is True
         assert current.ai_status is AiEnhancementStatus.COMPLETED
         assert current.tags == ["공룡"]
         assert current.interest == "공룡"
