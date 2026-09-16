@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from growwise.api.background_write_routes import router as background_write_router
 from growwise.api.curriculum_routes import router as curriculum_router
 from growwise.api.discovery_routes import router as discovery_router
+from growwise.api.learning_record_routes import router as learning_record_router
 from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
@@ -260,6 +261,7 @@ def list_study_plans(
 
 
 router.include_router(background_write_router)
+router.include_router(learning_record_router)
 router.include_router(curriculum_router)
 router.include_router(discovery_router)
 router.include_router(resource_router)
