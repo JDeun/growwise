@@ -9,8 +9,8 @@ import "./ChildProfileSection.css";
 type ModelOnboardingState =
   | { kind: "idle" }
   | { kind: "checking" }
-  | { kind: "ready"; provider: string }
-  | { kind: "optional"; provider: string; configured: boolean };
+  | { kind: "ready" }
+  | { kind: "optional"; configured: boolean };
 
 interface ChildProfileSectionProps {
   connected: boolean;
@@ -65,17 +65,13 @@ export function ChildProfileSection({
         if (cancelled) return;
         setModelOnboarding(
           health.llm_reachable
-            ? { kind: "ready", provider: health.model_provider }
-            : {
-                kind: "optional",
-                provider: health.model_provider,
-                configured: health.llm_configured,
-              },
+            ? { kind: "ready" }
+            : { kind: "optional", configured: health.llm_configured },
         );
       })
       .catch(() => {
         if (!cancelled) {
-          setModelOnboarding({ kind: "optional", provider: "ollama", configured: true });
+          setModelOnboarding({ kind: "optional", configured: true });
         }
       });
 
@@ -86,27 +82,27 @@ export function ChildProfileSection({
     <>
       <div className="section-heading">
         <div>
-          <p className="eyebrow">CHILD CONTEXT</p>
+          <p className="eyebrow">아이 프로필</p>
           <h2>{firstRun ? "처음 설정을 마치면 바로 기록을 시작할 수 있습니다." : "기존 기록을 이어서 사용합니다."}</h2>
         </div>
-        <span className="badge">{firstRun ? "FIRST RUN" : "Pre-alpha"}</span>
+        {firstRun && <span className="badge">처음 설정</span>}
       </div>
 
       {firstRun && (
         <section className="onboarding-panel" aria-label="GrowWise 첫 실행 설정">
           <div className="onboarding-heading">
             <div>
-              <p className="card-label">2-MINUTE SETUP</p>
+              <p className="card-label">빠른 시작</p>
               <h3>필수 설정은 첫 아이 프로필 하나뿐입니다.</h3>
             </div>
-            <span className="onboarding-optional-badge">AI 선택 사항</span>
+            <span className="onboarding-optional-badge">AI는 선택 사항</span>
           </div>
           <ol className="onboarding-steps">
             <li className={connected ? "is-complete" : "is-current"}>
               <span className="onboarding-step-number">1</span>
               <div>
-                <strong>GrowWise Core 연결</strong>
-                <p>{connected ? "로컬 Core가 준비됐습니다." : "Desktop이 로컬 Core 연결을 확인하고 있습니다."}</p>
+                <strong>앱 준비</strong>
+                <p>{connected ? "기록을 저장할 준비가 됐습니다." : "앱을 준비하고 있습니다. 잠시 후 자동으로 이어집니다."}</p>
               </div>
             </li>
             <li className={connected ? "is-current" : ""}>
@@ -119,30 +115,23 @@ export function ChildProfileSection({
             <li className={modelOnboarding.kind === "ready" ? "is-complete" : "is-optional"}>
               <span className="onboarding-step-number">3</span>
               <div>
-                <strong>로컬 AI 보강 연결 · 선택</strong>
+                <strong>AI 보조 기능 · 선택</strong>
                 {modelOnboarding.kind === "checking" ? (
-                  <p>로컬 모델 런타임 상태를 확인하고 있습니다.</p>
+                  <p>AI 보조 기능을 사용할 수 있는지 확인하고 있습니다.</p>
                 ) : modelOnboarding.kind === "ready" ? (
-                  <p>{modelOnboarding.provider} 런타임이 연결돼 있어 AI 보강을 바로 사용할 수 있습니다.</p>
+                  <p>AI 보조 기능을 사용할 수 있습니다. 기록 정리와 검색, 자료 만들기를 필요할 때 보조합니다.</p>
                 ) : (
-                  <>
-                    <p>
-                      {modelOnboarding.kind === "optional" && modelOnboarding.configured
-                        ? `${modelOnboarding.provider} 설정은 준비돼 있지만 런타임이 아직 연결되지 않았습니다.`
-                        : "로컬 AI를 설정하지 않아도 됩니다."}
-                      {" "}기록·검색·성장 맵·활동·자료 관리는 Core-only로 계속 동작합니다.
-                    </p>
-                    <div className="onboarding-model-help" aria-label="기본 Ollama 설정 도움말">
-                      <span>기본 로컬 모델을 쓰려면 Ollama를 실행하고 필요한 모델을 준비하세요.</span>
-                      <code>ollama serve</code>
-                      <code>ollama pull qwen3.5:9b</code>
-                    </div>
-                  </>
+                  <p>
+                    {modelOnboarding.kind === "optional" && modelOnboarding.configured
+                      ? "AI 보조 기능이 아직 준비되지 않았습니다."
+                      : "AI 보조 기능을 지금 설정하지 않아도 됩니다."}
+                    {" "}관찰 기록, 검색, 성장 보기, 활동과 자료 관리는 그대로 사용할 수 있습니다. 나중에 설정에서 연결할 수 있습니다.
+                  </p>
                 )}
               </div>
             </li>
           </ol>
-          <p className="onboarding-footnote muted">AI 단계는 건너뛰어도 첫 아이를 저장하는 즉시 GrowWise의 필수 기능을 사용할 수 있습니다.</p>
+          <p className="onboarding-footnote muted">AI 단계는 건너뛰어도 됩니다. 첫 아이를 저장하면 바로 기록을 시작할 수 있습니다.</p>
         </section>
       )}
 
@@ -161,13 +150,13 @@ export function ChildProfileSection({
               ))}
             </select>
           </label>
-          <p className="muted">마지막 선택을 기억하지만 데이터는 항상 Core에서 다시 조회합니다.</p>
+          <p className="muted">마지막 선택을 기억하고, 아이를 바꾸면 해당 아이의 최신 기록을 다시 불러옵니다.</p>
         </div>
       )}
 
       <div className="skeleton-grid">
         <form className="profile-form" onSubmit={onSubmit}>
-          <p className="card-label">{firstRun ? "FIRST CHILD" : "NEW CHILD"}</p>
+          <p className="card-label">{firstRun ? "첫 프로필" : "새 아이 추가"}</p>
           <label>
             <span>아이 닉네임</span>
             <input value={nickname} onChange={(event) => onNicknameChange(event.target.value)} placeholder="예: 샘플아이" maxLength={40} disabled={!connected || saving} />
@@ -195,9 +184,9 @@ export function ChildProfileSection({
         <article className="verification-card">
           {activeChild ? (
             <>
-              <p className="card-label">ACTIVE CONTEXT</p>
+              <p className="card-label">현재 아이</p>
               <h3>{activeChild.nickname}</h3>
-              <p className="muted">프로필은 선택 즉시 유지하고, 각 기록 영역은 Core에서 독립적으로 다시 불러옵니다.</p>
+              <p className="muted">아이를 바꾸면 각 기록 영역도 선택한 아이에 맞춰 새로 불러옵니다.</p>
               <dl className="verification-list">
                 <div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div>
                 <div><dt>최근 기록</dt><dd>{childContext.growth.kind === "ready" && growthMap ? growthMap.total_logs_in_period : "—"}</dd></div>
@@ -206,7 +195,7 @@ export function ChildProfileSection({
             </>
           ) : (
             <>
-              <p className="card-label">FIRST STEP</p>
+              <p className="card-label">첫 단계</p>
               <h3>첫 아이 프로필을 만들어 주세요.</h3>
               <p className="muted">개인 식별정보 대신 앱 안에서 구분할 닉네임만 사용해도 됩니다.</p>
             </>
@@ -219,7 +208,7 @@ export function ChildProfileSection({
           <ViewStateNotice
             kind="empty"
             title="먼저 아이 프로필을 만들어 주세요."
-            description="관찰, 성장, 활동, 자료, 검색 작업공간은 선택한 아이의 기록 범위 안에서 동작합니다."
+            description="관찰, 성장, 활동, 자료, 검색 화면은 선택한 아이의 기록을 기준으로 동작합니다."
           />
         </section>
       )}
