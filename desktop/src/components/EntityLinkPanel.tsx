@@ -1,12 +1,8 @@
+import { invoke } from "@tauri-apps/api/core";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import {
-  getEntityBacklinks,
-  listChildren,
-  shareEntityWithChild,
-  type ChildProfile,
-  type EntityBacklinks,
-} from "../api";
+import { useActiveChild } from "../active-child-context";
+import { getEntityBacklinks, type EntityBacklinks } from "../api";
 import "./EntityLinkPanel.css";
 
 interface EntityLinkPanelProps {
@@ -25,20 +21,17 @@ export function EntityLinkPanel({
   ownerChildId = null,
   label = "다른 아이와 연결",
 }: EntityLinkPanelProps) {
+  const { children, activeChildId } = useActiveChild();
   const [open, setOpen] = useState(false);
-  const [children, setChildren] = useState<ChildProfile[]>([]);
   const [graph, setGraph] = useState<EntityBacklinks | null>(null);
   const [targetChildId, setTargetChildId] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const canManageScope = ownerChildId === null || ownerChildId === activeChildId;
+
   const refresh = useCallback(async () => {
-    const [nextChildren, nextGraph] = await Promise.all([
-      listChildren(),
-      getEntityBacklinks(entityId),
-    ]);
-    setChildren(nextChildren);
-    setGraph(nextGraph);
+    setGraph(await getEntityBacklinks(entityId));
   }, [entityId]);
 
   useEffect(() => {
@@ -54,18 +47,21 @@ export function EntityLinkPanel({
     return ids;
   }, [graph]);
 
-  const candidates = children.filter(
-    (child) => child.id !== ownerChildId && !linkedChildIds.has(child.id),
-  );
-
+  const candidates = canManageScope
+    ? children.filter((child) => child.id !== ownerChildId && !linkedChildIds.has(child.id))
+    : [];
   const linkedChildren = children.filter((child) => linkedChildIds.has(child.id));
 
   async function handleShare() {
-    if (!targetChildId || busy) return;
+    if (!targetChildId || !activeChildId || !canManageScope || busy) return;
     setBusy(true);
     setError(null);
     try {
-      await shareEntityWithChild(entityId, targetChildId);
+      await invoke("share_entity_with_child", {
+        sourceId: entityId,
+        childId: targetChildId,
+        actingChildId: activeChildId,
+      });
       setTargetChildId("");
       await refresh();
     } catch (shareError) {
@@ -101,7 +97,11 @@ export function EntityLinkPanel({
             </div>
           )}
 
-          {candidates.length > 0 ? (
+          {!canManageScope ? (
+            <p className="muted">
+              공유받은 문서의 연결 범위는 원래 아이 화면에서만 변경할 수 있습니다.
+            </p>
+          ) : candidates.length > 0 ? (
             <div className="entity-link-share-row">
               <select
                 value={targetChildId}
