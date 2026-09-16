@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from growwise.domain import LearningLog, LearningRecordKind
-from growwise.storage.sqlite import SQLiteIndex
+from growwise.storage.sqlite import SQLiteProjection
 
 _FEEDBACK_BLOCK_START = "<!-- growwise-material-feedback:start -->"
 _FEEDBACK_BLOCK_END = "<!-- growwise-material-feedback:end -->"
@@ -109,7 +109,7 @@ class MaterialFeedbackSnapshot:
 class MaterialFeedbackService:
     """Build a bounded snapshot from recent printed/material-use outcomes for one child."""
 
-    def __init__(self, index: SQLiteIndex) -> None:
+    def __init__(self, index: SQLiteProjection) -> None:
         self.index = index
 
     def snapshot(self, *, child_id: str, limit: int = 5) -> MaterialFeedbackSnapshot:
