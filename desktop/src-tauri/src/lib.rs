@@ -1,4 +1,5 @@
 mod core_process;
+mod link_commands;
 mod photo_commands;
 
 use std::fmt;
@@ -8,7 +9,10 @@ use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use core_process::CoreProcessManager;
-use photo_commands::{commit_photo_record, create_photo_record, get_photo_asset, list_photo_records};
+use link_commands::{get_entity_backlinks, share_entity_with_child};
+use photo_commands::{
+    commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
+};
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 use tauri::Manager;
@@ -830,6 +834,8 @@ pub fn run() {
             list_photo_records,
             commit_photo_record,
             get_photo_asset,
+            share_entity_with_child,
+            get_entity_backlinks,
             list_backups,
             create_backup,
             restore_backup,
