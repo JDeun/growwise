@@ -51,6 +51,7 @@ class MaterialFeedbackItem:
     log_id: UUID
     title: str | None
     observation: str | None
+    learner_work: str | None
     child_question: str | None
     interest: str | None
     difficulty_note: str | None
@@ -89,6 +90,10 @@ class MaterialFeedbackSnapshot:
         signals: list[str] = []
         if any(item.interest for item in self.items):
             signals.append("최근 활동에서 흥미가 기록된 요소를 선택적으로 이어간다")
+        if any(item.learner_work for item in self.items):
+            signals.append(
+                "최근 아이 산출물이 있으면 정답을 복제하지 않고 사고 과정을 확장하는 선택 질문을 둔다"
+            )
         if any(item.child_question for item in self.items):
             signals.append("최근 아이 질문을 이어갈 수 있는 열린 질문을 둔다")
         if any(item.difficulty_note for item in self.items):
@@ -147,6 +152,8 @@ class MaterialFeedbackSnapshot:
                 sections.append(f"### {title}")
                 if item.observation:
                     sections.append(f"- 부모 관찰: {item.observation}")
+                if item.learner_work:
+                    sections.append(f"- 아이 답변·산출물: {item.learner_work}")
                 if item.child_question:
                     sections.append(f"- 아이 질문·반응: {item.child_question}")
                 if item.interest:
@@ -220,18 +227,29 @@ class MaterialFeedbackService:
         items: list[MaterialFeedbackItem] = []
         for log in material_logs[: max(0, min(limit, 10))]:
             observation = _inline(log.parent_observation, limit=900)
+            learner_work = _inline(log.learner_work, limit=1200)
             child_question = _inline(log.child_question, limit=500)
             interest = _inline(log.interest, limit=500)
             difficulty_note = _inline(log.difficulty_note, limit=700)
             next_activity = _inline(log.next_activity, limit=700)
             title = _inline(log.title, limit=300)
-            if not any((observation, child_question, interest, difficulty_note, next_activity)):
+            if not any(
+                (
+                    observation,
+                    learner_work,
+                    child_question,
+                    interest,
+                    difficulty_note,
+                    next_activity,
+                )
+            ):
                 continue
             items.append(
                 MaterialFeedbackItem(
                     log_id=log.id,
                     title=title,
                     observation=observation,
+                    learner_work=learner_work,
                     child_question=child_question,
                     interest=interest,
                     difficulty_note=difficulty_note,
