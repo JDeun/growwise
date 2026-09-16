@@ -6,12 +6,14 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, Field
 
 from growwise.config import Settings
-from growwise.domain.photo import PhotoAsset
+from growwise.domain.photo import PhotoAsset, PhotoRecordStatus
+from growwise.jobs import SQLiteJobQueue
 from growwise.model.factory import create_model_provider
+from growwise.model.ollama import OllamaProvider
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
 from growwise.services.photo_activity import (
@@ -20,6 +22,7 @@ from growwise.services.photo_activity import (
     PhotoUpload,
     PhotoValidationError,
 )
+from growwise.services.photo_jobs import PhotoJobRunner
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["photo-activity"])
@@ -60,7 +63,19 @@ def get_photo_text_provider() -> ModelProvider | None:
     settings = get_photo_settings()
     if not settings.llm_features_enabled:
         return None
-    if settings.model_provider.casefold() != "ollama" and not settings.photo_remote_text_allowed:
+    if settings.model_provider.casefold() == "ollama":
+        try:
+            return OllamaProvider(
+                model=settings.model_id,
+                base_url=settings.model_base_url,
+                temperature=settings.model_temperature,
+                timeout_seconds=settings.photo_text_timeout_seconds,
+                failure_threshold=settings.model_circuit_failure_threshold,
+                recovery_seconds=settings.model_circuit_recovery_seconds,
+            )
+        except Exception:
+            return None
+    if not settings.photo_remote_text_allowed:
         return None
     try:
         return create_model_provider(settings)
@@ -98,6 +113,31 @@ def _service(settings: Settings, store: EntityStore) -> PhotoActivityService:
     )
 
 
+@lru_cache
+def get_photo_job_runner() -> PhotoJobRunner:
+    settings = get_photo_settings()
+
+    def service_factory() -> PhotoActivityService:
+        store = EntityStore(settings.records_dir, settings.index_path)
+        return _service(settings, store)
+
+    return PhotoJobRunner(
+        queue=SQLiteJobQueue(settings.jobs_path),
+        service_factory=service_factory,
+        lease_seconds=settings.photo_job_lease_seconds,
+        max_attempts=settings.photo_job_max_attempts,
+        poll_interval_seconds=settings.photo_job_poll_interval_seconds,
+    )
+
+
+def start_photo_job_runner() -> None:
+    get_photo_job_runner().start()
+
+
+def stop_photo_job_runner() -> None:
+    get_photo_job_runner().stop()
+
+
 def _decode_uploads(request: PhotoDraftRequest, settings: Settings) -> list[PhotoUpload]:
     if len(request.files) > settings.photo_max_images_per_record:
         raise HTTPException(status_code=422, detail="too_many_photos")
@@ -123,7 +163,10 @@ def _decode_uploads(request: PhotoDraftRequest, settings: Settings) -> list[Phot
     return uploads
 
 
-@router.post("/children/{child_id}/photo-records")
+@router.post(
+    "/children/{child_id}/photo-records",
+    status_code=status.HTTP_202_ACCEPTED,
+)
 def create_photo_record(
     child_id: UUID,
     request: PhotoDraftRequest,
@@ -131,8 +174,9 @@ def create_photo_record(
     store: Annotated[EntityStore, Depends(get_photo_store)],
 ) -> dict[str, object]:
     uploads = _decode_uploads(request, settings)
+    service = _service(settings, store)
     try:
-        record, assets = _service(settings, store).create_draft(
+        record, assets = service.prepare_draft(
             child_id=str(child_id),
             uploads=uploads,
             user_context=request.user_context,
@@ -141,9 +185,24 @@ def create_photo_record(
         raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
     except PhotoValidationError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+    runner = get_photo_job_runner()
+    runner.start()
+    try:
+        job = runner.submit(child_id=str(child_id), record_id=str(record.id))
+        record = service.attach_job(record_id=str(record.id), job_id=job.id)
+    except Exception as exc:
+        service.mark_failed(str(record.id), f"background_queue_error: {exc}")
+        raise HTTPException(status_code=503, detail="photo_background_queue_unavailable") from exc
+
     return {
         "record": record.model_dump(mode="json"),
         "assets": [asset.model_dump(mode="json") for asset in assets],
+        "job": {
+            "id": str(job.id),
+            "status": job.status,
+            "attempts": job.attempts,
+        },
     }
 
 
@@ -159,6 +218,52 @@ def list_photo_records(
         record.model_dump(mode="json")
         for record in _service(settings, store).list_for_child(str(child_id))
     ]
+
+
+@router.get("/children/{child_id}/photo-records/{record_id}")
+def get_photo_record(
+    child_id: UUID,
+    record_id: UUID,
+    settings: Annotated[Settings, Depends(get_photo_settings)],
+    store: Annotated[EntityStore, Depends(get_photo_store)],
+) -> dict[str, object]:
+    service = _service(settings, store)
+    try:
+        record = service.get_record(str(record_id))
+        if record.child_id != child_id:
+            raise KeyError("photo_record_not_found")
+        assets = service.get_assets_for_record(str(record_id))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+    return {
+        "record": record.model_dump(mode="json"),
+        "assets": [asset.model_dump(mode="json") for asset in assets],
+    }
+
+
+@router.post("/photo-records/{record_id}/retry", status_code=status.HTTP_202_ACCEPTED)
+def retry_photo_record(
+    record_id: UUID,
+    settings: Annotated[Settings, Depends(get_photo_settings)],
+    store: Annotated[EntityStore, Depends(get_photo_store)],
+) -> dict[str, object]:
+    service = _service(settings, store)
+    try:
+        record = service.get_record(str(record_id))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+    if record.status is not PhotoRecordStatus.FAILED:
+        raise HTTPException(status_code=409, detail="photo_record_not_failed")
+
+    service.mark_queued(str(record_id))
+    runner = get_photo_job_runner()
+    runner.start()
+    job = runner.submit(child_id=str(record.child_id), record_id=str(record.id))
+    record = service.attach_job(record_id=str(record.id), job_id=job.id)
+    return {
+        "record": record.model_dump(mode="json"),
+        "job": {"id": str(job.id), "status": job.status, "attempts": job.attempts},
+    }
 
 
 @router.post("/photo-records/{record_id}/commit")
