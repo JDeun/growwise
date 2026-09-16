@@ -74,11 +74,14 @@ def _validate_relocation_paths(
         raise StorageLocationError("source index must not be inside the destination record tree")
 
     # Keep record trees pure Markdown SoT directories. SQLite files inside either record root are
-    # otherwise copied as opaque files by relocation and can be deleted/reopened at surprising times.
+    # otherwise copied as opaque files by relocation and can be deleted/reopened at surprising
+    # times.
     if source_index.is_relative_to(source_root):
         raise StorageLocationError("source index must not be inside the source record tree")
     if dest_index.is_relative_to(dest_root):
-        raise StorageLocationError("destination index must not be inside the destination record tree")
+        raise StorageLocationError(
+            "destination index must not be inside the destination record tree"
+        )
 
 
 class StorageLocation:
