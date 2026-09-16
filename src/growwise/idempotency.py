@@ -12,6 +12,7 @@ from typing import Any
 
 
 DEFAULT_IDEMPOTENCY_LEASE_SECONDS = 300
+_RELEASED_AT = datetime(1970, 1, 1, tzinfo=UTC).isoformat()
 
 
 class IdempotencyConflict(ValueError):
@@ -30,8 +31,8 @@ class IdempotencyRecord:
     resource_type: str
     resource_id: str
     created_at: str
-    status: IdempotencyStatus = IdempotencyStatus.COMPLETED
-    updated_at: str | None = None
+    status: IdempotencyStatus
+    updated_at: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -74,8 +75,9 @@ class SQLiteIdempotencyStore:
     reacquire *the same resource ID*. This closes the crash window where a process dies after
     reserving an ID (or even after writing its source record) but before marking the claim complete.
 
-    Reacquisition intentionally never allocates a new resource ID for an existing key. Callers can
-    therefore safely replay source writes without creating duplicate logical records.
+    Reacquisition intentionally never allocates a new resource ID for an existing key. ``release``
+    expires the lease immediately instead of deleting the row, preserving that reserved ID even
+    when a caller cannot tell whether a source-of-truth write already committed.
     """
 
     def __init__(self, path: Path) -> None:
@@ -106,27 +108,41 @@ class SQLiteIdempotencyStore:
                 """
             )
             columns = {
-                row["name"]
-                for row in connection.execute("PRAGMA table_info(idempotency_records)").fetchall()
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(idempotency_records)"
+                ).fetchall()
             }
             if "status" not in columns:
                 connection.execute(
-                    "ALTER TABLE idempotency_records "
-                    "ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'"
+                    "ALTER TABLE idempotency_records ADD COLUMN status TEXT NOT NULL DEFAULT 'completed'"
                 )
             if "updated_at" not in columns:
                 connection.execute(
                     "ALTER TABLE idempotency_records ADD COLUMN updated_at TEXT"
                 )
+            connection.execute(
+                "UPDATE idempotency_records SET status = ? WHERE status IS NULL OR status = ''",
+                (IdempotencyStatus.COMPLETED,),
+            )
+            connection.execute(
+                "UPDATE idempotency_records SET updated_at = created_at WHERE updated_at IS NULL"
+            )
             connection.commit()
         finally:
             connection.close()
 
     @staticmethod
     def _row_to_record(row: sqlite3.Row) -> IdempotencyRecord:
-        payload = dict(row)
-        payload["status"] = IdempotencyStatus(payload.get("status") or "completed")
-        return IdempotencyRecord(**payload)
+        return IdempotencyRecord(
+            key=row["key"],
+            request_hash=row["request_hash"],
+            resource_type=row["resource_type"],
+            resource_id=row["resource_id"],
+            created_at=row["created_at"],
+            status=IdempotencyStatus(row["status"]),
+            updated_at=row["updated_at"] or row["created_at"],
+        )
 
     def get(self, key: str) -> IdempotencyRecord | None:
         connection = self._connect()
@@ -138,9 +154,7 @@ class SQLiteIdempotencyStore:
             ).fetchone()
         finally:
             connection.close()
-        if row is None:
-            return None
-        return self._row_to_record(row)
+        return self._row_to_record(row) if row is not None else None
 
     def claim(
         self,
@@ -199,9 +213,11 @@ class SQLiteIdempotencyStore:
                 return IdempotencyClaim(record=existing, acquired=False)
 
             connection.execute(
-                "INSERT INTO idempotency_records "
-                "(key, request_hash, resource_type, resource_id, created_at, status, updated_at) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?)",
+                """
+                INSERT INTO idempotency_records (
+                    key, request_hash, resource_type, resource_id, created_at, status, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
                 (
                     key,
                     request_hash,
@@ -308,12 +324,19 @@ class SQLiteIdempotencyStore:
         request_hash: str,
         resource_id: str,
     ) -> bool:
+        """Expire a pending lease immediately while preserving its reserved resource ID."""
         connection = self._connect()
         try:
             cursor = connection.execute(
-                "DELETE FROM idempotency_records "
+                "UPDATE idempotency_records SET updated_at = ? "
                 "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ?",
-                (key, request_hash, resource_id, IdempotencyStatus.PENDING),
+                (
+                    _RELEASED_AT,
+                    key,
+                    request_hash,
+                    resource_id,
+                    IdempotencyStatus.PENDING,
+                ),
             )
             connection.commit()
             return cursor.rowcount > 0
