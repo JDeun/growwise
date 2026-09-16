@@ -140,6 +140,35 @@ def test_photo_worker_returns_request_to_queue_then_builds_draft(tmp_path: Path)
     assert "블록을 함께" in current.generated_observation
 
 
+def test_vision_caption_never_receives_parent_note(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+
+    class CapturingVision:
+        model = "privacy-test-vision"
+
+        def __init__(self) -> None:
+            self.contexts: list[str] = []
+
+        def caption(self, *, image_base64: str, mime_type: str, context: str) -> str:
+            assert image_base64
+            assert mime_type == "image/png"
+            self.contexts.append(context)
+            return "블록이 보인다."
+
+    vision = CapturingVision()
+    service, store = _service(settings, vision_provider=vision)
+    child = _child(store)
+    record, _assets = service.create_draft(
+        child_id=str(child.id),
+        uploads=[_upload()],
+        user_context="부모만 제공한 민감한 메모",
+    )
+
+    assert vision.contexts == [""]
+    assert "부모만 제공한 민감한 메모" in record.generated_observation
+    assert "블록이 보인다" in record.generated_observation
+
+
 def test_child_purge_during_slow_caption_does_not_resurrect_photo_data(tmp_path: Path) -> None:
     settings = _settings(tmp_path)
 
