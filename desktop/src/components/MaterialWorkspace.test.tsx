@@ -64,22 +64,23 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("활동 결과 기록");
+    expect(html).toContain("활동 퀘스트");
   });
 
-  it("keeps review-pending material out of the printable and result-capture lane", () => {
+  it("keeps review-pending material out of the printable and closed-loop lane", () => {
     const html = render([base]);
     expect(html).toContain("부모 검토 필요");
     expect(html).toContain("승인하고 사용");
     expect(html).not.toContain("인쇄 / PDF 내보내기");
-    expect(html).not.toContain("활동 결과 기록");
+    expect(html).not.toContain("활동 퀘스트");
   });
 
-  it("only exposes print and result capture after parent approval", () => {
+  it("only exposes print and closed-loop tracking after parent approval", () => {
     const html = render([{ ...base, status: "approved" }]);
     expect(html).toContain("승인·사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("활동 결과 기록");
+    expect(html).toContain("활동 퀘스트");
+    expect(html).toContain("인쇄한 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.");
     expect(html).not.toContain("승인하고 사용");
   });
 
