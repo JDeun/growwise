@@ -12,6 +12,7 @@ export interface HealthResponse { status: string; operation_mode: OperationMode;
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput { nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
 export interface ChildProfile { id: string; nickname: string; stage: Stage; age_months: number | null; interests: string[]; }
+export interface ChildPurgeResult { child_id: string; markdown_files_deleted: number; rag_chunks_deleted: number; conversations_deleted: number; jobs_deleted: number; idempotency_records_deleted: number; checkpoint_threads_deleted: number; backups_may_contain_deleted_child: boolean; }
 export interface ObservationCreateInput { child_id: string; observation: string; experience_axes: ExperienceAxis[]; activity_plan_id?: string | null; }
 export interface LearningLog { id: string; child_id: string; activity_plan_id: string | null; parent_observation: string; tags: string[]; experience_axes: ExperienceAxis[]; interest: string | null; next_activity: string | null; created_at: string | null; }
 export interface GrowthAxis { axis: ExperienceAxis; state: string; observation_count: number; }
@@ -51,6 +52,7 @@ export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
 export const createChild = (request: ChildCreateInput) => call<ChildProfile>("create_child", { request });
 export const listChildren = () => call<ChildProfile[]>("list_children");
+export const deleteChild = (childId: string) => call<ChildPurgeResult>("delete_child", { childId });
 export const createObservation = (request: ObservationCreateInput) => call<LearningLog>("create_observation", { request });
 export const listObservations = (childId: string) => call<LearningLog[]>("list_observations", { childId });
 export const createActivity = (childId: string, title: string, sourceRefs: string[] = []) => call<ActivityPlan>("create_activity", { childId, title, sourceRefs });
