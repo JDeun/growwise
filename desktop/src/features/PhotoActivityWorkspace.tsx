@@ -3,6 +3,7 @@ import { ChangeEvent, useCallback, useEffect, useState } from "react";
 import {
   commitPhotoRecord,
   createPhotoRecord,
+  getPhotoAsset,
   listChildren,
   listPhotoRecords,
   type ChildProfile,
@@ -15,6 +16,7 @@ import "./PhotoActivityWorkspace.css";
 const LAST_CHILD_KEY = "growwise:last-child-id";
 const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
+const MAX_TOTAL_BYTES = 60 * 1024 * 1024;
 const ACCEPTED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 
 function fileToBase64(file: File): Promise<string> {
@@ -47,6 +49,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [records, setRecords] = useState<PhotoActivityRecord[]>([]);
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
+  const [storedPreviews, setStoredPreviews] = useState<string[]>([]);
   const [context, setContext] = useState("");
   const [draft, setDraft] = useState<PhotoActivityRecord | null>(null);
   const [draftAssets, setDraftAssets] = useState<PhotoAsset[]>([]);
@@ -95,6 +98,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setChildId(next);
     setDraft(null);
     setDraftAssets([]);
+    setStoredPreviews([]);
     setEditedObservation("");
     setError(null);
     window.localStorage.setItem(LAST_CHILD_KEY, next);
@@ -122,7 +126,14 @@ export function PhotoActivityWorkspace({ active }: Props) {
       event.target.value = "";
       return;
     }
+    const totalBytes = selected.reduce((sum, file) => sum + file.size, 0);
+    if (totalBytes > MAX_TOTAL_BYTES) {
+      setError("한 기록에 선택한 사진의 전체 용량은 60MB 이하여야 합니다.");
+      event.target.value = "";
+      return;
+    }
     setFiles(selected);
+    setStoredPreviews([]);
     setDraft(null);
     setDraftAssets([]);
     setEditedObservation("");
@@ -144,6 +155,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
       const result = await createPhotoRecord(childId, uploads, context.trim() || undefined);
       setDraft(result.record);
       setDraftAssets(result.assets);
+      setStoredPreviews([]);
       setEditedObservation(result.record.generated_observation);
       setNotice(
         result.record.generation_mode === "llm_photo_synthesis"
@@ -167,6 +179,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
       setNotice("검토한 사진 기록을 관찰 타임라인에 저장했습니다.");
       setDraft(null);
       setDraftAssets([]);
+      setStoredPreviews([]);
       setEditedObservation("");
       setContext("");
       setFiles([]);
@@ -178,17 +191,36 @@ export function PhotoActivityWorkspace({ active }: Props) {
     }
   }
 
-  function reopenDraft(record: PhotoActivityRecord) {
-    if (record.status !== "draft") return;
-    setDraft(record);
-    setDraftAssets([]);
-    setEditedObservation(record.generated_observation);
-    setFiles([]);
-    setContext(record.user_context ?? "");
-    setNotice("이전에 만든 초안을 다시 열었습니다. 사진 원본은 로컬 저장소에 유지되어 있습니다.");
+  async function reopenDraft(record: PhotoActivityRecord) {
+    if (record.status !== "draft" || busy) return;
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const contents = await Promise.all(
+        record.photo_asset_ids.map((assetId) => getPhotoAsset(record.child_id, assetId)),
+      );
+      setDraft(record);
+      setDraftAssets(contents.map((content) => content.asset));
+      setStoredPreviews(
+        contents.map(
+          (content) => `data:${content.asset.mime_type};base64,${content.data_base64}`,
+        ),
+      );
+      setEditedObservation(record.generated_observation);
+      setFiles([]);
+      setContext(record.user_context ?? "");
+      setNotice("이전에 만든 초안과 로컬 사진 원본을 다시 열었습니다.");
+    } catch (loadError) {
+      setError(messageFrom(loadError));
+    } finally {
+      setBusy(false);
+    }
   }
 
   if (!active) return null;
+
+  const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
 
   return (
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
@@ -214,16 +246,22 @@ export function PhotoActivityWorkspace({ active }: Props) {
 
         <label className="photo-field">
           <span>아이</span>
-          <select value={childId} onChange={handleChildChange} disabled={busy || children.length === 0}>
+          <select
+            value={childId}
+            onChange={handleChildChange}
+            disabled={busy || children.length === 0}
+          >
             {children.length === 0 && <option value="">먼저 아이 프로필을 만들어주세요</option>}
             {children.map((child) => (
-              <option key={child.id} value={child.id}>{child.nickname}</option>
+              <option key={child.id} value={child.id}>
+                {child.nickname}
+              </option>
             ))}
           </select>
         </label>
 
         <label className="photo-field">
-          <span>활동 사진 · 최대 {MAX_FILES}장</span>
+          <span>활동 사진 · 최대 {MAX_FILES}장 / 전체 60MB</span>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp"
@@ -233,12 +271,14 @@ export function PhotoActivityWorkspace({ active }: Props) {
           />
         </label>
 
-        {previews.length > 0 && (
-          <div className="photo-preview-grid" aria-label="선택한 사진 미리보기">
-            {previews.map((url, index) => (
-              <figure key={url}>
-                <img src={url} alt={`선택한 활동 사진 ${index + 1}`} />
-                <figcaption>{files[index]?.name}</figcaption>
+        {visiblePreviews.length > 0 && (
+          <div className="photo-preview-grid" aria-label="활동 사진 미리보기">
+            {visiblePreviews.map((url, index) => (
+              <figure key={`${index}-${url.slice(0, 40)}`}>
+                <img src={url} alt={`활동 사진 ${index + 1}`} />
+                <figcaption>
+                  {files[index]?.name ?? draftAssets[index]?.original_filename ?? `사진 ${index + 1}`}
+                </figcaption>
               </figure>
             ))}
           </div>
@@ -264,8 +304,16 @@ export function PhotoActivityWorkspace({ active }: Props) {
           {busy ? "처리 중…" : "사진에서 기록 초안 만들기"}
         </button>
 
-        {error && <p className="form-error" role="alert">{error}</p>}
-        {notice && <p className="muted photo-notice" role="status" aria-live="polite">{notice}</p>}
+        {error && (
+          <p className="form-error" role="alert">
+            {error}
+          </p>
+        )}
+        {notice && (
+          <p className="muted photo-notice" role="status" aria-live="polite">
+            {notice}
+          </p>
+        )}
 
         {draft && (
           <section className="photo-draft" aria-labelledby="photo-draft-title">
@@ -330,7 +378,12 @@ export function PhotoActivityWorkspace({ active }: Props) {
                 </div>
                 <p>{record.generated_observation}</p>
                 {record.status === "draft" && (
-                  <button className="quiet-button" type="button" onClick={() => reopenDraft(record)}>
+                  <button
+                    className="quiet-button"
+                    type="button"
+                    onClick={() => void reopenDraft(record)}
+                    disabled={busy}
+                  >
                     검토 계속
                   </button>
                 )}
