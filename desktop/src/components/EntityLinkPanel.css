@@ -1,0 +1,42 @@
+.entity-link-panel {
+  position: relative;
+}
+
+.entity-link-popover {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-card);
+  background: var(--surface-soft);
+}
+
+.entity-link-popover p {
+  margin: 0;
+}
+
+.entity-link-chip-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.entity-link-chip-list span {
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  font-size: 0.875rem;
+}
+
+.entity-link-share-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 1fr) auto;
+  gap: var(--space-2);
+}
+
+@media (max-width: 700px) {
+  .entity-link-share-row {
+    grid-template-columns: 1fr;
+  }
+}
