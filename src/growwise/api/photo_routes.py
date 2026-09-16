@@ -24,11 +24,15 @@ from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["photo-activity"])
 
+# 15 MiB expands to just under 21 MiB in base64. Bound the encoded representation as well as the
+# decoded bytes so an authenticated local caller cannot send an unbounded string into validation.
+_MAX_ENCODED_PHOTO_CHARS = 21_000_000
+
 
 class PhotoUploadInput(BaseModel):
     filename: str = Field(min_length=1, max_length=255)
     mime_type: str = Field(min_length=1, max_length=100)
-    data_base64: str = Field(min_length=4)
+    data_base64: str = Field(min_length=4, max_length=_MAX_ENCODED_PHOTO_CHARS)
 
 
 class PhotoDraftRequest(BaseModel):
@@ -56,6 +60,8 @@ def get_photo_text_provider() -> ModelProvider | None:
     settings = get_photo_settings()
     if not settings.llm_features_enabled:
         return None
+    if settings.model_provider.casefold() != "ollama" and not settings.photo_remote_text_allowed:
+        return None
     try:
         return create_model_provider(settings)
     except Exception:
@@ -65,12 +71,12 @@ def get_photo_text_provider() -> ModelProvider | None:
 @lru_cache
 def get_photo_vision_provider() -> OllamaVisionProvider | None:
     settings = get_photo_settings()
-    if not settings.vision_features_enabled:
+    if not settings.vision_features_enabled or settings.vision_provider.casefold() != "ollama":
         return None
     try:
         return OllamaVisionProvider(
             model=settings.vision_model_id,
-            base_url=settings.model_base_url,
+            base_url=settings.vision_base_url,
             timeout_seconds=settings.vision_timeout_seconds,
             failure_threshold=settings.model_circuit_failure_threshold,
             recovery_seconds=settings.model_circuit_recovery_seconds,
