@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Local model latency/quality benchmark harness.
 
-Runs a set of representative parent-facing generation requests through a model provider and
-reports per-request latency plus a lightweight quality proxy (does the draft survive the
-scaffold safety guard, and is it non-trivial). Real numbers require a real local model
-(e.g. Ollama); the harness itself is provider-agnostic and offline-testable via a stub.
+Runs a set of representative parent-facing generation requests through the configured model provider
+and reports per-request latency plus a lightweight quality proxy (does the draft survive the scaffold
+safety guard, and is it non-trivial). Real numbers require a real local model (e.g. Ollama); the
+harness itself is provider-agnostic and offline-testable via a stub.
 
 Usage (real):  uv run python scripts/benchmark_model.py
 The decision "keep local vs switch remote" is the operator's — this only produces the data.
@@ -17,9 +17,10 @@ import time
 from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 
+from growwise.config import Settings
 from growwise.domain import ChildProfile, MaterialKind, Stage
 from growwise.generators import MaterialGenerationService
-from growwise.model import ModelProvider
+from growwise.model import ModelProvider, create_model_provider
 
 _PROMPTS: tuple[tuple[MaterialKind, str], ...] = (
     (MaterialKind.READING_ACTIVITY, "고양이 그림책"),
@@ -93,16 +94,21 @@ def run_model_benchmark(
     )
 
 
-def main() -> int:
-    try:
-        from growwise.model import build_provider  # type: ignore[attr-defined]
+def _provider_from_settings(settings: Settings) -> ModelProvider | None:
+    if not settings.llm_features_enabled:
+        return None
+    return create_model_provider(settings)
 
-        provider = build_provider()
-    except Exception:  # noqa: BLE001 - no local model configured → Core-only baseline
-        provider = None
+
+def main() -> int:
+    settings = Settings()
+    provider = _provider_from_settings(settings)
     report = run_model_benchmark(provider)
     payload = {
         "provider": "configured" if provider is not None else "core-only",
+        "provider_kind": settings.model_provider,
+        "model_id": settings.model_id,
+        "llm_features_enabled": settings.llm_features_enabled,
         **{k: v for k, v in asdict(report).items() if k != "rows"},
         "rows": [asdict(r) for r in report.rows],
     }
