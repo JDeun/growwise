@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -70,6 +71,8 @@ from growwise.services import (
 )
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph, build_observation_graph
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
@@ -174,6 +177,7 @@ def get_model_provider() -> ModelProvider | None:
     try:
         return create_model_provider(settings)
     except Exception:
+        logger.exception("model provider unavailable; continuing in deterministic core-only mode")
         return None
 
 
@@ -188,6 +192,7 @@ def get_rag_index() -> HybridRagIndex:
                 base_url=settings.model_base_url,
             )
         except Exception:
+            logger.exception("embedding provider unavailable; RAG will use lexical search")
             embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
@@ -384,7 +389,8 @@ def transition_activity(
     return activity
 
 
-@app.post("/v1/resources", response_model=ResourceRecord)
+# Compatibility helpers for direct service-level tests. HTTP /v1/resources collection routes are
+# owned solely by growwise.api.resource_routes to avoid duplicate FastAPI route registration.
 def create_resource(
     request: ResourceCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
@@ -395,7 +401,6 @@ def create_resource(
     return resource
 
 
-@app.get("/v1/resources")
 def list_resources(
     store: Annotated[EntityStore, Depends(get_store)],
     child_id: UUID | None = None,
@@ -609,8 +614,12 @@ def review_material(
         except HTTPException:
             raise
         except Exception:
-            # Backward compatibility for materials created before review checkpoints existed.
-            pass
+            # Legacy material records may not have a checkpoint. Keep the domain transition usable,
+            # but make the degraded path observable instead of silently swallowing checkpoint bugs.
+            logger.exception(
+                "material review checkpoint unavailable for %s; using domain transition",
+                material.id,
+            )
     try:
         MaterialReviewService().transition(material, request.status, note=request.note)
     except InvalidMaterialTransition as exc:
@@ -783,7 +792,7 @@ def create_observation(
                     dict.fromkeys([*experience_axes, *enrichment.experience_axes])
                 )
             except Exception:
-                pass
+                logger.exception("observation enrichment failed; saving deterministic core result")
 
         log = LearningLog(
             id=reserved_log_id,
