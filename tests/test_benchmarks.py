@@ -11,8 +11,9 @@ import pytest
 _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 
-def _load(module_name: str) -> Any:
-    spec = importlib.util.spec_from_file_location(module_name, _SCRIPTS / f"{module_name}.py")
+def _load(module_name: str, *, script_name: str | None = None) -> Any:
+    script = script_name or module_name
+    spec = importlib.util.spec_from_file_location(module_name, _SCRIPTS / f"{script}.py")
     assert spec and spec.loader
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
@@ -65,7 +66,7 @@ def test_hardware_benchmark_measures_and_classifies() -> None:
 def test_hardware_benchmark_reads_windows_physical_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    bench = _load("benchmark_hardware_windows")
+    bench = _load("benchmark_hardware_windows", script_name="benchmark_hardware")
 
     class Kernel32:
         @staticmethod
@@ -88,7 +89,7 @@ def test_hardware_benchmark_reads_windows_physical_memory(
 def test_hardware_benchmark_reads_posix_physical_memory(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    bench = _load("benchmark_hardware_posix")
+    bench = _load("benchmark_hardware_posix", script_name="benchmark_hardware")
     values = {
         "SC_PAGE_SIZE": 4096,
         "SC_PHYS_PAGES": 4 * 1024 * 1024,
@@ -103,7 +104,7 @@ def test_hardware_benchmark_reads_posix_physical_memory(
 def test_hardware_benchmark_rejects_invalid_memory_probe(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    bench = _load("benchmark_hardware_invalid")
+    bench = _load("benchmark_hardware_invalid", script_name="benchmark_hardware")
     monkeypatch.setattr(bench.platform, "system", lambda: "Linux")
     monkeypatch.setattr(bench.os, "sysconf", lambda _name: -1)
 
