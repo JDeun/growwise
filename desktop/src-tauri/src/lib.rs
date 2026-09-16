@@ -123,8 +123,9 @@ struct ResourceCreateInput {
 }
 
 fn client() -> Result<reqwest::Client, String> {
-    let token = env::var(CORE_TOKEN_ENV)
-        .map_err(|_| "GrowWise Core 세션 토큰이 없습니다. Core를 다시 시작해 주세요.".to_string())?;
+    let token = env::var(CORE_TOKEN_ENV).map_err(|_| {
+        "GrowWise Core 세션 토큰이 없습니다. Core를 다시 시작해 주세요.".to_string()
+    })?;
     if token.trim().is_empty() {
         return Err("GrowWise Core 세션 토큰이 비어 있습니다.".to_string());
     }
@@ -369,9 +370,13 @@ async fn append_conversation_turn(
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-async fn create_resource(request: ResourceCreateInput) -> Result<serde_json::Value, String> {
+async fn create_resource(
+    request: ResourceCreateInput,
+    operation_id: String,
+) -> Result<serde_json::Value, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/resources"))
+        .header("Idempotency-Key", operation_id)
         .json(&request)
         .send()
         .await
