@@ -111,7 +111,7 @@ fn core_command(resource_dir: &Path) -> Result<Command, String> {
     if cfg!(debug_assertions) {
         let python = env::var("GROWWISE_PYTHON").unwrap_or_else(|_| default_python().to_string());
         let mut command = Command::new(python);
-        command.args(["-m", "growwise.api.main"]);
+        command.args(["-m", "growwise.api.secure_main"]);
         return Ok(command);
     }
 
