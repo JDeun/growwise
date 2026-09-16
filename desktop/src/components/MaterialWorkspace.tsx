@@ -2,6 +2,7 @@ import type { FormEvent } from "react";
 
 import { MaterialEditPanel } from "../MaterialEditPanel";
 import type {
+  AiEnhancementStatus,
   GeneratedMaterial,
   MaterialKind,
   MaterialStatus,
@@ -14,6 +15,7 @@ import { EntityLinkPanel } from "./EntityLinkPanel";
 import { MaterialContent } from "./MaterialContent";
 import { MaterialCurriculumTargets } from "./MaterialCurriculumTargets";
 import { MaterialKindGuide } from "./MaterialKindGuide";
+import { MaterialParentGuide } from "./MaterialParentGuide";
 import { MaterialResultPanel } from "./MaterialResultPanel";
 import "./MaterialWorkspace.queue.css";
 
@@ -24,6 +26,15 @@ const STATUS_LABELS: Record<MaterialStatus, string> = {
   approved: "승인됨",
   rejected: "사용 안 함",
   archived: "보관됨",
+};
+
+const AI_STATUS_LABELS: Record<AiEnhancementStatus, string> = {
+  not_requested: "Core 템플릿",
+  queued: "AI 보강 대기",
+  running: "AI 보강 중",
+  completed: "AI 보강 완료",
+  failed: "기본 템플릿 사용",
+  skipped: "AI 보강 생략",
 };
 
 const PRINT_SCOPE_ATTRIBUTE = "data-growwise-print-scope";
@@ -84,12 +95,16 @@ function MaterialSources({
 }
 
 function MaterialHeading({ material }: { material: GeneratedMaterial }) {
+  const aiStatus = material.ai_status ?? "not_requested";
   return (
     <div className="material-card-heading">
       <div>
-        <span className={`material-status status-${material.status}`}>
-          {STATUS_LABELS[material.status]}
-        </span>
+        <div className="material-heading-statuses">
+          <span className={`material-status status-${material.status}`}>
+            {STATUS_LABELS[material.status]}
+          </span>
+          <span className={`material-ai-status ai-${aiStatus}`}>{AI_STATUS_LABELS[aiStatus]}</span>
+        </div>
         <h4>{material.title}</h4>
       </div>
       <small>
@@ -106,6 +121,28 @@ function MaterialLinks({ material }: { material: GeneratedMaterial }) {
       ownerChildId={material.child_id}
       label="다른 아이와 생성 자료 연결"
     />
+  );
+}
+
+function MaterialCore({
+  material,
+  resources,
+  compact = false,
+}: {
+  material: GeneratedMaterial;
+  resources: ResourceRecord[];
+  compact?: boolean;
+}) {
+  return (
+    <>
+      <MaterialSources material={material} resources={resources} />
+      <MaterialLinks material={material} />
+      <MaterialCurriculumTargets targets={material.curriculum_targets} />
+      <div className={`material-preview${compact ? " compact" : ""}`}>
+        <MaterialContent markdown={material.content_markdown} />
+      </div>
+      <MaterialParentGuide material={material} />
+    </>
   );
 }
 
@@ -181,7 +218,8 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           <p className="eyebrow">MATERIALS</p>
           <h2 id="materials-title">만들고, 부모가 검토한 뒤 사용합니다.</h2>
           <p className="muted">
-            AI 연결 여부와 관계없이 기본 템플릿으로 생성할 수 있습니다. 승인 전 자료는
+            AI 연결 여부와 관계없이 기본 템플릿으로 생성할 수 있습니다. 기본 초안과 부모용
+            교안은 즉시 저장되고, AI 개인화는 백그라운드에서 보강됩니다. 승인 전 자료는
             인쇄하거나 PDF로 내보낼 수 없습니다.
           </p>
         </div>
@@ -280,7 +318,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           </fieldset>
         )}
         <button className="primary-button" type="submit" disabled={busy || !topic.trim()}>
-          {busy ? "처리 중…" : `${selectedCatalogItem.label} 만들기`}
+          {busy ? "기본 초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
         </button>
         {error && (
           <p className="form-error" role="alert">
@@ -307,12 +345,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             drafts.map((material) => (
               <article className="material-card draft-card" key={material.id}>
                 <MaterialHeading material={material} />
-                <MaterialSources material={material} resources={resources} />
-                <MaterialLinks material={material} />
-                <MaterialCurriculumTargets targets={material.curriculum_targets} />
-                <div className="material-preview compact">
-                  <MaterialContent markdown={material.content_markdown} />
-                </div>
+                <MaterialCore material={material} resources={resources} compact />
                 <div className="material-actions">
                   <button
                     type="button"
@@ -361,12 +394,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             reviewQueue.map((material) => (
               <article className="material-card review-card" key={material.id}>
                 <MaterialHeading material={material} />
-                <MaterialSources material={material} resources={resources} />
-                <MaterialLinks material={material} />
-                <MaterialCurriculumTargets targets={material.curriculum_targets} />
-                <div className="material-preview">
-                  <MaterialContent markdown={material.content_markdown} />
-                </div>
+                <MaterialCore material={material} resources={resources} />
                 {material.review_note && (
                   <p className="review-note">
                     <strong>검토 메모</strong> {material.review_note}
@@ -440,12 +468,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             approved.map((material) => (
               <article className="material-card approved-card" key={material.id}>
                 <MaterialHeading material={material} />
-                <MaterialSources material={material} resources={resources} />
-                <MaterialLinks material={material} />
-                <MaterialCurriculumTargets targets={material.curriculum_targets} />
-                <div className="material-preview compact">
-                  <MaterialContent markdown={material.content_markdown} />
-                </div>
+                <MaterialCore material={material} resources={resources} compact />
                 <div className="material-actions">
                   <button
                     className="primary-button"
