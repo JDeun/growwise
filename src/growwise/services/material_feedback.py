@@ -96,11 +96,13 @@ class MaterialFeedbackSnapshot:
             signals.append("최근 활동에서 흥미가 기록된 요소를 선택적으로 이어간다")
         if any(item.learner_work for item in self.items):
             signals.append(
-                "최근 아이 산출물이 있으면 정답을 복제하지 않고 사고 과정을 확장하는 선택 질문을 둔다"
+                "최근 아이 산출물이 있으면 정답을 복제하지 않고 사고 과정을 확장하는 "
+                "선택 질문을 둔다"
             )
         if any(item.process for item in self.items):
             signals.append(
-                "최근 활동 과정이 기록돼 있으면 같은 풀이를 강요하지 않고 다른 방법을 설명할 기회를 둔다"
+                "최근 활동 과정이 기록돼 있으면 같은 풀이를 강요하지 않고 다른 방법을 "
+                "설명할 기회를 둔다"
             )
         if any(item.child_question for item in self.items):
             signals.append("최근 아이 질문을 이어갈 수 있는 열린 질문을 둔다")
@@ -122,11 +124,13 @@ class MaterialFeedbackSnapshot:
             )
         if any(item.has_learner_work for item in self.learning_items):
             signals.append(
-                "별도 학습의 아이 산출물이 있으면 원문을 복제하지 않고 표현·풀이 과정을 확장한다"
+                "별도 학습의 아이 산출물이 있으면 원문을 복제하지 않고 표현·풀이 과정을 "
+                "확장한다"
             )
         if any(item.process for item in self.learning_items):
             signals.append(
-                "별도 학습 과정이 기록돼 있으면 한 가지 방식으로 단정하지 않고 다른 접근을 열어둔다"
+                "별도 학습 과정이 기록돼 있으면 한 가지 방식으로 단정하지 않고 다른 접근을 "
+                "열어둔다"
             )
         if any(item.interest for item in self.learning_items):
             signals.append("별도 학습 기록에 흥미가 남아 있으면 관련 선택지를 제공한다")
