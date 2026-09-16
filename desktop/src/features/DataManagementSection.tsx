@@ -6,6 +6,7 @@ import {
   type BackupItem,
   type ChildProfile,
 } from "../api";
+import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
   connected: boolean;
