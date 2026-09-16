@@ -13,6 +13,7 @@ import { AXIS_OPTIONS } from "../presentation";
 import "./LearningRecordWorkspace.css";
 
 const LAST_CHILD_KEY = "growwise:last-child-id";
+const AI_POLL_INTERVAL_MS = 1500;
 
 type IndependentKind = Exclude<
   LearningRecordKind,
@@ -74,6 +75,10 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
     [children, childId],
   );
   const selectedKind = KIND_OPTIONS.find((item) => item.value === kind) ?? KIND_OPTIONS[0];
+  const hasPendingAi = useMemo(
+    () => records.some((record) => record.ai_status === "queued" || record.ai_status === "running"),
+    [records],
+  );
 
   const loadRecords = useCallback(async (targetChildId: string) => {
     if (!targetChildId) return;
@@ -111,6 +116,23 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
       cancelled = true;
     };
   }, [active, loadRecords]);
+
+  useEffect(() => {
+    if (!active || !childId || !hasPendingAi) return;
+    let cancelled = false;
+    const poll = () => {
+      void listLearningRecords(childId)
+        .then((nextRecords) => {
+          if (!cancelled) setRecords(nextRecords);
+        })
+        .catch(() => undefined);
+    };
+    const timer = window.setInterval(poll, AI_POLL_INTERVAL_MS);
+    return () => {
+      cancelled = true;
+      window.clearInterval(timer);
+    };
+  }, [active, childId, hasPendingAi]);
 
   function toggleAxis(axis: ExperienceAxis) {
     setAxes((current) =>
@@ -286,7 +308,7 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
               <div className="learning-record-list">
                 {records.map((record) => (
                   <article key={record.id} className="learning-record-card">
-                    <div className="learning-record-card-heading"><div><span>{kindLabel(record.record_kind)}</span><strong>{record.title ?? "제목 없는 기록"}</strong></div><small>{displayDate(record)}</small></div>
+                    <div className="learning-record-card-heading"><div><span>{kindLabel(record.record_kind ?? "other")}</span><strong>{record.title ?? "제목 없는 기록"}</strong></div><small>{displayDate(record)}</small></div>
                     {(record.subject || record.institution) && <p className="learning-record-meta">{[record.subject, record.institution].filter(Boolean).join(" · ")}</p>}
                     <p>{record.parent_observation}</p>
                     {record.learner_work && <details><summary>아이의 글·결과물 보기</summary><p className="learning-work-text">{record.learner_work}</p></details>}
