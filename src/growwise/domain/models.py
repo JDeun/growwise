@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field, model_validator
 from uuid6 import uuid7
 
 ShortText = Annotated[str, Field(min_length=1, max_length=200)]
-TagText = Annotated[str, Field(min_length=1, max_length=120)]
+TagText = Annotated[str, Field(min_length=1, max_length=200)]
 LanguageCode = Annotated[str, Field(min_length=2, max_length=35)]
 SourceRef = Annotated[str, Field(min_length=1, max_length=500)]
 
@@ -204,7 +204,9 @@ class LearningLog(EntityBase):
     entity_type: str = "learning_log"
     child_id: UUID
     activity_plan_id: UUID | None = None
-    parent_observation: str = Field(min_length=1, max_length=10_000)
+    # Legacy Markdown may contain an empty observation. API create requests remain min_length=1;
+    # the domain model keeps read compatibility while still bounding pathological persisted input.
+    parent_observation: str = Field(max_length=10_000)
     process: str | None = Field(default=None, max_length=10_000)
     child_question: str | None = Field(default=None, max_length=4_000)
     interest: str | None = Field(default=None, max_length=2_000)
