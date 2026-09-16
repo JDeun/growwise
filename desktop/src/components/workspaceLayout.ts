@@ -7,6 +7,7 @@ export type WorkspaceLayoutKey =
   | "growth"
   | "activities"
   | "search"
+  | "discovery"
   | "library"
   | "materials"
   | "settings";
@@ -18,6 +19,7 @@ export const WORKSPACE_LAYOUT: Record<WorkspaceView, readonly WorkspaceLayoutKey
   growth: ["growth"],
   activities: ["activities"],
   search: ["search"],
+  discovery: ["discovery"],
   library: ["library"],
   materials: ["materials"],
   settings: ["settings"],
