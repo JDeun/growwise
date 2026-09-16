@@ -53,16 +53,15 @@ def test_material_feedback_uses_only_same_child_material_use_logs(tmp_path) -> N
 
     assert [item.log_id for item in snapshot.items] == [material_log.id]
     assert snapshot.learning_items == ()
-    goal = snapshot.generation_goal("관찰을 이어간다")
-    assert goal is not None
-    assert "개인화 원칙" in goal
-    assert "아이 산출물" in goal
-    assert "활동 과정" in goal
-    assert "달 모양을 세 칸" not in goal
-    assert "모양별로 묶은 뒤" not in goal
-    assert "달의 모양 변화" not in goal
-    assert "날짜 순서" not in goal
-    assert "왜 매일" not in goal
+    guidance = snapshot.generation_guidance()
+    assert guidance is not None
+    assert "아이 산출물" in guidance
+    assert "활동 과정" in guidance
+    assert "달 모양을 세 칸" not in guidance
+    assert "모양별로 묶은 뒤" not in guidance
+    assert "달의 모양 변화" not in guidance
+    assert "날짜 순서" not in guidance
+    assert "왜 매일" not in guidance
 
     guide = snapshot.with_parent_guide("# 기존 부모 교안\n")
     assert "그림자의 모양을 오래 비교했다." in guide
@@ -110,18 +109,18 @@ def test_independent_learning_continuity_is_local_and_never_copies_learner_work(
 
     assert snapshot.items == ()
     assert [item.log_id for item in snapshot.learning_items] == [reading.id]
-    goal = snapshot.generation_goal("우주를 탐색한다")
-    assert goal is not None
-    assert "최근 독서·감상 경험" in goal
-    assert "별도 학습의 아이 산출물이 있으면" in goal
-    assert "별도 학습 과정이 기록돼 있으면" in goal
-    assert "우주 책 독서감상" not in goal
-    assert "학교 도서관" not in goal
-    assert "먼저 표를 만든 뒤" not in goal
-    assert "행성의 크기" not in goal
-    assert "거리 단위" not in goal
-    assert "구슬 크기" not in goal
-    assert "민감한 독서감상 원문" not in goal
+    guidance = snapshot.generation_guidance()
+    assert guidance is not None
+    assert "최근 독서·감상 경험" in guidance
+    assert "별도 학습의 아이 산출물이 있으면" in guidance
+    assert "별도 학습 과정이 기록돼 있으면" in guidance
+    assert "우주 책 독서감상" not in guidance
+    assert "학교 도서관" not in guidance
+    assert "먼저 표를 만든 뒤" not in guidance
+    assert "행성의 크기" not in guidance
+    assert "거리 단위" not in guidance
+    assert "구슬 크기" not in guidance
+    assert "민감한 독서감상 원문" not in guidance
 
     guide = snapshot.with_parent_guide("# 부모 교안")
     assert "최근 별도 학습 기록에서 이어갈 점" in guide
@@ -158,7 +157,7 @@ def test_feedback_parent_guide_block_is_replaced_not_duplicated(tmp_path) -> Non
     assert twice.count("파란색을 여러 번 골랐다.") == 1
 
 
-def test_background_material_generation_closes_loop_without_leaking_raw_feedback(
+def test_background_material_generation_closes_loop_without_exposing_internal_guidance(
     tmp_path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -206,7 +205,9 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
     )
     material = background_routes.generate_material_background(child.id, request, store)
 
-    assert "개인화 원칙" in material.content_markdown
+    assert "목표: 실물로 나누는 방법을 탐색한다" in material.content_markdown
+    assert "개인화 원칙" not in material.content_markdown
+    assert "최근 아이 산출물" not in material.content_markdown
     assert "부모만 보는 구체 관찰 문장" not in material.content_markdown
     assert "아이 답안 원문" not in material.content_markdown
     assert "사과 그림을 하나씩" not in material.content_markdown
