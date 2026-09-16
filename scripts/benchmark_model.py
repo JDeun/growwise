@@ -130,7 +130,12 @@ def _provider_from_settings(settings: Settings) -> ModelProvider | None:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Benchmark GrowWise material generation.")
-    parser.add_argument("--repeats", type=int, default=1, help="Measured rounds; each round runs all prompts")
+    parser.add_argument(
+        "--repeats",
+        type=int,
+        default=1,
+        help="Measured rounds; each round runs all prompts",
+    )
     parser.add_argument(
         "--warmup-rounds",
         type=int,
