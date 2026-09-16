@@ -39,10 +39,12 @@ class EntityLink(EntityBase):
     label: str | None = Field(default=None, max_length=240)
 
     @model_validator(mode="after")
-    def validate_link(self) -> "EntityLink":
+    def validate_link(self) -> EntityLink:
         if self.source_id == self.target_id:
             raise ValueError("entity links cannot point to themselves")
-        if self.relation is EntityLinkRelation.CHILD_SCOPE:
-            if self.child_id is None or self.child_id != self.target_id:
-                raise ValueError("child_scope links must use target child as child_id")
+        if (
+            self.relation is EntityLinkRelation.CHILD_SCOPE
+            and (self.child_id is None or self.child_id != self.target_id)
+        ):
+            raise ValueError("child_scope links must use target child as child_id")
         return self
