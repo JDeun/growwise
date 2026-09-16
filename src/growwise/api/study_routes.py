@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -24,6 +24,7 @@ from growwise.domain.models import ChildProfile, Stage
 from growwise.domain.study import (
     MistakeRecord,
     MistakeType,
+    PlanItemStatus,
     SelfExplanationLog,
     StudyPlan,
     StudyPlanItem,
@@ -76,6 +77,10 @@ class StudyPlanRequest(BaseModel):
     target_date: date | None = None
     parent_note: str | None = Field(default=None, max_length=4000)
     max_items: int = Field(default=6, ge=1, le=20)
+
+
+class StudyPlanItemStatusRequest(BaseModel):
+    status: PlanItemStatus
 
 
 @lru_cache
@@ -249,6 +254,39 @@ def create_study_plan(
     )
     store.save(plan)
     return plan
+
+
+@router.post(
+    "/children/{child_id}/study/plans/{plan_id}/items/{item_index}/status",
+    response_model=StudyPlan,
+)
+def update_study_plan_item_status(
+    child_id: UUID,
+    plan_id: UUID,
+    item_index: int,
+    request: StudyPlanItemStatusRequest,
+    store: Annotated[EntityStore, Depends(get_study_store)],
+) -> StudyPlan:
+    _study_child(store, child_id)
+    payload = store.index.get_entity(str(plan_id), entity_type="study_plan")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="study_plan_not_found")
+    plan = StudyPlan.model_validate(payload)
+    if plan.child_id != child_id:
+        raise HTTPException(status_code=404, detail="study_plan_not_found")
+    if item_index < 0 or item_index >= len(plan.items):
+        raise HTTPException(status_code=404, detail="study_plan_item_not_found")
+
+    items = list(plan.items)
+    items[item_index] = items[item_index].model_copy(update={"status": request.status})
+    updated = plan.model_copy(
+        update={
+            "items": items,
+            "updated_at": datetime.now(UTC),
+        }
+    )
+    store.save(updated)
+    return updated
 
 
 @router.get("/children/{child_id}/study/plans")
