@@ -6,6 +6,7 @@ import re
 import shutil
 import struct
 import tempfile
+from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -50,6 +51,7 @@ _FORBIDDEN_INTERPRETATION_MARKERS = (
     "퍼센타일",
 )
 _DATE_PATTERN = re.compile(rb"(20\d{2}):(\d{2}):(\d{2})[ T](\d{2}):(\d{2}):(\d{2})")
+_JPEG_SOF_MARKERS = {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB}
 
 
 def _detect_mime(data: bytes) -> str:
@@ -84,30 +86,61 @@ def _jpeg_dimensions(data: bytes) -> tuple[int | None, int | None]:
         segment_length = int.from_bytes(data[offset : offset + 2], "big")
         if segment_length < 2 or offset + segment_length > len(data):
             break
-        if marker in {0xC0, 0xC1, 0xC2, 0xC3, 0xC5, 0xC6, 0xC7, 0xC9, 0xCA, 0xCB}:
-            if segment_length >= 7:
-                height = int.from_bytes(data[offset + 3 : offset + 5], "big")
-                width = int.from_bytes(data[offset + 5 : offset + 7], "big")
-                return width or None, height or None
+        if marker in _JPEG_SOF_MARKERS and segment_length >= 7:
+            height = int.from_bytes(data[offset + 3 : offset + 5], "big")
+            width = int.from_bytes(data[offset + 5 : offset + 7], "big")
+            return width or None, height or None
         offset += segment_length
     return None, None
 
 
+def _validate_container(data: bytes, mime_type: str) -> None:
+    """Reject obvious truncation/polyglot-like uploads before they enter managed storage."""
+    if mime_type == "image/png":
+        width, height = _png_dimensions(data)
+        has_ihdr = len(data) >= 33 and data[12:16] == b"IHDR"
+        has_iend = len(data) >= 12 and data[-8:-4] == b"IEND"
+        if not has_ihdr or not has_iend or width is None or height is None:
+            raise PhotoValidationError("malformed_image")
+        return
+
+    if mime_type == "image/jpeg":
+        width, height = _jpeg_dimensions(data)
+        has_eoi = b"\xff\xd9" in data[-16:]
+        if not has_eoi or width is None or height is None:
+            raise PhotoValidationError("malformed_image")
+        return
+
+    if mime_type == "image/webp":
+        if len(data) < 20:
+            raise PhotoValidationError("malformed_image")
+        declared_size = int.from_bytes(data[4:8], "little") + 8
+        chunk_type = data[12:16]
+        if declared_size > len(data) or chunk_type not in {b"VP8 ", b"VP8L", b"VP8X"}:
+            raise PhotoValidationError("malformed_image")
+        return
+
+    raise PhotoValidationError("unsupported_image_type")
+
+
 def _captured_at(data: bytes) -> datetime | None:
-    # A conservative EXIF fallback without an image-decoder dependency. We intentionally do not
-    # parse or retain GPS coordinates. Matching a standard EXIF timestamp is sufficient for
-    # ordering activity photos while keeping the binary pipeline dependency-light.
+    # Conservative EXIF fallback without an image-decoder dependency. Exact GPS is deliberately
+    # ignored. EXIF timestamps normally have no timezone, so retain that uncertainty instead of
+    # falsely labelling the camera-local time as UTC.
     match = _DATE_PATTERN.search(data[:2_000_000])
     if match is None:
         return None
     try:
         parts = [int(value) for value in match.groups()]
-        return datetime(*parts, tzinfo=UTC)
+        return datetime(*parts)
     except ValueError:
         return None
 
 
-def _image_metadata(data: bytes, mime_type: str) -> tuple[int | None, int | None, datetime | None]:
+def _image_metadata(
+    data: bytes,
+    mime_type: str,
+) -> tuple[int | None, int | None, datetime | None]:
     if mime_type == "image/png":
         width, height = _png_dimensions(data)
     elif mime_type == "image/jpeg":
@@ -135,6 +168,7 @@ class PhotoAssetStore:
         detected_mime = _detect_mime(upload.data)
         if upload.mime_type and upload.mime_type != detected_mime:
             raise PhotoValidationError("image_mime_mismatch")
+        _validate_container(upload.data, detected_mime)
 
         digest = hashlib.sha256(upload.data).hexdigest()
         extension = _MIME_EXTENSION[detected_mime]
@@ -157,7 +191,7 @@ class PhotoAssetStore:
         original_name = Path(upload.filename).name.strip() or f"photo{extension}"
         metadata_summary: dict[str, str] = {}
         if captured_at is not None:
-            metadata_summary["captured_at"] = captured_at.isoformat()
+            metadata_summary["captured_at_local"] = captured_at.isoformat()
         if width and height:
             metadata_summary["dimensions"] = f"{width}x{height}"
 
@@ -234,6 +268,7 @@ LearningLog."""
 
         assets: list[PhotoAsset] = []
         newly_created: list[Path] = []
+        saved_assets: list[PhotoAsset] = []
         try:
             for upload in uploads:
                 asset, created = self.asset_store.store(child_id=child_id, upload=upload)
@@ -248,35 +283,55 @@ LearningLog."""
                             mime_type=asset.mime_type,
                             context=user_context or "",
                         )
-                        asset.caption = caption
-                        asset.caption_model = self.vision_provider.model
+                        if not _unsafe_generated_text(caption):
+                            asset.caption = caption
+                            asset.caption_model = self.vision_provider.model
                     except Exception:
                         asset.caption = None
                         asset.caption_model = None
                 assets.append(asset)
 
             observation, mode = self._generate_observation(assets, user_context)
+            clean_context = (
+                user_context.strip()
+                if user_context is not None and user_context.strip()
+                else None
+            )
             record = PhotoActivityRecord(
                 child_id=UUID(child_id),
                 photo_asset_ids=[asset.id for asset in assets],
-                user_context=user_context.strip() if user_context and user_context.strip() else None,
+                user_context=clean_context,
                 generated_observation=observation,
                 generation_mode=mode,
             )
             for asset in assets:
                 self.store.save(asset)
+                saved_assets.append(asset)
             self.store.save(record)
             return record, assets
         except Exception:
+            for asset in reversed(saved_assets):
+                with suppress(Exception):
+                    self.store.delete(asset)
             for path in newly_created:
                 path.unlink(missing_ok=True)
             raise
 
     def _generate_observation(
-        self, assets: list[PhotoAsset], user_context: str | None
+        self,
+        assets: list[PhotoAsset],
+        user_context: str | None,
     ) -> tuple[str, str]:
         evidence_lines: list[str] = []
-        for index, asset in enumerate(sorted(assets, key=lambda item: item.captured_at or item.created_at), 1):
+        ordered_assets = sorted(
+            assets,
+            key=lambda item: (
+                item.captured_at.isoformat()
+                if item.captured_at is not None
+                else item.created_at.isoformat()
+            ),
+        )
+        for index, asset in enumerate(ordered_assets, 1):
             parts = [f"사진 {index}"]
             if asset.captured_at is not None:
                 parts.append(f"촬영시각={asset.captured_at.isoformat()}")
@@ -307,11 +362,18 @@ LearningLog."""
         lines: list[str] = []
         if parent_note:
             lines.append(parent_note)
-        captions = [asset.caption.strip() for asset in assets if asset.caption and asset.caption.strip()]
+        captions = [
+            asset.caption.strip()
+            for asset in assets
+            if asset.caption and asset.caption.strip()
+        ]
         if captions:
             lines.append("사진에서 확인한 장면: " + " / ".join(captions))
         elif not parent_note:
-            lines.append(f"활동 사진 {len(assets)}장을 기록했습니다. 내용을 확인해 기록을 보완해주세요.")
+            lines.append(
+                f"활동 사진 {len(assets)}장을 기록했습니다. "
+                "내용을 확인해 기록을 보완해주세요."
+            )
         return "\n\n".join(lines)[:10_000]
 
     def commit(self, *, record_id: str, observation: str | None = None) -> LearningLog:
