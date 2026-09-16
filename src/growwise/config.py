@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -15,10 +16,14 @@ class Settings(BaseSettings):
     model_provider: str = "ollama"
     model_id: str = "qwen3.5:9b"
     model_base_url: str = "http://127.0.0.1:11434"
-    model_temperature: float = 0.1
+    model_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
+    model_timeout_seconds: float = Field(default=12.0, gt=0.0, le=120.0)
+    model_circuit_failure_threshold: int = Field(default=3, ge=1, le=20)
+    model_circuit_recovery_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
     llm_features_enabled: bool = True
 
     embedding_model_id: str = "nomic-embed-text"
+    embedding_timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
     embedding_features_enabled: bool = True
 
     # Public curriculum enrichment is disabled unless an endpoint is explicitly configured.
