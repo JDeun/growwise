@@ -176,6 +176,39 @@ def test_material_result_rejects_unreviewed_photo_evidence(tmp_path: Path) -> No
     assert exc_info.value.detail == "photo_record_must_be_committed"
 
 
+def test_material_result_rejects_corrupted_photo_learning_log_reference(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    child, material = _approved_material(store)
+    wrong_log = LearningLog(
+        child_id=child.id,
+        record_kind=LearningRecordKind.OBSERVATION,
+        parent_observation="사진 기록이 아닌 일반 관찰",
+    )
+    store.save(wrong_log)
+    corrupted_photo = PhotoActivityRecord(
+        child_id=child.id,
+        photo_asset_ids=[uuid4()],
+        generated_observation="겉보기에는 확정 사진 기록",
+        generation_mode="manual_photo_diary",
+        status=PhotoRecordStatus.COMMITTED,
+        learning_log_id=wrong_log.id,
+    )
+    store.save(corrupted_photo)
+
+    with pytest.raises(HTTPException) as exc_info:
+        record_material_result(
+            material.id,
+            MaterialResultRequest(
+                observation="손상된 참조는 결과 증거로 사용하지 않는다.",
+                photo_record_ids=[corrupted_photo.id],
+            ),
+            store,
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "photo_record_learning_log_mismatch"
+
+
 def test_material_result_photo_evidence_respects_child_scope_visibility(tmp_path: Path) -> None:
     store = _store(tmp_path)
     child, material = _approved_material(store)
