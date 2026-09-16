@@ -166,20 +166,20 @@ class MaterialFeedbackSnapshot:
                     ),
                 ]
             )
-            for item in self.learning_items:
-                label = _RECORD_KIND_LABELS.get(item.kind, "별도 학습")
-                title = item.title or label
+            for learning_item in self.learning_items:
+                label = _RECORD_KIND_LABELS.get(learning_item.kind, "별도 학습")
+                title = learning_item.title or label
                 sections.append(f"### {label} · {title}")
-                if item.subject:
-                    sections.append(f"- 과목·영역: {item.subject}")
-                if item.summary:
-                    sections.append(f"- 부모 요약: {item.summary}")
-                if item.interest:
-                    sections.append(f"- 흥미를 보인 점: {item.interest}")
-                if item.difficulty_note:
-                    sections.append(f"- 어려워한 점: {item.difficulty_note}")
-                if item.next_activity:
-                    sections.append(f"- 다음에 이어볼 것: {item.next_activity}")
+                if learning_item.subject:
+                    sections.append(f"- 과목·영역: {learning_item.subject}")
+                if learning_item.summary:
+                    sections.append(f"- 부모 요약: {learning_item.summary}")
+                if learning_item.interest:
+                    sections.append(f"- 흥미를 보인 점: {learning_item.interest}")
+                if learning_item.difficulty_note:
+                    sections.append(f"- 어려워한 점: {learning_item.difficulty_note}")
+                if learning_item.next_activity:
+                    sections.append(f"- 다음에 이어볼 것: {learning_item.next_activity}")
 
         sections.extend(
             [
