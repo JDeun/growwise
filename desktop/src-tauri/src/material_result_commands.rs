@@ -23,7 +23,9 @@ pub async fn record_material_result(
     request: MaterialResultRequest,
 ) -> Result<serde_json::Value, String> {
     let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/materials/{material_id}/results"))
+        .post(format!(
+            "{CORE_BASE_URL}/v1/materials/{material_id}/results"
+        ))
         .json(&request)
         .send()
         .await
@@ -38,7 +40,9 @@ pub async fn record_material_result(
 #[tauri::command]
 pub async fn list_material_results(material_id: String) -> Result<serde_json::Value, String> {
     let response = client()?
-        .get(format!("{CORE_BASE_URL}/v1/materials/{material_id}/results"))
+        .get(format!(
+            "{CORE_BASE_URL}/v1/materials/{material_id}/results"
+        ))
         .send()
         .await
         .map_err(|error| error.to_string())?;
