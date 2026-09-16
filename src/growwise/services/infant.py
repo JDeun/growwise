@@ -1,16 +1,12 @@
 from __future__ import annotations
 
+import hashlib
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
 from pydantic import BaseModel, Field
 
-from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.domain import ResourceKind, ResourceRecord, Stage
 from growwise.model import ModelProvider
-
-if TYPE_CHECKING:
-    from growwise.config import Settings
-    from growwise.storage import EntityStore
 
 CURRICULUM_SOURCE = "교육부고시 제2024-23호 2024 개정 표준보육과정(0~2세)"
 CURRICULUM_EFFECTIVE_DATE = "2025-03-01"
@@ -265,7 +261,7 @@ Return concise Korean when the input is Korean."""
 
 
 class BoardBookRecommendationService:
-    """Prefer saved book records, then public discovery candidates, then offline categories."""
+    """Prefer saved book records, then public candidates, then offline categories."""
 
     def recommend(
         self,
@@ -297,7 +293,13 @@ class BoardBookRecommendationService:
         ]
         seen_titles = {item.title.casefold() for item in recommendations}
 
-        for candidate in discovery_candidates or []:
+        candidates = discovery_candidates
+        if candidates is None and len(recommendations) < limit:
+            candidates = self._public_discovery_candidates(
+                interests=interests,
+                limit=limit - len(recommendations),
+            )
+        for candidate in candidates or []:
             if len(recommendations) >= limit:
                 break
             title_key = candidate.title.casefold()
@@ -319,80 +321,69 @@ class BoardBookRecommendationService:
 
         return BoardBookRecommendations(recommendations=recommendations[:limit])
 
-    def recommend_with_discovery(
-        self,
+    @staticmethod
+    def _public_discovery_candidates(
         *,
-        settings: Settings,
-        store: EntityStore,
-        child: ChildProfile,
-        resources: list[ResourceRecord],
-        limit: int = 3,
-    ) -> BoardBookRecommendations:
-        """Supplement saved books with public discovery without persisting candidates."""
-        local_book_count = sum(
-            1 for resource in resources if resource.kind is ResourceKind.BOOK
-        )
-        if local_book_count >= limit or not (settings.data4library_api_key or "").strip():
-            return self.recommend(
-                resources=resources,
-                interests=child.interests,
-                limit=limit,
-            )
+        interests: list[str],
+        limit: int,
+    ) -> list[BoardBookRecommendation]:
+        """Use only generalized interest terms for the optional public book lookup."""
+        from growwise.adapters import Data4LibraryAdapter, ExternalAdapterError, SQLiteExternalCache
+        from growwise.config import Settings
 
-        from growwise.rag import HybridRagIndex, ResourceIngestor
-        from growwise.services.discovery import (
-            DiscoveryCategory,
-            EducationDiscoveryService,
-        )
+        settings = Settings()
+        api_key = (settings.data4library_api_key or "").strip()
+        if not api_key or limit <= 0:
+            return []
 
-        public_terms = [
-            value.strip()
-            for value in [*child.interests[:2], *child.learning_goals[:1]]
-            if value.strip()
-        ]
-        query = " ".join([*public_terms[:2], "그림책"]).strip() or "영아 그림책"
+        public_terms = [value.strip() for value in interests[:2] if value.strip()]
+        query = " ".join([*public_terms, "그림책"]).strip() or "영아 그림책"
+        adapter = Data4LibraryAdapter(
+            auth_key=api_key,
+            cache=SQLiteExternalCache(settings.external_cache_path),
+            endpoint=settings.data4library_endpoint,
+            ttl_seconds=settings.data4library_cache_ttl_seconds,
+        )
         try:
-            discovery = EducationDiscoveryService(
-                settings=settings,
-                store=store,
-                ingestor=ResourceIngestor(HybridRagIndex(settings.rag_index_path)),
-            ).discover(
-                child=child,
-                query=query,
-                limit=max(12, limit * 4),
+            result = adapter.search_books(
+                keyword=query,
+                page_size=min(8, max(3, limit * 2)),
+                offline=False,
             )
-        except Exception:
-            return self.recommend(
-                resources=resources,
-                interests=child.interests,
-                limit=limit,
-            )
+        except ExternalAdapterError:
+            return []
 
-        public_candidates = [
-            BoardBookRecommendation(
-                discovery_candidate_id=suggestion.candidate_id,
-                title=suggestion.title,
-                reason=(
-                    f"{suggestion.rationale} 공개 도서 후보이므로 영아용 판형·내용 적합성은 "
-                    "상세 정보를 확인해 주세요."
-                ),
-                read_aloud_tip=(
-                    "책의 상세 정보를 확인한 뒤, 아이가 오래 보는 그림에서 멈추고 "
-                    "짧게 말해 주세요."
-                ),
-                source="public_discovery",
-                source_name=suggestion.source_name,
-                source_url=suggestion.source_url,
+        recommendations: list[BoardBookRecommendation] = []
+        for record in result.records:
+            title = str(record.get("title") or "").strip()
+            if not title:
+                continue
+            isbn = str(record.get("isbn13") or "").strip()
+            source_key = isbn or title
+            digest = hashlib.sha256(
+                f"{result.source}\x1f{source_key}".encode()
+            ).hexdigest()[:24]
+            source_url = str(record.get("book_detail_url") or "").strip() or None
+            recommendations.append(
+                BoardBookRecommendation(
+                    discovery_candidate_id=f"{result.source}:{digest}",
+                    title=title,
+                    reason=(
+                        f"'{query}'와 연결된 공개 도서 후보입니다. 보드북 판형과 영아용 내용 "
+                        "적합성은 상세 정보를 확인해 주세요."
+                    ),
+                    read_aloud_tip=(
+                        "상세 정보를 확인한 뒤 아이가 오래 보는 그림에서 멈추고 짧게 "
+                        "말해 주세요."
+                    ),
+                    source="public_discovery",
+                    source_name=result.source,
+                    source_url=source_url,
+                )
             )
-            for suggestion in discovery.suggestions
-            if suggestion.category is DiscoveryCategory.BOOK
-        ]
-        return self.recommend(
-            resources=resources,
-            interests=child.interests,
-            limit=limit,
-            discovery_candidates=public_candidates,
-        )
+            if len(recommendations) >= limit:
+                break
+        return recommendations
 
     @staticmethod
     def _score(*, resource: ResourceRecord, interests: list[str]) -> tuple[int, int, int]:
