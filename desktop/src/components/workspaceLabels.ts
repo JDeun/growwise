@@ -7,6 +7,7 @@ export const WORKSPACE_LABELS: Record<WorkspaceView, string> = {
   growth: "성장",
   activities: "활동",
   search: "검색",
+  discovery: "발견",
   library: "라이브러리",
   materials: "자료",
   settings: "설정",
