@@ -40,7 +40,7 @@ function sourceStatusText(status: string): string {
     case "not_configured":
       return "설정 필요";
     case "needs_query":
-      return "검색어 필요";
+      return "일반 주제어 필요";
     case "needs_location":
       return "위치 입력 시 사용";
     case "unavailable":
@@ -137,8 +137,8 @@ export function DiscoveryWorkspace({ active }: Props) {
             <p className="card-label">교육 자료 발견</p>
             <h2 id="discovery-title">아이의 현재 맥락에서 다음 자료 찾기</h2>
             <p className="muted">
-              관심사와 최근 기록에서 일반 검색어만 로컬로 뽑아 공개 교육 자원을 찾습니다. 아이 이름,
-              ID, 관찰 원문은 외부 API로 보내지 않습니다.
+              관심사와 최근 기록은 로컬에서 후보 순위를 정하는 데 사용합니다. 외부 공개 소스에는
+              허용된 일반 교육 주제어만 전달하며 아이 이름, ID, 관찰 원문, 자유 입력 문장은 보내지 않습니다.
             </p>
           </div>
         </div>
@@ -167,6 +167,9 @@ export function DiscoveryWorkspace({ active }: Props) {
               onChange={(event) => setQuery(event.target.value)}
               placeholder="비워두면 관심사와 최근 기록을 바탕으로 찾습니다. 예: 공룡, 우주, 측정"
             />
+            <small className="muted">
+              입력한 문장 전체를 외부로 보내지 않습니다. 외부 검색에는 인식된 일반 교육 주제어만 사용합니다.
+            </small>
           </label>
 
           <details className="discovery-location-options">
@@ -258,7 +261,7 @@ export function DiscoveryWorkspace({ active }: Props) {
               <div className="section-heading">
                 <div>
                   <h3>후보 {result.suggestions.length}건</h3>
-                  {result.query && <p className="muted">외부 검색어: {result.query}</p>}
+                  {result.query && <p className="muted">외부 일반화 검색어: {result.query}</p>}
                 </div>
               </div>
               {result.suggestions.length === 0 ? (
