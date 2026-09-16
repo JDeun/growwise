@@ -1,0 +1,135 @@
+.activity-lifecycle {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.activity-lifecycle > article {
+  display: grid;
+  gap: 6px;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.84);
+}
+
+.activity-lifecycle > article > div {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.activity-lifecycle strong {
+  font-size: 12px;
+}
+
+.activity-lifecycle span,
+.activity-lifecycle small {
+  color: var(--ink-soft);
+  font-size: 11px;
+}
+
+.activity-lifecycle-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.activity-lifecycle-card {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.activity-lifecycle-card-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.activity-lifecycle-card-heading > div {
+  display: grid;
+  gap: 4px;
+}
+
+.activity-lifecycle-card-heading small,
+.activity-observation-link,
+.activity-stage-track {
+  color: var(--ink-soft);
+}
+
+.activity-lifecycle-card > p,
+.activity-observation-link p {
+  margin: 0;
+}
+
+.activity-stage-track {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.activity-stage-track span {
+  position: relative;
+  padding: 7px 5px;
+  border-radius: 8px;
+  background: var(--surface);
+  text-align: center;
+}
+
+.activity-stage-track span.done {
+  background: var(--primary-soft);
+  color: var(--primary-strong);
+}
+
+.activity-observation-link {
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.activity-observation-link > div {
+  display: grid;
+  gap: 5px;
+}
+
+.activity-observation-link strong {
+  color: var(--ink);
+}
+
+.activity-observation-link small {
+  display: block;
+}
+
+@media (max-width: 900px) {
+  .activity-lifecycle {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .activity-lifecycle,
+  .activity-stage-track {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .activity-lifecycle-card-heading {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .activity-stage-track span {
+    text-align: left;
+  }
+}
