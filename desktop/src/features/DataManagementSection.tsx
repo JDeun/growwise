@@ -66,15 +66,15 @@ export function DataManagementSection({
     <section className="data-management-section">
       <div className="activity-heading">
         <div>
-          <p className="card-label">DATA MANAGEMENT</p>
+          <p className="card-label">내 데이터</p>
           <h2>백업과 복원</h2>
           <p className="muted">
-            Markdown 정본을 portable ZIP으로 보관하고, 복원 시 검색 인덱스를 다시 만듭니다.
+            기록을 하나의 백업 파일로 보관할 수 있습니다. 복원하면 저장된 기록을 기준으로 검색 데이터도 다시 준비합니다.
           </p>
         </div>
         <div className="review-actions">
           <button className="quiet-button" type="button" onClick={onImport} disabled={!connected || destructiveBusy}>
-            외부 ZIP 가져오기
+            백업 파일 가져오기
           </button>
           <button className="quiet-button" type="button" onClick={onCreate} disabled={!connected || destructiveBusy}>
             {busy ? "처리 중…" : "지금 백업"}
@@ -98,7 +98,7 @@ export function DataManagementSection({
               <p>{new Date(backup.modified_at).toLocaleString("ko-KR")}</p>
               <div className="review-actions">
                 <button className="quiet-button" type="button" disabled={destructiveBusy} onClick={() => onExport(backup.archive)}>
-                  ZIP 내보내기
+                  파일로 내보내기
                 </button>
                 <button className="quiet-button" type="button" disabled={destructiveBusy} onClick={() => onRestore(backup.archive)}>
                   이 백업 복원
@@ -111,11 +111,10 @@ export function DataManagementSection({
 
       <div className="activity-heading privacy-danger-zone">
         <div>
-          <p className="card-label">PRIVACY</p>
+          <p className="card-label">개인정보와 삭제</p>
           <h2>아이 데이터 영구 삭제</h2>
           <p className="muted">
-            선택한 아이의 현재 기록, 검색 인덱스, 대화, 작업 상태와 체크포인트를 삭제합니다.
-            이미 만들어 둔 과거 백업 ZIP에는 해당 데이터가 남아 있을 수 있으므로 필요하면 백업 파일도 직접 폐기해 주세요.
+            선택한 아이의 현재 기록과 관련된 앱 데이터를 삭제합니다. 이미 만들어 둔 과거 백업 파일에는 해당 기록이 남아 있을 수 있으므로, 완전히 지우려면 백업 파일도 함께 삭제해 주세요.
           </p>
         </div>
       </div>
@@ -148,6 +147,9 @@ export function DataManagementSection({
           />
         </label>
       </div>
+      {selectedChild && (
+        <p className="muted">실수로 삭제하지 않도록 <strong>{selectedChild.nickname}</strong>을(를) 그대로 입력해야 삭제 버튼이 활성화됩니다.</p>
+      )}
       <div className="review-actions">
         <button
           className="danger-button"
