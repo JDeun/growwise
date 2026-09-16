@@ -2,6 +2,7 @@ import type { GeneratedMaterial } from "../api";
 import { materialPresentationTemplate } from "../material-presentation";
 import { MaterialContent } from "./MaterialContent";
 import "./MaterialParentGuide.css";
+import "./MaterialPresentation.css";
 
 export function MaterialParentGuide({ material }: { material: GeneratedMaterial }) {
   const guide = material.parent_guide_markdown?.trim() ?? "";
