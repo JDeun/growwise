@@ -22,6 +22,12 @@ class Settings(BaseSettings):
     model_circuit_recovery_seconds: float = Field(default=30.0, ge=1.0, le=600.0)
     llm_features_enabled: bool = True
 
+    # Non-interactive text-model work is durable and backgrounded. The user-visible Core record is
+    # written first; this queue only enriches it later, so model failure cannot block persistence.
+    background_ai_job_lease_seconds: int = Field(default=900, ge=60, le=86_400)
+    background_ai_job_max_attempts: int = Field(default=3, ge=1, le=10)
+    background_ai_job_poll_interval_seconds: float = Field(default=0.5, ge=0.1, le=30.0)
+
     # Child photos are more sensitive than ordinary public enrichment. Vision therefore has a
     # dedicated local endpoint rather than inheriting a potentially remote text-provider URL.
     # Photo analysis is deliberately long-running and background-friendly: consumer hardware may
