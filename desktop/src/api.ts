@@ -61,6 +61,8 @@ export const createConversation = (childId: string) => call<ConversationSession>
 export const appendConversationTurn = (sessionId: string, question: string) => call<ConversationAnswer>("append_conversation_turn", { sessionId, question });
 export const createResource = (request: ResourceCreateInput) => call<ResourceRecord>("create_resource", { request });
 export const listResources = (childId?: string) => call<ResourceRecord[]>("list_resources", { childId: childId ?? null });
+export const updateResource = (resourceId: string, request: ResourceCreateInput) => call<ResourceRecord>("update_resource", { resourceId, request });
+export const deleteResource = (resourceId: string) => call<{ deleted: boolean }>("delete_resource", { resourceId });
 export const generateMaterial = (childId: string, kind: MaterialKind, topic: string, goal?: string, sourceRefs: string[] = []) => call<GeneratedMaterial>("generate_material", { childId, kind, topic, goal: goal ?? null, sourceRefs });
 export const listMaterials = (childId: string) => call<GeneratedMaterial[]>("list_materials", { childId });
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) => call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
