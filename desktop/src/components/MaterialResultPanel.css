@@ -185,3 +185,10 @@
     grid-template-columns: 1fr;
   }
 }
+
+@media print {
+  .material-quest,
+  .material-result-panel {
+    display: none !important;
+  }
+}
