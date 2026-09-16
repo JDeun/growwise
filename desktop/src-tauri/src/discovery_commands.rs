@@ -34,8 +34,8 @@ pub(crate) async fn discover_education_resources(
     query: Option<String>,
 ) -> Result<serde_json::Value, String> {
     let base_url = core_base_url()?;
-    let mut request = discovery_client()?
-        .get(format!("{base_url}/v1/children/{child_id}/discover"));
+    let mut request =
+        discovery_client()?.get(format!("{base_url}/v1/children/{child_id}/discover"));
     if let Some(value) = query.as_deref().filter(|value| !value.trim().is_empty()) {
         request = request.query(&[("query", value)]);
     }
