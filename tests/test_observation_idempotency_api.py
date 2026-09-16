@@ -5,7 +5,7 @@ from fastapi import HTTPException
 
 import growwise.api.main as api
 from growwise.domain import ChildProfile, Stage
-from growwise.idempotency import SQLiteIdempotencyStore
+from growwise.idempotency import IdempotencyStatus, SQLiteIdempotencyStore
 from growwise.storage import EntityStore
 
 
@@ -69,7 +69,7 @@ def test_same_key_with_different_payload_is_rejected(
     assert exc_info.value.status_code == 409
 
 
-def test_failed_work_releases_pending_key_for_retry(
+def test_failed_work_expires_pending_key_and_reuses_reserved_id(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -86,8 +86,13 @@ def test_failed_work_releases_pending_key_for_retry(
 
     with pytest.raises(RuntimeError):
         api.create_observation(request, store, "observation-retry")
-    assert idempotency.get("observation-retry") is None
+
+    pending = idempotency.get("observation-retry")
+    assert pending is not None
+    assert pending.status is IdempotencyStatus.PENDING
+    reserved_id = pending.resource_id
 
     monkeypatch.setattr(api, "get_observation_graph", lambda: _ObservationGraph())
     recovered = api.create_observation(request, store, "observation-retry")
     assert recovered.parent_observation == "재시도 가능한 관찰"
+    assert str(recovered.id) == reserved_id
