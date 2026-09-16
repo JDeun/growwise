@@ -4,11 +4,12 @@ from growwise.api.main import app
 
 
 def _matching_routes(path: str, method: str) -> list[APIRoute]:
+    normalized = path.rstrip("/") or "/"
     return [
         route
         for route in app.routes
         if isinstance(route, APIRoute)
-        and route.path == path
+        and (route.path.rstrip("/") or "/") == normalized
         and method in (route.methods or set())
     ]
 
