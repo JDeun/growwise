@@ -28,12 +28,20 @@ _TEXT_JOB_TYPES = (OBSERVATION_ENRICHMENT_JOB, MATERIAL_ENHANCEMENT_JOB)
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
 
 
+class StaleJobClaim(RuntimeError):
+    """Raised when a worker no longer owns the durable job attempt it started with."""
+
+
 class BackgroundAiJobRunner:
     """Single-consumer durable worker for non-interactive text-model work.
 
     Parent-authored/source-of-truth records are persisted before jobs are submitted. This runner may
     enrich them later, but a failed or unavailable model never invalidates the already-saved Core
     record. Interactive chat/search intentionally remains outside this worker.
+
+    Every claimed attempt is fenced by a unique queue token. Long-running inference renews and
+    revalidates that token before writing model output, so an expired worker cannot overwrite a
+    newer attempt after its lease has been reclaimed.
     """
 
     def __init__(
@@ -121,6 +129,22 @@ class BackgroundAiJobRunner:
         self._wake.set()
         return job
 
+    @staticmethod
+    def _claim_token(job: Job) -> str:
+        if not job.claim_token:
+            raise StaleJobClaim("background job has no active claim token")
+        return job.claim_token
+
+    def _renew_claim(self, job: Job) -> str:
+        token = self._claim_token(job)
+        if not self.queue.heartbeat(
+            job.id,
+            token,
+            lease_seconds=self.lease_seconds,
+        ):
+            raise StaleJobClaim("background job claim is no longer current")
+        return token
+
     def _run(self) -> None:
         while not self._stop.is_set():
             with self._submission_guard:
@@ -137,27 +161,40 @@ class BackgroundAiJobRunner:
                 self._process(job)
 
     def _process(self, job: Job) -> None:
+        token = self._claim_token(job)
         try:
             if job.job_type == OBSERVATION_ENRICHMENT_JOB:
                 self._enrich_observation(job)
             elif job.job_type == MATERIAL_ENHANCEMENT_JOB:
                 self._enhance_material(job)
             else:
-                self.queue.fail(job.id, f"unknown background AI job type: {job.job_type}")
+                self.queue.fail(
+                    job.id,
+                    token,
+                    f"unknown background AI job type: {job.job_type}",
+                )
                 return
-            self.queue.complete(job.id)
+            self.queue.complete(job.id, token)
+        except StaleJobClaim:
+            # Another worker owns the reclaimed attempt. Never mutate its durable queue state.
+            return
         except KeyError:
-            # The child/entity may have been intentionally purged while a job was pending.
-            self.queue.cancel(job.id)
+            # The child/entity may have been intentionally purged while a job was pending. Use a
+            # fenced terminal transition so a stale worker cannot cancel a newer reclaimed attempt.
+            self.queue.fail(job.id, token, "source entity removed while background job was running")
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
+            try:
+                self._renew_claim(job)
+            except StaleJobClaim:
+                return
             if job.attempts < self.max_attempts:
                 self._mark_retryable(job, error)
-                self.queue.retry(job.id, error)
-                sleep(min(5.0, max(0.5, self.poll_interval_seconds * 2)))
+                if self.queue.retry(job.id, token, error):
+                    sleep(min(5.0, max(0.5, self.poll_interval_seconds * 2)))
             else:
                 self._mark_failed(job)
-                self.queue.fail(job.id, error)
+                self.queue.fail(job.id, token, error)
 
     def _enrich_observation(self, job: Job) -> None:
         child_id = str(job.payload.get("child_id", "")).strip()
@@ -175,19 +212,24 @@ class BackgroundAiJobRunner:
 
         provider = self.provider_factory()
         if provider is None:
+            self._renew_claim(job)
             log.ai_status = AiEnhancementStatus.SKIPPED
             log.updated_at = datetime.now(UTC)
             store.save(log)
             return
 
+        self._renew_claim(job)
         log.ai_status = AiEnhancementStatus.RUNNING
         log.ai_job_id = job.id
         log.updated_at = datetime.now(UTC)
         store.save(log)
-        self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
 
         with BACKGROUND_AI_LOCK:
             enrichment = ObservationEnricher(provider).enrich(log.parent_observation)
+
+        # The model call may outlive the original lease. Revalidate ownership before any generated
+        # content is allowed to reach the source-of-truth record.
+        self._renew_claim(job)
 
         # Parent-entered structured values win. AI only fills gaps and adds non-destructive tags/
         # experience axes so delayed enrichment cannot overwrite intentional manual data.
@@ -216,6 +258,7 @@ class BackgroundAiJobRunner:
         if str(material.child_id) != child_id:
             raise ValueError("material enhancement child scope mismatch")
         if material.status not in {MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING}:
+            self._renew_claim(job)
             material.ai_status = AiEnhancementStatus.SKIPPED
             material.updated_at = datetime.now(UTC)
             store.save(material)
@@ -227,16 +270,17 @@ class BackgroundAiJobRunner:
         child = ChildProfile.model_validate(child_payload)
         provider = self.provider_factory()
         if provider is None:
+            self._renew_claim(job)
             material.ai_status = AiEnhancementStatus.SKIPPED
             material.updated_at = datetime.now(UTC)
             store.save(material)
             return
 
+        self._renew_claim(job)
         material.ai_status = AiEnhancementStatus.RUNNING
         material.ai_job_id = job.id
         material.updated_at = datetime.now(UTC)
         store.save(material)
-        self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
 
         evidence = self._material_source_evidence(material=material, store=store)
         feedback = MaterialFeedbackService(store.index).snapshot(child_id=child_id)
@@ -260,6 +304,10 @@ class BackgroundAiJobRunner:
             )
         if candidate.generator_mode == "template_fallback":
             raise RuntimeError("material model generation failed")
+
+        # The model call may outlive the original lease. Fence the generated candidate before it can
+        # overwrite a record now owned by another retry attempt.
+        self._renew_claim(job)
 
         # Re-read after inference. A parent may have approved/rejected/edited the material while the
         # model was running; background work must never mutate a record after that decision.
