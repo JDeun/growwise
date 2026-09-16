@@ -32,12 +32,20 @@ fn core_base_url() -> Result<String, String> {
 pub(crate) async fn discover_education_resources(
     child_id: String,
     query: Option<String>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
 ) -> Result<serde_json::Value, String> {
+    if latitude.is_some() != longitude.is_some() {
+        return Err("탐방 위치의 위도와 경도는 함께 입력해 주세요.".to_string());
+    }
     let base_url = core_base_url()?;
     let mut request =
         discovery_client()?.get(format!("{base_url}/v1/children/{child_id}/discover"));
     if let Some(value) = query.as_deref().filter(|value| !value.trim().is_empty()) {
         request = request.query(&[("query", value)]);
+    }
+    if let (Some(latitude), Some(longitude)) = (latitude, longitude) {
+        request = request.query(&[("latitude", latitude), ("longitude", longitude)]);
     }
     let response = request.send().await.map_err(|error| error.to_string())?;
     ensure_success(response, "교육 자료 발견 실패")
