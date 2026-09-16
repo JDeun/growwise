@@ -70,6 +70,27 @@ class ActivityStatus(StrEnum):
     ARCHIVED = "archived"
 
 
+class LearningRecordKind(StrEnum):
+    OBSERVATION = "observation"
+    PHOTO_ACTIVITY = "photo_activity"
+    MATERIAL_USE = "material_use"
+    READING_REFLECTION = "reading_reflection"
+    DIARY = "diary"
+    INSTITUTION = "institution"
+    SELF_STUDY = "self_study"
+    ASSIGNMENT = "assignment"
+    OTHER = "other"
+
+
+class AiEnhancementStatus(StrEnum):
+    NOT_REQUESTED = "not_requested"
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    SKIPPED = "skipped"
+
+
 class MaterialKind(StrEnum):
     ACTIVITY_GUIDE = "activity_guide"
     READING_ACTIVITY = "reading_activity"
@@ -204,6 +225,12 @@ class LearningLog(EntityBase):
     entity_type: str = "learning_log"
     child_id: UUID
     activity_plan_id: UUID | None = None
+    record_kind: LearningRecordKind = LearningRecordKind.OBSERVATION
+    title: str | None = Field(default=None, max_length=500)
+    occurred_at: datetime | None = None
+    subject: str | None = Field(default=None, max_length=200)
+    institution: str | None = Field(default=None, max_length=500)
+    learner_work: str | None = Field(default=None, max_length=20_000)
     # Legacy Markdown may contain an empty observation. API create requests remain min_length=1;
     # the domain model keeps read compatibility while still bounding pathological persisted input.
     parent_observation: str = Field(max_length=10_000)
@@ -214,6 +241,8 @@ class LearningLog(EntityBase):
     next_activity: str | None = Field(default=None, max_length=4_000)
     tags: list[TagText] = Field(default_factory=list, max_length=100)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
+    ai_status: AiEnhancementStatus = AiEnhancementStatus.NOT_REQUESTED
+    ai_job_id: UUID | None = None
 
 
 class ResourceRecord(EntityBase):
@@ -265,10 +294,13 @@ class GeneratedMaterial(EntityBase):
     kind: MaterialKind
     title: str = Field(min_length=1, max_length=500)
     content_markdown: str = Field(min_length=1, max_length=100_000)
+    parent_guide_markdown: str = Field(default="", max_length=50_000)
     status: MaterialStatus = MaterialStatus.DRAFT
     source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
     curriculum_targets: list[CurriculumTarget] = Field(default_factory=list, max_length=100)
     generator_mode: str = Field(default="template", min_length=1, max_length=120)
+    ai_status: AiEnhancementStatus = AiEnhancementStatus.NOT_REQUESTED
+    ai_job_id: UUID | None = None
     review_note: str | None = Field(default=None, max_length=10_000)
     request_topic: str | None = Field(default=None, max_length=500)
     request_goal: str | None = Field(default=None, max_length=2_000)
