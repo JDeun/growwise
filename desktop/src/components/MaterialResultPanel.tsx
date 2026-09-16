@@ -2,12 +2,14 @@ import type { FormEvent } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import {
+  listPhotoRecords,
   recordMaterialResult,
   transitionActivity,
   type ActivityPlan,
   type ExperienceAxis,
   type GeneratedMaterial,
   type LearningLog,
+  type PhotoActivityRecord,
 } from "../api";
 import { ensureMaterialQuest } from "../material-quest";
 import { AXIS_OPTIONS } from "../presentation";
@@ -35,6 +37,16 @@ function activityTimestamp(activity: ActivityPlan | null): string | null {
   return value ? new Date(value).toLocaleString("ko-KR") : null;
 }
 
+function photoRecordSummary(record: PhotoActivityRecord): string {
+  const firstLine = record.generated_observation.split("\n")[0]?.trim();
+  return (firstLine || "사진 기록").slice(0, 120);
+}
+
+function photoRecordTimestamp(record: PhotoActivityRecord): string | null {
+  const value = record.updated_at ?? record.created_at ?? null;
+  return value ? new Date(value).toLocaleString("ko-KR") : null;
+}
+
 export function MaterialResultPanel({ material, onRecorded }: MaterialResultPanelProps) {
   const [open, setOpen] = useState(false);
   const [loadState, setLoadState] = useState<QuestLoadState>("loading");
@@ -48,6 +60,10 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const [difficulty, setDifficulty] = useState("");
   const [nextActivity, setNextActivity] = useState("");
   const [axes, setAxes] = useState<ExperienceAxis[]>([]);
+  const [photoRecords, setPhotoRecords] = useState<PhotoActivityRecord[]>([]);
+  const [selectedPhotoRecordIds, setSelectedPhotoRecordIds] = useState<string[]>([]);
+  const [photoLoading, setPhotoLoading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const onRecordedRef = useRef(onRecorded);
@@ -79,6 +95,31 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     void reloadQuest();
   }, [reloadQuest]);
 
+  useEffect(() => {
+    if (!open) return;
+    let cancelled = false;
+    setPhotoLoading(true);
+    setPhotoError(null);
+    void listPhotoRecords(material.child_id)
+      .then((records) => {
+        if (!cancelled) setPhotoRecords(records.filter((record) => record.status === "committed"));
+      })
+      .catch((cause: unknown) => {
+        if (!cancelled) {
+          setPhotoRecords([]);
+          setPhotoError(
+            cause instanceof Error ? cause.message : "사진 기록을 불러오지 못했습니다.",
+          );
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setPhotoLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [material.child_id, open]);
+
   const questStatus = activity?.status ?? "suggested";
   const hasResult = results.length > 0;
   const timestamp = activityTimestamp(activity);
@@ -86,6 +127,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const canStart = !activity || activity.status === "suggested" || activity.status === "skipped";
   const canComplete = !activity || ["suggested", "active", "skipped"].includes(activity.status);
   const canSkip = !activity || ["suggested", "active"].includes(activity.status);
+  const availablePhotos = useMemo(() => photoRecords.slice(0, 8), [photoRecords]);
 
   const progressStep = useMemo(() => {
     if (hasResult) return 4;
@@ -100,6 +142,14 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     );
   }
 
+  function togglePhotoRecord(recordId: string) {
+    setSelectedPhotoRecordIds((current) =>
+      current.includes(recordId)
+        ? current.filter((item) => item !== recordId)
+        : [...current, recordId],
+    );
+  }
+
   function resetForm() {
     setOutcome("completed");
     setObservation("");
@@ -109,6 +159,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setDifficulty("");
     setNextActivity("");
     setAxes([]);
+    setSelectedPhotoRecordIds([]);
     setError(null);
   }
 
@@ -179,7 +230,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setBusy(true);
     setError(null);
     try {
-      const response = await recordMaterialResult(material.id, {
+      const request = {
         outcome,
         observation: mainObservation,
         process: process.trim() || null,
@@ -189,7 +240,9 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
         next_activity: nextActivity.trim() || null,
         experience_axes: axes,
         activity_plan_id: activity?.id ?? null,
-      });
+        photo_record_ids: selectedPhotoRecordIds,
+      };
+      const response = await recordMaterialResult(material.id, request);
       setActivity(response.activity);
       await reloadQuest();
       await onRecorded();
@@ -381,6 +434,44 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
               disabled={busy}
             />
           </label>
+
+          <fieldset className="material-result-photo-evidence">
+            <legend>사진·산출물 증거(선택)</legend>
+            <p className="muted">
+              사진 기록 작업공간에서 부모 검토까지 마친 기록을 연결합니다. 이미지 파일은 복제하지 않습니다.
+            </p>
+            {photoLoading && <p className="muted">사진 기록 확인 중…</p>}
+            {photoError && <p className="form-error">{photoError}</p>}
+            {!photoLoading && !photoError && availablePhotos.length === 0 && (
+              <p className="muted">연결할 수 있는 확정 사진 기록이 아직 없습니다.</p>
+            )}
+            {availablePhotos.length > 0 && (
+              <div className="material-photo-options">
+                {availablePhotos.map((record) => {
+                  const selected = selectedPhotoRecordIds.includes(record.id);
+                  const photoTimestamp = photoRecordTimestamp(record);
+                  const shared = record.child_id !== material.child_id;
+                  return (
+                    <label className="material-photo-option" key={record.id}>
+                      <input
+                        type="checkbox"
+                        checked={selected}
+                        onChange={() => togglePhotoRecord(record.id)}
+                        disabled={busy}
+                      />
+                      <span>
+                        <strong>{photoRecordSummary(record)}</strong>
+                        <small>
+                          {shared ? "공유 사진 · " : ""}
+                          {photoTimestamp ?? "저장된 사진 기록"}
+                        </small>
+                      </span>
+                    </label>
+                  );
+                })}
+              </div>
+            )}
+          </fieldset>
 
           <fieldset className="material-result-axes">
             <legend>경험·학습 축(선택)</legend>
