@@ -4,9 +4,10 @@ from pathlib import Path
 
 from growwise.adapters import AdapterResult
 from growwise.config import Settings
-from growwise.domain import ChildProfile, LearningLog, Stage
+from growwise.domain import ActivityPlan, ChildProfile, LearningLog, Stage
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services.discovery import EducationDiscoveryService
+from growwise.services.public_query import generalize_public_terms
 from growwise.storage import EntityStore
 
 
@@ -68,7 +69,7 @@ def test_discovery_has_offline_curriculum_baseline_and_deduplicated_save(
     assert first.provenance["discovery_candidate_id"] == suggestion.candidate_id
 
 
-def test_external_book_search_receives_generic_terms_only(
+def test_external_book_search_receives_allowlisted_topics_only(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -108,17 +109,25 @@ def test_external_book_search_receives_generic_terms_only(
     )
     service, store = _service(tmp_path, data4library_api_key="test-key")
     child = ChildProfile(
-        name="외부로 나가면 안 되는 이름",
-        nickname="비밀별명",
+        name="PRIVATE_NAME_MARKER",
+        nickname="PRIVATE_NICKNAME_MARKER",
         stage=Stage.ELEMENTARY,
-        interests=["공룡", "우주"],
+        interests=["공룡", "PRIVATE_INTEREST_MARKER", "우주"],
+        learning_goals=["PRIVATE_GOAL_MARKER"],
     )
     store.save(child)
     store.save(
         LearningLog(
             child_id=child.id,
-            parent_observation="이 관찰 원문은 외부 API로 전달되면 안 된다.",
-            tags=["화석"],
+            parent_observation="PRIVATE_OBSERVATION_MARKER",
+            interest="PRIVATE_LOG_INTEREST_MARKER",
+            tags=["화석", "PRIVATE_TAG_MARKER"],
+        )
+    )
+    store.save(
+        ActivityPlan(
+            child_id=child.id,
+            title="PRIVATE_ACTIVITY_MARKER 박물관에서 공룡을 관찰",
         )
     )
 
@@ -126,7 +135,60 @@ def test_external_book_search_receives_generic_terms_only(
 
     assert seen_keywords == ["공룡 우주 화석"]
     outbound = seen_keywords[0]
-    assert child.name not in outbound
-    assert (child.nickname or "") not in outbound
-    assert "관찰 원문" not in outbound
+    assert result.query == outbound
+    assert result.query_terms[:3] == ["공룡", "우주", "화석"]
+    assert all("PRIVATE_" not in value for value in [outbound, *result.query_terms])
     assert any(item.title == "공룡을 찾아서" for item in result.suggestions)
+
+
+def test_explicit_discovery_query_is_generalized_before_external_use(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seen_keywords: list[str] = []
+
+    class FakeData4LibraryAdapter:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search_books(
+            self,
+            *,
+            keyword: str,
+            page: int = 1,
+            page_size: int = 10,
+            offline: bool = False,
+        ) -> AdapterResult:
+            del page, page_size, offline
+            seen_keywords.append(keyword)
+            return AdapterResult(
+                source="data4library",
+                records=[],
+                attribution="도서관 정보나루",
+                license_note="테스트 이용조건",
+            )
+
+    monkeypatch.setattr(
+        "growwise.services.discovery.Data4LibraryAdapter",
+        FakeData4LibraryAdapter,
+    )
+    service, store = _service(tmp_path, data4library_api_key="test-key")
+    child = ChildProfile(
+        name="PRIVATE_NAME_MARKER",
+        stage=Stage.ELEMENTARY,
+    )
+    store.save(child)
+
+    result = service.discover(
+        child=child,
+        query="PRIVATE_QUERY_MARKER 박물관에서 공룡을 찾아보기",
+    )
+
+    assert seen_keywords == ["박물관 공룡"]
+    assert result.query == "박물관 공룡"
+    assert "PRIVATE_QUERY_MARKER" not in result.query
+
+
+def test_public_topic_projection_does_not_treat_nickname_fragment_as_topic() -> None:
+    assert generalize_public_terms(["별이와 공룡을 함께 보기"]) == ["공룡"]
+    assert generalize_public_terms(["PRIVATE_ONLY_MARKER"]) == []
