@@ -217,40 +217,53 @@ class SQLiteProjection:
         entity_types: Sequence[str],
         limit: int = 20,
     ) -> list[dict]:
-        """Deterministic child-scoped lexical search over stored JSON payloads.
+        """Deterministic child-scoped lexical search over owned and linked JSON payloads.
 
-        This remains available when all LLM and embedding features are disabled. Results are ranked
-        by the number of query terms present in the payload, then by recency.
+        This remains available when all LLM and embedding features are disabled. ``child_scope``
+        links extend visibility without copying the source document. Results are ranked by the
+        number of query terms present in the payload, then by recency.
         """
         if not entity_types or limit <= 0:
             return []
 
         terms = [term.strip() for term in query_text.split() if term.strip()]
         type_placeholders = ",".join("?" for _ in entity_types)
-        clauses = ["child_id = ?", f"entity_type IN ({type_placeholders})"]
-        where_params: list[str | int] = [child_id, *entity_types]
-
-        if terms:
-            term_clauses = ["payload_json LIKE ?" for _ in terms]
-            clauses.append("(" + " OR ".join(term_clauses) + ")")
-            patterns = [f"%{term}%" for term in terms]
-            where_params.extend(patterns)
-            score_sql = " + ".join("CASE WHEN payload_json LIKE ? THEN 1 ELSE 0 END" for _ in terms)
-            sql = (
-                f"SELECT payload_json, ({score_sql}) AS match_score FROM entities "
-                f"WHERE {' AND '.join(clauses)} "
-                "ORDER BY match_score DESC, updated_at DESC LIMIT ?"
-            )
-            params: list[str | int] = [*patterns, *where_params, limit]
-        else:
-            sql = (
-                "SELECT payload_json, 0 AS match_score FROM entities "
-                f"WHERE {' AND '.join(clauses)} "
-                "ORDER BY updated_at DESC LIMIT ?"
-            )
-            params = [*where_params, limit]
 
         with self._connection() as connection:
+            linked_ids = self._child_scope_source_ids(connection, child_id=child_id)
+            scope_params: list[str | int] = [child_id]
+            if linked_ids:
+                linked_placeholders = ",".join("?" for _ in linked_ids)
+                scope_clause = f"(child_id = ? OR id IN ({linked_placeholders}))"
+                scope_params.extend(sorted(linked_ids))
+            else:
+                scope_clause = "child_id = ?"
+
+            clauses = [scope_clause, f"entity_type IN ({type_placeholders})"]
+            where_params: list[str | int] = [*scope_params, *entity_types]
+
+            if terms:
+                term_clauses = ["payload_json LIKE ?" for _ in terms]
+                clauses.append("(" + " OR ".join(term_clauses) + ")")
+                patterns = [f"%{term}%" for term in terms]
+                where_params.extend(patterns)
+                score_sql = " + ".join(
+                    "CASE WHEN payload_json LIKE ? THEN 1 ELSE 0 END" for _ in terms
+                )
+                sql = (
+                    f"SELECT payload_json, ({score_sql}) AS match_score FROM entities "
+                    f"WHERE {' AND '.join(clauses)} "
+                    "ORDER BY match_score DESC, updated_at DESC LIMIT ?"
+                )
+                params: list[str | int] = [*patterns, *where_params, limit]
+            else:
+                sql = (
+                    "SELECT payload_json, 0 AS match_score FROM entities "
+                    f"WHERE {' AND '.join(clauses)} "
+                    "ORDER BY updated_at DESC LIMIT ?"
+                )
+                params = [*where_params, limit]
+
             rows = connection.execute(sql, params).fetchall()
         return [json.loads(row["payload_json"]) for row in rows]
 
