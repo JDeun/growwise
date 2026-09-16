@@ -33,6 +33,7 @@ import {
   createConversation,
   createObservation,
   createResource,
+  deleteResource,
   exportBackup,
   editMaterial,
   generateMaterial,
@@ -54,6 +55,7 @@ import {
   reviseMaterial,
   searchChildContext,
   transitionActivity,
+  updateResource,
   type ActivityPlan,
   type ActivityStatus,
   type BackupItem,
@@ -71,6 +73,7 @@ import {
   type LearningLog,
   type MaterialKind,
   type MaterialStatus,
+  type ResourceCreateInput,
   type ResourceKind,
   type ResourceRecord,
   type SearchResponse,
@@ -492,6 +495,41 @@ function App() {
     }
   }
 
+  async function handleUpdateResource(resourceId: string, request: ResourceCreateInput) {
+    setResourceSaving(true);
+    setResourceError(null);
+    try {
+      const updated = await updateResource(resourceId, request);
+      setResources((current) =>
+        current.map((resource) => (resource.id === updated.id ? updated : resource)),
+      );
+      announceWrite("자료를 수정했습니다.");
+    } catch (error) {
+      setResourceError(errorMessage(error, "자료 수정에 실패했습니다."));
+      throw error;
+    } finally {
+      setResourceSaving(false);
+    }
+  }
+
+  async function handleDeleteResource(resourceId: string) {
+    setResourceSaving(true);
+    setResourceError(null);
+    try {
+      await deleteResource(resourceId);
+      setResources((current) => current.filter((resource) => resource.id !== resourceId));
+      setSelectedResourceRefs((current) =>
+        current.filter((ref) => ref !== `resource:${resourceId}`),
+      );
+      announceWrite("자료를 삭제했습니다.");
+    } catch (error) {
+      setResourceError(errorMessage(error, "자료 삭제에 실패했습니다."));
+      throw error;
+    } finally {
+      setResourceSaving(false);
+    }
+  }
+
   async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
@@ -838,6 +876,8 @@ function App() {
               onContentChange={setResourceContent}
               onSubmit={handleCreateResource}
               onRetry={() => void reloadChildContextPart("library")}
+              onUpdate={handleUpdateResource}
+              onDelete={handleDeleteResource}
             />
 
             {childContext.materials.kind === "loading" ? (

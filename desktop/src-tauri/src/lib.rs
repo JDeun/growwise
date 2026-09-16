@@ -359,6 +359,36 @@ async fn list_resources(child_id: Option<String>) -> Result<serde_json::Value, S
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
+async fn update_resource(
+    resource_id: String,
+    request: ResourceCreateInput,
+) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .put(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 수정 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn delete_resource(resource_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .delete(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 삭제 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
 async fn generate_material(
     child_id: String,
     kind: String,
@@ -714,6 +744,8 @@ pub fn run() {
             append_conversation_turn,
             create_resource,
             list_resources,
+            update_resource,
+            delete_resource,
             generate_material,
             list_materials,
             review_material,

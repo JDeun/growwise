@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from contextlib import suppress
 from pathlib import Path
 
 from growwise.domain.models import EntityBase
@@ -26,3 +27,34 @@ class EntityStore:
             self.markdown._write_locked(path, self.markdown.render(entity, body=body))
             self.index.upsert(entity, path)
         return path
+
+    def delete(self, entity: EntityBase) -> bool:
+        """Delete one authoritative record and its disposable projection entry.
+
+        The same per-path lock used by ``save`` prevents a concurrent update from interleaving with
+        deletion. The projection is removed first; if the authoritative Markdown unlink fails, the
+        projection is restored from the still-valid entity so callers never observe a successful
+        index deletion for a record that remains authoritative on disk.
+        """
+        path = self.markdown.path_for(entity)
+        backup = self.markdown.backup_path(path)
+        with self.markdown.lock_for(path):
+            if not path.exists():
+                # Markdown is authoritative. If it is already gone, remove any stale disposable
+                # projection entry rather than preserving a ghost record in list/search results.
+                self.index.delete_entity(str(entity.id), entity_type=entity.entity_type)
+                return False
+            deleted_from_index = self.index.delete_entity(
+                str(entity.id), entity_type=entity.entity_type
+            )
+            try:
+                path.unlink()
+            except Exception:
+                if deleted_from_index:
+                    self.index.upsert(entity, path)
+                raise
+            # A stale previous-generation backup is not authoritative and rebuild ignores *.md.bak.
+            # Best-effort cleanup avoids turning an already-successful delete into data ambiguity.
+            with suppress(OSError):
+                backup.unlink(missing_ok=True)
+        return True

@@ -71,6 +71,17 @@ class HybridRagIndex:
         finally:
             connection.close()
 
+    def delete_resource(self, resource_id: str) -> int:
+        connection = self._connect()
+        try:
+            cursor = connection.execute(
+                "DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,)
+            )
+            connection.commit()
+            return cursor.rowcount
+        finally:
+            connection.close()
+
     def replace_resource(self, chunks: list[ResourceChunk]) -> int:
         if not chunks:
             return 0

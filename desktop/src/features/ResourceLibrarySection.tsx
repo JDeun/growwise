@@ -1,8 +1,44 @@
-import type { FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import type { ViewLoadState } from "../child-context-state";
-import { ViewStateNotice } from "../components";
-import type { ResourceKind, ResourceRecord } from "../api";
+import { ConfirmDialog, ViewStateNotice } from "../components";
+import type { ResourceCreateInput, ResourceKind, ResourceRecord } from "../api";
+import "./ResourceLibrarySection.css";
+
+type ResourceKindFilter = "all" | ResourceKind;
+
+const RESOURCE_KIND_LABELS: Record<ResourceKind, string> = {
+  note: "메모",
+  book: "도서",
+  curriculum: "교육과정",
+  web: "웹 자료",
+  file: "파일 메모",
+};
+
+export function filterResources(
+  resources: ResourceRecord[],
+  query: string,
+  kind: ResourceKindFilter,
+): ResourceRecord[] {
+  const needle = query.trim().toLocaleLowerCase();
+  return resources.filter((resource) => {
+    if (kind !== "all" && resource.kind !== kind) return false;
+    if (!needle) return true;
+    const haystack = [
+      resource.title,
+      resource.summary,
+      resource.content,
+      resource.source_name,
+      resource.author,
+      ...resource.tags,
+      ...resource.stage_tags,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLocaleLowerCase();
+    return haystack.includes(needle);
+  });
+}
 
 interface ResourceLibrarySectionProps {
   resourceKind: ResourceKind;
@@ -17,6 +53,8 @@ interface ResourceLibrarySectionProps {
   onContentChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRetry: () => void;
+  onUpdate: (resourceId: string, request: ResourceCreateInput) => Promise<void>;
+  onDelete: (resourceId: string) => Promise<void>;
 }
 
 export function ResourceLibrarySection({
@@ -32,7 +70,91 @@ export function ResourceLibrarySection({
   onContentChange,
   onSubmit,
   onRetry,
+  onUpdate,
+  onDelete,
 }: ResourceLibrarySectionProps) {
+  const [query, setQuery] = useState("");
+  const [kindFilter, setKindFilter] = useState<ResourceKindFilter>("all");
+  const [selectedResourceId, setSelectedResourceId] = useState<string | null>(null);
+  const [editingResource, setEditingResource] = useState<ResourceRecord | null>(null);
+  const [editKind, setEditKind] = useState<ResourceKind>("note");
+  const [editTitle, setEditTitle] = useState("");
+  const [editContent, setEditContent] = useState("");
+  const [editError, setEditError] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null);
+  const [mutationBusy, setMutationBusy] = useState(false);
+
+  const filteredResources = useMemo(
+    () => filterResources(resources, query, kindFilter),
+    [kindFilter, query, resources],
+  );
+  const selectedResource =
+    resources.find((resource) => resource.id === selectedResourceId) ?? null;
+
+  useEffect(() => {
+    if (
+      selectedResourceId &&
+      !filteredResources.some((resource) => resource.id === selectedResourceId)
+    ) {
+      setSelectedResourceId(null);
+    }
+  }, [filteredResources, selectedResourceId]);
+
+  function startEditing(resource: ResourceRecord) {
+    setEditingResource(resource);
+    setEditKind(resource.kind);
+    setEditTitle(resource.title);
+    setEditContent(resource.content ?? "");
+    setEditError(null);
+  }
+
+  async function handleUpdate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!editingResource) return;
+    const title = editTitle.trim();
+    if (!title) {
+      setEditError("자료 제목을 입력해 주세요.");
+      return;
+    }
+    setMutationBusy(true);
+    setEditError(null);
+    try {
+      await onUpdate(editingResource.id, {
+        kind: editKind,
+        title,
+        child_id: editingResource.child_id,
+        summary: editingResource.summary,
+        content: editContent.trim() || null,
+        source_url: editingResource.source_url,
+        source_name: editingResource.source_name,
+        author: editingResource.author,
+        tags: editingResource.tags,
+        stage_tags: editingResource.stage_tags,
+        provenance: editingResource.provenance,
+      });
+      setEditingResource(null);
+    } catch {
+      // App owns the operation error notice. Keep the editor open so the parent can retry.
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!deleteTarget) return;
+    setMutationBusy(true);
+    try {
+      await onDelete(deleteTarget.id);
+      if (selectedResourceId === deleteTarget.id) setSelectedResourceId(null);
+      if (editingResource?.id === deleteTarget.id) setEditingResource(null);
+      setDeleteTarget(null);
+    } catch {
+      // App owns the operation error notice. Keep confirmation open on failure.
+    } finally {
+      setMutationBusy(false);
+    }
+  }
+
   return (
     <section className="resource-section">
       <div className="resource-grid">
@@ -41,41 +163,221 @@ export function ResourceLibrarySection({
           <h3>자료를 지식베이스에 넣습니다.</h3>
           <label>
             <span>종류</span>
-            <select value={resourceKind} onChange={(event) => onKindChange(event.target.value as ResourceKind)}>
-              <option value="note">메모</option>
-              <option value="book">도서</option>
-              <option value="curriculum">교육과정</option>
-              <option value="web">웹 자료</option>
-              <option value="file">파일 메모</option>
+            <select
+              value={resourceKind}
+              onChange={(event) => onKindChange(event.target.value as ResourceKind)}
+            >
+              {Object.entries(RESOURCE_KIND_LABELS).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
             </select>
           </label>
           <label>
             <span>제목</span>
-            <input value={resourceTitle} onChange={(event) => onTitleChange(event.target.value)} maxLength={500} />
+            <input
+              value={resourceTitle}
+              onChange={(event) => onTitleChange(event.target.value)}
+              maxLength={500}
+            />
           </label>
           <label>
             <span>내용</span>
-            <textarea value={resourceContent} onChange={(event) => onContentChange(event.target.value)} placeholder="자료의 핵심 내용이나 메모" />
+            <textarea
+              value={resourceContent}
+              onChange={(event) => onContentChange(event.target.value)}
+              placeholder="자료의 핵심 내용이나 메모"
+            />
           </label>
-          <button className="primary-button" type="submit" disabled={saving}>{saving ? "저장 중…" : "자료 저장"}</button>
+          <button className="primary-button" type="submit" disabled={saving || mutationBusy}>
+            {saving ? "저장 중…" : "자료 저장"}
+          </button>
           {error && <p className="form-error" role="alert">{error}</p>}
         </form>
 
-        <div className="resource-list">
-          <p className="card-label">INDEXED RESOURCES</p>
-          <h3>{loadState.kind === "ready" ? `${resources.length}건` : "자료 목록"}</h3>
-          {loadState.kind === "loading" && <ViewStateNotice kind="loading" title="자료 목록을 불러오는 중입니다." description="저장된 자료를 아이 범위에 맞춰 확인합니다." />}
-          {loadState.kind === "error" && <ViewStateNotice kind="error" title="자료 목록을 불러오지 못했습니다." description={loadState.message} action={<button className="quiet-button" type="button" onClick={onRetry}>다시 시도</button>} />}
-          {loadState.kind === "ready" && resources.length === 0 && <ViewStateNotice kind="empty" title="연결된 자료가 아직 없습니다." description="메모, 책, 교육과정 또는 웹 자료를 저장하면 여기에 모입니다." />}
-          {loadState.kind === "ready" && resources.map((resource) => (
-            <article className="resource-card" key={resource.id}>
-              <strong>{resource.title}</strong>
-              <span>{resource.kind}</span>
-              {resource.content && <p>{resource.content}</p>}
-            </article>
-          ))}
+        <div className="resource-browser">
+          <div className="resource-browser-heading">
+            <div>
+              <p className="card-label">INDEXED RESOURCES</p>
+              <h3>{loadState.kind === "ready" ? `${filteredResources.length} / ${resources.length}건` : "자료 목록"}</h3>
+            </div>
+            {loadState.kind === "ready" && (query || kindFilter !== "all") && (
+              <button
+                className="quiet-button"
+                type="button"
+                onClick={() => {
+                  setQuery("");
+                  setKindFilter("all");
+                }}
+              >
+                필터 초기화
+              </button>
+            )}
+          </div>
+
+          {loadState.kind === "ready" && resources.length > 0 && (
+            <div className="resource-filters" aria-label="자료 검색 및 필터">
+              <label>
+                <span>자료 검색</span>
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="제목, 내용, 태그 검색"
+                />
+              </label>
+              <label>
+                <span>종류 필터</span>
+                <select
+                  value={kindFilter}
+                  onChange={(event) => setKindFilter(event.target.value as ResourceKindFilter)}
+                >
+                  <option value="all">전체</option>
+                  {Object.entries(RESOURCE_KIND_LABELS).map(([value, label]) => (
+                    <option key={value} value={value}>{label}</option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
+
+          {loadState.kind === "loading" && (
+            <ViewStateNotice
+              kind="loading"
+              title="자료 목록을 불러오는 중입니다."
+              description="저장된 자료를 아이 범위에 맞춰 확인합니다."
+            />
+          )}
+          {loadState.kind === "error" && (
+            <ViewStateNotice
+              kind="error"
+              title="자료 목록을 불러오지 못했습니다."
+              description={loadState.message}
+              action={<button className="quiet-button" type="button" onClick={onRetry}>다시 시도</button>}
+            />
+          )}
+          {loadState.kind === "ready" && resources.length === 0 && (
+            <ViewStateNotice
+              kind="empty"
+              title="연결된 자료가 아직 없습니다."
+              description="메모, 책, 교육과정 또는 웹 자료를 저장하면 여기에 모입니다."
+            />
+          )}
+          {loadState.kind === "ready" && resources.length > 0 && filteredResources.length === 0 && (
+            <ViewStateNotice
+              kind="empty"
+              title="조건에 맞는 자료가 없습니다."
+              description="검색어나 종류 필터를 바꿔 보세요."
+              action={<button className="quiet-button" type="button" onClick={() => { setQuery(""); setKindFilter("all"); }}>필터 초기화</button>}
+            />
+          )}
+
+          {loadState.kind === "ready" && filteredResources.length > 0 && (
+            <div className="resource-results">
+              <div className="resource-list" aria-label="자료 목록">
+                {filteredResources.map((resource) => (
+                  <article
+                    className={`resource-card${selectedResourceId === resource.id ? " is-selected" : ""}`}
+                    key={resource.id}
+                  >
+                    <div className="resource-card-heading">
+                      <div>
+                        <strong>{resource.title}</strong>
+                        <span>{RESOURCE_KIND_LABELS[resource.kind]}</span>
+                      </div>
+                      <span className="resource-scope">{resource.child_id ? "현재 아이" : "공용"}</span>
+                    </div>
+                    {(resource.summary || resource.content) && (
+                      <p>{resource.summary ?? resource.content}</p>
+                    )}
+                    {resource.tags.length > 0 && (
+                      <div className="resource-tags" aria-label="자료 태그">
+                        {resource.tags.map((tag) => <span key={tag}>{tag}</span>)}
+                      </div>
+                    )}
+                    <div className="resource-card-actions">
+                      <button className="quiet-button" type="button" onClick={() => setSelectedResourceId(resource.id)}>상세</button>
+                      <button className="quiet-button" type="button" onClick={() => startEditing(resource)} disabled={mutationBusy}>편집</button>
+                      <button className="quiet-button danger-button" type="button" onClick={() => setDeleteTarget(resource)} disabled={mutationBusy}>삭제</button>
+                    </div>
+                  </article>
+                ))}
+              </div>
+
+              {selectedResource && (
+                <aside className="resource-detail" aria-label="선택한 자료 상세">
+                  <div className="resource-detail-heading">
+                    <div>
+                      <p className="card-label">RESOURCE DETAIL</p>
+                      <h4>{selectedResource.title}</h4>
+                    </div>
+                    <button className="quiet-button" type="button" onClick={() => setSelectedResourceId(null)}>닫기</button>
+                  </div>
+                  <dl>
+                    <div><dt>종류</dt><dd>{RESOURCE_KIND_LABELS[selectedResource.kind]}</dd></div>
+                    <div><dt>범위</dt><dd>{selectedResource.child_id ? "현재 아이" : "공용"}</dd></div>
+                    {selectedResource.source_name && <div><dt>출처</dt><dd>{selectedResource.source_name}</dd></div>}
+                    {selectedResource.author && <div><dt>저자</dt><dd>{selectedResource.author}</dd></div>}
+                  </dl>
+                  {selectedResource.source_url && <p className="resource-source-url">{selectedResource.source_url}</p>}
+                  {selectedResource.summary && <p>{selectedResource.summary}</p>}
+                  {selectedResource.content && <pre>{selectedResource.content}</pre>}
+                  {Object.keys(selectedResource.provenance).length > 0 && (
+                    <div className="resource-provenance">
+                      <strong>Provenance</strong>
+                      {Object.entries(selectedResource.provenance).map(([key, value]) => (
+                        <span key={key}>{key}: {value}</span>
+                      ))}
+                    </div>
+                  )}
+                </aside>
+              )}
+            </div>
+          )}
         </div>
       </div>
+
+      {editingResource && (
+        <form className="resource-edit-panel" onSubmit={(event) => void handleUpdate(event)}>
+          <div className="resource-detail-heading">
+            <div>
+              <p className="card-label">EDIT RESOURCE</p>
+              <h3>자료 수정</h3>
+            </div>
+            <button className="quiet-button" type="button" onClick={() => setEditingResource(null)} disabled={mutationBusy}>취소</button>
+          </div>
+          <div className="resource-edit-grid">
+            <label>
+              <span>종류</span>
+              <select value={editKind} onChange={(event) => setEditKind(event.target.value as ResourceKind)}>
+                {Object.entries(RESOURCE_KIND_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span>제목</span>
+              <input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} maxLength={500} />
+            </label>
+          </div>
+          <label>
+            <span>내용</span>
+            <textarea value={editContent} onChange={(event) => setEditContent(event.target.value)} />
+          </label>
+          {editError && <p className="form-error" role="alert">{editError}</p>}
+          <button className="primary-button" type="submit" disabled={mutationBusy}>{mutationBusy ? "저장 중…" : "수정 저장"}</button>
+        </form>
+      )}
+
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        title="자료 삭제"
+        description={deleteTarget ? `‘${deleteTarget.title}’ 자료를 지식베이스와 검색 인덱스에서 삭제합니다. 이 작업은 되돌릴 수 없습니다.` : ""}
+        confirmLabel="자료 삭제"
+        busy={mutationBusy}
+        destructive
+        onConfirm={() => void handleDelete()}
+        onCancel={() => { if (!mutationBusy) setDeleteTarget(null); }}
+      />
     </section>
   );
 }
