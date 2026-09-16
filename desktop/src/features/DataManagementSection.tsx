@@ -1,11 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
-import {
-  deleteChild,
-  listChildren,
-  type BackupItem,
-  type ChildProfile,
-} from "../api";
+import { LAST_CHILD_KEY, useActiveChild } from "../active-child-context";
+import { deleteChild, type BackupItem } from "../api";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
@@ -31,30 +27,11 @@ export function DataManagementSection({
   onExport,
   onRestore,
 }: DataManagementSectionProps) {
-  const [children, setChildren] = useState<ChildProfile[]>([]);
+  const { children } = useActiveChild();
   const [deleteChildId, setDeleteChildId] = useState("");
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [privacyError, setPrivacyError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!connected) {
-      setChildren([]);
-      setDeleteChildId("");
-      return;
-    }
-    let cancelled = false;
-    void listChildren()
-      .then((items) => {
-        if (!cancelled) setChildren(items);
-      })
-      .catch(() => {
-        if (!cancelled) setPrivacyError("삭제할 아이 목록을 불러오지 못했습니다.");
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [connected]);
 
   const selectedChild = useMemo(
     () => children.find((child) => child.id === deleteChildId) ?? null,
@@ -70,8 +47,8 @@ export function DataManagementSection({
     setPrivacyError(null);
     try {
       await deleteChild(selectedChild.id);
-      if (localStorage.getItem("growwise:last-child-id") === selectedChild.id) {
-        localStorage.removeItem("growwise:last-child-id");
+      if (localStorage.getItem(LAST_CHILD_KEY) === selectedChild.id) {
+        localStorage.removeItem(LAST_CHILD_KEY);
       }
       // A full reload deliberately discards every in-memory child-scoped view/request after purge.
       window.location.reload();
