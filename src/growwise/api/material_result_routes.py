@@ -187,11 +187,19 @@ def _photo_records_for_result(
         photo = PhotoActivityRecord.model_validate(payload)
         if photo.status is not PhotoRecordStatus.COMMITTED or photo.learning_log_id is None:
             raise HTTPException(status_code=409, detail="photo_record_must_be_committed")
-        if (
-            store.index.get_entity(str(photo.learning_log_id), entity_type="learning_log")
-            is None
-        ):
+
+        log_payload = store.index.get_entity(
+            str(photo.learning_log_id),
+            entity_type="learning_log",
+        )
+        if log_payload is None:
             raise HTTPException(status_code=409, detail="photo_record_learning_log_missing")
+        photo_log = LearningLog.model_validate(log_payload)
+        if (
+            photo_log.record_kind is not LearningRecordKind.PHOTO_ACTIVITY
+            or photo_log.child_id != photo.child_id
+        ):
+            raise HTTPException(status_code=409, detail="photo_record_learning_log_mismatch")
         photos.append(photo)
     return photos
 
