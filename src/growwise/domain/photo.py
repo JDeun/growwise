@@ -7,7 +7,7 @@ from uuid import UUID
 
 from pydantic import Field
 
-from .models import EntityBase
+from .models import EntityBase, ExperienceAxis
 
 Sha256Text = Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
 PhotoMimeType = Literal["image/jpeg", "image/png", "image/webp"]
@@ -57,4 +57,9 @@ class PhotoActivityRecord(EntityBase):
     status: PhotoRecordStatus = PhotoRecordStatus.DRAFT
     job_id: UUID | None = None
     error_message: str | None = Field(default=None, max_length=2_000)
+    suggested_tags: list[str] = Field(default_factory=list, max_length=100)
+    suggested_experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=10)
+    suggested_interest: str | None = Field(default=None, max_length=500)
+    suggested_difficulty_note: str | None = Field(default=None, max_length=2_000)
+    suggested_next_activity: str | None = Field(default=None, max_length=2_000)
     learning_log_id: UUID | None = None
