@@ -88,7 +88,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
       if (ensured.created) await onRecordedRef.current();
     } catch (cause) {
       setLoadState("error");
-      setError(cause instanceof Error ? cause.message : "퀘스트 상태를 불러오지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "활동 상태를 불러오지 못했습니다.");
     }
   }, [material.child_id, material.id, material.title]);
 
@@ -215,7 +215,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
       await reloadQuest();
       await onRecorded();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "퀘스트 상태를 변경하지 못했습니다.");
+      setError(cause instanceof Error ? cause.message : "활동 상태를 변경하지 못했습니다.");
     } finally {
       setBusy(false);
     }
@@ -266,20 +266,20 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   }
 
   return (
-    <section className="material-quest" aria-label={`${material.title} 활동 퀘스트`}>
+    <section className="material-quest" aria-label={`${material.title} 활동 사용 기록`}>
       <div className="material-quest-heading">
         <div>
-          <span className="material-quest-kicker">QUEST</span>
-          <strong>활동 퀘스트</strong>
-          <small>인쇄한 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.</small>
+          <span className="material-quest-kicker">활동 기록</span>
+          <strong>자료 사용과 결과</strong>
+          <small>이 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.</small>
         </div>
-        <div className="material-quest-tags" aria-label="퀘스트 상태">
+        <div className="material-quest-tags" aria-label="활동 상태">
           <span className={`quest-tag status-${questStatus}`}>{QUEST_STATUS[questStatus]}</span>
           {hasResult && <span className="quest-tag result-recorded">결과 기록됨 · {results.length}</span>}
         </div>
       </div>
 
-      <div className="material-quest-track" aria-label="퀘스트 진행 단계">
+      <div className="material-quest-track" aria-label="활동 진행 단계">
         {[
           [1, "생성"],
           [2, "진행"],
@@ -292,7 +292,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
         ))}
       </div>
 
-      {loadState === "loading" && <p className="muted">퀘스트 상태 확인 중…</p>}
+      {loadState === "loading" && <p className="muted">활동 상태 확인 중…</p>}
       {loadState === "error" && (
         <div className="material-quest-error">
           <p className="form-error" role="alert">{error}</p>
@@ -321,7 +321,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
                 disabled={busy}
                 onClick={() => void runQuestAction("start")}
               >
-                {activity?.status === "skipped" ? "다시 시작" : "퀘스트 시작"}
+                {activity?.status === "skipped" ? "다시 시작" : "활동 시작"}
               </button>
             )}
             {canComplete && activity?.status !== "completed" && (
@@ -361,7 +361,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
           <div className="material-result-heading">
             <div>
               <strong>이 자료로 활동한 결과</strong>
-              <small>각 입력값을 구조화해서 저장하고 다음 추천·자료 생성에 다시 사용합니다.</small>
+              <small>기록한 내용은 다음 활동과 자료를 준비할 때 참고합니다.</small>
             </div>
             <button
               className="quiet-button"
@@ -450,9 +450,9 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
           </label>
 
           <fieldset className="material-result-photo-evidence">
-            <legend>사진·산출물 증거(선택)</legend>
+            <legend>사진·산출물 기록(선택)</legend>
             <p className="muted">
-              사진 기록 작업공간에서 부모 검토까지 마친 기록을 연결합니다. 이미지 파일은 복제하지 않습니다.
+              사진 기록에서 부모 확인을 마친 항목을 연결합니다. 원본 사진 파일을 중복 저장하지는 않습니다.
             </p>
             {photoLoading && <p className="muted">사진 기록 확인 중…</p>}
             {photoError && <p className="form-error">{photoError}</p>}
