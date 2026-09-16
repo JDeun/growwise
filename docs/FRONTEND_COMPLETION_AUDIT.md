@@ -4,33 +4,79 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 
 ## Current structural risk
 
-`desktop/src/App.tsx` now acts primarily as the Core-backed controller/orchestration boundary. System status, child profile, observation/growth, search/conversation, resource library, infant guidance, activities, timeline, and data-management presentation live in typed feature components. App still owns substantial feature state and mutation handlers, so future work can continue moving controller logic into feature hooks without changing Core contracts or child-scope behavior.
+`desktop/src/App.tsx` remains the largest Core-backed controller/orchestration boundary. Presentation is split into typed feature components and `ActiveChildProvider` now owns the shared child list/selection used by the newer workspaces, but App still keeps legacy child/controller state for several older surfaces. The states are synchronized and race-guarded today; a later refactor can remove the duplicate controller ownership without changing Core contracts. This is a maintainability item, not a blocker for the user workflows below.
+
+## Current workspace surface
+
+The desktop exposes eleven persistent workspaces:
+
+1. Home
+2. Observations
+3. Photos
+4. Learning records
+5. Growth
+6. Activities / Quest Board
+7. Search / conversations
+8. Discovery
+9. Library
+10. Materials
+11. Settings
+
+The selected child is preserved across child-scoped workspaces. Photo, Discovery and Learning Records use the shared active-child context directly and clear child-scoped drafts/results when the child changes.
 
 ## P0 completion batch
 
-- [x] Introduce persistent workspace navigation: Home, Observations, Growth, Activities, Search, Library, Materials, Settings.
-- [x] Preserve active child context across all workspace views (the App remains mounted across workspace changes and the child switcher remains available in child-scoped views).
-- [x] Add route/view-level empty, loading, and error states. Growth, observations, library, materials, and activities now load independently, expose local recovery actions, and no longer collapse the whole child context when one endpoint fails.
-- [x] Make Core-only/offline capability explicit in the UI; a persistent capability status explains that deterministic records, search, growth, activities, resource management and Parent Review remain available when AI is unavailable.
-- [x] Move backup/import/restore and runtime diagnostics into Settings (the Settings workspace projects system status and data-management surfaces together).
-- [x] Make Parent Review a first-class Materials workflow, not an inline implementation detail.
-- [x] Provide visible success feedback for writes. Child profile, observation, resource, material, and activity mutations now announce completion through a persistent-in-viewport polite status notice; backup create/export/import/restore retain Settings-local status feedback, and destructive import/restore actions use the accessible app confirmation dialog.
-- [x] Audit keyboard focus, landmarks, labels, aria-live errors/status, reduced motion, and contrast. Workspace navigation now exposes tablist/tab/tabpanel semantics with roving keyboard focus and a skip link; dialogs trap focus; form errors/status use alert/status semantics; reduced-motion overrides are present; and the primary action/text color was darkened so normal-size white/green combinations clear WCAG AA contrast.
-- [x] Add narrow-window behavior suitable for common laptop sizes (workspace navigation and content grids collapse at 900/700/600 px breakpoints, with reduced-width shell spacing on small windows).
-- [x] Break App.tsx into feature components without changing Core semantics. App retains orchestration and mutation ownership while workspace presentation is split into typed feature sections.
+- [x] Persistent eleven-workspace navigation with keyboard/tab semantics, skip link, reduced-motion support and responsive laptop-width layouts.
+- [x] Child-scoped loading/error/empty states with stale-response guards so a slow request for a previous child cannot overwrite the current view.
+- [x] Explicit Core-only mode. Recording, lexical retrieval, activity management, deterministic material generation, Parent Review, backup/restore and manual photo diary remain usable without an LLM.
+- [x] Backup/import/restore, child purge and runtime diagnostics live in Settings with app-level confirmation rather than browser confirmation APIs.
+- [x] Parent Review is a first-class material state machine. Only approved materials are printable/exportable.
+- [x] Visible success/error feedback for writes and background AI state (`queued`, `running`, `completed`, `failed`, `skipped`).
+- [x] Desktop Core trust boundary uses OS app-data, a random loopback port and a per-run session token.
 
 ## P1 product-quality batch
 
-- [x] Home dashboard with next useful actions and recent records rather than system implementation details. Home now summarizes recent observations, active activities, reviewable materials and library size, exposes direct workspace actions, and tolerates partial summary failures.
-- [x] Timeline filters and record detail view. Observations can be filtered by text, experience axis, activity linkage and period; selecting a record opens a detail panel with activity, axes, interests, tags and next-activity context.
-- [x] Growth map visual hierarchy and explainability. Growth now presents summary metrics, relative experience-axis coverage, three explained observation lenses, diversity context, and an explicit interpretation guide that states counts are record distribution rather than ability, achievement, or diagnosis.
-- [x] Activity lifecycle UX: suggested -> active -> completed/skipped -> linked observation. Activities now expose the four-step lifecycle, state counts, per-plan progress, valid skip/restart paths, and on-demand linked-observation lookup with explicit guidance for creating follow-up observations.
-- [x] Material queue segmented by draft/review/approved and print/export affordances. Materials now expose separate draft, Parent Review, and approved-use stages; drafts explicitly enter review, only approved materials expose print/PDF export, and inactive records remain available in a secondary archive view.
-- [x] Resource library search/filter/detail/edit/delete flows. Library now supports local text/kind filtering, a metadata/provenance detail pane, in-place editing, and confirmed deletion backed by synchronized Markdown, SQLite, and RAG mutations.
-- [x] Conversation history/session affordances and evidence presentation. Search now lists child-scoped saved sessions, derives readable session labels from prior user questions, opens persisted transcripts, separates per-answer source IDs from conversational context, and states explicitly that conversation text is never reused as factual evidence.
-- [x] Onboarding for first child and optional local-model setup. First run now presents Core connection, first-child creation, and optional local-AI setup as a three-step flow; the UI explicitly states that only the child profile is required and that Core-only workflows remain available when Ollama is not running.
-- [x] Consistent confirmation dialogs instead of browser `window.confirm` for destructive backup import/restore operations.
+- [x] Home dashboard summarizes useful next actions and recent child-scoped records instead of implementation details.
+- [x] Observation timeline supports filters, activity linkage, experience axes and record details.
+- [x] Growth map presents record coverage/diversity as context, not ability, diagnosis, percentile or peer ranking.
+- [x] Quest Board manages selected activities and approved generated materials through `생성됨 -> 진행 중 -> 완료됨/건너뜀 -> 결과 기록됨`.
+- [x] An approved `GeneratedMaterial` automatically receives a real `ActivityPlan` with `material:<UUID>` provenance when its approved-use card is rendered. The material card and global Quest Board therefore operate on the same activity object rather than parallel synthetic state.
+- [x] Material result entry persists structured process, child question/reaction, interest, difficulty, next activity and experience axes as a `LearningLog(record_kind=material_use)`.
+- [x] Material-use results feed the next material-generation cycle. Raw parent/learner text stays in the local parent guide; model-facing personalization receives generalized scaffolding signals only.
+- [x] Materials generate two parent-reviewable outputs: child-facing material plus a parent teaching/facilitation guide. Approved print output uses kind-specific A4 presentation templates.
+- [x] Seven material kinds are available across stages, including parent-led, low-pressure infant variants.
+- [x] Resource library provides search/filter/detail/edit/delete, provenance display, synchronized RAG mutation and read-only presentation for sibling-shared resources.
+- [x] `child_scope` sharing is visibility, not ownership: sibling-shared resources can be read/retrieved but not edited, deleted or re-shared outside the owning child context.
+- [x] Search/conversation history preserves evidence IDs and keeps conversation text separate from factual evidence.
+- [x] First-run onboarding explains that the child profile is the only required setup and local AI is optional.
+
+## P2 closed-loop and discovery batch
+
+- [x] Manual photo diary works without AI. Photo bytes are saved first; optional vision/text analysis runs through a durable background job. Parent notes are never passed into the vision caption call.
+- [x] Photos commit to `LearningLog(record_kind=photo_activity)` after parent review and survive AI/provider failure.
+- [x] Independent Learning Records workspace captures reading reflections, diary entries, school/academy learning, self-study, assignments/projects and other learning that did not originate from a GrowWise quest.
+- [x] Independent records use the same `LearningLog` ecosystem so they participate in search, growth context and later material personalization instead of forming an isolated diary database.
+- [x] Discovery combines official curriculum metadata, optional public curriculum endpoints, Data4Library book candidates and optional Overpass place discovery.
+- [x] External candidates are never automatically persisted. The parent explicitly saves a candidate to create a provenance-bearing `ResourceRecord` and RAG evidence.
+- [x] External discovery privacy is enforced in code: free-form interests/goals/log tags/activity titles are local ranking context, while public adapters receive only canonical allow-listed education topics. Child IDs, names, nicknames, raw observations, parent notes and photos do not cross this boundary.
+- [x] Overpass receives coordinates only when the parent explicitly enters latitude/longitude; those coordinates are not stored in the child profile.
+- [x] Shared resources participate in child-scoped RAG visibility without turning `child_scope` into a semantic expansion edge.
+- [x] Slow non-interactive text-model work uses deterministic-save-first background enrichment. Interactive chat/search remains foreground because the parent is waiting for an answer.
 
 ## Definition of done
 
-A non-developer can install GrowWise, create/select a child, record an observation, inspect growth context, search records, run an activity, generate and parent-review a material, print an approved material, manage resources, back up/restore data, and continue using deterministic core functionality while the LLM provider is unavailable. No required workflow should depend on understanding Core/sidecar implementation terminology.
+For repository-controlled behavior, a non-developer can:
+
+- create/select multiple children and switch child-scoped workspaces safely;
+- record ordinary observations, manual/AI-assisted photo diaries, and independent reading/diary/school/self-study records;
+- connect one source activity/resource to multiple children without duplicating the source record;
+- inspect growth context and search long-term records/resources;
+- discover public books/curriculum/places without sending private child text to public adapters;
+- save chosen discovery evidence to the library;
+- generate a child-facing material and parent guide with or without an LLM;
+- Parent Review, edit/revise, approve, print/PDF and manage approved materials as Quest Board items;
+- enter the real-world result of a printed activity and have that result feed later material personalization;
+- back up, restore/export/import and permanently purge a child's live data;
+- continue all required deterministic workflows while the LLM provider is unavailable.
+
+No required workflow should depend on understanding Core/sidecar implementation terminology. Public stable distribution still requires operator-owned signing/notarization, updater trust-root activation, packaged-client update testing and household dogfooding as described in `docs/RELEASE_READINESS.md`.
