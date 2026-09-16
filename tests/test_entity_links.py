@@ -3,6 +3,14 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
+
+from growwise.api.main import (
+    list_activity_observations,
+    validate_activity_link,
+    validate_material_source_refs,
+)
 from growwise.api.photo_routes import (
     PhotoCommitRequest,
     PhotoDraftRequest,
@@ -11,7 +19,14 @@ from growwise.api.photo_routes import (
     create_photo_record,
 )
 from growwise.config import Settings
-from growwise.domain import ActivityPlan, ChildProfile, Stage
+from growwise.domain import (
+    ActivityPlan,
+    ChildProfile,
+    LearningLog,
+    ResourceKind,
+    ResourceRecord,
+    Stage,
+)
 from growwise.domain.links import EntityLinkRelation
 from growwise.services.entity_links import EntityLinkService
 from growwise.services.privacy import ChildPurgeService
@@ -69,6 +84,82 @@ def test_child_scope_link_reuses_one_entity_in_lists_and_search(tmp_path: Path) 
     graph = EntityLinkService(store).backlinks(activity.id)
     assert graph["outgoing"][0]["link"]["id"] == str(link.id)
     assert graph["outgoing"][0]["entity"]["id"] == str(second.id)
+
+
+def test_shared_activity_is_valid_for_sibling_observation_and_history(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    first, second = _children(store)
+    third = ChildProfile(name="셋째", nickname="셋째", stage=Stage.PRESCHOOL_3_5)
+    store.save(third)
+
+    activity = ActivityPlan(child_id=first.id, title="함께 하는 과학 놀이")
+    store.save(activity)
+    EntityLinkService(store).share_with_children(source_id=activity.id, child_ids=[second.id])
+
+    assert (
+        validate_activity_link(
+            store=store,
+            child_id=second.id,
+            activity_plan_id=activity.id,
+        ).id
+        == activity.id
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        validate_activity_link(
+            store=store,
+            child_id=third.id,
+            activity_plan_id=activity.id,
+        )
+    assert exc_info.value.status_code == 409
+
+    first_log = LearningLog(
+        child_id=first.id,
+        activity_plan_id=activity.id,
+        parent_observation="첫째가 관찰했다.",
+    )
+    second_log = LearningLog(
+        child_id=second.id,
+        activity_plan_id=activity.id,
+        parent_observation="둘째도 관찰했다.",
+    )
+    store.save(first_log)
+    store.save(second_log)
+
+    history = list_activity_observations(activity.id, store)
+    assert {item["id"] for item in history} == {str(first_log.id), str(second_log.id)}
+
+
+def test_shared_resource_is_valid_material_evidence_for_sibling(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    first, second = _children(store)
+    third = ChildProfile(name="셋째", nickname="셋째", stage=Stage.PRESCHOOL_3_5)
+    store.save(third)
+
+    resource = ResourceRecord(
+        child_id=first.id,
+        kind=ResourceKind.NOTE,
+        title="가족이 함께 읽는 공룡 자료",
+        content="공룡 발자국을 비교하는 활동 메모",
+    )
+    store.save(resource)
+    EntityLinkService(store).share_with_children(source_id=resource.id, child_ids=[second.id])
+    ref = f"resource:{resource.id}"
+
+    assert validate_material_source_refs(
+        child_id=second.id,
+        source_refs=[ref],
+        store=store,
+    ) == [ref]
+
+    with pytest.raises(HTTPException) as exc_info:
+        validate_material_source_refs(
+            child_id=third.id,
+            source_refs=[ref],
+            store=store,
+        )
+    assert exc_info.value.status_code == 409
 
 
 def test_purging_shared_target_removes_link_but_preserves_source(tmp_path: Path) -> None:
