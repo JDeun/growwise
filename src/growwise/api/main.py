@@ -992,8 +992,8 @@ def recommend_board_books(
     return result.model_dump(mode="json")
 
 
-# Resource routes are mounted after all route modules and endpoint definitions have fully initialized.
-# This avoids copying a partially initialized APIRouter during import cycles.
+# Mount after endpoint definitions so APIRouter initialization is complete.
+# This avoids copying a partial router during import cycles.
 app.include_router(resource_router, prefix="/v1")
 
 
