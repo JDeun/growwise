@@ -217,12 +217,21 @@ def test_background_material_generation_closes_loop_without_leaking_raw_feedback
     assert "분모가 달라지면 헷갈려했다." not in material.content_markdown
     assert "아이 과제 원문" not in material.content_markdown
     assert "부모만 보는 구체 관찰 문장" in material.parent_guide_markdown
-    assert "아이 답안 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다." in material.parent_guide_markdown
-    assert "사과 그림을 하나씩 옮기면서 두 묶음이 같은지 확인했다." in material.parent_guide_markdown
+    assert (
+        "아이 답안 원문: 사과 여섯 개를 세 개씩 두 묶음으로 그렸다."
+        in material.parent_guide_markdown
+    )
+    assert (
+        "사과 그림을 하나씩 옮기면서 두 묶음이 같은지 확인했다."
+        in material.parent_guide_markdown
+    )
     assert "간식을 둘로 나누는 놀이를 이어간다." in material.parent_guide_markdown
     assert "학교 수학 기록" in material.parent_guide_markdown
     assert "기관: 방과후 수학 교실" in material.parent_guide_markdown
-    assert "학습 과정: 분수 막대를 먼저 놓고 그림으로 다시 옮겼다." in material.parent_guide_markdown
+    assert (
+        "학습 과정: 분수 막대를 먼저 놓고 그림으로 다시 옮겼다."
+        in material.parent_guide_markdown
+    )
     assert "아이 산출물: 저장됨" in material.parent_guide_markdown
     assert "학교에서 반과 사분의 일을 다뤘다고 부모가 적었다." in material.parent_guide_markdown
     assert "아이 과제 원문" not in material.parent_guide_markdown
