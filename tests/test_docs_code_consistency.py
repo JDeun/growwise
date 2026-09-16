@@ -5,10 +5,10 @@ renames a class (e.g. ``ScaffoldGuard`` -> ``ScaffoldChecker``) or removes a tes
 forgets to update ``docs/roadmap.md``, this audit fails.
 
 Scope is deliberately limited to ``docs/roadmap.md`` and to tokens that *clearly* look like
-code — a backtick token is only checked when it is a ``*.py`` filename, or a Python identifier
-that carries an underscore or CamelCase (or such a dotted path). Plain English words, shell
-commands, config/lock filenames, colour codes, HTTP headers, version strings and the like are
-skipped, so the guard flags real drift without producing false alarms on prose.
+code — a backtick token is only checked when it is a ``*.py`` filename, or a Python/TypeScript
+identifier that carries an underscore or CamelCase (or such a dotted path). Plain English words,
+shell commands, config/lock filenames, colour codes, HTTP headers, version strings and the like
+are skipped, so the guard flags real drift without producing false alarms on prose.
 """
 
 from __future__ import annotations
@@ -39,7 +39,8 @@ _SKIP_LEADING = "-.#[{*/"
 
 # Roots under which referenced files and symbols must be found.
 _FILE_ROOTS = ("tests", "src", "scripts")
-_SYMBOL_ROOTS = ("src/growwise", "tests")
+_SYMBOL_ROOTS = ("src/growwise", "tests", "desktop/src")
+_SYMBOL_PATTERNS = ("*.py", "*.ts", "*.tsx")
 
 
 def _classify(token: str) -> tuple[str, str] | None:
@@ -79,11 +80,18 @@ def _roadmap_tokens() -> list[tuple[str, str]]:
 
 def _source_text() -> str:
     parts: list[str] = []
+    seen: set[Path] = set()
     for base in _SYMBOL_ROOTS:
-        for path in sorted((_REPO / base).rglob("*.py")):
-            if path.resolve() == _SELF:
-                continue
-            parts.append(path.read_text(encoding="utf-8", errors="ignore"))
+        root = _REPO / base
+        if not root.is_dir():
+            continue
+        for pattern in _SYMBOL_PATTERNS:
+            for path in sorted(root.rglob(pattern)):
+                resolved = path.resolve()
+                if resolved == _SELF or resolved in seen:
+                    continue
+                seen.add(resolved)
+                parts.append(path.read_text(encoding="utf-8", errors="ignore"))
     return "\n".join(parts)
 
 
