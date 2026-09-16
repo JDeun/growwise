@@ -19,9 +19,11 @@ from growwise.domain.models import (
     LearningRecordKind,
     MaterialStatus,
 )
+from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
 from growwise.services.activity import ActivityPlanService, InvalidActivityTransition
 from growwise.services.child_lock import child_operation_lock
 from growwise.services.entity_links import EntityLinkService
+from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 
 router = APIRouter(tags=["material-results"])
@@ -44,6 +46,7 @@ class MaterialResultRequest(BaseModel):
     tags: list[str] = Field(default_factory=list, max_length=100)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
     activity_plan_id: UUID | None = None
+    photo_record_ids: list[UUID] = Field(default_factory=list, max_length=12)
 
 
 class MaterialResultResponse(BaseModel):
@@ -158,6 +161,41 @@ def _activity_for_result(
     return activity
 
 
+def _photo_records_for_result(
+    *,
+    store: EntityStore,
+    child_id: UUID,
+    photo_record_ids: list[UUID],
+) -> list[PhotoActivityRecord]:
+    shared_ids = shared_source_ids(store.index, str(child_id))
+    photos: list[PhotoActivityRecord] = []
+    for photo_record_id in dict.fromkeys(photo_record_ids):
+        if not entity_visible_to_child(
+            store.index,
+            entity_id=str(photo_record_id),
+            child_id=str(child_id),
+            entity_type="photo_activity_record",
+            shared_ids=shared_ids,
+        ):
+            raise HTTPException(status_code=404, detail="photo_record_not_found")
+        payload = store.index.get_entity(
+            str(photo_record_id),
+            entity_type="photo_activity_record",
+        )
+        if payload is None:
+            raise HTTPException(status_code=404, detail="photo_record_not_found")
+        photo = PhotoActivityRecord.model_validate(payload)
+        if photo.status is not PhotoRecordStatus.COMMITTED or photo.learning_log_id is None:
+            raise HTTPException(status_code=409, detail="photo_record_must_be_committed")
+        if (
+            store.index.get_entity(str(photo.learning_log_id), entity_type="learning_log")
+            is None
+        ):
+            raise HTTPException(status_code=409, detail="photo_record_learning_log_missing")
+        photos.append(photo)
+    return photos
+
+
 @router.post(
     "/materials/{material_id}/results",
     response_model=MaterialResultResponse,
@@ -173,6 +211,11 @@ def record_material_result(
         if store.index.get_entity(str(material.child_id), entity_type="child_profile") is None:
             raise HTTPException(status_code=404, detail="child_not_found")
         material = _approved_material(store, material_id)
+        photos = _photo_records_for_result(
+            store=store,
+            child_id=material.child_id,
+            photo_record_ids=request.photo_record_ids,
+        )
         activity = _activity_for_result(store=store, material=material, request=request)
 
         tags = list(dict.fromkeys(["material-use", material.kind.value, *request.tags]))
@@ -211,6 +254,13 @@ def record_material_result(
             relation=EntityLinkRelation.DERIVED_FROM,
             label="이 생성 자료를 사용한 결과",
         )
+        for photo in photos:
+            links.create(
+                source_id=photo.id,
+                target_id=log.id,
+                relation=EntityLinkRelation.DOCUMENTS,
+                label="활동 결과 사진 기록",
+            )
 
     return MaterialResultResponse(activity=activity, learning_log=log)
 
