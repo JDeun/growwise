@@ -36,5 +36,7 @@ def entity_visible_to_child(
     owner = payload.get("child_id")
     if owner is None or str(owner) == child_id:
         return True
-    visible_shared_ids = shared_ids if shared_ids is not None else shared_source_ids(index, child_id)
+    visible_shared_ids = (
+        shared_ids if shared_ids is not None else shared_source_ids(index, child_id)
+    )
     return entity_id in visible_shared_ids
