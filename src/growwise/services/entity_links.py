@@ -32,7 +32,10 @@ class EntityLinkService:
         if target is None:
             raise EntityLinkError("link_target_not_found")
         child_id = target_id if relation is EntityLinkRelation.CHILD_SCOPE else None
-        if relation is EntityLinkRelation.CHILD_SCOPE and target.get("entity_type") != "child_profile":
+        if (
+            relation is EntityLinkRelation.CHILD_SCOPE
+            and target.get("entity_type") != "child_profile"
+        ):
             raise EntityLinkError("child_scope_target_must_be_child")
 
         for existing in self._all_links():
@@ -99,9 +102,9 @@ class EntityLinkService:
     def delete_for_entities(self, entity_ids: set[str]) -> int:
         deleted = 0
         for link in self._all_links():
-            if str(link.source_id) in entity_ids or str(link.target_id) in entity_ids:
-                if self.store.delete(link):
-                    deleted += 1
+            touches_entity = str(link.source_id) in entity_ids or str(link.target_id) in entity_ids
+            if touches_entity and self.store.delete(link):
+                deleted += 1
         return deleted
 
     def _all_links(self) -> list[EntityLink]:
