@@ -83,14 +83,26 @@ class MaterialFeedbackSnapshot:
     def has_feedback(self) -> bool:
         return bool(self.items or self.learning_items)
 
-    def generation_goal(self, requested_goal: str | None) -> str | None:
-        """Add generalized continuity signals without exposing raw parent/learner text.
-
-        The generated goal may be sent to a model, but raw parent and learner text is not.
-        """
+    def generation_guidance(self) -> str | None:
+        """Return generalized model-only guidance without raw parent or learner text."""
         if not self.has_feedback:
-            return requested_goal
+            return None
+        return "; ".join(self._generation_signals()) + "."
 
+    def generation_goal(self, requested_goal: str | None) -> str | None:
+        """Compatibility helper for callers that still need one combined string.
+
+        Product generation paths should prefer :meth:`generation_guidance` so internal continuity
+        metadata can never become the learner-visible goal.
+        """
+        guidance = self.generation_guidance()
+        if guidance is None:
+            return requested_goal
+        default_goal = "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        base = (requested_goal or default_goal).strip()
+        return f"{base} 개인화 원칙: {guidance}"
+
+    def _generation_signals(self) -> list[str]:
         signals: list[str] = []
         if any(item.interest for item in self.items):
             signals.append("최근 활동에서 흥미가 기록된 요소를 선택적으로 이어간다")
@@ -145,10 +157,7 @@ class MaterialFeedbackSnapshot:
                 "최근 실제 활동과 별도 학습 기록을 참고해 부모가 난이도와 진행 속도를 "
                 "조절할 수 있게 한다"
             )
-
-        default_goal = "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
-        base = (requested_goal or default_goal).strip()
-        return f"{base} 개인화 원칙: {'; '.join(signals)}."
+        return signals
 
     def with_parent_guide(self, guide: str) -> str:
         """Replace the bounded local continuity block in the parent-only guide."""
