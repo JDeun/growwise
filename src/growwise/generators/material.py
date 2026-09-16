@@ -318,13 +318,27 @@ requested schema."""
         curriculum_targets: list[CurriculumTarget],
     ) -> str:
         kind_tips = {
-            MaterialKind.ACTIVITY_GUIDE: "아이의 선택을 먼저 기다리고, 활동 순서를 꼭 끝까지 밀어붙이지 않는다.",
-            MaterialKind.READING_ACTIVITY: "내용 확인 문제보다 예측·느낌·경험 연결 질문을 우선한다.",
-            MaterialKind.ENGLISH_CARD: "틀린 표현을 즉시 교정하기보다 부모가 자연스러운 표현을 한 번 다시 들려준다.",
-            MaterialKind.MATH_ACTIVITY: "정답을 말해 주기보다 더 작은 수·실물·그림으로 힌트를 낮춘다.",
-            MaterialKind.SCIENCE_INQUIRY: "예측과 결과가 달라도 실패로 표현하지 말고 차이를 관찰하게 한다.",
-            MaterialKind.WRITING_PROMPT: "맞춤법 교정보다 먼저 아이가 말·그림·글로 생각을 끝까지 표현하게 한다.",
-            MaterialKind.FIELD_TRIP: "현장에서 모든 문항을 채우기보다 실제로 관심을 보인 대상을 우선한다.",
+            MaterialKind.ACTIVITY_GUIDE: (
+                "아이의 선택을 먼저 기다리고, 활동 순서를 꼭 끝까지 밀어붙이지 않는다."
+            ),
+            MaterialKind.READING_ACTIVITY: (
+                "내용 확인 문제보다 예측·느낌·경험 연결 질문을 우선한다."
+            ),
+            MaterialKind.ENGLISH_CARD: (
+                "틀린 표현을 즉시 교정하기보다 부모가 자연스러운 표현을 한 번 다시 들려준다."
+            ),
+            MaterialKind.MATH_ACTIVITY: (
+                "정답을 말해 주기보다 더 작은 수·실물·그림으로 힌트를 낮춘다."
+            ),
+            MaterialKind.SCIENCE_INQUIRY: (
+                "예측과 결과가 달라도 실패로 표현하지 말고 차이를 관찰하게 한다."
+            ),
+            MaterialKind.WRITING_PROMPT: (
+                "맞춤법 교정보다 먼저 아이가 말·그림·글로 생각을 끝까지 표현하게 한다."
+            ),
+            MaterialKind.FIELD_TRIP: (
+                "현장에서 모든 문항을 채우기보다 실제로 관심을 보인 대상을 우선한다."
+            ),
         }
         curriculum_domains = ", ".join(target.domain for target in curriculum_targets)
         return (
