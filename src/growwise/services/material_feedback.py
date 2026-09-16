@@ -65,7 +65,10 @@ class IndependentLearningItem:
     kind: LearningRecordKind
     title: str | None
     subject: str | None
+    institution: str | None
     summary: str | None
+    process: str | None
+    has_learner_work: bool
     interest: str | None
     difficulty_note: str | None
     next_activity: str | None
@@ -116,6 +119,14 @@ class MaterialFeedbackSnapshot:
         if LearningRecordKind.DIARY in kinds:
             signals.append(
                 "최근 일상 기록과 연결 가능성을 열어두되 개인 글 내용을 직접 재사용하지 않는다"
+            )
+        if any(item.has_learner_work for item in self.learning_items):
+            signals.append(
+                "별도 학습의 아이 산출물이 있으면 원문을 복제하지 않고 표현·풀이 과정을 확장한다"
+            )
+        if any(item.process for item in self.learning_items):
+            signals.append(
+                "별도 학습 과정이 기록돼 있으면 한 가지 방식으로 단정하지 않고 다른 접근을 열어둔다"
             )
         if any(item.interest for item in self.learning_items):
             signals.append("별도 학습 기록에 흥미가 남아 있으면 관련 선택지를 제공한다")
@@ -186,8 +197,14 @@ class MaterialFeedbackSnapshot:
                 sections.append(f"### {label} · {title}")
                 if learning_item.subject:
                     sections.append(f"- 과목·영역: {learning_item.subject}")
+                if learning_item.institution:
+                    sections.append(f"- 기관: {learning_item.institution}")
                 if learning_item.summary:
                     sections.append(f"- 부모 요약: {learning_item.summary}")
+                if learning_item.process:
+                    sections.append(f"- 학습 과정: {learning_item.process}")
+                if learning_item.has_learner_work:
+                    sections.append("- 아이 산출물: 저장됨 · 원문은 이 교안에 복제하지 않음")
                 if learning_item.interest:
                     sections.append(f"- 흥미를 보인 점: {learning_item.interest}")
                 if learning_item.difficulty_note:
@@ -273,11 +290,26 @@ class MaterialFeedbackService:
         for log in independent_logs[: max(0, min(learning_limit, 10))]:
             title = _inline(log.title, limit=300)
             subject = _inline(log.subject, limit=200)
+            institution = _inline(log.institution, limit=300)
             summary = _inline(log.parent_observation, limit=900)
+            process = _inline(log.process, limit=900)
+            has_learner_work = bool(log.learner_work and log.learner_work.strip())
             interest = _inline(log.interest, limit=500)
             difficulty_note = _inline(log.difficulty_note, limit=700)
             next_activity = _inline(log.next_activity, limit=700)
-            if not any((title, subject, summary, interest, difficulty_note, next_activity)):
+            if not any(
+                (
+                    title,
+                    subject,
+                    institution,
+                    summary,
+                    process,
+                    has_learner_work,
+                    interest,
+                    difficulty_note,
+                    next_activity,
+                )
+            ):
                 continue
             learning_items.append(
                 IndependentLearningItem(
@@ -285,7 +317,10 @@ class MaterialFeedbackService:
                     kind=log.record_kind,
                     title=title,
                     subject=subject,
+                    institution=institution,
                     summary=summary,
+                    process=process,
+                    has_learner_work=has_learner_work,
                     interest=interest,
                     difficulty_note=difficulty_note,
                     next_activity=next_activity,
