@@ -22,7 +22,7 @@ This audit treats the current React/Tauri desktop as a production user surface, 
 ## P1 product-quality batch
 
 - [x] Home dashboard with next useful actions and recent records rather than system implementation details. Home now summarizes recent observations, active activities, reviewable materials and library size, exposes direct workspace actions, and tolerates partial summary failures.
-- [ ] Timeline filters and record detail view.
+- [x] Timeline filters and record detail view. Observations can be filtered by text, experience axis, activity linkage and period; selecting a record opens a detail panel with activity, axes, interests, tags and next-activity context.
 - [ ] Growth map visual hierarchy and explainability.
 - [ ] Activity lifecycle UX: suggested -> active -> completed/skipped -> linked observation.
 - [ ] Material queue segmented by draft/review/approved and print/export affordances.
