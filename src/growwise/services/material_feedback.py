@@ -68,9 +68,13 @@ class MaterialFeedbackSnapshot:
         if any(item.next_activity for item in self.items):
             signals.append("이전 기록의 다음 활동 연결점을 부모가 선택해 이어갈 수 있게 한다")
         if not signals:
-            signals.append("최근 실제 활동 관찰을 참고해 부모가 난이도와 진행 속도를 조절할 수 있게 한다")
+            signals.append(
+                "최근 실제 활동 관찰을 참고해 부모가 난이도와 진행 속도를 "
+                "조절할 수 있게 한다"
+            )
 
-        base = (requested_goal or "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다.").strip()
+        default_goal = "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        base = (requested_goal or default_goal).strip()
         return f"{base} 개인화 원칙: {'; '.join(signals)}."
 
     def with_parent_guide(self, guide: str) -> str:
@@ -82,7 +86,10 @@ class MaterialFeedbackSnapshot:
         sections = [
             _FEEDBACK_BLOCK_START,
             "## 최근 실제 활동에서 이어갈 점",
-            "아래 내용은 이전에 부모가 저장한 실제 활동 결과입니다. 진단·평가가 아니라 이번 활동의 난이도와 연결점을 조절하는 참고로만 사용합니다.",
+            (
+                "아래 내용은 이전에 부모가 저장한 실제 활동 결과입니다. 진단·평가가 아니라 "
+                "이번 활동의 난이도와 연결점을 조절하는 참고로만 사용합니다."
+            ),
         ]
         for item in self.items:
             title = item.title or "이전 활동"
@@ -99,7 +106,10 @@ class MaterialFeedbackSnapshot:
                 sections.append(f"- 다음에 이어볼 것: {item.next_activity}")
         sections.extend(
             [
-                "> 이 피드백은 아이에게 그대로 제시하거나 능력 판단에 사용하지 않고, 부모가 활동을 조절하는 데만 사용합니다.",
+                (
+                    "> 이 피드백은 아이에게 그대로 제시하거나 능력 판단에 사용하지 않고, "
+                    "부모가 활동을 조절하는 데만 사용합니다."
+                ),
                 _FEEDBACK_BLOCK_END,
             ]
         )
