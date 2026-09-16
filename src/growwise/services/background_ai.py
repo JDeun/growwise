@@ -18,6 +18,7 @@ from growwise.generators import MaterialGenerationService, MaterialSourceEvidenc
 from growwise.jobs import Job, SQLiteJobQueue
 from growwise.model import ModelProvider
 from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
+from growwise.services.material_feedback import MaterialFeedbackService
 from growwise.services.observation import ObservationEnricher
 from growwise.storage import EntityStore
 
@@ -238,12 +239,14 @@ class BackgroundAiJobRunner:
         self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
 
         evidence = self._material_source_evidence(material=material, store=store)
+        feedback = MaterialFeedbackService(store.index).snapshot(child_id=child_id)
+        effective_goal = feedback.generation_goal(material.request_goal)
         with BACKGROUND_AI_LOCK:
             candidate = MaterialGenerationService(provider=provider).generate(
                 child=child,
                 kind=material.kind,
                 topic=material.request_topic or material.title,
-                goal=material.request_goal,
+                goal=effective_goal,
                 source_refs=material.source_refs,
                 source_evidence=evidence,
             )
@@ -265,7 +268,7 @@ class BackgroundAiJobRunner:
         if current.parent_material_id is None:
             current.title = candidate.title
         current.content_markdown = candidate.content_markdown
-        current.parent_guide_markdown = candidate.parent_guide_markdown
+        current.parent_guide_markdown = feedback.with_parent_guide(candidate.parent_guide_markdown)
         current.source_refs = candidate.source_refs
         current.curriculum_targets = candidate.curriculum_targets
         current.generator_mode = candidate.generator_mode
