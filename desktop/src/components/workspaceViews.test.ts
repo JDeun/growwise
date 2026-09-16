@@ -7,7 +7,7 @@ describe("workspaceViews", () => {
     expect(WORKSPACE_VIEWS).toHaveLength(11);
     expect(isWorkspaceView("materials")).toBe(true);
     expect(isWorkspaceView("photos")).toBe(true);
-    expect(isWorkspaceView("learning_records")).toBe(true);
+    expect(isWorkspaceView("learning")).toBe(true);
     expect(isWorkspaceView("discovery")).toBe(true);
     expect(isWorkspaceView("unknown")).toBe(false);
   });
