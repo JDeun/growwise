@@ -57,7 +57,7 @@ interface MaterialWorkspaceProps {
     note: string | null,
   ) => void | Promise<void>;
   onPrint: (material: GeneratedMaterial) => void;
-  onResultRecorded: () => void | Promise<void>;
+  onResultRecorded?: () => void | Promise<void>;
 }
 
 function sourceTitle(ref: string, resources: ResourceRecord[]): string {
@@ -133,7 +133,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     onEditStart,
     onEdit,
     onPrint,
-    onResultRecorded,
+    onResultRecorded = () => undefined,
   } = props;
 
   const catalog = materialCatalogForStage(stage);
