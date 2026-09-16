@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 import sys
 from pathlib import Path
 from types import SimpleNamespace
@@ -51,6 +52,59 @@ def test_model_benchmark_core_only_baseline() -> None:
     report = bench.run_model_benchmark(None)
     assert report.count == 6
     assert report.llm_used_ratio == 0.0  # no provider → deterministic template
+
+
+def test_model_benchmark_cli_uses_configured_provider(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bench = _load("benchmark_model_cli", script_name="benchmark_model")
+    settings = SimpleNamespace(
+        llm_features_enabled=True,
+        model_provider="ollama",
+        model_id="test-model:4b",
+    )
+    calls: list[Any] = []
+
+    def create_provider(received: Any) -> _StubProvider:
+        calls.append(received)
+        return _StubProvider()
+
+    monkeypatch.setattr(bench, "Settings", lambda: settings)
+    monkeypatch.setattr(bench, "create_model_provider", create_provider)
+
+    assert bench.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert calls == [settings]
+    assert payload["provider"] == "configured"
+    assert payload["provider_kind"] == "ollama"
+    assert payload["model_id"] == "test-model:4b"
+    assert payload["llm_features_enabled"] is True
+    assert payload["llm_used_ratio"] == 1.0
+
+
+def test_model_benchmark_cli_respects_disabled_llm(
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    bench = _load("benchmark_model_disabled", script_name="benchmark_model")
+    settings = SimpleNamespace(
+        llm_features_enabled=False,
+        model_provider="ollama",
+        model_id="disabled-model",
+    )
+    monkeypatch.setattr(bench, "Settings", lambda: settings)
+    monkeypatch.setattr(
+        bench,
+        "create_model_provider",
+        lambda _settings: pytest.fail("disabled benchmark must not construct a provider"),
+    )
+
+    assert bench.main() == 0
+    payload = json.loads(capsys.readouterr().out)
+    assert payload["provider"] == "core-only"
+    assert payload["llm_features_enabled"] is False
+    assert payload["llm_used_ratio"] == 0.0
 
 
 def test_hardware_benchmark_measures_and_classifies() -> None:
