@@ -8,6 +8,7 @@ describe("workspaceLayout", () => {
     for (const view of WORKSPACE_VIEWS) {
       expect(WORKSPACE_LAYOUT[view].length).toBeGreaterThan(0);
     }
+    expect(WORKSPACE_LAYOUT.discovery).toContain("discovery");
     expect(WORKSPACE_LAYOUT.materials).toContain("materials");
     expect(WORKSPACE_LAYOUT.settings).toContain("settings");
   });
