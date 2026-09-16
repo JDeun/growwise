@@ -7,7 +7,7 @@ export type ActivityStatus = "suggested" | "active" | "completed" | "skipped" | 
 export type ResourceKind = "book" | "curriculum" | "web" | "note" | "file";
 export type MaterialKind = "activity_guide" | "reading_activity" | "english_card" | "math_activity" | "science_inquiry" | "writing_prompt" | "field_trip";
 export type MaterialStatus = "draft" | "review_pending" | "revision_requested" | "approved" | "rejected" | "archived";
-export type PhotoRecordStatus = "draft" | "committed" | "discarded";
+export type PhotoRecordStatus = "queued" | "processing" | "draft" | "committed" | "failed" | "discarded";
 
 export interface HealthResponse { status: string; operation_mode: OperationMode; core_requires_llm: boolean; llm_configured: boolean; llm_reachable: boolean; llm_features_enabled: boolean; embedding_features_enabled: boolean; model_provider: string; }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
@@ -38,8 +38,9 @@ export interface CurriculumTarget { mapping_id: string; framework: string; domai
 export interface GeneratedMaterial { id: string; child_id: string; kind: MaterialKind; title: string; content_markdown: string; status: MaterialStatus; source_refs: string[]; curriculum_targets?: CurriculumTarget[]; generator_mode: string; review_note: string | null; request_topic: string | null; request_goal: string | null; version: number; parent_material_id: string | null; version_note: string | null; created_at?: string; updated_at?: string; }
 export interface PhotoUploadInput { filename: string; mime_type: string; data_base64: string; }
 export interface PhotoAsset { id: string; child_id: string; original_filename: string; mime_type: string; relative_path: string; sha256: string; byte_size: number; width: number | null; height: number | null; captured_at: string | null; metadata_summary: Record<string, string>; caption: string | null; caption_model: string | null; }
-export interface PhotoActivityRecord { id: string; child_id: string; photo_asset_ids: string[]; user_context: string | null; generated_observation: string; generation_mode: string; status: PhotoRecordStatus; learning_log_id: string | null; created_at?: string; updated_at?: string; }
-export interface PhotoDraftResult { record: PhotoActivityRecord; assets: PhotoAsset[]; }
+export interface PhotoActivityRecord { id: string; child_id: string; photo_asset_ids: string[]; user_context: string | null; generated_observation: string; generation_mode: string; status: PhotoRecordStatus; job_id: string | null; error_message: string | null; suggested_tags: string[]; suggested_experience_axes: ExperienceAxis[]; suggested_interest: string | null; suggested_difficulty_note: string | null; suggested_next_activity: string | null; learning_log_id: string | null; created_at?: string; updated_at?: string; }
+export interface PhotoJobSummary { id: string; status: "pending" | "running" | "completed" | "failed" | "cancelled"; attempts: number; }
+export interface PhotoDraftResult { record: PhotoActivityRecord; assets: PhotoAsset[]; job?: PhotoJobSummary; }
 export interface PhotoAssetContent { asset: PhotoAsset; data_base64: string; }
 export interface BackupItem { archive: string; path: string; size_bytes: number; modified_at: string; }
 export interface BackupCreateResult { archive: string; path: string; size_bytes: number; modified_at: string; manifest: { format_version: number; schema_version: number; created_at: string; record_count: number; asset_count: number; }; }
