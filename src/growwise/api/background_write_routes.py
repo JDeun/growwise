@@ -210,17 +210,17 @@ def generate_material_background(
     )
     evidence = _source_evidence(source_refs=source_refs, store=store)
     feedback = MaterialFeedbackService(store.index).snapshot(child_id=str(child.id))
-    effective_goal = feedback.generation_goal(request.goal)
 
-    # Always return a complete deterministic draft immediately. Slow model personalization and
-    # parent-guide refinement happen later against this same stable material ID. Recent material
-    # outcomes influence only generalized scaffolding in learner-visible text; raw parent feedback
-    # remains in the local parent guide and is not sent to the model.
+    # Always return a complete deterministic draft immediately. The public goal is the only goal
+    # rendered in the learner-facing sheet. Closed-loop continuity is private generation guidance
+    # for the background model and a local parent-guide block; raw feedback is never sent to the
+    # model and internal guidance is never printed as learner metadata.
     material = MaterialGenerationService(provider=None).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
-        goal=effective_goal,
+        goal=request.goal,
+        generation_guidance=feedback.generation_guidance(),
         source_refs=source_refs,
         source_evidence=evidence,
     )
@@ -265,17 +265,18 @@ def revise_material_background(
         if candidate.get("parent_material_id") == str(material.id):
             return GeneratedMaterial.model_validate(candidate)
 
+    feedback = MaterialFeedbackService(store.index).snapshot(child_id=str(material.child_id))
     try:
         revised = MaterialRevisionService(MaterialGenerationService(provider=None)).revise(
             material=material,
             child=child,
             note=request.note,
             source_evidence=_source_evidence(source_refs=material.source_refs, store=store),
+            generation_guidance=feedback.generation_guidance(),
         )
     except MaterialRevisionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-    feedback = MaterialFeedbackService(store.index).snapshot(child_id=str(material.child_id))
     revised.parent_guide_markdown = feedback.with_parent_guide(revised.parent_guide_markdown)
     store.save(revised)
     _init_review(revised)
