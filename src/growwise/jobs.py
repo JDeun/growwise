@@ -11,7 +11,6 @@ from uuid import UUID
 
 from uuid6 import uuid7
 
-
 DEFAULT_JOB_LEASE_SECONDS = 300
 DEFAULT_JOB_MAX_ATTEMPTS = 5
 
