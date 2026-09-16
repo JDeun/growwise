@@ -12,6 +12,7 @@ from growwise.jobs import SQLiteJobQueue
 from growwise.rag import HybridRagIndex
 from growwise.services.child_lock import child_operation_lock
 from growwise.services.conversation_store import SQLiteConversationStore
+from growwise.services.entity_links import EntityLinkService
 from growwise.services.photo_activity import PhotoAssetStore
 from growwise.storage import EntityStore
 
@@ -26,6 +27,7 @@ class ChildPurgeResult:
     jobs_deleted: int
     idempotency_records_deleted: int
     checkpoint_threads_deleted: int
+    links_deleted: int
     backups_may_contain_deleted_child: bool = True
 
     def model_dump(self) -> dict[str, object]:
@@ -56,6 +58,8 @@ class ChildPurgeService:
         if profile is None:
             raise KeyError("child_not_found")
 
+        # Important: entity_type=None intentionally returns only directly-owned entities. Shared
+        # documents linked into this child's scope must not be mistaken for owned deletion targets.
         child_entities = self.store.index.list_entities(child_id=child_id)
         resource_ids = {str(payload["id"]) for payload in child_entities if payload.get("id")}
         resource_ids.add(child_id)
@@ -67,6 +71,9 @@ class ChildPurgeService:
             if payload.get("entity_type") == "generated_material" and payload.get("id"):
                 checkpoint_threads.add(f"material-review:{payload['id']}")
 
+        # Remove both links scoped to this child and sibling-scoped backlinks whose source document
+        # is about to disappear. This prevents dangling Obsidian-style backlinks after a purge.
+        links_deleted = EntityLinkService(self.store).delete_for_entities(resource_ids)
         checkpoint_deleted = self._delete_checkpoint_threads(checkpoint_threads)
         rag_deleted = HybridRagIndex(self.settings.rag_index_path).delete_child(child_id)
         conversations_deleted = SQLiteConversationStore(
@@ -98,6 +105,7 @@ class ChildPurgeService:
             jobs_deleted=jobs_deleted,
             idempotency_records_deleted=idempotency_deleted,
             checkpoint_threads_deleted=checkpoint_deleted,
+            links_deleted=links_deleted,
         )
 
     def _delete_checkpoint_threads(self, thread_ids: set[str]) -> int:
