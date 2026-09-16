@@ -1,78 +1,85 @@
 # 하드웨어 요구 사항
 
-growwise는 로컬 우선 데스크탑 앱(Tauri + Python 사이드카)이다. 요구 사양을 가르는 가장
-큰 변수는 **AI 모델을 로컬에서 돌리느냐, 원격(교체 가능) 모델을 쓰느냐**다
+GrowWise는 로컬 우선 데스크탑 앱(Tauri + Python Core sidecar)이다. 현재 구현에서 요구 사양을
+가르는 가장 큰 변수는 **선택적 로컬 LLM/embedding을 사용하느냐**다. 기록·검색·성장 지도·활동·
+Parent Review·결정적 자료 템플릿 같은 Core 기능은 AI 모델 없이도 동작한다
 ([architecture.md](architecture.md) 모델 공급자 추상화).
 
-- **영아(0-2) 모드**와 기록·성장 지도·퀘스트 등 앱의 핵심은 **가볍다** → 최소 사양에서도
-  잘 돈다.
-- **자료 생성·RAG·음성(STT/TTS)**을 **로컬 모델**로 돌리면 메모리·연산 요구가 커진다.
-  이때는 권장 사양을 권한다. 로컬이 버겁다면 **원격 모델로 전환**해 최소 사양에서도 사용
-  가능(단, 아동 데이터 외부 전송 원칙 확인 — [privacy-and-safety.md](privacy-and-safety.md)).
+> [!IMPORTANT]
+> 아래 8 GB / 16 GB 구분은 **실기기 벤치마크 전의 잠정 운영 기준**이다. 최종 최소·권장 사양은
+> `scripts/benchmark_hardware.py`와 `scripts/benchmark_model.py`를 대표 Windows/macOS 기기에서
+> 실행한 뒤 확정한다. 완료 기준은 [operational-validation.md](operational-validation.md)를 따른다.
 
 ## 지원 OS
 
 - **Windows 10/11 (64-bit)** — WebView2 런타임 필요(대개 기본 설치, 없으면 최초 설치).
 - **macOS 12(Monterey) 이상** — Apple Silicon 및 Intel.
-- (Linux는 Tauri상 가능하나 현재 1차 목표 아님.)
+- Linux는 Core/CI 검증에는 사용하지만 현재 배포 1차 목표는 아니다.
 
-## 최소 사양 (Minimum)
+## 최소 사양 (잠정)
 
-영아 모드 + 기록/성장 지도/퀘스트 중심, 또는 **원격 모델**로 생성 사용.
+Core-only 기능 중심, 또는 원격/별도 모델 구성을 사용하는 경우의 출발점이다.
 
-| 항목 | 최소 |
+| 항목 | 잠정 최소 |
 | --- | --- |
-| CPU | 최근 4코어(예: Intel i5 8세대+ / Apple M1 / AMD Ryzen 5) |
+| CPU | 최근 4코어급 |
 | RAM | **8 GB** |
-| 저장 | 여유 **5 GB**(앱 + 소형 모델/데이터). SSD 권장 |
-| GPU | 불필요(CPU 추론) |
-| 네트워크 | 최초 설치·모델 다운로드 시 필요, 이후 오프라인 동작 |
+| 저장 | 여유 **5 GB** 이상, SSD 권장 |
+| GPU | Core-only 사용에는 불필요 |
+| 네트워크 | 설치·업데이트·외부 자료/원격 모델 사용 시 필요. Core 기능은 오프라인 우선 |
 
-이 사양에서는 로컬 대형 모델 생성은 느릴 수 있다 → 소형 양자화 모델 또는 원격 모델 사용.
+이 사양에서 로컬 LLM의 사용 가능성은 모델 크기·양자화·플랫폼에 크게 좌우되므로 별도 모델
+벤치마크 없이 “쾌적함”을 보장하지 않는다.
 
-## 권장 사양 (Recommended)
+## 권장 사양 (잠정)
 
-자료 생성·RAG·로컬 음성까지 로컬 모델로 쾌적하게.
+선택적 로컬 LLM/embedding까지 함께 사용하는 개인용 환경의 출발점이다.
 
-| 항목 | 권장 |
+| 항목 | 잠정 권장 |
 | --- | --- |
 | CPU | 6코어+ 최신 세대 |
-| RAM | **16 GB+** (7~8B급 양자화 LLM + STT/TTS 동시) |
-| 저장 | **SSD 20 GB+** (여러 모델·데이터·캐시) |
-| GPU/가속 | **Apple Silicon(M1 이상)** 또는 NVIDIA **VRAM 6 GB+**(로컬 추론 가속). 없으면 CPU로도 동작하나 느림 |
-| 네트워크 | 오프라인 우선. 외부 자료(지도·도서)는 온라인 시 보강 |
+| RAM | **16 GB+** |
+| 저장 | **SSD 20 GB+** — 로컬 모델·인덱스·백업 여유 포함 |
+| GPU/가속 | Apple Silicon 또는 지원되는 NVIDIA GPU가 있으면 로컬 추론에 유리. 필수는 아님 |
+| 네트워크 | 오프라인 우선. 외부 자료·원격 모델·업데이트 사용 시 필요 |
 
-## 넉넉한 사양 (Comfortable)
+더 큰 로컬 모델이나 여러 모델을 함께 보관하려면 32 GB+ RAM과 추가 SSD 여유가 유리하지만,
+GrowWise 자체의 Core 기능 요구사항으로 간주하지 않는다.
 
-큰 로컬 모델·빠른 생성·다자녀 대량 기록.
+## 구성 요소별 부하
 
-- RAM 32 GB+, Apple Silicon Pro/Max 또는 NVIDIA VRAM 12 GB+, SSD 50 GB+.
-
-## 구성 요소별 부하 메모
-
-| 구성 | 부하 | 비고 |
+| 구성 | 상대 부하 | 현재 동작 |
 | --- | --- | --- |
-| 앱 셸(Tauri) | 매우 낮음 | 시스템 웹뷰 사용, 설치물 작음 |
-| SQLite + Markdown | 낮음 | 로컬 파일·인덱스 |
-| PDF 출력(WeasyPrint/Typst) | 중간 | 대량 생성 시 CPU 사용 |
-| 임베딩/RAG | 중간 | 로컬 임베딩 모델 메모리 |
-| 로컬 LLM 생성 | **높음** | 모델 크기·양자화에 좌우(요구 메모리의 핵심) |
-| STT(whisper.cpp) | 중간 | 플랫폼 가속(Metal/CUDA/CPU), 모델 크기별 |
-| TTS(MeloTTS) | 낮음~중간 | CPU 실시간 가능 |
+| Tauri/WebView 앱 셸 | 낮음 | 시스템 WebView 기반 UI |
+| Markdown SoT + SQLite projection | 낮음 | 기록·검색·상태 관리의 기본 저장 경로 |
+| lexical 검색 | 낮음 | 모델 없이 사용 가능 |
+| optional embedding / hybrid RAG | 낮음~중간 | embedding 기능이 켜진 경우에만 추가 부하 |
+| optional 로컬 LLM 자료 생성 | **높음** | 모델 크기·양자화·가속기와 provider에 좌우 |
+| Core deterministic 자료 생성 | 낮음 | LLM 실패/비활성 시에도 사용 가능 |
+| 인쇄/PDF | 낮음~중간 | 별도 WeasyPrint/Typst 엔진이 아니라 WebView + OS native print pipeline 사용 |
+| 백업/복원 | 낮음~중간 | 데이터 양에 따라 일시적으로 디스크 I/O 증가 |
 
-## 저장 공간 계획(대략)
+PDF 출력 전략은 [ADR 0001](adr/0001-pdf-export.md)에 고정되어 있다. GrowWise는 reviewed
+WebView 렌더링과 OS print dialog를 사용하며, PDF 전용 런타임이나 CJK 폰트를 별도로 bundle하지
+않는다.
 
-- 앱 본체: 수백 MB
-- 소형 LLM(양자화): 2~5 GB / 중형(7~8B 양자화): 4~8 GB
-- STT 모델: 0.1~3 GB(크기별) / TTS: 수백 MB
-- 임베딩 모델: 수백 MB
-- 아이 데이터(기록·생성물): 사용량에 따라 증가(로컬, 백업 권장)
+## 저장 공간 계획
 
-## 원칙
+정확한 설치 크기는 플랫폼 package artifact와 선택한 로컬 모델에 따라 달라진다.
 
-- **최소 사양 = 영아 모드·기록·성장 지도는 항상 쾌적**해야 한다. 무거운 건 로컬 LLM뿐이며,
-  그건 원격 전환으로 회피 가능.
-- 최초 실행 시 필요한 모델을 안내하고 내려받되, **오프라인에서도 기본 기능이 되도록** 소형
-  모델을 기본 번들 후보로 둔다([roadmap.md](roadmap.md)).
-- 실제 수치는 선택 모델·양자화에 따라 달라지므로, 앱에 **가벼움/균형/고품질 프리셋**을 두어
-  기기 사양에 맞게 고르게 한다.
+- 데스크탑 앱 + bundled Core: 플랫폼 package 결과로 검증
+- GrowWise 기록/자료/SQLite 인덱스: 사용량에 따라 증가
+- 백업 파일: 사용자 보존 개수와 데이터 양에 따라 추가 공간 필요
+- optional 로컬 LLM/embedding 모델: GrowWise 앱과 별도의 모델 provider 저장 공간 사용 가능
+
+따라서 로컬 모델을 쓰지 않는 사용자의 저장 요구량과 여러 GB 모델을 보유하는 사용자의 요구량을
+같은 값으로 취급하지 않는다.
+
+## 운영 원칙
+
+- **Core 기능은 최소 사양에서도 모델 장애와 무관하게 동작**해야 한다.
+- 로컬 LLM은 보강 기능이며, 성능이 부족하면 비활성화하거나 다른 provider 구성으로 바꿀 수 있다.
+- 앱이 특정 대형 모델을 필수 다운로드한다고 가정하지 않는다. 모델 설치·provider 설정은 선택적이다.
+- 최소/권장 사양을 확정할 때 RAM 수치만 보지 않고 packaged sidecar 시작, CRUD/search/material 흐름,
+  UI 반응성, 모델 latency/quality를 함께 확인한다.
+- 실제 측정 결과가 현재 잠정 8/16 GB 기준과 다르면 문서 수치를 측정 결과에 맞춰 갱신한다.
