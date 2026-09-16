@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import base64
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 import pytest
@@ -81,7 +82,26 @@ def test_photo_activity_draft_survives_without_any_model_and_commits_learning_lo
     assert service.commit(record_id=str(record.id)).id == log.id
 
 
-def test_photo_asset_rejects_spoofed_mime_and_oversized_input(tmp_path: Path) -> None:
+def test_concurrent_photo_commit_creates_exactly_one_learning_log(tmp_path: Path) -> None:
+    service, store, child, _settings = _service(tmp_path)
+    record, _assets = service.create_draft(
+        child_id=str(child.id),
+        uploads=[PhotoUpload(filename="play.png", mime_type="image/png", data=_ONE_PIXEL_PNG)],
+        user_context="동시 저장 테스트",
+    )
+
+    def commit_once() -> str:
+        return str(service.commit(record_id=str(record.id)).id)
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        result_ids = list(pool.map(lambda _index: commit_once(), range(2)))
+
+    assert len(set(result_ids)) == 1
+    stored_logs = store.index.list_entities(entity_type="learning_log", child_id=str(child.id))
+    assert len(stored_logs) == 1
+
+
+def test_photo_asset_rejects_spoofed_mime_oversize_and_truncated_input(tmp_path: Path) -> None:
     asset_store = PhotoAssetStore(tmp_path / "assets", max_file_bytes=len(_ONE_PIXEL_PNG))
     child_id = "018f47f2-9786-7c99-bc1f-1d5df10c0000"
 
@@ -104,6 +124,42 @@ def test_photo_asset_rejects_spoofed_mime_and_oversized_input(tmp_path: Path) ->
                 data=_ONE_PIXEL_PNG + b"x",
             ),
         )
+
+    with pytest.raises(PhotoValidationError, match="malformed_image"):
+        asset_store.store(
+            child_id=child_id,
+            upload=PhotoUpload(
+                filename="truncated.png",
+                mime_type="image/png",
+                data=_ONE_PIXEL_PNG[:32],
+            ),
+        )
+
+
+def test_photo_draft_rolls_back_binary_and_metadata_when_persistence_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, store, child, settings = _service(tmp_path)
+    original_save = store.save
+
+    def failing_save(entity, body: str = ""):
+        if entity.entity_type == "photo_activity_record":
+            raise OSError("simulated persistence failure")
+        return original_save(entity, body=body)
+
+    monkeypatch.setattr(store, "save", failing_save)
+
+    with pytest.raises(OSError, match="simulated persistence failure"):
+        service.create_draft(
+            child_id=str(child.id),
+            uploads=[PhotoUpload(filename="play.png", mime_type="image/png", data=_ONE_PIXEL_PNG)],
+            user_context="rollback test",
+        )
+
+    assert store.index.list_entities(entity_type="photo_asset", child_id=str(child.id)) == []
+    photo_dir = settings.photo_assets_dir / str(child.id)
+    assert not photo_dir.exists() or not any(photo_dir.iterdir())
 
 
 def test_photo_asset_read_detects_tampering(tmp_path: Path) -> None:
