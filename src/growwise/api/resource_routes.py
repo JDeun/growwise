@@ -1,4 +1,4 @@
-"""Resource-library mutation routes with Source-of-Truth and RAG consistency."""
+"""Resource-library routes with Source-of-Truth and RAG consistency."""
 
 from __future__ import annotations
 
@@ -76,6 +76,7 @@ def get_resource_rag_index() -> HybridRagIndex:
                 base_url=settings.model_base_url,
             )
         except Exception:
+            logger.exception("embedding provider unavailable; resource RAG will use lexical search")
             embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
@@ -152,6 +153,17 @@ def create_resource(
                 resource_id=claim.record.resource_id,
             )
         raise
+
+
+@router.get("")
+def list_resources(
+    store: Annotated[EntityStore, Depends(get_resource_store)],
+    child_id: UUID | None = None,
+) -> list[dict]:
+    return store.index.list_entities(
+        entity_type="resource",
+        child_id=str(child_id) if child_id else None,
+    )
 
 
 @router.put("/{resource_id}", response_model=ResourceRecord)
