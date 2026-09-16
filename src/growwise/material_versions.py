@@ -6,18 +6,14 @@ from threading import Lock
 from typing import Concatenate
 from uuid import UUID
 
-_registry_lock = Lock()
-_material_locks: dict[str, Lock] = {}
+_LOCK_STRIPES = 128
+_material_locks: tuple[Lock, ...] = tuple(Lock() for _ in range(_LOCK_STRIPES))
 
 
 def _lock_for(material_id: UUID) -> Lock:
-    key = str(material_id)
-    with _registry_lock:
-        lock = _material_locks.get(key)
-        if lock is None:
-            lock = Lock()
-            _material_locks[key] = lock
-        return lock
+    # Bounded lock striping avoids an unbounded process-lifetime dictionary keyed by every
+    # material ever edited. A hash collision only serializes two unrelated successor operations.
+    return _material_locks[hash(str(material_id)) % _LOCK_STRIPES]
 
 
 def serialize_material_successor[**P, R](
@@ -27,8 +23,8 @@ def serialize_material_successor[**P, R](
 
     GrowWise starts Uvicorn as a single-process local sidecar. FastAPI executes synchronous
     endpoints in a thread pool, so two edit/revision requests can otherwise both observe that
-    no successor exists and create sibling versions. The per-material lock preserves unrelated
-    material concurrency while making the supported sidecar topology linearizable here.
+    no successor exists and create sibling versions. The bounded striped locks preserve the
+    linear-history invariant without retaining one lock per material forever.
     """
 
     @wraps(func)
