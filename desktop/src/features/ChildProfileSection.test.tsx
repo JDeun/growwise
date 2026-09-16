@@ -1,29 +1,32 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
+import { ActiveChildProvider } from "../active-child-context";
 import { childContextState } from "../child-context-state";
 import { ChildProfileSection } from "./ChildProfileSection";
 
 function renderFirstRun(connected = true) {
   return renderToStaticMarkup(
-    <ChildProfileSection
-      connected={connected}
-      children={[]}
-      activeChild={null}
-      childContext={childContextState("idle")}
-      growthMap={null}
-      activityCount={0}
-      nickname=""
-      childStage="infant_0_2"
-      ageMonths=""
-      saving={false}
-      error={null}
-      onNicknameChange={() => undefined}
-      onStageChange={() => undefined}
-      onAgeMonthsChange={() => undefined}
-      onSubmit={() => undefined}
-      onSelectChild={() => undefined}
-    />,
+    <ActiveChildProvider>
+      <ChildProfileSection
+        connected={connected}
+        children={[]}
+        activeChild={null}
+        childContext={childContextState("idle")}
+        growthMap={null}
+        activityCount={0}
+        nickname=""
+        childStage="infant_0_2"
+        ageMonths=""
+        saving={false}
+        error={null}
+        onNicknameChange={() => undefined}
+        onStageChange={() => undefined}
+        onAgeMonthsChange={() => undefined}
+        onSubmit={() => undefined}
+        onSelectChild={() => undefined}
+      />
+    </ActiveChildProvider>,
   );
 }
 
