@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -9,6 +10,7 @@ import growwise.api.main as api
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.services.infant import (
     CURRICULUM_SOURCE,
+    BoardBookRecommendationService,
     InfantCurriculumDomain,
     InfantObservationHintService,
 )
@@ -95,6 +97,7 @@ def test_infant_guidance_api_is_child_scoped_and_has_offline_book_fallback(
     store.save(global_book)
     store.save(other_private_book)
     monkeypatch.setattr(api, "get_model_provider", lambda: None)
+    monkeypatch.delenv("GROWWISE_DATA4LIBRARY_API_KEY", raising=False)
 
     hints = api.suggest_infant_observation_hints(child.id, store)
     assert hints["diagnostic"] is False
@@ -123,6 +126,50 @@ def test_infant_guidance_api_is_child_scoped_and_has_offline_book_fallback(
         item["source"] == "local_library_or_offline_fallback"
         for item in fallback["recommendations"]
     )
+
+
+def test_board_book_discovery_sends_only_generalized_interest_query(
+    tmp_path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    observed: dict[str, object] = {}
+
+    class FakeData4LibraryAdapter:
+        def __init__(self, **kwargs: object) -> None:
+            observed["init"] = kwargs
+
+        def search_books(self, *, keyword: str, page_size: int, offline: bool):
+            observed["keyword"] = keyword
+            observed["page_size"] = page_size
+            observed["offline"] = offline
+            return SimpleNamespace(
+                source="data4library",
+                records=[
+                    {
+                        "title": "고양이와 인사해요",
+                        "isbn13": "9780000000001",
+                        "book_detail_url": "https://example.invalid/book/1",
+                    }
+                ],
+            )
+
+    monkeypatch.setenv("GROWWISE_DATA4LIBRARY_API_KEY", "test-key")
+    monkeypatch.setenv("GROWWISE_DATA_DIR", str(tmp_path / "app-data"))
+    monkeypatch.setattr("growwise.adapters.Data4LibraryAdapter", FakeData4LibraryAdapter)
+
+    result = BoardBookRecommendationService().recommend(
+        resources=[],
+        interests=["고양이", "동물", "세 번째 관심사"],
+        limit=2,
+    )
+
+    assert observed["keyword"] == "고양이 동물 그림책"
+    assert observed["offline"] is False
+    assert result.recommendations[0].source == "public_discovery"
+    assert result.recommendations[0].resource_id is None
+    assert result.recommendations[0].discovery_candidate_id is not None
+    assert result.recommendations[0].source_url == "https://example.invalid/book/1"
+    assert "적합성" in result.recommendations[0].reason
+    assert result.recommendations[1].source == "local_library_or_offline_fallback"
 
 
 def test_infant_guidance_rejects_non_infant_stage(tmp_path) -> None:
