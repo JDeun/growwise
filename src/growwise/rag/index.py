@@ -29,9 +29,9 @@ class HybridRagIndex:
     """SQLite-backed resource chunk index with lexical + optional vector scoring.
 
     Core-only lexical search uses an FTS5 candidate set instead of loading every chunk into Python.
-    When a vector provider is active we retain the full scoped scan to preserve semantic recall until
-    a dedicated vector index is enabled; WAL and busy-timeout settings keep concurrent desktop reads
-    and writes from failing on short-lived SQLite locks.
+    When a vector provider is active we retain the full scoped scan to preserve semantic recall
+    until a dedicated vector index is enabled; WAL and busy-timeout settings keep concurrent
+    desktop reads and writes from failing on short-lived SQLite locks.
     """
 
     def __init__(self, path: Path, embedding: EmbeddingProvider | None = None) -> None:
