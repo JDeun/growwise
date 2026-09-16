@@ -498,12 +498,12 @@ class EducationDiscoveryService:
                 record.get("curriculum_id")
             )
             metadata = record.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
             safe_metadata = {
                 str(key): str(value)[:1_000]
                 for key, value in metadata.items()
-                if isinstance(metadata, dict)
-                and isinstance(key, str)
-                and value is not None
+                if isinstance(key, str) and value is not None
             }
             suggestions.append(
                 DiscoverySuggestion(
@@ -567,7 +567,7 @@ class EducationDiscoveryService:
 
     @staticmethod
     def _candidate_id(source: str, source_key: str) -> str:
-        digest = hashlib.sha256(f"{source}\x1f{source_key}".encode("utf-8")).hexdigest()[:24]
+        digest = hashlib.sha256(f"{source}\x1f{source_key}".encode()).hexdigest()[:24]
         return f"{source}:{digest}"
 
     @staticmethod
