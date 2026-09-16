@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from contextlib import suppress
 from time import sleep
-from uuid import UUID
 
 from growwise.jobs import Job, SQLiteJobQueue
 from growwise.services.photo_activity import PhotoActivityService
@@ -83,7 +83,10 @@ class PhotoJobRunner:
                 self._wake.wait(timeout=self.poll_interval_seconds)
                 self._wake.clear()
                 continue
-            self._process(job)
+            # A malformed record, concurrent child purge, or status-write failure must not kill the
+            # only worker thread. _process records/cancels the job wherever possible.
+            with suppress(Exception):
+                self._process(job)
 
     def _process(self, job: Job) -> None:
         record_id = str(job.payload.get("record_id", "")).strip()
@@ -100,17 +103,23 @@ class PhotoJobRunner:
             self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
             service.process_draft(record_id)
             self.queue.complete(job.id)
+            return
+        except KeyError:
+            # The most common reason is an intentional child purge while slow inference was still
+            # running. The job row may already have been deleted; cancel is therefore best-effort.
+            self.queue.cancel(job.id)
+            return
         except Exception as exc:
             error = f"{type(exc).__name__}: {exc}"
-            if job.attempts < self.max_attempts:
-                try:
-                    service.mark_queued(record_id, error=error)
-                finally:
-                    self.queue.retry(job.id, error)
-                # Avoid a tight retry loop when Ollama is temporarily unavailable.
-                sleep(min(2.0, self.poll_interval_seconds))
-                return
-            try:
-                service.mark_failed(record_id, error)
-            finally:
-                self.queue.fail(job.id, error)
+
+        if job.attempts < self.max_attempts:
+            with suppress(Exception):
+                service.mark_queued(record_id, error=error)
+            self.queue.retry(job.id, error)
+            # Avoid a tight retry loop when Ollama is temporarily unavailable.
+            sleep(min(5.0, max(1.0, self.poll_interval_seconds * 2)))
+            return
+
+        with suppress(Exception):
+            service.mark_failed(record_id, error)
+        self.queue.fail(job.id, error)
