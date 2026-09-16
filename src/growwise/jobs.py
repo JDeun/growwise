@@ -43,6 +43,7 @@ class Job:
     finished_at: str | None = None
     last_error: str | None = None
     lease_expires_at: str | None = None
+    claim_token: str | None = None
 
 
 class JobQueue(Protocol):
@@ -50,11 +51,11 @@ class JobQueue(Protocol):
 
     def claim_next(self) -> Job | None: ...
 
-    def heartbeat(self, job_id: UUID) -> bool: ...
+    def heartbeat(self, job_id: UUID, claim_token: str) -> bool: ...
 
-    def complete(self, job_id: UUID) -> None: ...
+    def complete(self, job_id: UUID, claim_token: str) -> bool: ...
 
-    def fail(self, job_id: UUID, error: str) -> None: ...
+    def fail(self, job_id: UUID, claim_token: str, error: str) -> bool: ...
 
     def cancel(self, job_id: UUID) -> None: ...
 
@@ -62,9 +63,9 @@ class JobQueue(Protocol):
 class SQLiteJobQueue:
     """Local durable queue for background work without requiring Redis.
 
-    Running jobs carry a lease. A process crash therefore cannot strand a job in RUNNING forever:
-    the next claimant first returns expired leases to PENDING, preserving the attempt counter and
-    applying a bounded retry policy.
+    Running jobs carry a lease and a unique token for each claim attempt. A process crash therefore
+    cannot strand a job in RUNNING forever, and a worker whose lease expired cannot later complete
+    or heartbeat a newer worker's claim of the same job (the classic lease ABA/fencing problem).
     """
 
     def __init__(self, path: Path) -> None:
@@ -93,7 +94,8 @@ class SQLiteJobQueue:
                     started_at TEXT,
                     finished_at TEXT,
                     last_error TEXT,
-                    lease_expires_at TEXT
+                    lease_expires_at TEXT,
+                    claim_token TEXT
                 )
                 """
             )
@@ -103,6 +105,8 @@ class SQLiteJobQueue:
             }
             if "lease_expires_at" not in columns:
                 connection.execute("ALTER TABLE jobs ADD COLUMN lease_expires_at TEXT")
+            if "claim_token" not in columns:
+                connection.execute("ALTER TABLE jobs ADD COLUMN claim_token TEXT")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_status_created "
                 "ON jobs(status, created_at)"
@@ -125,6 +129,7 @@ class SQLiteJobQueue:
             finished_at=row["finished_at"],
             last_error=row["last_error"],
             lease_expires_at=row["lease_expires_at"],
+            claim_token=row["claim_token"],
         )
 
     def enqueue(self, job_type: str, payload: dict) -> Job:
@@ -143,8 +148,8 @@ class SQLiteJobQueue:
                 """
                 INSERT INTO jobs (
                     id, job_type, payload_json, status, attempts, created_at, updated_at,
-                    lease_expires_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL)
+                    lease_expires_at, claim_token
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
                 """,
                 (
                     str(job.id),
@@ -165,12 +170,12 @@ class SQLiteJobQueue:
         now_iso: str,
         max_attempts: int,
     ) -> None:
-        # Expired work below the retry ceiling becomes claimable again. Work that already consumed
-        # the retry budget is terminally failed so it cannot spin forever after repeated crashes.
+        # Expired work below the retry ceiling becomes claimable again. Clearing claim_token fences
+        # the expired worker before another attempt receives a new token.
         connection.execute(
             """
             UPDATE jobs
-            SET status = ?, started_at = NULL, lease_expires_at = NULL,
+            SET status = ?, started_at = NULL, lease_expires_at = NULL, claim_token = NULL,
                 updated_at = ?, last_error = ?
             WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
               AND attempts < ?
@@ -187,7 +192,7 @@ class SQLiteJobQueue:
         connection.execute(
             """
             UPDATE jobs
-            SET status = ?, finished_at = ?, lease_expires_at = NULL,
+            SET status = ?, finished_at = ?, lease_expires_at = NULL, claim_token = NULL,
                 updated_at = ?, last_error = ?
             WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
               AND attempts >= ?
@@ -221,6 +226,7 @@ class SQLiteJobQueue:
         current = current.astimezone(UTC)
         now_iso = current.isoformat()
         lease_expires = (current + timedelta(seconds=lease_seconds)).isoformat()
+        claim_token = str(uuid7())
 
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
@@ -241,7 +247,7 @@ class SQLiteJobQueue:
                 """
                 UPDATE jobs
                 SET status = ?, attempts = attempts + 1, started_at = ?, updated_at = ?,
-                    finished_at = NULL, lease_expires_at = ?
+                    finished_at = NULL, lease_expires_at = ?, claim_token = ?
                 WHERE id = ? AND status = ?
                 """,
                 (
@@ -249,6 +255,7 @@ class SQLiteJobQueue:
                     now_iso,
                     now_iso,
                     lease_expires,
+                    claim_token,
                     row["id"],
                     JobStatus.PENDING,
                 ),
@@ -268,6 +275,7 @@ class SQLiteJobQueue:
     def heartbeat(
         self,
         job_id: UUID,
+        claim_token: str,
         *,
         lease_seconds: int = DEFAULT_JOB_LEASE_SECONDS,
         now: datetime | None = None,
@@ -284,35 +292,58 @@ class SQLiteJobQueue:
             cursor = connection.execute(
                 """
                 UPDATE jobs SET updated_at = ?, lease_expires_at = ?
-                WHERE id = ? AND status = ?
+                WHERE id = ? AND status = ? AND claim_token = ?
                 """,
-                (now_iso, lease_expires, str(job_id), JobStatus.RUNNING),
+                (
+                    now_iso,
+                    lease_expires,
+                    str(job_id),
+                    JobStatus.RUNNING,
+                    claim_token,
+                ),
             )
             return cursor.rowcount == 1
 
-    def complete(self, job_id: UUID) -> None:
+    def complete(self, job_id: UUID, claim_token: str) -> bool:
         now = utc_now_iso()
         with self._connect() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE jobs SET status = ?, finished_at = ?, updated_at = ?,
-                    last_error = NULL, lease_expires_at = NULL
-                WHERE id = ? AND status = ?
+                    last_error = NULL, lease_expires_at = NULL, claim_token = NULL
+                WHERE id = ? AND status = ? AND claim_token = ?
                 """,
-                (JobStatus.COMPLETED, now, now, str(job_id), JobStatus.RUNNING),
+                (
+                    JobStatus.COMPLETED,
+                    now,
+                    now,
+                    str(job_id),
+                    JobStatus.RUNNING,
+                    claim_token,
+                ),
             )
+            return cursor.rowcount == 1
 
-    def fail(self, job_id: UUID, error: str) -> None:
+    def fail(self, job_id: UUID, claim_token: str, error: str) -> bool:
         now = utc_now_iso()
         with self._connect() as connection:
-            connection.execute(
+            cursor = connection.execute(
                 """
                 UPDATE jobs SET status = ?, finished_at = ?, updated_at = ?, last_error = ?,
-                    lease_expires_at = NULL
-                WHERE id = ? AND status = ?
+                    lease_expires_at = NULL, claim_token = NULL
+                WHERE id = ? AND status = ? AND claim_token = ?
                 """,
-                (JobStatus.FAILED, now, now, error[:2000], str(job_id), JobStatus.RUNNING),
+                (
+                    JobStatus.FAILED,
+                    now,
+                    now,
+                    error[:2000],
+                    str(job_id),
+                    JobStatus.RUNNING,
+                    claim_token,
+                ),
             )
+            return cursor.rowcount == 1
 
     def cancel(self, job_id: UUID) -> None:
         now = utc_now_iso()
@@ -320,7 +351,7 @@ class SQLiteJobQueue:
             connection.execute(
                 """
                 UPDATE jobs SET status = ?, finished_at = ?, updated_at = ?,
-                    lease_expires_at = NULL
+                    lease_expires_at = NULL, claim_token = NULL
                 WHERE id = ? AND status IN (?, ?)
                 """,
                 (
