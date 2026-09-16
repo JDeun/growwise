@@ -3,6 +3,7 @@ import { FormEvent, useEffect, useState } from "react";
 import { useActiveChild } from "../active-child-context";
 import {
   discoverEducationResources,
+  parseDiscoveryLocation,
   saveDiscoveredResource,
   type DiscoveryCategory,
   type DiscoveryResponse,
@@ -54,6 +55,8 @@ type Props = { active: boolean };
 export function DiscoveryWorkspace({ active }: Props) {
   const { children, activeChildId: childId, selectChild, syncRememberedChild } = useActiveChild();
   const [query, setQuery] = useState("");
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
   const [result, setResult] = useState<DiscoveryResponse | null>(null);
   const [busy, setBusy] = useState(false);
   const [savingId, setSavingId] = useState<string | null>(null);
@@ -69,6 +72,8 @@ export function DiscoveryWorkspace({ active }: Props) {
   useEffect(() => {
     setResult(null);
     setSavedIds(new Set());
+    setLatitude("");
+    setLongitude("");
     setNotice(null);
     setError(null);
   }, [childId]);
@@ -76,14 +81,23 @@ export function DiscoveryWorkspace({ active }: Props) {
   async function handleDiscover(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!childId || busy) return;
-    setBusy(true);
     setError(null);
     setNotice(null);
+
+    let location;
     try {
-      const response = await discoverEducationResources(childId, query);
+      location = parseDiscoveryLocation(latitude, longitude);
+    } catch (locationError) {
+      setError(errorMessage(locationError));
+      return;
+    }
+
+    setBusy(true);
+    try {
+      const response = await discoverEducationResources(childId, query, location);
       setResult(response);
       if (response.suggestions.length === 0) {
-        setNotice("현재 조건에서 바로 제안할 공개 자료를 찾지 못했습니다. 검색어를 바꿔보세요.");
+        setNotice("현재 조건에서 바로 제안할 공개 자료를 찾지 못했습니다. 검색어나 탐방 위치를 바꿔보세요.");
       } else if (!query.trim() && response.query_terms.length > 0) {
         setNotice(
           `최근 기록에서 ${response.query_terms.slice(0, 4).join(", ")} 맥락을 찾아 후보를 구성했습니다.`,
@@ -154,6 +168,58 @@ export function DiscoveryWorkspace({ active }: Props) {
               placeholder="비워두면 관심사와 최근 기록을 바탕으로 찾습니다. 예: 공룡, 우주, 측정"
             />
           </label>
+
+          <details className="discovery-location-options">
+            <summary>주변 탐방 장소도 찾기 · 선택</summary>
+            <p className="muted">
+              부모가 직접 입력한 좌표가 있을 때만 OpenStreetMap Overpass에 위치를 전송합니다.
+              좌표는 아이 프로필에 저장하지 않습니다.
+            </p>
+            <div className="discovery-location-grid">
+              <label>
+                <span>위도</span>
+                <input
+                  type="number"
+                  min="-90"
+                  max="90"
+                  step="any"
+                  inputMode="decimal"
+                  value={latitude}
+                  onChange={(event) => setLatitude(event.target.value)}
+                  placeholder="예: 37.2636"
+                  disabled={busy}
+                />
+              </label>
+              <label>
+                <span>경도</span>
+                <input
+                  type="number"
+                  min="-180"
+                  max="180"
+                  step="any"
+                  inputMode="decimal"
+                  value={longitude}
+                  onChange={(event) => setLongitude(event.target.value)}
+                  placeholder="예: 127.0286"
+                  disabled={busy}
+                />
+              </label>
+            </div>
+            {(latitude || longitude) && (
+              <button
+                className="quiet-button"
+                type="button"
+                onClick={() => {
+                  setLatitude("");
+                  setLongitude("");
+                }}
+                disabled={busy}
+              >
+                탐방 위치 지우기
+              </button>
+            )}
+          </details>
+
           <button className="primary-button" type="submit" disabled={!childId || busy}>
             {busy ? "공개 자료 확인 중…" : "교육 자료 찾기"}
           </button>
@@ -184,7 +250,7 @@ export function DiscoveryWorkspace({ active }: Props) {
               </div>
               <p className="muted">
                 외부 서비스가 꺼져 있어도 공식 교육과정 메타데이터와 이미 저장한 라이브러리는 계속
-                사용할 수 있습니다.
+                사용할 수 있습니다. 탐방 위치를 입력한 경우에만 해당 좌표가 Overpass 요청에 포함됩니다.
               </p>
             </section>
 
