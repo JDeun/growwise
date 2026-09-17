@@ -69,8 +69,7 @@ def test_restore_keeps_atomic_swaps_with_assets_on_another_volume(
     )
 
     assert (target_assets / "photo.jpg").read_bytes() == b"new-photo"
-    restored_children = EntityStore(target_root, records_volume / "index.sqlite3").list_by_type(
-        "child_profile"
-    )
+    restored_store = EntityStore(target_root, records_volume / "index.sqlite3")
+    restored_children = restored_store.index.list_entities(entity_type="child_profile")
     assert len(restored_children) == 1
     assert restored_children[0].get("nickname") == "복원본"
