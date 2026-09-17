@@ -11,5 +11,5 @@ export const WORKSPACE_DESCRIPTIONS: Record<WorkspaceView, string> = {
   discovery: "책·교육과정·탐방 후보를 찾아봅니다.",
   library: "채택해 둔 책·메모·웹 자료와 출처를 관리합니다.",
   materials: "저장한 근거로 학습 자료를 만들고 검토합니다.",
-  settings: "백업과 선택 기능, 앱 상태를 관리합니다.",
+  settings: "아이 프로필, 백업, AI 보조 기능과 앱 상태를 관리합니다.",
 };
