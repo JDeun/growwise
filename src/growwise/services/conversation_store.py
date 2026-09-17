@@ -126,8 +126,12 @@ class SQLiteConversationStore:
                     id, child_id, payload_json, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(id) DO UPDATE SET
-                    child_id = excluded.child_id,
-                    payload_json = excluded.payload_json,
+                    child_id = conversation_sessions.child_id,
+                    payload_json = CASE
+                        WHEN excluded.updated_at >= conversation_sessions.updated_at
+                        THEN excluded.payload_json
+                        ELSE conversation_sessions.payload_json
+                    END,
                     updated_at = CASE
                         WHEN excluded.updated_at > conversation_sessions.updated_at
                         THEN excluded.updated_at
