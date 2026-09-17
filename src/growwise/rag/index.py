@@ -37,8 +37,9 @@ class HybridRagIndex:
 
     Core-only lexical search uses an FTS5 candidate set instead of loading every visible chunk into
     Python. Child ownership, explicitly shared resources, provenance, and the temporal hierarchy are
-    applied identically to the fallback scan. When vector embeddings are active, GrowWise still scans
-    the full visible vector set to preserve semantic recall until a dedicated vector index exists.
+    applied identically to the fallback scan. When vector embeddings are active, GrowWise still
+    scans the full visible vector set to preserve semantic recall until a dedicated vector index
+    exists.
     """
 
     def __init__(self, path: Path, embedding: EmbeddingProvider | None = None) -> None:
@@ -289,7 +290,10 @@ class HybridRagIndex:
         candidate_limit = max(200, limit * 20)
         if shared_ids:
             placeholders = ",".join("?" for _ in shared_ids)
-            scope_sql = f"(c.child_id IS NULL OR c.child_id = ? OR c.resource_id IN ({placeholders}))"
+            scope_sql = (
+                "(c.child_id IS NULL OR c.child_id = ? "
+                f"OR c.resource_id IN ({placeholders}))"
+            )
             scope_params: tuple[object, ...] = (child_id, *shared_ids)
         else:
             scope_sql = "(c.child_id IS NULL OR c.child_id = ?)"
