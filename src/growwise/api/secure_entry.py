@@ -8,6 +8,7 @@ from pydantic import ValidationError
 from starlette.responses import JSONResponse
 
 from growwise.api.background_ai import start_background_ai_runner
+from growwise.api.data_dir_lock import exclusive_data_dir_lock
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
 from growwise.api.photo_routes import start_photo_job_runner
@@ -35,13 +36,15 @@ def run() -> None:
     settings = Settings()
     if settings.api_host not in {"127.0.0.1", "localhost", "::1"}:
         raise RuntimeError("desktop Core must bind to a loopback address")
-    # Durable background workers reclaim interrupted jobs before the UI begins issuing requests.
-    # They remain idle when their queues are empty, and AI failure never blocks Core startup.
-    if settings.llm_features_enabled:
-        start_background_ai_runner()
-    if settings.vision_features_enabled:
-        start_photo_job_runner()
-    uvicorn.run(app, host=settings.api_host, port=settings.api_port, log_level="warning")
+
+    with exclusive_data_dir_lock(settings.data_dir):
+        # Durable background workers reclaim interrupted jobs before the UI begins issuing requests.
+        # They remain idle when their queues are empty, and AI failure never blocks Core startup.
+        if settings.llm_features_enabled:
+            start_background_ai_runner()
+        if settings.vision_features_enabled:
+            start_photo_job_runner()
+        uvicorn.run(app, host=settings.api_host, port=settings.api_port, log_level="warning")
 
 
 if __name__ == "__main__":
