@@ -84,9 +84,9 @@ def _validate_relocation_paths(
 class StorageLocation:
     """Helpers to validate a data directory and safely relocate records + index.
 
-    Markdown is the source of truth; the SQLite index is a disposable projection. Relocation copies
-    the Markdown first, verifies it, rebuilds the index at the destination, and only then removes the
-    source. Any failure before commit leaves the source intact.
+    Markdown is the source of truth; the SQLite index is a disposable projection. Relocation
+    copies the Markdown first, verifies it, rebuilds the index at the destination, and only then
+    removes the source. Any failure before commit leaves the source intact.
     """
 
     @staticmethod
