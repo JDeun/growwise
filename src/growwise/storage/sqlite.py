@@ -249,10 +249,7 @@ class SQLiteProjection:
             if terms:
                 term_clauses = ["payload_json LIKE ? ESCAPE '\\'" for _ in terms]
                 clauses.append("(" + " OR ".join(term_clauses) + ")")
-                patterns = [
-                    "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
-                    for term in terms
-                ]
+                patterns = [_literal_like_pattern(term) for term in terms]
                 where_params.extend(patterns)
                 score_sql = " + ".join(
                     "CASE WHEN payload_json LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END"
