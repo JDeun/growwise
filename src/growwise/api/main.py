@@ -7,7 +7,6 @@ from uuid import UUID
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from langgraph.types import Command
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
@@ -16,10 +15,6 @@ from growwise.api.contracts import (
     ActivityTransitionRequest,
     ChildCreateRequest,
     ChildQuestionRequest,
-    MaterialEditRequest,
-    MaterialGenerateRequest,
-    MaterialReviewRequest,
-    MaterialRevisionRequest,
     ObservationRequest,
     RagQuestionRequest,
     ResourceCreateRequest,
@@ -43,38 +38,39 @@ from growwise.api.dependencies import (
     get_settings,
     get_store,
 )
+from growwise.api.material_routes import (
+    edit_material,
+    generate_material,
+    get_material,
+    list_materials,
+    material_source_evidence,
+    review_material,
+    revise_material,
+    router as material_router,
+    validate_material_source_refs,
+)
 from growwise.api.study_routes import router as study_router
 from growwise.domain import (
     ActivityPlan,
     ChildProfile,
-    GeneratedMaterial,
     LearningLog,
-    MaterialStatus,
     ResourceRecord,
     Stage,
     WorkflowRun,
     WorkflowStatus,
 )
 from growwise.generators import (
-    MaterialEditError,
-    MaterialEditService,
-    MaterialGenerationService,
-    MaterialRevisionError,
-    MaterialRevisionService,
-    MaterialSourceEvidence,
 )
 from growwise.idempotency import (
     IdempotencyConflict,
     IdempotencyStatus,
     request_fingerprint,
 )
-from growwise.material_versions import serialize_material_successor
 from growwise.model.health import probe_model_runtime
 from growwise.rag import (
     GroundedRagService,
     ResourceIngestor,
 )
-from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
     ActivityPlanService,
     BoardBookRecommendationService,
@@ -96,14 +92,21 @@ __all__ = [
     "delete_conversation",
     "get_conversation",
     "list_conversations",
+    "edit_material",
+    "generate_material",
+    "get_material",
+    "list_materials",
+    "material_source_evidence",
+    "review_material",
+    "revise_material",
+    "validate_material_source_refs",
 ]
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(conversation_router)
+app.include_router(material_router)
 app.include_router(study_router)
-
-_MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
 
 
 def validate_activity_link(
@@ -326,259 +329,6 @@ def ask_child_context(
         )
         .model_dump(mode="json")
     )
-
-
-def validate_material_source_refs(
-    *,
-    child_id: UUID,
-    source_refs: list[str],
-    store: EntityStore,
-) -> list[str]:
-    """Resolve material provenance to existing resources within the child's scope."""
-    validated: list[str] = []
-    visible_shared_ids = shared_source_ids(store.index, str(child_id))
-    for ref in dict.fromkeys(source_refs):
-        if not ref.startswith("resource:"):
-            raise HTTPException(status_code=422, detail="material_source_ref_invalid")
-        raw_id = ref.removeprefix("resource:")
-        try:
-            resource_id = UUID(raw_id)
-        except ValueError as exc:
-            raise HTTPException(status_code=422, detail="material_source_ref_invalid") from exc
-        payload = store.index.get_entity(str(resource_id), entity_type="resource")
-        if payload is None:
-            raise HTTPException(status_code=422, detail="material_source_not_found")
-        if not entity_visible_to_child(
-            store.index,
-            entity_id=str(resource_id),
-            child_id=str(child_id),
-            entity_type="resource",
-            shared_ids=visible_shared_ids,
-        ):
-            raise HTTPException(status_code=409, detail="material_source_child_mismatch")
-        resource = ResourceRecord.model_validate(payload)
-        validated.append(f"resource:{resource.id}")
-    return validated
-
-
-def material_source_evidence(
-    *,
-    source_refs: list[str],
-    store: EntityStore,
-) -> list[MaterialSourceEvidence]:
-    """Load bounded excerpts for already validated resource refs.
-
-    Source content remains untrusted. The generator wraps these excerpts as evidence and applies
-    its own total prompt budget, so a large saved resource cannot monopolize the model context.
-    """
-    evidence: list[MaterialSourceEvidence] = []
-    for ref in source_refs:
-        raw_id = ref.removeprefix("resource:")
-        payload = store.index.get_entity(raw_id, entity_type="resource")
-        if payload is None:
-            continue
-        resource = ResourceRecord.model_validate(payload)
-        parts: list[str] = []
-        if resource.summary:
-            parts.append(f"요약: {resource.summary.strip()}")
-        if resource.content:
-            content = resource.content.strip()
-            if content and content != (resource.summary or "").strip():
-                parts.append(f"내용: {content}")
-        excerpt = "\n\n".join(parts)[:_MATERIAL_SOURCE_EXCERPT_CHARS]
-        evidence.append(
-            MaterialSourceEvidence(
-                source_ref=ref,
-                title=resource.title,
-                excerpt=excerpt,
-            )
-        )
-    return evidence
-
-
-@app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
-def generate_material(
-    child_id: UUID,
-    request: MaterialGenerateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> GeneratedMaterial:
-    child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
-    if child_payload is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    child = ChildProfile.model_validate(child_payload)
-    source_refs = validate_material_source_refs(
-        child_id=child.id,
-        source_refs=request.source_refs,
-        store=store,
-    )
-    source_evidence = material_source_evidence(source_refs=source_refs, store=store)
-    material = MaterialGenerationService(provider=get_model_provider()).generate(
-        child=child,
-        kind=request.kind,
-        topic=request.topic,
-        goal=request.goal,
-        source_refs=source_refs,
-        source_evidence=source_evidence,
-    )
-    material.request_topic = request.topic
-    material.request_goal = request.goal
-    store.save(material)
-    review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
-    get_material_review_graph().invoke(
-        {
-            "material_id": str(material.id),
-            "child_id": str(child.id),
-            "title": material.title,
-        },
-        config=review_config,
-    )
-    return material
-
-
-@app.get("/v1/children/{child_id}/materials")
-def list_materials(
-    child_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> list[dict]:
-    return store.index.list_entities(entity_type="generated_material", child_id=str(child_id))
-
-
-@app.get("/v1/materials/{material_id}", response_model=GeneratedMaterial)
-def get_material(
-    material_id: UUID,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> GeneratedMaterial:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    return GeneratedMaterial.model_validate(payload)
-
-
-@app.post("/v1/materials/{material_id}/review", response_model=GeneratedMaterial)
-def review_material(
-    material_id: UUID,
-    request: MaterialReviewRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> GeneratedMaterial:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    if material.status is MaterialStatus.REVIEW_PENDING:
-        config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
-        try:
-            review_state = get_material_review_graph().invoke(
-                Command(
-                    resume={
-                        "status": request.status.value,
-                        "note": request.note,
-                    }
-                ),
-                config=config,
-            )
-            if review_state.get("decision_status") != request.status.value:
-                raise HTTPException(status_code=409, detail="review_decision_mismatch")
-        except HTTPException:
-            raise
-        except Exception:
-            logger.exception(
-                "material review projection unavailable; applying domain transition directly"
-            )
-    try:
-        MaterialReviewService().transition(material, request.status, note=request.note)
-    except InvalidMaterialTransition as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(material)
-    return material
-
-
-@app.post("/v1/materials/{material_id}/revise", response_model=GeneratedMaterial)
-@serialize_material_successor
-def revise_material(
-    material_id: UUID,
-    request: MaterialRevisionRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> GeneratedMaterial:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    if material.status is not MaterialStatus.REVISION_REQUESTED:
-        raise HTTPException(
-            status_code=409,
-            detail="material must be revision_requested before regeneration",
-        )
-
-    child_payload = store.index.get_entity(str(material.child_id), entity_type="child_profile")
-    if child_payload is None:
-        raise HTTPException(status_code=409, detail="material_child_not_found")
-    child = ChildProfile.model_validate(child_payload)
-
-    existing_revisions = store.index.list_entities(
-        entity_type="generated_material",
-        child_id=str(material.child_id),
-    )
-    for candidate in existing_revisions:
-        if candidate.get("parent_material_id") == str(material.id):
-            return GeneratedMaterial.model_validate(candidate)
-
-    source_evidence = material_source_evidence(source_refs=material.source_refs, store=store)
-    try:
-        revised = MaterialRevisionService(
-            MaterialGenerationService(provider=get_model_provider())
-        ).revise(
-            material=material,
-            child=child,
-            note=request.note,
-            source_evidence=source_evidence,
-        )
-    except MaterialRevisionError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-
-    store.save(revised)
-    review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
-    get_material_review_graph().invoke(
-        {
-            "material_id": str(revised.id),
-            "child_id": str(child.id),
-            "title": revised.title,
-        },
-        config=review_config,
-    )
-    return revised
-
-
-@app.post("/v1/materials/{material_id}/edit", response_model=GeneratedMaterial)
-@serialize_material_successor
-def edit_material(
-    material_id: UUID,
-    request: MaterialEditRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> GeneratedMaterial:
-    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
-    if payload is None:
-        raise HTTPException(status_code=404, detail="material_not_found")
-    material = GeneratedMaterial.model_validate(payload)
-    versions = store.index.list_entities(
-        entity_type="generated_material", child_id=str(material.child_id)
-    )
-    if any(candidate.get("parent_material_id") == str(material.id) for candidate in versions):
-        raise HTTPException(status_code=409, detail="material_has_newer_version")
-    try:
-        edited = MaterialEditService().create_version(
-            material=material,
-            title=request.title,
-            content_markdown=request.content_markdown,
-            note=request.note,
-        )
-    except MaterialEditError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    store.save(edited)
-    get_material_review_graph().invoke(
-        {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
-        config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
-    )
-    return edited
 
 
 @app.post("/v1/observations", response_model=LearningLog)
