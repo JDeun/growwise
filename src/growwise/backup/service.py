@@ -6,6 +6,7 @@ import shutil
 import stat
 import tempfile
 import zipfile
+from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
@@ -99,13 +100,29 @@ class BackupService:
         if not archive_path.is_file():
             raise FileNotFoundError(archive_path)
 
-        staging_parent = records_root.parent
-        staging_parent.mkdir(parents=True, exist_ok=True)
-        with tempfile.TemporaryDirectory(
-            prefix="growwise-restore-",
-            dir=staging_parent,
-        ) as temp_dir:
-            staging = Path(temp_dir)
+        records_staging_parent = records_root.parent
+        records_staging_parent.mkdir(parents=True, exist_ok=True)
+        if assets_root is not None:
+            assets_root.parent.mkdir(parents=True, exist_ok=True)
+
+        with ExitStack() as stack:
+            records_temp_dir = stack.enter_context(
+                tempfile.TemporaryDirectory(
+                    prefix="growwise-restore-",
+                    dir=records_staging_parent,
+                )
+            )
+            staging = Path(records_temp_dir)
+            assets_transaction: Path | None = None
+            if assets_root is not None:
+                assets_temp_dir = stack.enter_context(
+                    tempfile.TemporaryDirectory(
+                        prefix="growwise-assets-restore-",
+                        dir=assets_root.parent,
+                    )
+                )
+                assets_transaction = Path(assets_temp_dir)
+
             try:
                 with zipfile.ZipFile(archive_path, "r") as archive:
                     # Validate metadata before inflating any member. The manifest itself has a much
@@ -142,17 +159,23 @@ class BackupService:
             else:
                 records_ready.mkdir(parents=True)
 
-            assets_ready = staging / "assets-ready"
+            assets_ready: Path | None = None
+            previous_assets: Path | None = None
             if assets_root is not None:
+                assert assets_transaction is not None
+                assets_ready = assets_transaction / "assets-ready"
+                previous_assets = assets_transaction / "previous-assets"
                 if staged_assets.exists():
+                    # Copy across filesystems before any authoritative state is swapped. The later
+                    # replace operations then stay within the assets filesystem and remain atomic.
                     shutil.copytree(staged_assets, assets_ready)
                 else:
                     assets_ready.mkdir(parents=True)
 
-            # Rollback copies live only for this transaction. A restore is all-or-nothing across
-            # Markdown and binary assets so metadata can never point at a half-restored photo set.
+            # Each rollback directory lives on the same filesystem as the state it protects. This
+            # keeps Path.replace() atomic even when records and managed assets live on different
+            # volumes (for example, local storage plus an external SSD).
             previous_records = staging / "previous-records"
-            previous_assets = staging / "previous-assets"
             moved_records = False
             moved_assets = False
             try:
@@ -162,7 +185,8 @@ class BackupService:
                 records_ready.replace(records_root)
 
                 if assets_root is not None:
-                    assets_root.parent.mkdir(parents=True, exist_ok=True)
+                    assert assets_ready is not None
+                    assert previous_assets is not None
                     if assets_root.exists():
                         assets_root.replace(previous_assets)
                         moved_assets = True
@@ -176,6 +200,7 @@ class BackupService:
                     previous_records.replace(records_root)
 
                 if assets_root is not None:
+                    assert previous_assets is not None
                     if assets_root.exists():
                         shutil.rmtree(assets_root, ignore_errors=True)
                     if moved_assets and previous_assets.exists():
