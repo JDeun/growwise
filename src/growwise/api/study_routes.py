@@ -36,10 +36,13 @@ from growwise.services.study import StudyTrackingService
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["study-tracking"])
-# Import only after the parent router exists. This avoids copying a partially initialized empty
-# resource router when API modules participate in an import cycle during a cold app import.
-resource_router = import_module("growwise.api.resource_routes").router
+_resource_module_at_mount = import_module("growwise.api.resource_routes")
+resource_router = _resource_module_at_mount.router
+_RESOURCE_ROUTER_ID_AT_MOUNT = id(resource_router)
+_RESOURCE_ROUTE_COUNT_AT_MOUNT = len(resource_router.routes)
+_RESOURCE_STAGE_AT_MOUNT = getattr(_resource_module_at_mount, "_INITIALIZATION_STAGE", None)
 router.include_router(resource_router)
+_RESOURCE_STUDY_PATHS_AFTER_MOUNT = [route.path for route in router.routes]
 
 
 class StudyProgressRequest(BaseModel):
