@@ -19,6 +19,13 @@ class _FcntlApi(Protocol):
     def flock(self, fd: int, operation: int) -> object: ...
 
 
+class _MsvcrtApi(Protocol):
+    LK_NBLCK: int
+    LK_UNLCK: int
+
+    def locking(self, fd: int, mode: int, nbytes: int) -> object: ...
+
+
 class DataDirectoryLock:
     """Hold an OS-backed exclusive lock for one GrowWise data directory.
 
@@ -88,9 +95,11 @@ class DataDirectoryLock:
 
     @staticmethod
     def _fcntl() -> _FcntlApi:
-        # Import dynamically so cross-platform type checking does not try to resolve
-        # POSIX-only fcntl attributes against Windows typeshed stubs.
         return cast(_FcntlApi, importlib.import_module("fcntl"))
+
+    @staticmethod
+    def _msvcrt() -> _MsvcrtApi:
+        return cast(_MsvcrtApi, importlib.import_module("msvcrt"))
 
     @classmethod
     def _acquire_posix(cls, handle: BinaryIO) -> None:
@@ -107,10 +116,9 @@ class DataDirectoryLock:
         fcntl = cls._fcntl()
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
-    @staticmethod
-    def _acquire_windows(handle: BinaryIO) -> None:
-        import msvcrt
-
+    @classmethod
+    def _acquire_windows(cls, handle: BinaryIO) -> None:
+        msvcrt = cls._msvcrt()
         if handle.seek(0, os.SEEK_END) == 0:
             handle.write(b"\0")
             handle.flush()
@@ -123,9 +131,8 @@ class DataDirectoryLock:
                 "another GrowWise Core is already using this data directory"
             ) from exc
 
-    @staticmethod
-    def _release_windows(handle: BinaryIO) -> None:
-        import msvcrt
-
+    @classmethod
+    def _release_windows(cls, handle: BinaryIO) -> None:
+        msvcrt = cls._msvcrt()
         handle.seek(0)
         msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)
