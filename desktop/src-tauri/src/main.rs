@@ -26,7 +26,7 @@ struct DesktopInstanceGuard {
 impl Drop for DesktopInstanceGuard {
     fn drop(&mut self) {
         unsafe {
-            CloseHandle(self.handle);
+            close_handle(self.handle);
         }
     }
 }
@@ -66,13 +66,13 @@ fn acquire_instance_guard() -> io::Result<DesktopInstanceGuard> {
         .encode_utf16()
         .chain(std::iter::once(0))
         .collect();
-    let handle = unsafe { CreateMutexW(std::ptr::null_mut(), 0, name.as_ptr()) };
+    let handle = unsafe { create_mutex_w(std::ptr::null_mut(), 0, name.as_ptr()) };
     if handle.is_null() {
         return Err(io::Error::last_os_error());
     }
-    if unsafe { GetLastError() } == ERROR_ALREADY_EXISTS {
+    if unsafe { get_last_error() } == ERROR_ALREADY_EXISTS {
         unsafe {
-            CloseHandle(handle);
+            close_handle(handle);
         }
         return Err(io::Error::new(
             io::ErrorKind::AlreadyExists,
@@ -90,13 +90,16 @@ extern "C" {
 #[cfg(windows)]
 #[link(name = "kernel32")]
 extern "system" {
-    fn CreateMutexW(
+    #[link_name = "CreateMutexW"]
+    fn create_mutex_w(
         lp_mutex_attributes: *mut c_void,
         initial_owner: i32,
         name: *const u16,
     ) -> *mut c_void;
-    fn GetLastError() -> u32;
-    fn CloseHandle(object: *mut c_void) -> i32;
+    #[link_name = "GetLastError"]
+    fn get_last_error() -> u32;
+    #[link_name = "CloseHandle"]
+    fn close_handle(object: *mut c_void) -> i32;
 }
 
 fn main() {
