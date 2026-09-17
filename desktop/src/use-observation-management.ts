@@ -39,6 +39,12 @@ export function useObservationManagement({
     setObservationError(null);
   }, []);
 
+  function toggleAxis(axis: ExperienceAxis) {
+    setSelectedAxes((current) =>
+      current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
+    );
+  }
+
   async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!childId) return;
@@ -85,6 +91,7 @@ export function useObservationManagement({
     setObservation,
     setSelectedAxes,
     setSelectedActivityId,
+    toggleAxis,
     handleCreateObservation,
     resetObservationState,
   };
