@@ -1,4 +1,5 @@
 import threading
+from contextlib import ExitStack
 from pathlib import Path
 
 import pytest
@@ -42,9 +43,9 @@ def test_ordinary_mutation_waits_for_non_destructive_maintenance() -> None:
 
 def test_concurrent_maintenance_is_retryable_503() -> None:
     coordinator = DataMaintenanceCoordinator()
-    with coordinator.maintenance(), pytest.raises(MaintenanceInProgress) as error:
-        with coordinator.maintenance():
-            pass
+    with coordinator.maintenance(), ExitStack() as stack:
+        error = stack.enter_context(pytest.raises(MaintenanceInProgress))
+        stack.enter_context(coordinator.maintenance())
 
     assert error.value.status_code == 503
     assert error.value.detail == "data_maintenance_in_progress"
