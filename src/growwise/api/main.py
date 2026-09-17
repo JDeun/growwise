@@ -34,6 +34,7 @@ from growwise.api.conversation_routes import (
 )
 from growwise.api.dependencies import (
     build_child_context_service,
+    get_conversation_store as _get_conversation_store,
     get_idempotency_store,
     get_material_review_graph,
     get_model_provider,
@@ -88,6 +89,9 @@ from growwise.services.visibility import entity_visible_to_child, shared_source_
 from growwise.storage import EntityStore
 
 logger = logging.getLogger(__name__)
+
+# Backward-compatible cache handle used by the API integration test harness and embedders.
+get_conversation_store = _get_conversation_store
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
