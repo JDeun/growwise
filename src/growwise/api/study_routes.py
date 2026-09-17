@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from functools import lru_cache
-from importlib import import_module
 from typing import Annotated
 from uuid import UUID
 
@@ -19,6 +18,7 @@ from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
+from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
 from growwise.domain.models import ChildProfile, Stage
 from growwise.domain.study import (
@@ -36,13 +36,6 @@ from growwise.services.study import StudyTrackingService
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["study-tracking"])
-_resource_module_at_mount = import_module("growwise.api.resource_routes")
-resource_router = _resource_module_at_mount.router
-_RESOURCE_ROUTER_ID_AT_MOUNT = id(resource_router)
-_RESOURCE_ROUTE_COUNT_AT_MOUNT = len(resource_router.routes)
-_RESOURCE_STAGE_AT_MOUNT = getattr(_resource_module_at_mount, "_INITIALIZATION_STAGE", None)
-router.include_router(resource_router)
-_RESOURCE_STUDY_PATHS_AFTER_MOUNT = [getattr(route, "path", "") for route in router.routes]
 
 
 class StudyProgressRequest(BaseModel):
@@ -309,6 +302,7 @@ router.include_router(background_write_router)
 router.include_router(learning_record_router)
 router.include_router(curriculum_router)
 router.include_router(discovery_router)
+router.include_router(resource_router)
 router.include_router(privacy_router)
 router.include_router(photo_router)
 router.include_router(link_router)
