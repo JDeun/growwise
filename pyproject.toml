@@ -43,7 +43,7 @@ desktop-build = [
 ]
 
 [project.scripts]
-growwise = "growwise.api.main:run"
+growwise = "growwise.api.entry:run"
 growwise-backup = "growwise.backup.cli:main"
 
 [tool.hatch.build.targets.wheel]
