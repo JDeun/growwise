@@ -1,13 +1,22 @@
 from __future__ import annotations
 
+import importlib
 import os
 from pathlib import Path
 from types import TracebackType
-from typing import BinaryIO, Self
+from typing import BinaryIO, Protocol, Self, cast
 
 
 class DataDirectoryLockError(RuntimeError):
     """Raised when another GrowWise Core already owns a data directory."""
+
+
+class _FcntlApi(Protocol):
+    LOCK_EX: int
+    LOCK_NB: int
+    LOCK_UN: int
+
+    def flock(self, fd: int, operation: int) -> object: ...
 
 
 class DataDirectoryLock:
@@ -78,9 +87,14 @@ class DataDirectoryLock:
         handle.seek(0)
 
     @staticmethod
-    def _acquire_posix(handle: BinaryIO) -> None:
-        import fcntl
+    def _fcntl() -> _FcntlApi:
+        # Import dynamically so cross-platform type checking does not try to resolve
+        # POSIX-only fcntl attributes against Windows typeshed stubs.
+        return cast(_FcntlApi, importlib.import_module("fcntl"))
 
+    @classmethod
+    def _acquire_posix(cls, handle: BinaryIO) -> None:
+        fcntl = cls._fcntl()
         try:
             fcntl.flock(handle.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as exc:
@@ -88,10 +102,9 @@ class DataDirectoryLock:
                 "another GrowWise Core is already using this data directory"
             ) from exc
 
-    @staticmethod
-    def _release_posix(handle: BinaryIO) -> None:
-        import fcntl
-
+    @classmethod
+    def _release_posix(cls, handle: BinaryIO) -> None:
+        fcntl = cls._fcntl()
         fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
     @staticmethod
