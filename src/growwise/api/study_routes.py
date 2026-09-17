@@ -42,7 +42,7 @@ _RESOURCE_ROUTER_ID_AT_MOUNT = id(resource_router)
 _RESOURCE_ROUTE_COUNT_AT_MOUNT = len(resource_router.routes)
 _RESOURCE_STAGE_AT_MOUNT = getattr(_resource_module_at_mount, "_INITIALIZATION_STAGE", None)
 router.include_router(resource_router)
-_RESOURCE_STUDY_PATHS_AFTER_MOUNT = [route.path for route in router.routes]
+_RESOURCE_STUDY_PATHS_AFTER_MOUNT = [getattr(route, "path", "") for route in router.routes]
 
 
 class StudyProgressRequest(BaseModel):
