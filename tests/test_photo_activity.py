@@ -10,10 +10,12 @@ from growwise.config import Settings
 from growwise.domain import ChildProfile, Stage
 from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
 from growwise.services.photo_activity import (
+    _COMMIT_LOCK_STRIPES,
     PhotoActivityService,
     PhotoAssetStore,
     PhotoUpload,
     PhotoValidationError,
+    _commit_lock,
 )
 from growwise.storage import EntityStore
 
@@ -175,3 +177,10 @@ def test_photo_asset_read_detects_tampering(tmp_path: Path) -> None:
 
     with pytest.raises(PhotoValidationError, match="photo_integrity_mismatch"):
         service.get_asset(str(assets[0].id))
+
+def test_photo_commit_lock_storage_is_bounded() -> None:
+    assert len(_COMMIT_LOCK_STRIPES) == 256
+    assert _commit_lock("same-record") is _commit_lock("same-record")
+    for index in range(10_000):
+        _commit_lock(f"record-{index}")
+    assert len(_COMMIT_LOCK_STRIPES) == 256
