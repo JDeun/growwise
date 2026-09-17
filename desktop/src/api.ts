@@ -78,12 +78,22 @@ export interface ChildCreateInput {
   age_months: number | null;
   interests: string[];
 }
+export interface ChildUpdateInput extends ChildCreateInput {
+  primary_language: string;
+  additional_languages: string[];
+  learning_goals: string[];
+  notes: string | null;
+}
 export interface ChildProfile {
   id: string;
   nickname: string;
   stage: Stage;
   age_months: number | null;
   interests: string[];
+  primary_language?: string;
+  additional_languages?: string[];
+  learning_goals?: string[];
+  notes?: string | null;
 }
 export interface ChildPurgeResult {
   child_id: string;
@@ -415,6 +425,8 @@ export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
 export const createChild = (request: ChildCreateInput) =>
   call<ChildProfile>("create_child", { request });
+export const updateChild = (childId: string, request: ChildUpdateInput) =>
+  call<ChildProfile>("update_child", { childId, request });
 export const listChildren = () => call<ChildProfile[]>("list_children");
 export const deleteChild = (childId: string) =>
   call<ChildPurgeResult>("delete_child", { childId });
