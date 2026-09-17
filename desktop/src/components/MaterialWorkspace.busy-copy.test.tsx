@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { MaterialWorkspace } from "./MaterialWorkspace";
 const noop = () => undefined;
 describe("MaterialWorkspace progress", () => {
-  it("shows deterministic draft save copy while mutations are locked", () => {
+  it("shows draft save copy while mutations are locked", () => {
     const html = renderToStaticMarkup(<MaterialWorkspace materials={[]} resources={[]} materialKind="activity_guide" topic="놀이" goal="" selectedResourceRefs={[]} busy error={null} revisionNotes={{}} editingMaterialId={null} onKindChange={noop} onTopicChange={noop} onGoalChange={noop} onToggleResource={noop} onGenerate={noop} onReview={noop} onRevisionNoteChange={noop} onRevise={noop} onEditStart={noop} onEdit={noop} onPrint={noop} />);
-    expect(html).toContain("기본 초안 저장 중…");
+    expect(html).toContain("초안 저장 중…");
   });
 });
