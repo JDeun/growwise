@@ -38,7 +38,7 @@ from growwise.storage import EntityStore
 router = APIRouter(prefix="/v1", tags=["study-tracking"])
 # Import only after the parent router exists. This avoids copying a partially initialized empty
 # resource router when API modules participate in an import cycle during a cold app import.
-resource_router = getattr(import_module("growwise.api.resource_routes"), "router")
+resource_router = import_module("growwise.api.resource_routes").router
 router.include_router(resource_router)
 
 
