@@ -1,3 +1,14 @@
+.profile-management-zone {
+  display: grid;
+  gap: 4px;
+}
+
+.profile-management-form {
+  display: grid;
+  gap: 14px;
+}
+
+.data-section-divider,
 .privacy-danger-zone {
   margin-top: 32px;
   padding-top: 24px;
@@ -14,19 +25,47 @@
 .field-grid label {
   display: grid;
   gap: 7px;
+  align-content: start;
   color: var(--ink-soft);
   font-size: 12px;
   font-weight: 700;
 }
 
+.field-grid .field-span {
+  grid-column: 1 / -1;
+}
+
 .field-grid input,
-.field-grid select {
+.field-grid select,
+.field-grid textarea {
   width: 100%;
   border: 1px solid var(--border);
   border-radius: 10px;
   background: #fff;
   color: var(--ink);
   padding: 11px 12px;
+  font: inherit;
+}
+
+.field-grid textarea {
+  resize: vertical;
+  min-height: 84px;
+  line-height: 1.55;
+}
+
+.field-help {
+  color: var(--ink-muted);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.profile-management-actions {
+  margin-top: 2px;
+}
+
+.profile-management-footnote {
+  margin: 0;
+  font-size: 12px;
 }
 
 .danger-button {
@@ -46,5 +85,9 @@
 @media (max-width: 720px) {
   .field-grid {
     grid-template-columns: 1fr;
+  }
+
+  .field-grid .field-span {
+    grid-column: auto;
   }
 }
