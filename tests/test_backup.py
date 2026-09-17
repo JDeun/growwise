@@ -126,3 +126,22 @@ def test_restore_rejects_non_zip_as_invalid_backup(tmp_path) -> None:
             records_root=tmp_path / "records",
             index_path=tmp_path / "index.sqlite3",
         )
+
+
+def test_backup_fsyncs_archive_before_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    calls: list[int] = []
+
+    def record_fsync(descriptor: int) -> None:
+        calls.append(descriptor)
+
+    monkeypatch.setattr("growwise.backup.service.os.fsync", record_fsync)
+    archive = tmp_path / "durable.zip"
+
+    BackupService().create(records_root=tmp_path / "records", destination=archive)
+
+    assert archive.is_file()
+    assert calls
+    with zipfile.ZipFile(archive) as created:
+        assert "manifest.json" in created.namelist()
