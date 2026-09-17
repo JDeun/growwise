@@ -11,14 +11,6 @@ from langgraph.types import Command
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
-from growwise.api.conversation_routes import (
-    append_conversation_turn,
-    create_conversation,
-    delete_conversation,
-    get_conversation,
-    list_conversations,
-    router as conversation_router,
-)
 from growwise.api.contracts import (
     ActivityCreateRequest,
     ActivityTransitionRequest,
@@ -31,6 +23,14 @@ from growwise.api.contracts import (
     ObservationRequest,
     RagQuestionRequest,
     ResourceCreateRequest,
+)
+from growwise.api.conversation_routes import (
+    append_conversation_turn,
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    list_conversations,
+    router as conversation_router,
 )
 from growwise.api.dependencies import (
     build_child_context_service,
@@ -89,6 +89,14 @@ from growwise.services.visibility import entity_visible_to_child, shared_source_
 from growwise.storage import EntityStore
 
 logger = logging.getLogger(__name__)
+
+__all__ = [
+    "append_conversation_turn",
+    "create_conversation",
+    "delete_conversation",
+    "get_conversation",
+    "list_conversations",
+]
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
