@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { LAST_CHILD_KEY, useActiveChild } from "./active-child-context";
+import { readRememberedChildId, useActiveChild } from "./active-child-context";
 import {
   ConfirmDialog,
   MaterialWorkspaceIntegration,
@@ -303,7 +303,7 @@ function App() {
       }
 
       if (storedChildren.length > 0) {
-        const rememberedId = localStorage.getItem(LAST_CHILD_KEY);
+        const rememberedId = readRememberedChildId(window.localStorage);
         const selected =
           storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
         await loadChildContext(selected);
@@ -915,15 +915,15 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
-          <div><strong>GrowWise</strong><span>Personal Education OS</span></div>
+          <div><strong>GrowWise</strong><span>아이의 배움 기록</span></div>
         </div>
         <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
       </header>
 
       <section className="hero">
-        <p className="eyebrow">LOCAL-FIRST · PARENT-LED</p>
+        <p className="eyebrow">기록 · 연결 · 활용</p>
         <h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
-        <p className="hero-copy">핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을 선택적으로 보강합니다.</p>
+        <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
       </section>
 
       <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />
