@@ -12,6 +12,29 @@ import { listChildren, type ChildProfile } from "./api";
 
 export const LAST_CHILD_KEY = "growwise:last-child-id";
 
+export function readRememberedChildId(storage: Pick<Storage, "getItem">): string | null {
+  try {
+    return storage.getItem(LAST_CHILD_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeRememberedChildId(
+  storage: Pick<Storage, "setItem" | "removeItem">,
+  childId: string,
+): void {
+  try {
+    if (childId) {
+      storage.setItem(LAST_CHILD_KEY, childId);
+    } else {
+      storage.removeItem(LAST_CHILD_KEY);
+    }
+  } catch {
+    // A restricted or unavailable storage backend must not break child switching in memory.
+  }
+}
+
 export function resolveActiveChildId(
   children: ChildProfile[],
   preferredId: string | null | undefined,
@@ -48,18 +71,14 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
 
   const selectChild = useCallback((childId: string) => {
     setActiveChildId(childId);
-    if (childId) {
-      window.localStorage.setItem(LAST_CHILD_KEY, childId);
-    } else {
-      window.localStorage.removeItem(LAST_CHILD_KEY);
-    }
+    writeRememberedChildId(window.localStorage, childId);
   }, []);
 
   const syncRememberedChild = useCallback(() => {
-    const rememberedId = window.localStorage.getItem(LAST_CHILD_KEY);
+    const rememberedId = readRememberedChildId(window.localStorage);
     const selectedId = resolveActiveChildId(children, rememberedId, activeChildId);
     if (selectedId !== activeChildId) setActiveChildId(selectedId);
-    if (!selectedId && rememberedId) window.localStorage.removeItem(LAST_CHILD_KEY);
+    if (!selectedId && rememberedId) writeRememberedChildId(window.localStorage, "");
   }, [activeChildId, children]);
 
   const refreshChildren = useCallback(async (preferredId?: string | null) => {
@@ -67,15 +86,11 @@ export function ActiveChildProvider({ children: content }: { children: ReactNode
     setError(null);
     try {
       const loaded = await listChildren();
-      const rememberedId = window.localStorage.getItem(LAST_CHILD_KEY);
+      const rememberedId = readRememberedChildId(window.localStorage);
       const selectedId = resolveActiveChildId(loaded, preferredId, rememberedId);
       setChildren(loaded);
       setActiveChildId(selectedId);
-      if (selectedId) {
-        window.localStorage.setItem(LAST_CHILD_KEY, selectedId);
-      } else {
-        window.localStorage.removeItem(LAST_CHILD_KEY);
-      }
+      writeRememberedChildId(window.localStorage, selectedId);
       return loaded.find((child) => child.id === selectedId) ?? null;
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "아이 목록을 불러오지 못했습니다.");
