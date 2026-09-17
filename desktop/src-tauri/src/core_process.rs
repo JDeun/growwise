@@ -295,11 +295,12 @@ fn authenticated_handshake(port: u16, session_token: &str) -> bool {
 mod tests {
     use super::{
         core_binary_name, default_python, notify_existing_instance, reserve_loopback_port,
-        secure_session_token, Duration, SINGLE_INSTANCE_ACK, SINGLE_INSTANCE_MAGIC,
+        secure_session_token, SINGLE_INSTANCE_ACK, SINGLE_INSTANCE_MAGIC,
     };
     use std::io::{Read, Write};
     use std::net::{Ipv4Addr, TcpListener};
     use std::thread;
+    use std::time::Duration;
 
     #[test]
     fn platform_names_are_stable() {
