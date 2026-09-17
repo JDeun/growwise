@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from functools import lru_cache
+from importlib import import_module
 from typing import Annotated
 from uuid import UUID
 
@@ -18,7 +19,6 @@ from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
-from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
 from growwise.domain.models import ChildProfile, Stage
 from growwise.domain.study import (
@@ -36,9 +36,9 @@ from growwise.services.study import StudyTrackingService
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["study-tracking"])
-# Mount resource routes immediately after the parent router exists. Some API modules participate in
-# import-time cycles; attaching this child router here guarantees that any early snapshot of
-# `router` already contains the resource collection and mutation endpoints.
+# Import only after the parent router exists. This avoids copying a partially initialized empty
+# resource router when API modules participate in an import cycle during a cold app import.
+resource_router = getattr(import_module("growwise.api.resource_routes"), "router")
 router.include_router(resource_router)
 
 
