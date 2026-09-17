@@ -440,10 +440,25 @@ class SQLiteJobQueue:
             )
 
     def delete_for_child(self, child_id: str) -> int:
-        """Remove queued or completed jobs whose structured payload references one child UUID."""
+        """Remove jobs explicitly owned by one child without matching arbitrary payload text."""
         with self._connect() as connection:
+            rows = connection.execute("SELECT id, payload_json FROM jobs").fetchall()
+            owned_job_ids: list[str] = []
+            for row in rows:
+                try:
+                    payload = json.loads(row["payload_json"])
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                if not isinstance(payload, dict):
+                    continue
+                if str(payload.get("child_id") or "") == child_id:
+                    owned_job_ids.append(str(row["id"]))
+
+            if not owned_job_ids:
+                return 0
+            placeholders = ",".join("?" for _ in owned_job_ids)
             cursor = connection.execute(
-                "DELETE FROM jobs WHERE payload_json LIKE ?",
-                (f"%{child_id}%",),
+                f"DELETE FROM jobs WHERE id IN ({placeholders})",
+                tuple(owned_job_ids),
             )
         return cursor.rowcount
