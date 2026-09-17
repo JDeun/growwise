@@ -123,7 +123,9 @@ def validate_record_tree(records_root: Path) -> int:
                 f"record payload failed {model.__name__} validation: {relative.as_posix()}"
             ) from exc
         if str(validated.id) != canonical_id or validated.entity_type != entity_type:
-            raise InvalidRecordTree(f"record identity changed during validation: {relative.as_posix()}")
+            raise InvalidRecordTree(
+                f"record identity changed during validation: {relative.as_posix()}"
+            )
 
         seen_ids.add(canonical_id)
         count += 1
