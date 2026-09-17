@@ -48,9 +48,11 @@ class ChildPurgeService:
         self.store = EntityStore(settings.records_dir, settings.index_path)
 
     def purge(self, child_id: str) -> ChildPurgeResult:
-        # Background model inference runs outside this lock, but every child-scoped save takes the
-        # same lock. Once purge owns it, no late worker write can recreate data after deletion.
-        with child_operation_lock(child_id):
+        # Hold one outer source mutation lease across derived stores, photo binaries, and Markdown.
+        # Backup creation therefore cannot capture a child halfway through a privacy purge, and a
+        # restore cannot replace the active source set beneath the purge operation. Background model
+        # inference runs outside the child lock, but every child-scoped save takes the same lock.
+        with self.store.mutation_window(), child_operation_lock(child_id):
             return self._purge_locked(child_id)
 
     def _purge_locked(self, child_id: str) -> ChildPurgeResult:

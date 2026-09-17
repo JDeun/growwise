@@ -10,10 +10,15 @@ from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
 from growwise.config import Settings
 from growwise.domain import ResourceRecord
+from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.runtime_lock import DataDirectoryLock
+from growwise.services.background_ai import MATERIAL_ENHANCEMENT_JOB, OBSERVATION_ENRICHMENT_JOB
+from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
 
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.zip$")
+_AI_JOB_TYPES = (OBSERVATION_ENRICHMENT_JOB, MATERIAL_ENHANCEMENT_JOB, PHOTO_ANALYSIS_JOB)
 
 
 def validate_archive_name(name: str) -> str:
@@ -36,11 +41,15 @@ def managed_archive_path(settings: Settings, name: str) -> Path:
 
 def create_backup(settings: Settings, name: str | None = None) -> dict[str, object]:
     archive = managed_archive_path(settings, name or default_archive_name())
-    manifest = BackupService().create(
-        records_root=settings.records_dir,
-        assets_root=settings.assets_dir,
-        destination=archive,
-    )
+    # A backup must observe one coherent authoritative snapshot. This waits for source mutations
+    # that already started and rejects new ones until the archive has closed. Read-only maintenance
+    # does not advance the data generation because the active source set is unchanged.
+    with DATA_MAINTENANCE.maintenance():
+        manifest = BackupService().create(
+            records_root=settings.records_dir,
+            assets_root=settings.assets_dir,
+            destination=archive,
+        )
     return {
         "archive": archive.name,
         "path": str(archive),
@@ -80,16 +89,27 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     if not confirmed:
         raise ValueError("restore requires --yes because it replaces the active record set")
     archive = managed_archive_path(settings, name)
-    manifest = BackupService().restore(
-        archive_path=archive,
-        records_root=settings.records_dir,
-        assets_root=settings.assets_dir,
-        index_path=settings.index_path,
-    )
-    rag_chunk_count = rebuild_rag_projection(settings)
+
+    # The exclusive maintenance window first drains any in-flight SoT mutation. Queue claims are
+    # then cancelled before files are replaced, fencing model work that was started from the old
+    # record set. The generation advances on exit, so even a worker still returning from inference
+    # cannot persist through an old EntityStore or a generation-bound worker thread.
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        cancelled_jobs = MaintenanceAwareJobQueue(settings.jobs_path).cancel_active(
+            job_types=_AI_JOB_TYPES
+        )
+        manifest = BackupService().restore(
+            archive_path=archive,
+            records_root=settings.records_dir,
+            assets_root=settings.assets_dir,
+            index_path=settings.index_path,
+        )
+        rag_chunk_count = rebuild_rag_projection(settings)
+
     return {
         "archive": archive.name,
         "restored": True,
+        "cancelled_jobs": cancelled_jobs,
         "rag_chunk_count": rag_chunk_count,
         "manifest": manifest.model_dump(mode="json"),
     }
@@ -120,11 +140,15 @@ def main() -> None:
     result: dict[str, object] | list[dict[str, object]]
 
     if args.command == "create":
-        result = create_backup(settings, args.name)
+        # The standalone CLI is a separate process from Core. Reuse the same OS ownership lock so
+        # a shell backup cannot bypass the in-process maintenance barrier of a running application.
+        with DataDirectoryLock(settings.data_dir):
+            result = create_backup(settings, args.name)
     elif args.command == "list":
         result = list_backups(settings)
     elif args.command == "restore":
-        result = restore_backup(settings, args.name, confirmed=args.yes)
+        with DataDirectoryLock(settings.data_dir):
+            result = restore_backup(settings, args.name, confirmed=args.yes)
     else:  # pragma: no cover - argparse prevents this branch
         raise SystemExit(2)
 
