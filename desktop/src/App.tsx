@@ -228,6 +228,7 @@ function App() {
     setObservation,
     setSelectedAxes,
     setSelectedActivityId,
+    toggleAxis,
     handleCreateObservation,
     resetObservationState,
   } = useObservationManagement({
@@ -564,12 +565,6 @@ function App() {
     if (material.status !== "approved") return;
     setPrintMaterial(material);
     window.setTimeout(() => window.print(), 0);
-  }
-
-  function toggleAxis(axis: ExperienceAxis) {
-    setSelectedAxes((current) =>
-      current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
-    );
   }
 
   const isConnected = connection.kind === "connected";
