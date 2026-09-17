@@ -161,6 +161,8 @@ class ChildProfile(EntityBase):
             migrated = dict(data)
             if not migrated.get("name") and migrated.get("nickname"):
                 migrated["name"] = migrated["nickname"]
+            if not migrated.get("nickname") and migrated.get("name"):
+                migrated["nickname"] = migrated["name"]
             return migrated
         return data
 
