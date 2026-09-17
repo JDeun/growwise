@@ -178,7 +178,8 @@ class MarkdownRepository:
             os.close(fd)
             try:
                 shutil.copy2(backup, tmp_name)
-                with open(tmp_name, "rb") as handle:
+                # Windows requires a writable descriptor for fsync; r+b preserves copied bytes.
+                with open(tmp_name, "r+b") as handle:
                     os.fsync(handle.fileno())
                 os.replace(tmp_name, path)
                 _fsync_dir(path.parent)
