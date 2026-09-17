@@ -18,10 +18,7 @@ from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
-from growwise.api.resource_routes import create_resource as create_resource_route
-from growwise.api.resource_routes import delete_resource as delete_resource_route
-from growwise.api.resource_routes import list_resources as list_resources_route
-from growwise.api.resource_routes import update_resource as update_resource_route
+from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
 from growwise.domain.models import ChildProfile, Stage
 from growwise.domain.study import (
@@ -39,6 +36,10 @@ from growwise.services.study import StudyTrackingService
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["study-tracking"])
+# Mount resource routes immediately after the parent router exists. Some API modules participate in
+# import-time cycles; attaching this child router here guarantees that any early snapshot of
+# `router` already contains the resource collection and mutation endpoints.
+router.include_router(resource_router)
 
 
 class StudyProgressRequest(BaseModel):
@@ -301,33 +302,6 @@ def list_study_plans(
     return store.index.list_entities(entity_type="study_plan", child_id=str(child_id))
 
 
-# Register resource endpoints explicitly on the /v1 router. Using the original endpoint
-# callables keeps route ownership in growwise.api.resource_routes while avoiding nested-router
-# registration order ambiguity during a cold app import.
-router.add_api_route(
-    "/resources",
-    create_resource_route,
-    methods=["POST"],
-    tags=["resources"],
-)
-router.add_api_route(
-    "/resources",
-    list_resources_route,
-    methods=["GET"],
-    tags=["resources"],
-)
-router.add_api_route(
-    "/resources/{resource_id}",
-    update_resource_route,
-    methods=["PUT"],
-    tags=["resources"],
-)
-router.add_api_route(
-    "/resources/{resource_id}",
-    delete_resource_route,
-    methods=["DELETE"],
-    tags=["resources"],
-)
 router.include_router(background_write_router)
 router.include_router(learning_record_router)
 router.include_router(curriculum_router)
