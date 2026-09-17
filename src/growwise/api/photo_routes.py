@@ -23,6 +23,10 @@ from growwise.services.photo_activity import (
     PhotoUpload,
     PhotoValidationError,
 )
+from growwise.services.photo_image_validation import (
+    PhotoImageValidationError,
+    validate_image_dimensions,
+)
 from growwise.services.photo_jobs import PhotoJobRunner
 from growwise.storage import EntityStore
 
@@ -163,6 +167,17 @@ def _decode_uploads(request: PhotoDraftRequest, settings: Settings) -> list[Phot
             raise HTTPException(status_code=413, detail="photo_too_large")
         if total > settings.photo_max_total_bytes:
             raise HTTPException(status_code=413, detail="photo_batch_too_large")
+        try:
+            validate_image_dimensions(
+                data,
+                max_width=settings.photo_max_width,
+                max_height=settings.photo_max_height,
+                max_pixels=settings.photo_max_pixels,
+            )
+        except PhotoImageValidationError as exc:
+            detail = str(exc)
+            status_code = 413 if detail == "image_dimensions_too_large" else 422
+            raise HTTPException(status_code=status_code, detail=detail) from exc
         uploads.append(
             PhotoUpload(
                 filename=item.filename,
