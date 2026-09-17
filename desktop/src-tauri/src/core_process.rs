@@ -289,7 +289,10 @@ mod tests {
 
         let first = acquire_data_dir_lock(&root).expect("first lock");
         let second = acquire_data_dir_lock(&root);
-        assert!(second.is_err(), "second Core must not share one data directory");
+        assert!(
+            second.is_err(),
+            "second Core must not share one data directory"
+        );
 
         drop(first);
         let third = acquire_data_dir_lock(&root).expect("lock after release");
