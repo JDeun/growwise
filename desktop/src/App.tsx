@@ -28,6 +28,7 @@ import {
 } from "./child-context-state";
 import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
+import { useMaterialManagement } from "./use-material-management";
 import {
   appendConversationTurn,
   createActivity,
@@ -36,8 +37,6 @@ import {
   createObservation,
   createResource,
   deleteResource,
-  editMaterial,
-  generateMaterial,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
   getGrowthMap,
@@ -49,8 +48,6 @@ import {
   listMaterials,
   listObservations,
   listResources,
-  reviewMaterial,
-  reviseMaterial,
   searchChildContext,
   transitionActivity,
   updateResource,
@@ -68,8 +65,6 @@ import {
   type InfantActivitySuggestions,
   type InfantObservationHints,
   type LearningLog,
-  type MaterialKind,
-  type MaterialStatus,
   type ResourceCreateInput,
   type ResourceKind,
   type ResourceRecord,
@@ -158,14 +153,6 @@ function App() {
   const [resourceSaving, setResourceSaving] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
 
-  const [materialKind, setMaterialKind] = useState<MaterialKind>("activity_guide");
-  const [materialTopic, setMaterialTopic] = useState("");
-  const [materialGoal, setMaterialGoal] = useState("");
-  const [selectedResourceRefs, setSelectedResourceRefs] = useState<string[]>([]);
-  const [materialBusy, setMaterialBusy] = useState(false);
-  const [materialError, setMaterialError] = useState<string | null>(null);
-  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
-  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
 
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
   const [writeNotice, setWriteNotice] = useState<WriteNotice | null>(null);
@@ -184,6 +171,34 @@ function App() {
     );
   }, []);
 
+  const {
+    materialKind,
+    materialTopic,
+    materialGoal,
+    selectedResourceRefs,
+    materialBusy,
+    materialError,
+    revisionNotes,
+    editingMaterialId,
+    setMaterialKind,
+    setMaterialTopic,
+    setMaterialGoal,
+    toggleResourceRef,
+    setRevisionNote,
+    setEditingMaterialId,
+    handleGenerateMaterial,
+    handleReviewMaterial,
+    handleReviseMaterial,
+    handleParentEdit,
+    resetMaterialState,
+  } = useMaterialManagement({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    reloadMaterials: () => reloadChildContextPart("materials"),
+    announceWrite,
+  });
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -198,7 +213,6 @@ function App() {
       setChildContext(childContextState("loading"));
       setObservation("");
       setSelectedAxes([]);
-      setSelectedResourceRefs([]);
       setSelectedActivityId("");
       setActivities(null);
       setActivitiesLoading(false);
@@ -221,12 +235,7 @@ function App() {
       setResourceContent("");
       setResourceSaving(false);
       setResourceError(null);
-      setMaterialTopic("");
-      setMaterialGoal("");
-      setMaterialBusy(false);
-      setMaterialError(null);
-      setRevisionNotes({});
-      setEditingMaterialId(null);
+      resetMaterialState();
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -283,7 +292,7 @@ function App() {
               },
       });
     },
-    [scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -600,120 +609,6 @@ function App() {
     }
   }
 
-  async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const topic = materialTopic.trim();
-    if (!topic) return setMaterialError("자료 주제를 입력해 주세요.");
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await generateMaterial(
-        childId,
-        materialKind,
-        topic,
-        materialGoal.trim() || undefined,
-        selectedResourceRefs,
-      );
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setMaterialTopic("");
-      setMaterialGoal("");
-      setSelectedResourceRefs([]);
-      await reloadChildContextPart("materials");
-      if (scopeIsCurrent(childId, requestId)) announceWrite("학습 자료 초안을 생성했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleReviewMaterial(materialId: string, status: MaterialStatus) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await reviewMaterial(materialId, status);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      announceWrite(
-        status === "approved"
-          ? "학습 자료를 승인했습니다."
-          : status === "rejected"
-            ? "학습 자료를 반려했습니다."
-            : "자료 검토 상태를 변경했습니다.",
-      );
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "자료 검토 상태 변경에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleReviseMaterial(materialId: string) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const note = (revisionNotes[materialId] ?? "").trim();
-    if (!note) return setMaterialError("수정할 내용을 짧게 적어 주세요.");
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await reviseMaterial(materialId, note);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setRevisionNotes((current) => {
-        const next = { ...current };
-        delete next[materialId];
-        return next;
-      });
-      announceWrite("수정본을 생성했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleParentEdit(
-    materialId: string,
-    title: string,
-    contentMarkdown: string,
-    note: string | null,
-  ) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await editMaterial(materialId, title, contentMarkdown, note);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setEditingMaterialId(null);
-      announceWrite("편집본을 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "편집본 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
   async function handleLoadActivities() {
     if (!activeChild) return;
     const childId = activeChild.id;
@@ -813,13 +708,6 @@ function App() {
   function toggleAxis(axis: ExperienceAxis) {
     setSelectedAxes((current) =>
       current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
-    );
-  }
-
-  function toggleResourceRef(resourceId: string) {
-    const ref = `resource:${resourceId}`;
-    setSelectedResourceRefs((current) =>
-      current.includes(ref) ? current.filter((item) => item !== ref) : [...current, ref],
     );
   }
 
@@ -946,8 +834,7 @@ function App() {
                   toggleResourceRef,
                   handleGenerateMaterial,
                   handleReviewMaterial,
-                  setRevisionNote: (materialId, note) =>
-                    setRevisionNotes((current) => ({ ...current, [materialId]: note })),
+                  setRevisionNote,
                   handleReviseMaterial,
                   setEditingMaterialId,
                   handleParentEdit,
