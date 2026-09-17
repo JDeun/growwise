@@ -11,7 +11,10 @@ from growwise.backup.cli import (
 )
 from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.jobs import JobStatus, SQLiteJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
+from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
 
 
@@ -44,6 +47,7 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     assert (settings.backups_dir / "baseline.zip").is_file()
     assert [item["archive"] for item in list_backups(settings)] == ["baseline.zip"]
 
+    # Backup creation is read-only maintenance. The store opened before backup must remain usable.
     replacement = ChildProfile(nickname="다른 아이", stage=Stage.INFANT_0_2, age_months=8)
     store.save(replacement)
     stale_resource = ResourceRecord(
@@ -55,12 +59,40 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     store.save(stale_resource)
     ResourceIngestor(HybridRagIndex(settings.rag_index_path)).ingest(stale_resource)
 
+    queue = SQLiteJobQueue(settings.jobs_path)
+    pending_job = queue.enqueue(
+        OBSERVATION_ENRICHMENT_JOB,
+        {"child_id": str(child.id), "log_id": "stale-log"},
+    )
+    running_job = queue.enqueue(
+        PHOTO_ANALYSIS_JOB,
+        {"child_id": str(child.id), "record_id": "stale-photo"},
+    )
+    running_claim = queue.claim_next(
+        job_types=(PHOTO_ANALYSIS_JOB,),
+        lease_seconds=3600,
+        max_attempts=3,
+    )
+    assert running_claim is not None
+    unrelated_job = queue.enqueue("unrelated-maintenance-test", {"child_id": str(child.id)})
+
     with pytest.raises(ValueError):
         restore_backup(settings, "baseline.zip", confirmed=False)
 
     restored = restore_backup(settings, "baseline.zip", confirmed=True)
     assert restored["restored"] is True
+    assert restored["cancelled_jobs"] == 2
     assert int(restored["rag_chunk_count"]) > 0
+
+    pending_after = queue.get(pending_job.id)
+    running_after = queue.get(running_job.id)
+    unrelated_after = queue.get(unrelated_job.id)
+    assert pending_after is not None
+    assert running_after is not None
+    assert unrelated_after is not None
+    assert pending_after.status is JobStatus.CANCELLED
+    assert running_after.status is JobStatus.CANCELLED
+    assert unrelated_after.status is JobStatus.PENDING
 
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")

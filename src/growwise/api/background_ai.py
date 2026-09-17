@@ -5,7 +5,8 @@ from functools import lru_cache
 
 from growwise.config import Settings
 from growwise.domain import AiEnhancementStatus, GeneratedMaterial, LearningLog
-from growwise.jobs import Job, SQLiteJobQueue
+from growwise.jobs import Job
+from growwise.maintenance import MaintenanceAwareJobQueue
 from growwise.model import ModelProvider, create_model_provider
 from growwise.services.background_ai import BackgroundAiJobRunner
 from growwise.storage import EntityStore
@@ -34,7 +35,7 @@ def get_background_ai_provider() -> ModelProvider | None:
 def get_background_ai_runner() -> BackgroundAiJobRunner:
     settings = get_background_ai_settings()
     return BackgroundAiJobRunner(
-        queue=SQLiteJobQueue(settings.jobs_path),
+        queue=MaintenanceAwareJobQueue(settings.jobs_path),
         store_factory=lambda: EntityStore(settings.records_dir, settings.index_path),
         provider_factory=get_background_ai_provider,
         lease_seconds=settings.background_ai_job_lease_seconds,
