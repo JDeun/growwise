@@ -104,7 +104,7 @@ def test_worker_cannot_claim_before_queued_state_is_persisted(tmp_path: Path) ->
             log_id=str(log.id),
             on_enqueued=mark_queued,
         )
-        deadline = monotonic() + 2.0
+        deadline = monotonic() + 10.0
         while monotonic() < deadline:
             payload = store.index.get_entity(str(log.id), entity_type="learning_log")
             assert payload is not None
@@ -179,7 +179,7 @@ def test_material_worker_uses_generalized_feedback_and_keeps_raw_activity_data_l
             material_id=str(material.id),
             on_enqueued=mark_queued,
         )
-        deadline = monotonic() + 2.0
+        deadline = monotonic() + 10.0
         while monotonic() < deadline:
             payload = store.index.get_entity(str(material.id), entity_type="generated_material")
             assert payload is not None

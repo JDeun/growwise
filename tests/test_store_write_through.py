@@ -6,7 +6,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from growwise.domain.models import ChildProfile, Stage
+import pytest
+from pydantic import ValidationError
+
+from growwise.domain.models import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.storage import EntityStore
 from growwise.storage.markdown import MarkdownRepository
 
@@ -39,3 +42,15 @@ def test_index_and_markdown_agree_after_save(tmp_path: Path) -> None:
     from_index = store.index.get_entity(str(child.id))
     assert from_index is not None
     assert from_index["id"] == str(child.id) == str(from_markdown.id)
+
+
+def test_store_revalidates_mutated_entity_before_authoritative_write(tmp_path):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    resource = ResourceRecord(kind=ResourceKind.NOTE, title="valid")
+    resource.title = ""
+
+    with pytest.raises(ValidationError):
+        store.save(resource)
+
+    assert not store.markdown.path_for(resource).exists()
+    assert store.index.get_entity(str(resource.id), entity_type="resource") is None
