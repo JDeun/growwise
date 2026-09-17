@@ -15,6 +15,10 @@ from growwise.api.contracts import (
     ActivityTransitionRequest,
     ChildCreateRequest,
     ChildQuestionRequest,
+    MaterialEditRequest,
+    MaterialGenerateRequest,
+    MaterialReviewRequest,
+    MaterialRevisionRequest,
     ObservationRequest,
     RagQuestionRequest,
     ResourceCreateRequest,
@@ -59,8 +63,6 @@ from growwise.domain import (
     WorkflowRun,
     WorkflowStatus,
 )
-from growwise.generators import (
-)
 from growwise.idempotency import (
     IdempotencyConflict,
     IdempotencyStatus,
@@ -87,6 +89,12 @@ from growwise.storage import EntityStore
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "MaterialEditRequest",
+    "MaterialGenerateRequest",
+    "MaterialReviewRequest",
+    "MaterialRevisionRequest",
+    "get_conversation_store",
+    "get_material_review_graph",
     "append_conversation_turn",
     "create_conversation",
     "delete_conversation",
