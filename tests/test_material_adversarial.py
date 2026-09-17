@@ -6,8 +6,9 @@ from typing import Any
 import pytest
 from fastapi import HTTPException
 
-import growwise.api.main as api
-from growwise.api.main import (
+import growwise.api.main as main_api
+import growwise.api.material_routes as api
+from growwise.api.contracts import (
     MaterialGenerateRequest,
     MaterialReviewRequest,
     MaterialRevisionRequest,
@@ -325,9 +326,9 @@ def test_reading_material_vertical_slice_preserves_provenance_through_revision(
     rag_index = HybridRagIndex(tmp_path / "rag.sqlite3")
     monkeypatch.setattr(api, "get_model_provider", lambda: None)
     monkeypatch.setattr(api, "get_material_review_graph", lambda: graph)
-    monkeypatch.setattr(api, "get_rag_index", lambda: rag_index)
+    monkeypatch.setattr(main_api, "get_rag_index", lambda: rag_index)
 
-    resource = api.create_resource(
+    resource = main_api.create_resource(
         ResourceCreateRequest(
             child_id=child.id,
             kind=ResourceKind.BOOK,
