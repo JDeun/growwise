@@ -16,8 +16,6 @@ from growwise.api.contracts import (
     ActivityTransitionRequest,
     ChildCreateRequest,
     ChildQuestionRequest,
-    ConversationCreateRequest,
-    ConversationTurnRequest,
     MaterialEditRequest,
     MaterialGenerateRequest,
     MaterialReviewRequest,
@@ -25,6 +23,14 @@ from growwise.api.contracts import (
     ObservationRequest,
     RagQuestionRequest,
     ResourceCreateRequest,
+)
+from growwise.api.conversation_routes import (
+    append_conversation_turn,
+    create_conversation,
+    delete_conversation,
+    get_conversation,
+    list_conversations,
+    router as conversation_router,
 )
 from growwise.api.dependencies import (
     build_child_context_service,
@@ -72,8 +78,6 @@ from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
     ActivityPlanService,
     BoardBookRecommendationService,
-    ConversationService,
-    ConversationSession,
     GrowthMapService,
     InfantActivityService,
     InfantObservationHintService,
@@ -88,6 +92,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
+app.include_router(conversation_router)
 app.include_router(study_router)
 
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
@@ -313,68 +318,6 @@ def ask_child_context(
         )
         .model_dump(mode="json")
     )
-
-
-@app.post("/v1/children/{child_id}/conversations", response_model=ConversationSession)
-def create_conversation(
-    child_id: UUID,
-    request: ConversationCreateRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> ConversationSession:
-    if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
-        raise HTTPException(status_code=404, detail="child_not_found")
-    session = ConversationSession(child_id=str(child_id), title=request.title)
-    get_conversation_store().save(session)
-    return session
-
-
-@app.get("/v1/children/{child_id}/conversations")
-def list_conversations(
-    child_id: UUID,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
-) -> list[dict]:
-    sessions = get_conversation_store().list_for_child(str(child_id), limit=limit)
-    return [session.model_dump(mode="json") for session in sessions]
-
-
-@app.get("/v1/conversations/{session_id}", response_model=ConversationSession)
-def get_conversation(session_id: str) -> ConversationSession:
-    session = get_conversation_store().get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="conversation_not_found")
-    return session
-
-
-@app.post("/v1/conversations/{session_id}/turns")
-def append_conversation_turn(
-    session_id: str,
-    request: ConversationTurnRequest,
-    store: Annotated[EntityStore, Depends(get_store)],
-) -> dict:
-    conversation_store = get_conversation_store()
-    session = conversation_store.get(session_id)
-    if session is None:
-        raise HTTPException(status_code=404, detail="conversation_not_found")
-    if store.index.get_entity(session.child_id, entity_type="child_profile") is None:
-        raise HTTPException(status_code=409, detail="conversation_child_not_found")
-
-    service = ConversationService(
-        context_service=build_child_context_service(store),
-        provider=get_model_provider(),
-    )
-    answer = service.ask(session=session, question=request.question, limit=request.limit)
-    conversation_store.save(session)
-    return {
-        "session_id": session.id,
-        "thread_id": session.id,
-        "answer": answer.model_dump(mode="json"),
-        "turn_count": len(session.turns),
-    }
-
-
-@app.delete("/v1/conversations/{session_id}")
-def delete_conversation(session_id: str) -> dict[str, bool]:
-    return {"deleted": get_conversation_store().delete(session_id)}
 
 
 def validate_material_source_refs(
