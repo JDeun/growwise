@@ -11,17 +11,6 @@ from langgraph.types import Command
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
-from growwise.api.dependencies import (
-    build_child_context_service,
-    get_conversation_store,
-    get_idempotency_store,
-    get_material_review_graph,
-    get_model_provider,
-    get_observation_graph,
-    get_rag_index,
-    get_settings,
-    get_store,
-)
 from growwise.api.contracts import (
     ActivityCreateRequest,
     ActivityTransitionRequest,
@@ -36,6 +25,17 @@ from growwise.api.contracts import (
     ObservationRequest,
     RagQuestionRequest,
     ResourceCreateRequest,
+)
+from growwise.api.dependencies import (
+    build_child_context_service,
+    get_conversation_store,
+    get_idempotency_store,
+    get_material_review_graph,
+    get_model_provider,
+    get_observation_graph,
+    get_rag_index,
+    get_settings,
+    get_store,
 )
 from growwise.api.study_routes import router as study_router
 from growwise.domain import (
