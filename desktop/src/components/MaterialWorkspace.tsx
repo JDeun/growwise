@@ -81,7 +81,7 @@ interface MaterialWorkspaceProps {
 }
 
 function sourceTitle(ref: string, resources: ResourceRecord[]): string {
-  if (!ref.startsWith("resource:")) return "연결된 근거";
+  if (!ref.startsWith("resource:")) return `외부 출처 · ${ref}`;
   const id = ref.slice("resource:".length);
   return resources.find((resource) => resource.id === id)?.title ?? "연결 자료";
 }
