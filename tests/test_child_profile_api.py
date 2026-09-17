@@ -10,7 +10,9 @@ from growwise.domain import ChildProfile, Stage
 from growwise.storage import EntityStore
 
 
-def test_update_child_profile_preserves_identity_and_updates_learning_context(tmp_path: Path) -> None:
+def test_update_child_profile_preserves_identity_and_updates_learning_context(
+    tmp_path: Path,
+) -> None:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
     child = ChildProfile(
         nickname="별이",
