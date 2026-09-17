@@ -9,6 +9,7 @@ use std::thread;
 use std::time::Duration;
 
 const CORE_HOST: &str = "127.0.0.1";
+const PROCESS_START_ATTEMPTS: usize = 3;
 const STARTUP_ATTEMPTS: usize = 100;
 const STARTUP_INTERVAL: Duration = Duration::from_millis(100);
 const DESKTOP_PROTOCOL_VERSION: u32 = 1;
@@ -21,51 +22,68 @@ pub struct CoreProcessManager {
 
 impl CoreProcessManager {
     pub fn ensure_started(resource_dir: &Path, data_dir: &Path) -> Result<Self, String> {
-        let port = reserve_loopback_port()?;
-        let session_token = secure_session_token()?;
-        let base_url = format!("http://{CORE_HOST}:{port}");
+        for process_attempt in 0..PROCESS_START_ATTEMPTS {
+            // Binding port 0 and then dropping the listener necessarily leaves a small TOCTOU gap
+            // before the Python/Uvicorn child binds the chosen port. If another process wins that
+            // race, Uvicorn exits early. Retry with both a fresh ephemeral port and a fresh bearer
+            // token so Desktop never reuses security material from the failed launch attempt.
+            let port = reserve_loopback_port()?;
+            let session_token = secure_session_token()?;
+            let base_url = format!("http://{CORE_HOST}:{port}");
 
-        let mut command = core_command(resource_dir)?;
-        command
-            .env("GROWWISE_API_HOST", CORE_HOST)
-            .env("GROWWISE_API_PORT", port.to_string())
-            .env("GROWWISE_SESSION_TOKEN", &session_token)
-            .env("GROWWISE_DATA_DIR", data_dir)
-            .stdin(Stdio::null());
+            let mut command = core_command(resource_dir)?;
+            command
+                .env("GROWWISE_API_HOST", CORE_HOST)
+                .env("GROWWISE_API_PORT", port.to_string())
+                .env("GROWWISE_SESSION_TOKEN", &session_token)
+                .env("GROWWISE_DATA_DIR", data_dir)
+                .stdin(Stdio::null());
 
-        if cfg!(debug_assertions) {
-            command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
-        } else {
-            command.stdout(Stdio::null()).stderr(Stdio::null());
-        }
-
-        let mut child = command
-            .spawn()
-            .map_err(|error| format!("GrowWise Core를 시작할 수 없습니다: {error}"))?;
-
-        for _ in 0..STARTUP_ATTEMPTS {
-            if authenticated_handshake(port, &session_token) {
-                return Ok(Self {
-                    child: Mutex::new(Some(child)),
-                    base_url,
-                    session_token,
-                });
+            if cfg!(debug_assertions) {
+                command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
+            } else {
+                command.stdout(Stdio::null()).stderr(Stdio::null());
             }
 
-            if let Some(status) = child
-                .try_wait()
-                .map_err(|error| format!("GrowWise Core 상태 확인 실패: {error}"))?
-            {
+            let mut child = command
+                .spawn()
+                .map_err(|error| format!("GrowWise Core를 시작할 수 없습니다: {error}"))?;
+
+            let mut early_exit = None;
+            for _ in 0..STARTUP_ATTEMPTS {
+                if authenticated_handshake(port, &session_token) {
+                    return Ok(Self {
+                        child: Mutex::new(Some(child)),
+                        base_url,
+                        session_token,
+                    });
+                }
+
+                if let Some(status) = child
+                    .try_wait()
+                    .map_err(|error| format!("GrowWise Core 상태 확인 실패: {error}"))?
+                {
+                    early_exit = Some(status);
+                    break;
+                }
+                thread::sleep(STARTUP_INTERVAL);
+            }
+
+            if let Some(status) = early_exit {
+                if process_attempt + 1 < PROCESS_START_ATTEMPTS {
+                    continue;
+                }
                 return Err(format!(
-                    "GrowWise Core가 준비되기 전에 종료되었습니다: {status}"
+                    "GrowWise Core가 준비되기 전에 {PROCESS_START_ATTEMPTS}회 연속 종료되었습니다: {status}"
                 ));
             }
-            thread::sleep(STARTUP_INTERVAL);
+
+            let _ = child.kill();
+            let _ = child.wait();
+            return Err("GrowWise Core 시작 제한 시간을 초과했습니다.".to_string());
         }
 
-        let _ = child.kill();
-        let _ = child.wait();
-        Err("GrowWise Core 시작 제한 시간을 초과했습니다.".to_string())
+        unreachable!("PROCESS_START_ATTEMPTS is a positive compile-time constant")
     }
 
     pub fn started_by_desktop(&self) -> bool {
