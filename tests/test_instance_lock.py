@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from growwise.api.instance_lock import DataDirInUse, DataDirInstanceLock
+from growwise.api.instance_lock import DataDirInstanceLock, DataDirInUse
 
 
 def test_data_dir_lock_is_exclusive_and_reusable(tmp_path: Path) -> None:
