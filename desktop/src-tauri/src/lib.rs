@@ -694,6 +694,7 @@ async fn create_backup() -> Result<serde_json::Value, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/admin/backups"))
         .json(&serde_json::json!({}))
+        .timeout(std::time::Duration::from_secs(600))
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -711,6 +712,7 @@ async fn restore_backup(archive_name: String) -> Result<serde_json::Value, Strin
             "{CORE_BASE_URL}/v1/admin/backups/{archive_name}/restore"
         ))
         .json(&serde_json::json!({"confirmed": true}))
+        .timeout(std::time::Duration::from_secs(600))
         .send()
         .await
         .map_err(|error| error.to_string())?;
