@@ -70,6 +70,7 @@ def test_concurrent_claim_observes_pending_owner(tmp_path):
 
     assert owner.acquired is True
     assert owner.record.status is IdempotencyStatus.PENDING
+    assert owner.record.claim_token is not None
     assert duplicate.acquired is False
     assert duplicate.record.resource_id == "log-1"
     assert duplicate.record.status is IdempotencyStatus.PENDING
@@ -98,6 +99,7 @@ def test_failed_owner_release_reuses_same_reserved_resource_id(tmp_path):
     )
     assert retry.acquired is True
     assert retry.record.resource_id == "log-1"
+    assert retry.record.claim_token != first.record.claim_token
 
 
 def test_stale_pending_claim_is_reacquired_after_crash(tmp_path):
@@ -128,6 +130,68 @@ def test_stale_pending_claim_is_reacquired_after_crash(tmp_path):
     assert retry.acquired is True
     assert retry.record.resource_id == "log-1"
     assert retry.record.lease_expires_at is not None
+    assert retry.record.claim_token != first.record.claim_token
+
+
+def test_stale_owner_cannot_complete_or_release_reacquired_claim(tmp_path):
+    path = tmp_path / "idempotency.sqlite3"
+    store = SQLiteIdempotencyStore(path)
+    fingerprint = request_fingerprint({"value": 1})
+    first = store.claim(
+        key="request-1",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-1",
+    )
+    assert first.record.claim_token is not None
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            "UPDATE idempotency_records SET lease_expires_at = ? WHERE key = ?",
+            ("2000-01-01T00:00:00+00:00", "request-1"),
+        )
+
+    second = store.claim(
+        key="request-1",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-2",
+    )
+    assert second.acquired is True
+    assert second.record.claim_token is not None
+    assert second.record.claim_token != first.record.claim_token
+
+    stale_completion = store.complete(
+        key=first.record.key,
+        request_hash=first.record.request_hash,
+        resource_id=first.record.resource_id,
+        claim_token=first.record.claim_token,
+    )
+    assert stale_completion.status is IdempotencyStatus.PENDING
+    assert stale_completion.claim_token == second.record.claim_token
+    assert (
+        store.release(
+            key=first.record.key,
+            request_hash=first.record.request_hash,
+            resource_id=first.record.resource_id,
+            claim_token=first.record.claim_token,
+        )
+        is False
+    )
+
+    current = store.get("request-1")
+    assert current is not None
+    assert current.status is IdempotencyStatus.PENDING
+    assert current.claim_token == second.record.claim_token
+
+    completed = store.complete(
+        key=second.record.key,
+        request_hash=second.record.request_hash,
+        resource_id=second.record.resource_id,
+        claim_token=second.record.claim_token,
+    )
+    assert completed.status is IdempotencyStatus.COMPLETED
+    assert completed.claim_token is None
 
 
 def test_resource_type_mismatch_is_rejected(tmp_path):
@@ -190,3 +254,4 @@ def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path)
     assert record.resource_id == "log-1"
     assert record.status is IdempotencyStatus.COMPLETED
     assert record.lease_expires_at is None
+    assert record.claim_token is None
