@@ -12,6 +12,10 @@ const CORE_HOST: &str = "127.0.0.1";
 const STARTUP_ATTEMPTS: usize = 100;
 const STARTUP_INTERVAL: Duration = Duration::from_millis(100);
 const DESKTOP_PROTOCOL_VERSION: u32 = 1;
+const SINGLE_INSTANCE_PORTS: [u16; 3] = [27431, 27432, 27433];
+const SINGLE_INSTANCE_MAGIC: &[u8] = b"GROWWISE_SINGLE_INSTANCE_V1\n";
+const SINGLE_INSTANCE_ACK: &[u8] = b"GROWWISE_SINGLE_INSTANCE_ACK_V1\n";
+const SINGLE_INSTANCE_IO_TIMEOUT: Duration = Duration::from_millis(300);
 
 pub struct CoreProcessManager {
     child: Mutex<Option<Child>>,
@@ -21,6 +25,7 @@ pub struct CoreProcessManager {
 
 impl CoreProcessManager {
     pub fn ensure_started(resource_dir: &Path, data_dir: &Path) -> Result<Self, String> {
+        ensure_single_instance_guard()?;
         let port = reserve_loopback_port()?;
         let session_token = secure_session_token()?;
         let base_url = format!("http://{CORE_HOST}:{port}");
@@ -140,6 +145,72 @@ fn default_python() -> &'static str {
     }
 }
 
+fn ensure_single_instance_guard() -> Result<(), String> {
+    // Probe all candidates first so an existing GrowWise process is found even if it had to skip
+    // a port occupied by an unrelated local service.
+    for port in SINGLE_INSTANCE_PORTS {
+        if notify_existing_instance(port) {
+            return Err("GrowWise가 이미 실행 중입니다.".to_string());
+        }
+    }
+
+    for port in SINGLE_INSTANCE_PORTS {
+        match TcpListener::bind((CORE_HOST, port)) {
+            Ok(listener) => {
+                spawn_single_instance_listener(listener);
+                return Ok(());
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::AddrInUse => {
+                // Close the simultaneous-start race. A second GrowWise process can win this bind
+                // after the initial probe but before we reach it, so briefly retry the handshake
+                // before deciding the occupied port belongs to an unrelated service.
+                for _ in 0..3 {
+                    if notify_existing_instance(port) {
+                        return Err("GrowWise가 이미 실행 중입니다.".to_string());
+                    }
+                    thread::sleep(Duration::from_millis(100));
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    Err("GrowWise 단일 실행 보호 포트를 확보할 수 없습니다.".to_string())
+}
+
+fn spawn_single_instance_listener(listener: TcpListener) {
+    thread::spawn(move || {
+        for incoming in listener.incoming() {
+            let Ok(mut stream) = incoming else {
+                continue;
+            };
+            let _ = stream.set_read_timeout(Some(SINGLE_INSTANCE_IO_TIMEOUT));
+            let _ = stream.set_write_timeout(Some(SINGLE_INSTANCE_IO_TIMEOUT));
+
+            let mut request = vec![0_u8; SINGLE_INSTANCE_MAGIC.len()];
+            if stream.read_exact(&mut request).is_err() || request != SINGLE_INSTANCE_MAGIC {
+                continue;
+            }
+            let _ = stream.write_all(SINGLE_INSTANCE_ACK);
+        }
+    });
+}
+
+fn notify_existing_instance(port: u16) -> bool {
+    let address = SocketAddr::from(([127, 0, 0, 1], port));
+    let Ok(mut stream) = TcpStream::connect_timeout(&address, SINGLE_INSTANCE_IO_TIMEOUT) else {
+        return false;
+    };
+    let _ = stream.set_read_timeout(Some(SINGLE_INSTANCE_IO_TIMEOUT));
+    let _ = stream.set_write_timeout(Some(SINGLE_INSTANCE_IO_TIMEOUT));
+    if stream.write_all(SINGLE_INSTANCE_MAGIC).is_err() {
+        return false;
+    }
+
+    let mut response = vec![0_u8; SINGLE_INSTANCE_ACK.len()];
+    stream.read_exact(&mut response).is_ok() && response == SINGLE_INSTANCE_ACK
+}
+
 fn reserve_loopback_port() -> Result<u16, String> {
     let listener = TcpListener::bind((CORE_HOST, 0))
         .map_err(|error| format!("GrowWise Core 포트를 예약할 수 없습니다: {error}"))?;
@@ -222,7 +293,13 @@ fn authenticated_handshake(port: u16, session_token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{core_binary_name, default_python, reserve_loopback_port, secure_session_token};
+    use super::{
+        core_binary_name, default_python, notify_existing_instance, reserve_loopback_port,
+        secure_session_token, SINGLE_INSTANCE_ACK, SINGLE_INSTANCE_MAGIC,
+    };
+    use std::io::{Read, Write};
+    use std::net::{Ipv4Addr, TcpListener};
+    use std::thread;
 
     #[test]
     fn platform_names_are_stable() {
@@ -244,5 +321,38 @@ mod tests {
         assert_eq!(first.len(), 64);
         assert_eq!(second.len(), 64);
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn growwise_handshake_identifies_an_existing_instance() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind test listener");
+        let port = listener.local_addr().expect("listener address").port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept probe");
+            let mut request = vec![0_u8; SINGLE_INSTANCE_MAGIC.len()];
+            stream.read_exact(&mut request).expect("read handshake");
+            assert_eq!(request, SINGLE_INSTANCE_MAGIC);
+            stream
+                .write_all(SINGLE_INSTANCE_ACK)
+                .expect("write handshake ack");
+        });
+
+        assert!(notify_existing_instance(port));
+        server.join().expect("join test listener");
+    }
+
+    #[test]
+    fn unrelated_loopback_service_is_not_treated_as_growwise() {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind test listener");
+        let port = listener.local_addr().expect("listener address").port();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept probe");
+            let mut request = vec![0_u8; SINGLE_INSTANCE_MAGIC.len()];
+            let _ = stream.read_exact(&mut request);
+            let _ = stream.write_all(b"NOT_GROWWISE\n");
+        });
+
+        assert!(!notify_existing_instance(port));
+        server.join().expect("join test listener");
     }
 }
