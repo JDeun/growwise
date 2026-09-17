@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import threading
 import time
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from growwise.api.main import app
@@ -167,6 +168,84 @@ def test_vision_caption_never_receives_parent_note(tmp_path: Path) -> None:
     assert vision.contexts == [""]
     assert "부모만 제공한 민감한 메모" in record.generated_observation
     assert "블록이 보인다" in record.generated_observation
+
+
+def test_stale_photo_worker_cannot_write_caption_after_lease_reclaim(tmp_path: Path) -> None:
+    settings = _settings(tmp_path)
+
+    class SlowVision:
+        model = "stale-claim-test-vision"
+
+        def __init__(self) -> None:
+            self.started = threading.Event()
+            self.release = threading.Event()
+
+        def caption(self, **_kwargs: str) -> str:
+            self.started.set()
+            if not self.release.wait(timeout=3):
+                raise TimeoutError("test vision release was not signalled")
+            return "이 캡션은 stale worker가 저장하면 안 된다."
+
+    vision = SlowVision()
+    service, store = _service(settings, vision_provider=vision)
+    child = _child(store)
+    record, assets = service.prepare_draft(
+        child_id=str(child.id),
+        uploads=[_upload()],
+        user_context="lease fencing test",
+    )
+
+    queue = SQLiteJobQueue(settings.jobs_path)
+    runner = PhotoJobRunner(
+        queue=queue,
+        service_factory=lambda: service,
+        lease_seconds=60,
+        max_attempts=3,
+        poll_interval_seconds=0.05,
+    )
+    submitted = runner.submit(child_id=str(child.id), record_id=str(record.id))
+    service.attach_job(record_id=str(record.id), job_id=submitted.id)
+    first = queue.claim_next(
+        job_types=(PHOTO_ANALYSIS_JOB,),
+        lease_seconds=60,
+        max_attempts=3,
+    )
+    assert first is not None
+    assert first.claim_token is not None
+
+    worker = threading.Thread(target=runner._process, args=(first,), daemon=True)
+    worker.start()
+    try:
+        assert vision.started.wait(timeout=2)
+        second = queue.claim_next(
+            job_types=(PHOTO_ANALYSIS_JOB,),
+            lease_seconds=60,
+            max_attempts=3,
+            now=datetime.now(UTC) + timedelta(seconds=120),
+        )
+        assert second is not None
+        assert second.id == first.id
+        assert second.claim_token is not None
+        assert second.claim_token != first.claim_token
+
+        vision.release.set()
+        worker.join(timeout=2)
+        assert not worker.is_alive()
+
+        queued = queue.get(submitted.id)
+        assert queued is not None
+        assert queued.status is JobStatus.RUNNING
+        assert queued.claim_token == second.claim_token
+
+        current = service.get_record(str(record.id))
+        assert current.status is PhotoRecordStatus.PROCESSING
+        assert current.generated_observation == "사진 분석을 준비하고 있습니다."
+        persisted_assets = service.get_assets_for_record(str(record.id))
+        assert len(persisted_assets) == len(assets) == 1
+        assert persisted_assets[0].caption is None
+    finally:
+        vision.release.set()
+        worker.join(timeout=1)
 
 
 def test_child_purge_during_slow_caption_does_not_resurrect_photo_data(tmp_path: Path) -> None:
