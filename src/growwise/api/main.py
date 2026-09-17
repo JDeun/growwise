@@ -11,22 +11,32 @@ import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
-from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
+from growwise.api.contracts import (
+    ActivityCreateRequest,
+    ActivityTransitionRequest,
+    ChildCreateRequest,
+    ChildQuestionRequest,
+    ConversationCreateRequest,
+    ConversationTurnRequest,
+    MaterialEditRequest,
+    MaterialGenerateRequest,
+    MaterialReviewRequest,
+    MaterialRevisionRequest,
+    ObservationRequest,
+    RagQuestionRequest,
+    ResourceCreateRequest,
+)
 from growwise.api.study_routes import router as study_router
 from growwise.config import Settings
 from growwise.domain import (
     ActivityPlan,
-    ActivityStatus,
     ChildProfile,
-    ExperienceAxis,
     GeneratedMaterial,
     LearningLog,
-    MaterialKind,
     MaterialStatus,
-    ResourceKind,
     ResourceRecord,
     Stage,
     WorkflowRun,
@@ -81,87 +91,6 @@ app.include_router(backup_router)
 app.include_router(study_router)
 
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
-
-
-class ChildCreateRequest(BaseModel):
-    nickname: str
-    stage: Stage
-    age_months: int | None = None
-    interests: list[str] = Field(default_factory=list)
-
-
-class ObservationRequest(BaseModel):
-    child_id: UUID
-    observation: str = Field(min_length=1, max_length=10_000)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
-    activity_plan_id: UUID | None = None
-
-
-class ActivityCreateRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=500)
-    source_refs: list[str] = Field(default_factory=list)
-    parent_note: str | None = Field(default=None, max_length=2000)
-
-
-class ActivityTransitionRequest(BaseModel):
-    status: ActivityStatus
-    parent_note: str | None = Field(default=None, max_length=2000)
-
-
-class ResourceCreateRequest(BaseModel):
-    kind: ResourceKind
-    title: str = Field(min_length=1, max_length=500)
-    child_id: UUID | None = None
-    summary: str | None = None
-    content: str | None = None
-    source_url: str | None = None
-    source_name: str | None = None
-    author: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    stage_tags: list[Stage] = Field(default_factory=list)
-    provenance: dict[str, str] = Field(default_factory=dict)
-
-
-class RagQuestionRequest(BaseModel):
-    question: str = Field(min_length=2, max_length=2000)
-    child_id: UUID | None = None
-    limit: int = Field(default=8, ge=1, le=20)
-
-
-class ChildQuestionRequest(BaseModel):
-    question: str = Field(min_length=2, max_length=2000)
-    limit: int = Field(default=8, ge=1, le=20)
-
-
-class ConversationCreateRequest(BaseModel):
-    title: str | None = Field(default=None, max_length=200)
-
-
-class ConversationTurnRequest(BaseModel):
-    question: str = Field(min_length=2, max_length=2000)
-    limit: int = Field(default=8, ge=1, le=20)
-
-
-class MaterialGenerateRequest(BaseModel):
-    kind: MaterialKind = MaterialKind.ACTIVITY_GUIDE
-    topic: str = Field(min_length=1, max_length=500)
-    goal: str | None = Field(default=None, max_length=1000)
-    source_refs: list[str] = Field(default_factory=list)
-
-
-class MaterialReviewRequest(BaseModel):
-    status: MaterialStatus
-    note: str | None = Field(default=None, max_length=2000)
-
-
-class MaterialRevisionRequest(BaseModel):
-    note: str | None = Field(default=None, max_length=2000)
-
-
-class MaterialEditRequest(BaseModel):
-    title: str = Field(min_length=1, max_length=500)
-    content_markdown: str = Field(min_length=1, max_length=100_000)
-    note: str | None = Field(default=None, max_length=2000)
 
 
 @lru_cache
