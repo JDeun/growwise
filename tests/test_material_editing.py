@@ -6,8 +6,8 @@ import pytest
 from fastapi import HTTPException
 from langgraph.types import Command
 
-import growwise.api.main as api
-from growwise.api.main import MaterialEditRequest, MaterialReviewRequest
+import growwise.api.material_routes as api
+from growwise.api.contracts import MaterialEditRequest, MaterialReviewRequest
 from growwise.domain import (
     ChildProfile,
     GeneratedMaterial,
