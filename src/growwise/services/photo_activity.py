@@ -72,13 +72,14 @@ _JPEG_SOF_MARKERS = {
     0xCA,
     0xCB,
 }
-_COMMIT_LOCKS: dict[str, threading.Lock] = {}
-_COMMIT_LOCKS_GUARD = threading.Lock()
+_COMMIT_LOCK_STRIPES = 256
+_COMMIT_LOCKS: tuple[threading.Lock, ...] = tuple(
+    threading.Lock() for _ in range(_COMMIT_LOCK_STRIPES)
+)
 
 
 def _commit_lock(record_id: str) -> threading.Lock:
-    with _COMMIT_LOCKS_GUARD:
-        return _COMMIT_LOCKS.setdefault(record_id, threading.Lock())
+    return _COMMIT_LOCKS[hash(record_id) % _COMMIT_LOCK_STRIPES]
 
 
 def _detect_mime(data: bytes) -> PhotoMimeType:
