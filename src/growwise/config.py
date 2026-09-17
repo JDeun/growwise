@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     photo_max_file_bytes: int = Field(default=15 * 1024 * 1024, ge=1024, le=50 * 1024 * 1024)
     photo_max_images_per_record: int = Field(default=8, ge=1, le=12)
     photo_max_total_bytes: int = Field(default=60 * 1024 * 1024, ge=1024, le=200 * 1024 * 1024)
+    # Compressed byte limits alone do not bound decoder memory. 16K per axis and 64 MP admit
+    # high-resolution phone photos while rejecting tiny compressed files that expand to gigapixels.
+    photo_max_width: int = Field(default=16_384, ge=1, le=100_000)
+    photo_max_height: int = Field(default=16_384, ge=1, le=100_000)
+    photo_max_pixels: int = Field(default=64_000_000, ge=1_000_000, le=250_000_000)
 
     # Public education-resource discovery. These adapters receive public query dimensions only;
     # child IDs, names, observations, and notes must never be included in outbound requests.
