@@ -45,7 +45,7 @@ describe("ChildProfileSection first-run onboarding", () => {
 
     expect(markup).toContain("AI는 선택 사항");
     expect(markup).toContain("AI 보조 기능 · 선택");
-    expect(markup).toContain("나중에 설정에서 연결할 수 있습니다");
+    expect(markup).toContain("나중에 설정에서 사용 가능 상태를 확인할 수 있습니다");
     expect(markup).not.toContain("Core-only");
     expect(markup).not.toContain("ollama serve");
     expect(markup).not.toContain("ollama pull");
