@@ -1,19 +1,27 @@
 from __future__ import annotations
 
 import logging
-import sqlite3
 from datetime import UTC, datetime
-from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
 import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
-from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
+from growwise.api.dependencies import (
+    build_child_context_service,
+    get_conversation_store,
+    get_idempotency_store,
+    get_material_review_graph,
+    get_model_provider,
+    get_observation_graph,
+    get_rag_index,
+    get_settings,
+    get_store,
+)
 from growwise.api.contracts import (
     ActivityCreateRequest,
     ActivityTransitionRequest,
@@ -30,7 +38,6 @@ from growwise.api.contracts import (
     ResourceCreateRequest,
 )
 from growwise.api.study_routes import router as study_router
-from growwise.config import Settings
 from growwise.domain import (
     ActivityPlan,
     ChildProfile,
@@ -53,23 +60,18 @@ from growwise.generators import (
 from growwise.idempotency import (
     IdempotencyConflict,
     IdempotencyStatus,
-    SQLiteIdempotencyStore,
     request_fingerprint,
 )
 from growwise.material_versions import serialize_material_successor
-from growwise.model import ModelProvider, create_model_provider
 from growwise.model.health import probe_model_runtime
 from growwise.rag import (
     GroundedRagService,
-    HybridRagIndex,
-    OllamaEmbeddingProvider,
     ResourceIngestor,
 )
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services import (
     ActivityPlanService,
     BoardBookRecommendationService,
-    ChildContextService,
     ConversationService,
     ConversationSession,
     GrowthMapService,
@@ -78,11 +80,9 @@ from growwise.services import (
     InvalidActivityTransition,
     NaturalLanguageSearch,
     ObservationEnricher,
-    SQLiteConversationStore,
 )
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
-from growwise.workflows import build_material_review_graph, build_observation_graph
 
 logger = logging.getLogger(__name__)
 
@@ -91,87 +91,6 @@ app.include_router(backup_router)
 app.include_router(study_router)
 
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
-
-
-@lru_cache
-def get_settings() -> Settings:
-    return Settings()
-
-
-def get_store(settings: Annotated[Settings, Depends(get_settings)]) -> EntityStore:
-    return EntityStore(settings.records_dir, settings.index_path)
-
-
-@lru_cache
-def get_model_provider() -> ModelProvider | None:
-    settings = get_settings()
-    if not settings.llm_features_enabled:
-        return None
-    try:
-        return create_model_provider(settings)
-    except Exception:
-        logger.exception("model provider unavailable; continuing in deterministic core-only mode")
-        return None
-
-
-@lru_cache
-def get_rag_index() -> HybridRagIndex:
-    settings = get_settings()
-    embedding = None
-    if settings.embedding_features_enabled:
-        try:
-            embedding = OllamaEmbeddingProvider(
-                model=settings.embedding_model_id,
-                base_url=settings.model_base_url,
-            )
-        except Exception:
-            logger.exception("embedding provider unavailable; RAG will use lexical search")
-            embedding = None
-    return HybridRagIndex(settings.rag_index_path, embedding=embedding)
-
-
-@lru_cache
-def get_conversation_store() -> SQLiteConversationStore:
-    return SQLiteConversationStore(get_settings().conversations_path)
-
-
-@lru_cache
-def get_idempotency_store() -> SQLiteIdempotencyStore:
-    return SQLiteIdempotencyStore(get_settings().idempotency_path)
-
-
-@lru_cache
-def get_observation_graph():
-    settings = get_settings()
-    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
-    checkpointer = SqliteSaver(connection)
-    checkpointer.setup()
-    return build_observation_graph(checkpointer=checkpointer)
-
-
-@lru_cache
-def get_material_review_graph():
-    settings = get_settings()
-    try:
-        settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-        connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
-        checkpointer = SqliteSaver(connection)
-        checkpointer.setup()
-        return build_material_review_graph(checkpointer=checkpointer)
-    except Exception:
-        logger.exception(
-            "material review checkpoint unavailable; using rebuildable in-memory projection"
-        )
-        return build_material_review_graph(checkpointer=None)
-
-
-def build_child_context_service(store: EntityStore) -> ChildContextService:
-    return ChildContextService(
-        entity_index=store.index,
-        rag_index=get_rag_index(),
-        provider=get_model_provider(),
-    )
 
 
 def validate_activity_link(
