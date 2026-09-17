@@ -21,6 +21,16 @@ class InvalidBackup(ValueError):
     pass
 
 
+def _fsync_directory(path: Path) -> None:
+    if os.name == "nt":
+        return
+    descriptor = os.open(path, os.O_RDONLY)
+    try:
+        os.fsync(descriptor)
+    finally:
+        os.close(descriptor)
+
+
 class BackupManifest(BaseModel):
     # format_version remains 1 because assets/ is a backwards-readable extension to the archive
     # layout. Old archives omit asset_count and continue to validate with the default of zero.
@@ -84,7 +94,10 @@ class BackupService:
                     for path in assets:
                         relative = path.relative_to(assets_root).as_posix()
                         archive.write(path, f"assets/{relative}")
+            with Path(tmp_name).open("r+b") as handle:
+                os.fsync(handle.fileno())
             Path(tmp_name).replace(destination)
+            _fsync_directory(destination.parent)
         finally:
             Path(tmp_name).unlink(missing_ok=True)
         return manifest
