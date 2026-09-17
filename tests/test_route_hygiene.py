@@ -13,19 +13,22 @@ from fastapi.routing import APIRoute
 from growwise.api.main import app
 
 routes = []
+inventory = []
 for route in app.routes:
     if not isinstance(route, APIRoute):
         continue
     path = route.path.rstrip("/") or "/"
-    if path != "/v1/resources":
-        continue
-    routes.append({
+    item = {
         "path": path,
         "methods": sorted(route.methods or set()),
         "module": getattr(route.endpoint, "__module__", ""),
         "name": getattr(route.endpoint, "__name__", ""),
-    })
-print(json.dumps(routes, sort_keys=True))
+    }
+    if "resource" in path:
+        inventory.append(item)
+    if path == "/v1/resources":
+        routes.append(item)
+print(json.dumps({"routes": routes, "inventory": inventory}, sort_keys=True))
 '''
     completed = subprocess.run(
         [sys.executable, "-c", script],
@@ -33,11 +36,12 @@ print(json.dumps(routes, sort_keys=True))
         capture_output=True,
         text=True,
     )
-    routes = json.loads(completed.stdout.strip())
+    result = json.loads(completed.stdout.strip())
+    routes = result["routes"]
     posts = [route for route in routes if "POST" in route["methods"]]
     gets = [route for route in routes if "GET" in route["methods"]]
 
-    assert len(posts) == 1, routes
-    assert len(gets) == 1, routes
+    assert len(posts) == 1, result
+    assert len(gets) == 1, result
     assert posts[0]["module"] == "growwise.api.resource_routes"
     assert gets[0]["module"] == "growwise.api.resource_routes"
