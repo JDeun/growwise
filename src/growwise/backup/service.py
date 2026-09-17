@@ -10,9 +10,9 @@ from contextlib import ExitStack
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
-import frontmatter
 from pydantic import BaseModel
 
+from growwise.backup.record_validation import InvalidRecordTree, validate_record_tree
 from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
 from growwise.storage.sqlite import SQLiteProjection
 
@@ -269,27 +269,10 @@ class BackupService:
 
     @staticmethod
     def _validate_records(records_root: Path) -> int:
-        count = 0
-        if not records_root.exists():
-            return count
-        for path in records_root.rglob("*"):
-            if not path.is_file():
-                continue
-            if path.suffix != ".md":
-                raise InvalidBackup(f"unexpected record file: {path.name}")
-            try:
-                post = frontmatter.load(path)
-                payload = dict(post.metadata)
-                required = {"id", "entity_type", "schema_version", "created_at", "updated_at"}
-                if not required.issubset(payload):
-                    raise InvalidBackup(f"record metadata incomplete: {path.name}")
-                validate_schema_version(payload)
-            except InvalidBackup:
-                raise
-            except Exception as exc:
-                raise InvalidBackup(f"invalid Markdown record: {path.name}") from exc
-            count += 1
-        return count
+        try:
+            return validate_record_tree(records_root)
+        except InvalidRecordTree as exc:
+            raise InvalidBackup(str(exc)) from exc
 
     @staticmethod
     def _validate_assets(assets_root: Path) -> int:
