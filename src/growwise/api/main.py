@@ -34,7 +34,6 @@ from growwise.api.conversation_routes import (
 )
 from growwise.api.dependencies import (
     build_child_context_service,
-    get_conversation_store,
     get_idempotency_store,
     get_material_review_graph,
     get_model_provider,
