@@ -14,6 +14,8 @@ from growwise.storage import EntityStore
 def _setup(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
+    *,
+    stub_review: bool = True,
 ) -> tuple[EntityStore, ChildProfile]:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
     child = ChildProfile(name="아이", nickname="아이", stage=Stage.ELEMENTARY)
@@ -22,7 +24,8 @@ def _setup(
     monkeypatch.setattr(routes, "get_background_idempotency_store", lambda: idempotency)
     monkeypatch.setattr(routes, "queue_learning_log_enrichment", lambda **_: None)
     monkeypatch.setattr(routes, "queue_material_enhancement", lambda **_: None)
-    monkeypatch.setattr(routes, "_init_review", lambda material: None)
+    if stub_review:
+        monkeypatch.setattr(routes, "_init_review", lambda material: None)
     return store, child
 
 
@@ -91,7 +94,7 @@ def test_checkpoint_failure_after_material_commit_is_non_fatal(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
-    store, child = _setup(monkeypatch, tmp_path)
+    store, child = _setup(monkeypatch, tmp_path, stub_review=False)
 
     class FailingGraph:
         def invoke(self, state: dict, config: dict) -> None:
@@ -99,7 +102,6 @@ def test_checkpoint_failure_after_material_commit_is_non_fatal(
             raise RuntimeError("checkpoint unavailable")
 
     monkeypatch.setattr(routes, "get_background_material_review_graph", lambda: FailingGraph())
-    monkeypatch.setattr(routes, "_init_review", routes._init_review)
 
     material = routes.generate_material_background(
         child.id,
