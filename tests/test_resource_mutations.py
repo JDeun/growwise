@@ -2,6 +2,7 @@ from pathlib import Path
 
 import pytest
 from fastapi import HTTPException
+from pydantic import ValidationError
 
 from growwise.api import resource_routes
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
@@ -171,3 +172,64 @@ def test_resource_delete_restores_rag_chunks_when_source_delete_fails(
 
     assert path.exists()
     assert rag.search(query="legacytoken", child_id=None)[0]["resource_id"] == str(original.id)
+
+
+def test_resource_request_bounds_match_domain_limits() -> None:
+    with pytest.raises(ValidationError):
+        resource_routes.ResourceUpdateRequest(
+            kind=ResourceKind.NOTE,
+            title="bounded",
+            content="x" * 500_001,
+        )
+
+    with pytest.raises(ValidationError):
+        resource_routes.ResourceUpdateRequest(
+            kind=ResourceKind.NOTE,
+            title="bounded",
+            tags=["x" * 201],
+        )
+
+    with pytest.raises(ValidationError):
+        resource_routes.ResourceUpdateRequest(
+            kind=ResourceKind.NOTE,
+            title="bounded",
+            provenance={"": "invalid-key"},
+        )
+
+    with pytest.raises(ValidationError):
+        resource_routes.ResourceUpdateRequest(
+            kind=ResourceKind.NOTE,
+            title="bounded",
+            provenance={"origin": "x" * 4_001},
+        )
+
+
+def test_resource_update_revalidates_forged_request_before_source_write(tmp_path: Path) -> None:
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    original = _resource()
+    path = store.save(original)
+
+    # model_construct deliberately bypasses DTO validation to exercise the persistence boundary.
+    forged = resource_routes.ResourceUpdateRequest.model_construct(
+        kind=ResourceKind.NOTE,
+        title="Forged update",
+        summary=None,
+        content="x" * 500_001,
+        source_url=None,
+        source_name=None,
+        author=None,
+        tags=[],
+        stage_tags=[],
+        provenance={"origin": "mutation-test"},
+    )
+
+    with pytest.raises(HTTPException) as error:
+        resource_routes.update_resource(original.id, forged, store)
+
+    assert error.value.status_code == 422
+    persisted = store.markdown.load(path, ResourceRecord)
+    assert persisted.title == original.title
+    assert persisted.content == original.content
+    indexed = store.index.get_entity(str(original.id), entity_type="resource")
+    assert indexed is not None
+    assert indexed["title"] == original.title
