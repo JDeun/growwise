@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import secrets
 import sqlite3
 from collections.abc import Mapping
+from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -33,12 +35,25 @@ class IdempotencyRecord:
     status: IdempotencyStatus = IdempotencyStatus.COMPLETED
     updated_at: str | None = None
     lease_expires_at: str | None = None
+    claim_token: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
 class IdempotencyClaim:
     record: IdempotencyRecord
     acquired: bool
+
+
+@dataclass(frozen=True, slots=True)
+class _ClaimContext:
+    token: str | None = None
+    can_reconcile: bool = False
+
+
+_ACTIVE_CLAIMS: ContextVar[dict[tuple[str, str], _ClaimContext]] = ContextVar(
+    "growwise_idempotency_active_claims",
+    default={},
+)
 
 
 def request_fingerprint(payload: Mapping[str, Any]) -> str:
@@ -72,11 +87,18 @@ class SQLiteIdempotencyStore:
     if Markdown was committed but a downstream projection update failed, a retry reuses the same
     ID rather than creating a second authoritative record. An abandoned PENDING claim becomes
     reclaimable after its lease expires.
+
+    Every acquired lease also receives a fencing token. Completion and release operations from the
+    current owner are conditional on that token, so an expired owner cannot mutate a newer claim
+    after the same idempotency key has been reacquired (the classic ABA race). Existing route code
+    can omit the token because the claim is retained in the current execution context; lower-level
+    callers may pass ``claim_token`` explicitly.
     """
 
     def __init__(self, path: Path) -> None:
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._context_path = str(self.path.absolute())
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -84,6 +106,27 @@ class SQLiteIdempotencyStore:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout=30000")
         return connection
+
+    def _context_key(self, key: str) -> tuple[str, str]:
+        return self._context_path, key
+
+    def _set_claim_context(
+        self, key: str, *, token: str | None = None, can_reconcile: bool = False
+    ) -> None:
+        claims = dict(_ACTIVE_CLAIMS.get())
+        claims[self._context_key(key)] = _ClaimContext(
+            token=token,
+            can_reconcile=can_reconcile,
+        )
+        _ACTIVE_CLAIMS.set(claims)
+
+    def _clear_claim_context(self, key: str) -> None:
+        claims = dict(_ACTIVE_CLAIMS.get())
+        claims.pop(self._context_key(key), None)
+        _ACTIVE_CLAIMS.set(claims)
+
+    def _claim_context(self, key: str) -> _ClaimContext:
+        return _ACTIVE_CLAIMS.get().get(self._context_key(key), _ClaimContext())
 
     def _ensure_schema(self) -> None:
         connection = self._connect()
@@ -98,7 +141,8 @@ class SQLiteIdempotencyStore:
                     created_at TEXT NOT NULL,
                     status TEXT NOT NULL DEFAULT 'completed',
                     updated_at TEXT,
-                    lease_expires_at TEXT
+                    lease_expires_at TEXT,
+                    claim_token TEXT
                 )
                 """
             )
@@ -117,6 +161,8 @@ class SQLiteIdempotencyStore:
                 connection.execute(
                     "ALTER TABLE idempotency_records ADD COLUMN lease_expires_at TEXT"
                 )
+            if "claim_token" not in columns:
+                connection.execute("ALTER TABLE idempotency_records ADD COLUMN claim_token TEXT")
             connection.commit()
         finally:
             connection.close()
@@ -127,14 +173,19 @@ class SQLiteIdempotencyStore:
         payload["status"] = IdempotencyStatus(payload.get("status") or "completed")
         return IdempotencyRecord(**payload)
 
+    @staticmethod
+    def _select_record(connection: sqlite3.Connection, key: str) -> sqlite3.Row | None:
+        return connection.execute(
+            "SELECT key, request_hash, resource_type, resource_id, created_at, "
+            "status, updated_at, lease_expires_at, claim_token "
+            "FROM idempotency_records WHERE key = ?",
+            (key,),
+        ).fetchone()
+
     def get(self, key: str) -> IdempotencyRecord | None:
         connection = self._connect()
         try:
-            row = connection.execute(
-                "SELECT key, request_hash, resource_type, resource_id, created_at, "
-                "status, updated_at, lease_expires_at FROM idempotency_records WHERE key = ?",
-                (key,),
-            ).fetchone()
+            row = self._select_record(connection, key)
         finally:
             connection.close()
         if row is None:
@@ -155,17 +206,15 @@ class SQLiteIdempotencyStore:
         if lease_seconds <= 0:
             raise ValueError("lease_seconds must be positive")
 
+        self._clear_claim_context(key)
         now_dt = datetime.now(UTC)
         now = now_dt.isoformat()
         lease_expires_at = (now_dt + timedelta(seconds=lease_seconds)).isoformat()
+        claim_token = secrets.token_hex(16)
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            existing_row = connection.execute(
-                "SELECT key, request_hash, resource_type, resource_id, created_at, "
-                "status, updated_at, lease_expires_at FROM idempotency_records WHERE key = ?",
-                (key,),
-            ).fetchone()
+            existing_row = self._select_record(connection, key)
             if existing_row is not None:
                 existing = self._row_to_record(existing_row)
                 if existing.request_hash != request_hash:
@@ -183,33 +232,42 @@ class SQLiteIdempotencyStore:
                 lease = _parse_timestamp(existing.lease_expires_at)
                 if lease is not None and lease > now_dt:
                     connection.commit()
+                    self._set_claim_context(key, can_reconcile=True)
                     return IdempotencyClaim(record=existing, acquired=False)
 
-                # Stale/abandoned PENDING claim: reacquire the SAME reserved resource ID.
+                # Stale/abandoned PENDING claim: reacquire the SAME reserved resource ID, but use a
+                # fresh fencing token so the previous owner can no longer complete or release it.
                 connection.execute(
                     "UPDATE idempotency_records "
-                    "SET status = ?, updated_at = ?, lease_expires_at = ? WHERE key = ?",
-                    (IdempotencyStatus.PENDING, now, lease_expires_at, key),
+                    "SET status = ?, updated_at = ?, lease_expires_at = ?, claim_token = ? "
+                    "WHERE key = ?",
+                    (
+                        IdempotencyStatus.PENDING,
+                        now,
+                        lease_expires_at,
+                        claim_token,
+                        key,
+                    ),
                 )
                 connection.commit()
-                return IdempotencyClaim(
-                    record=IdempotencyRecord(
-                        key=existing.key,
-                        request_hash=existing.request_hash,
-                        resource_type=existing.resource_type,
-                        resource_id=existing.resource_id,
-                        created_at=existing.created_at,
-                        status=IdempotencyStatus.PENDING,
-                        updated_at=now,
-                        lease_expires_at=lease_expires_at,
-                    ),
-                    acquired=True,
+                record = IdempotencyRecord(
+                    key=existing.key,
+                    request_hash=existing.request_hash,
+                    resource_type=existing.resource_type,
+                    resource_id=existing.resource_id,
+                    created_at=existing.created_at,
+                    status=IdempotencyStatus.PENDING,
+                    updated_at=now,
+                    lease_expires_at=lease_expires_at,
+                    claim_token=claim_token,
                 )
+                self._set_claim_context(key, token=claim_token)
+                return IdempotencyClaim(record=record, acquired=True)
 
             connection.execute(
                 "INSERT INTO idempotency_records "
                 "(key, request_hash, resource_type, resource_id, created_at, status, updated_at, "
-                "lease_expires_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+                "lease_expires_at, claim_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 (
                     key,
                     request_hash,
@@ -219,27 +277,29 @@ class SQLiteIdempotencyStore:
                     IdempotencyStatus.PENDING,
                     now,
                     lease_expires_at,
+                    claim_token,
                 ),
             )
             connection.commit()
         except Exception:
             connection.rollback()
+            self._clear_claim_context(key)
             raise
         finally:
             connection.close()
-        return IdempotencyClaim(
-            record=IdempotencyRecord(
-                key=key,
-                request_hash=request_hash,
-                resource_type=resource_type,
-                resource_id=resource_id,
-                created_at=now,
-                status=IdempotencyStatus.PENDING,
-                updated_at=now,
-                lease_expires_at=lease_expires_at,
-            ),
-            acquired=True,
+        record = IdempotencyRecord(
+            key=key,
+            request_hash=request_hash,
+            resource_type=resource_type,
+            resource_id=resource_id,
+            created_at=now,
+            status=IdempotencyStatus.PENDING,
+            updated_at=now,
+            lease_expires_at=lease_expires_at,
+            claim_token=claim_token,
         )
+        self._set_claim_context(key, token=claim_token)
+        return IdempotencyClaim(record=record, acquired=True)
 
     def complete(
         self,
@@ -247,32 +307,73 @@ class SQLiteIdempotencyStore:
         key: str,
         request_hash: str,
         resource_id: str,
+        claim_token: str | None = None,
     ) -> IdempotencyRecord:
         now = datetime.now(UTC).isoformat()
+        context = self._claim_context(key)
+        owner_token = claim_token or context.token
         connection = self._connect()
         try:
             connection.execute("BEGIN IMMEDIATE")
-            row = connection.execute(
-                "SELECT key, request_hash, resource_type, resource_id, created_at, "
-                "status, updated_at, lease_expires_at FROM idempotency_records WHERE key = ?",
-                (key,),
-            ).fetchone()
+            row = self._select_record(connection, key)
             if row is None:
                 raise KeyError(f"idempotency key is not claimed: {key}")
             existing = self._row_to_record(row)
             if existing.request_hash != request_hash or existing.resource_id != resource_id:
                 raise IdempotencyConflict("idempotency completion does not match the claim")
-            connection.execute(
-                "UPDATE idempotency_records "
-                "SET status = ?, updated_at = ?, lease_expires_at = NULL WHERE key = ?",
-                (IdempotencyStatus.COMPLETED, now, key),
-            )
+            if existing.status is IdempotencyStatus.COMPLETED:
+                connection.commit()
+                return existing
+
+            if owner_token is not None:
+                cursor = connection.execute(
+                    "UPDATE idempotency_records "
+                    "SET status = ?, updated_at = ?, lease_expires_at = NULL, claim_token = NULL "
+                    "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ? "
+                    "AND claim_token = ?",
+                    (
+                        IdempotencyStatus.COMPLETED,
+                        now,
+                        key,
+                        request_hash,
+                        resource_id,
+                        IdempotencyStatus.PENDING,
+                        owner_token,
+                    ),
+                )
+                if cursor.rowcount == 0:
+                    # The lease was fenced by a newer owner. Do not mutate that owner's record.
+                    connection.commit()
+                    current = self._select_record(connection, key)
+                    if current is None:
+                        raise KeyError(f"idempotency key is not claimed: {key}")
+                    return self._row_to_record(current)
+            elif context.can_reconcile:
+                # A duplicate request that did not acquire the live claim may discover that the
+                # authoritative resource already exists. In that narrow case it is safe to settle
+                # the reservation as completed regardless of the current owner's token.
+                connection.execute(
+                    "UPDATE idempotency_records "
+                    "SET status = ?, updated_at = ?, lease_expires_at = NULL, claim_token = NULL "
+                    "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ?",
+                    (
+                        IdempotencyStatus.COMPLETED,
+                        now,
+                        key,
+                        request_hash,
+                        resource_id,
+                        IdempotencyStatus.PENDING,
+                    ),
+                )
+            else:
+                raise IdempotencyConflict("idempotency completion requires the current claim token")
             connection.commit()
         except Exception:
             connection.rollback()
             raise
         finally:
             connection.close()
+            self._clear_claim_context(key)
         return IdempotencyRecord(
             key=existing.key,
             request_hash=existing.request_hash,
@@ -282,6 +383,7 @@ class SQLiteIdempotencyStore:
             status=IdempotencyStatus.COMPLETED,
             updated_at=now,
             lease_expires_at=None,
+            claim_token=None,
         )
 
     def release(
@@ -290,18 +392,25 @@ class SQLiteIdempotencyStore:
         key: str,
         request_hash: str,
         resource_id: str,
+        claim_token: str | None = None,
     ) -> bool:
         """Abandon a live claim without forgetting its reserved resource ID.
 
         The lease is expired immediately. A later retry can therefore reacquire the claim while
-        preserving the same resource ID, which makes partial Markdown commits retry-safe.
+        preserving the same resource ID, which makes partial Markdown commits retry-safe. The
+        update is fenced by the current claim token; a stale owner becomes a harmless no-op.
         """
+        context = self._claim_context(key)
+        owner_token = claim_token or context.token
+        if owner_token is None:
+            return False
         now = datetime.now(UTC).isoformat()
         connection = self._connect()
         try:
             cursor = connection.execute(
                 "UPDATE idempotency_records SET updated_at = ?, lease_expires_at = ? "
-                "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ?",
+                "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ? "
+                "AND claim_token = ?",
                 (
                     now,
                     now,
@@ -309,12 +418,14 @@ class SQLiteIdempotencyStore:
                     request_hash,
                     resource_id,
                     IdempotencyStatus.PENDING,
+                    owner_token,
                 ),
             )
             connection.commit()
             return cursor.rowcount > 0
         finally:
             connection.close()
+            self._clear_claim_context(key)
 
     def delete_resources(self, resource_ids: set[str]) -> int:
         """Remove idempotency metadata for resources that were deliberately purged."""
@@ -353,4 +464,5 @@ class SQLiteIdempotencyStore:
             key=key,
             request_hash=request_hash,
             resource_id=claim.record.resource_id,
+            claim_token=claim.record.claim_token,
         )
