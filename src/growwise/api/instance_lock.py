@@ -63,18 +63,14 @@ class DataDirInstanceLock:
     def _acquire_windows(handle: BinaryIO) -> None:
         import msvcrt
 
-        # ``msvcrt`` only exposes these attributes on Windows at runtime. Resolve them dynamically
-        # so cross-platform static analysis does not reject the Windows-only branch.
-        locking = getattr(msvcrt, "locking")
-        lock_nonblocking = getattr(msvcrt, "LK_NBLCK")
-
         handle.seek(0, os.SEEK_END)
         if handle.tell() == 0:
             handle.write(b"\0")
             handle.flush()
         handle.seek(0)
         try:
-            locking(handle.fileno(), lock_nonblocking, 1)
+            # The runtime module exposes these APIs on Windows; non-Windows typeshed stubs do not.
+            msvcrt.locking(handle.fileno(), msvcrt.LK_NBLCK, 1)  # type: ignore[attr-defined]
         except OSError as exc:
             raise DataDirInUse(
                 "another GrowWise Core is already using this data directory"
@@ -84,10 +80,8 @@ class DataDirInstanceLock:
     def _release_windows(handle: BinaryIO) -> None:
         import msvcrt
 
-        locking = getattr(msvcrt, "locking")
-        unlock = getattr(msvcrt, "LK_UNLCK")
         handle.seek(0)
-        locking(handle.fileno(), unlock, 1)
+        msvcrt.locking(handle.fileno(), msvcrt.LK_UNLCK, 1)  # type: ignore[attr-defined]
 
     @staticmethod
     def _acquire_posix(handle: BinaryIO) -> None:
