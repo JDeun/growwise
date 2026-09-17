@@ -34,3 +34,51 @@ def test_search_entities_is_child_scoped_and_ranks_keyword_hits(tmp_path):
 
     assert [item["id"] for item in results] == [str(strongest.id), str(partial.id)]
     assert all(item["child_id"] == str(first_child.id) for item in results)
+
+
+def test_search_entities_treats_like_wildcards_as_literals(tmp_path):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    store.save(child)
+
+    literal = LearningLog(
+        child_id=child.id,
+        parent_observation="rate%mark needle_under_score 패턴을 살펴봤다.",
+    )
+    ordinary = LearningLog(
+        child_id=child.id,
+        parent_observation="rateXmark needleXunderXscore 패턴을 살펴봤다.",
+    )
+    store.save(literal)
+    store.save(ordinary)
+
+    percent_results = store.index.search_entities(
+        child_id=str(child.id),
+        query_text="rate%mark",
+        entity_types=("learning_log",),
+        limit=10,
+    )
+    underscore_results = store.index.search_entities(
+        child_id=str(child.id),
+        query_text="needle_under_score",
+        entity_types=("learning_log",),
+        limit=10,
+    )
+
+    assert [item["id"] for item in percent_results] == [str(literal.id)]
+    assert [item["id"] for item in underscore_results] == [str(literal.id)]
+
+
+def test_search_entities_caps_query_term_expansion(tmp_path):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    child = ChildProfile(nickname="아이", stage=Stage.INFANT_0_2, age_months=9)
+    store.save(child)
+
+    results = store.index.search_entities(
+        child_id=str(child.id),
+        query_text=" ".join(f"term{index}" for index in range(2_000)),
+        entity_types=("learning_log",),
+        limit=10,
+    )
+
+    assert results == []
