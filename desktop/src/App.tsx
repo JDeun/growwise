@@ -29,14 +29,13 @@ import {
 import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
 import { useMaterialManagement } from "./use-material-management";
+import { useResourceManagement } from "./use-resource-management";
 import {
   appendConversationTurn,
   createActivity,
   createChild,
   createConversation,
   createObservation,
-  createResource,
-  deleteResource,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
   getGrowthMap,
@@ -50,7 +49,6 @@ import {
   listResources,
   searchChildContext,
   transitionActivity,
-  updateResource,
   type ActivityPlan,
   type ActivityStatus,
   type BoardBookRecommendations,
@@ -65,8 +63,6 @@ import {
   type InfantActivitySuggestions,
   type InfantObservationHints,
   type LearningLog,
-  type ResourceCreateInput,
-  type ResourceKind,
   type ResourceRecord,
   type SearchResponse,
   type Stage,
@@ -147,11 +143,6 @@ function App() {
   const [conversationBusy, setConversationBusy] = useState(false);
   const [conversationError, setConversationError] = useState<string | null>(null);
 
-  const [resourceKind, setResourceKind] = useState<ResourceKind>("note");
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resourceContent, setResourceContent] = useState("");
-  const [resourceSaving, setResourceSaving] = useState(false);
-  const [resourceError, setResourceError] = useState<string | null>(null);
 
 
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
@@ -200,6 +191,34 @@ function App() {
     announceWrite,
   });
 
+  const {
+    resourceKind,
+    resourceTitle,
+    resourceContent,
+    resourceSaving,
+    resourceError,
+    setResourceKind,
+    setResourceTitle,
+    setResourceContent,
+    handleCreateResource,
+    handleUpdateResource,
+    handleDeleteResource,
+    resetResourceState,
+  } = useResourceManagement({
+    child: activeChild,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    reloadLibrary: () => reloadChildContextPart("library"),
+    replaceResource: (updated) =>
+      setResources((current) =>
+        current.map((resource) => (resource.id === updated.id ? updated : resource)),
+      ),
+    removeResource: (resourceId) =>
+      setResources((current) => current.filter((resource) => resource.id !== resourceId)),
+    removeResourceRef,
+    announceWrite,
+  });
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -232,11 +251,8 @@ function App() {
       setConversationQuestion("");
       setConversationBusy(false);
       setConversationError(null);
-      setResourceTitle("");
-      setResourceContent("");
-      setResourceSaving(false);
-      setResourceError(null);
       resetMaterialState();
+      resetResourceState();
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -293,7 +309,7 @@ function App() {
               },
       });
     },
-    [resetMaterialState, scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, resetResourceState, scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -522,89 +538,6 @@ function App() {
       }
     } finally {
       if (scopeIsCurrent(childId, requestId)) setConversationBusy(false);
-    }
-  }
-
-  async function handleCreateResource(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const title = resourceTitle.trim();
-    const content = resourceContent.trim();
-    if (!title) return setResourceError("자료 제목을 입력해 주세요.");
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      await createResource({
-        kind: resourceKind,
-        title,
-        child_id: childId,
-        summary: null,
-        content: content || null,
-        source_url: null,
-        source_name: "parent",
-        author: null,
-        tags: [],
-        stage_tags: [activeChild.stage],
-        provenance: { origin: "desktop_manual" },
-      });
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResourceTitle("");
-      setResourceContent("");
-      await reloadChildContextPart("library");
-      if (scopeIsCurrent(childId, requestId)) announceWrite("자료를 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
-    }
-  }
-
-  async function handleUpdateResource(resourceId: string, request: ResourceCreateInput) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      const updated = await updateResource(resourceId, request, childId);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResources((current) =>
-        current.map((resource) => (resource.id === updated.id ? updated : resource)),
-      );
-      announceWrite("자료를 수정했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 수정에 실패했습니다."));
-      }
-      throw error;
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
-    }
-  }
-
-  async function handleDeleteResource(resourceId: string) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      await deleteResource(resourceId, childId);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResources((current) => current.filter((resource) => resource.id !== resourceId));
-      removeResourceRef(resourceId);
-      announceWrite("자료를 삭제했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 삭제에 실패했습니다."));
-      }
-      throw error;
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
     }
   }
 
