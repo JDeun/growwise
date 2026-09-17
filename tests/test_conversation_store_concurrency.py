@@ -59,7 +59,11 @@ def test_stale_snapshot_cannot_overwrite_newer_session_metadata(tmp_path) -> Non
     stale.title = "오래된 제목"
     stale.updated_at = base + timedelta(seconds=1)
     stale.turns.append(
-        ConversationTurn(role="user", content="늦게 저장된 질문", created_at=base + timedelta(seconds=1))
+        ConversationTurn(
+            role="user",
+            content="늦게 저장된 질문",
+            created_at=base + timedelta(seconds=1),
+        )
     )
     store.save(stale)
 
