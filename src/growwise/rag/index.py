@@ -23,30 +23,42 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
     return dot / (left_norm * right_norm)
 
 
+def _fts_query(terms: list[str]) -> str:
+    """Treat parent-entered text as literals and use token-prefix matching.
+
+    Prefix matching matters for Korean because the unicode tokenizer may keep particles attached to
+    a stem (for example ``고양이를``) while a parent naturally searches for ``고양이``.
+    """
+    return " OR ".join(f'"{term.replace(chr(34), chr(34) * 2)}"*' for term in terms)
+
+
 class HybridRagIndex:
     """SQLite-backed resource chunk index with lexical + optional vector scoring.
 
-    Relevance is calculated first. Relevant evidence is then exposed through a deterministic
-    temporal hierarchy: the current month is filled first, then the rest of the current year,
-    then older archive material. This matches how a parent usually asks about an evolving child
-    context while still allowing older evidence to fill gaps.
+    Core-only lexical search uses an FTS5 candidate set instead of loading every visible chunk into
+    Python. Child ownership, explicitly shared resources, provenance, and the temporal hierarchy are
+    applied identically to the fallback scan. When vector embeddings are active, GrowWise still scans
+    the full visible vector set to preserve semantic recall until a dedicated vector index exists.
     """
 
     def __init__(self, path: Path, embedding: EmbeddingProvider | None = None) -> None:
         self.path = path
         self.embedding = embedding
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._fts_available = False
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=10.0)
+        connection = sqlite3.connect(self.path, timeout=30.0)
         connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA busy_timeout=10000")
+        connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
     def _ensure_schema(self) -> None:
         connection = self._connect()
         try:
+            connection.execute("PRAGMA journal_mode=WAL")
+            connection.execute("PRAGMA synchronous=NORMAL")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS rag_chunks (
@@ -64,7 +76,7 @@ class HybridRagIndex:
                 """
             )
             columns = {
-                row["name"]
+                str(row["name"])
                 for row in connection.execute("PRAGMA table_info(rag_chunks)").fetchall()
             }
             if "recorded_at" not in columns:
@@ -77,6 +89,36 @@ class HybridRagIndex:
                 "CREATE INDEX IF NOT EXISTS idx_rag_child_time "
                 "ON rag_chunks(child_id, recorded_at DESC)"
             )
+            try:
+                connection.execute(
+                    """
+                    CREATE VIRTUAL TABLE IF NOT EXISTS rag_chunks_fts USING fts5(
+                        chunk_id UNINDEXED,
+                        resource_id UNINDEXED,
+                        child_id UNINDEXED,
+                        title,
+                        text,
+                        tags
+                    )
+                    """
+                )
+                # RAG is a disposable projection. Rebuilding the small lexical projection when the
+                # index opens prevents FTS state from drifting after migrations or an interrupted
+                # older writer.
+                connection.execute("DELETE FROM rag_chunks_fts")
+                connection.execute(
+                    """
+                    INSERT INTO rag_chunks_fts (
+                        chunk_id, resource_id, child_id, title, text, tags
+                    )
+                    SELECT chunk_id, resource_id, child_id, title, text, tags_json
+                    FROM rag_chunks
+                    """
+                )
+                self._fts_available = True
+            except sqlite3.OperationalError:
+                # Embedded SQLite builds without FTS5 keep the previous safe scoped-scan behavior.
+                self._fts_available = False
             connection.commit()
         finally:
             connection.close()
@@ -85,19 +127,33 @@ class HybridRagIndex:
         """Clear the rebuildable RAG projection without replacing the SQLite file."""
         connection = self._connect()
         try:
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM rag_chunks")
+            if self._fts_available:
+                connection.execute("DELETE FROM rag_chunks_fts")
             connection.commit()
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 
     def delete_resource(self, resource_id: str) -> int:
         connection = self._connect()
         try:
+            connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute(
                 "DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,)
             )
+            if self._fts_available:
+                connection.execute(
+                    "DELETE FROM rag_chunks_fts WHERE resource_id = ?", (resource_id,)
+                )
             connection.commit()
             return cursor.rowcount
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 
@@ -105,9 +161,15 @@ class HybridRagIndex:
         """Delete every private RAG chunk belonging to one child."""
         connection = self._connect()
         try:
+            connection.execute("BEGIN IMMEDIATE")
             cursor = connection.execute("DELETE FROM rag_chunks WHERE child_id = ?", (child_id,))
+            if self._fts_available:
+                connection.execute("DELETE FROM rag_chunks_fts WHERE child_id = ?", (child_id,))
             connection.commit()
             return cursor.rowcount
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 
@@ -132,7 +194,12 @@ class HybridRagIndex:
         try:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,))
+            if self._fts_available:
+                connection.execute(
+                    "DELETE FROM rag_chunks_fts WHERE resource_id = ?", (resource_id,)
+                )
             for chunk, vector in zip(chunks, vectors, strict=True):
+                tags_json = json.dumps(list(chunk.tags), ensure_ascii=False)
                 connection.execute(
                     """
                     INSERT INTO rag_chunks (
@@ -148,11 +215,27 @@ class HybridRagIndex:
                         chunk.text,
                         chunk.source_url,
                         chunk.source_name,
-                        json.dumps(list(chunk.tags), ensure_ascii=False),
+                        tags_json,
                         json.dumps(vector) if vector is not None else None,
                         chunk.recorded_at,
                     ),
                 )
+                if self._fts_available:
+                    connection.execute(
+                        """
+                        INSERT INTO rag_chunks_fts (
+                            chunk_id, resource_id, child_id, title, text, tags
+                        ) VALUES (?, ?, ?, ?, ?, ?)
+                        """,
+                        (
+                            chunk.chunk_id,
+                            chunk.resource_id,
+                            chunk.child_id,
+                            chunk.title,
+                            chunk.text,
+                            tags_json,
+                        ),
+                    )
             connection.commit()
         except Exception:
             connection.rollback()
@@ -160,6 +243,84 @@ class HybridRagIndex:
         finally:
             connection.close()
         return len(chunks)
+
+    @staticmethod
+    def _normalized_shared_ids(shared_resource_ids: Iterable[str] | None) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(str(resource_id) for resource_id in shared_resource_ids or ()))
+
+    @classmethod
+    def _scoped_rows(
+        cls,
+        connection: sqlite3.Connection,
+        *,
+        child_id: str | None,
+        shared_resource_ids: Iterable[str] | None,
+    ) -> list[sqlite3.Row]:
+        shared_ids = cls._normalized_shared_ids(shared_resource_ids)
+        if shared_ids:
+            placeholders = ",".join("?" for _ in shared_ids)
+            return connection.execute(
+                f"SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ? "
+                f"OR resource_id IN ({placeholders})",
+                (child_id, *shared_ids),
+            ).fetchall()
+        return connection.execute(
+            "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
+            (child_id,),
+        ).fetchall()
+
+    def _lexical_candidates(
+        self,
+        connection: sqlite3.Connection,
+        *,
+        query_terms: list[str],
+        child_id: str | None,
+        shared_resource_ids: Iterable[str] | None,
+        limit: int,
+    ) -> list[sqlite3.Row]:
+        if not self._fts_available or not query_terms:
+            return self._scoped_rows(
+                connection,
+                child_id=child_id,
+                shared_resource_ids=shared_resource_ids,
+            )
+
+        shared_ids = self._normalized_shared_ids(shared_resource_ids)
+        candidate_limit = max(200, limit * 20)
+        if shared_ids:
+            placeholders = ",".join("?" for _ in shared_ids)
+            scope_sql = f"(c.child_id IS NULL OR c.child_id = ? OR c.resource_id IN ({placeholders}))"
+            scope_params: tuple[object, ...] = (child_id, *shared_ids)
+        else:
+            scope_sql = "(c.child_id IS NULL OR c.child_id = ?)"
+            scope_params = (child_id,)
+
+        try:
+            rows = connection.execute(
+                f"""
+                SELECT c.*
+                FROM rag_chunks AS c
+                JOIN rag_chunks_fts AS f ON f.chunk_id = c.chunk_id
+                WHERE rag_chunks_fts MATCH ? AND {scope_sql}
+                LIMIT ?
+                """,
+                (_fts_query(query_terms), *scope_params, candidate_limit),
+            ).fetchall()
+            if rows:
+                return rows
+            # Token boundaries differ across languages/builds. Preserve the original substring
+            # recall when FTS finds nothing instead of turning an optimization into a recall loss.
+            return self._scoped_rows(
+                connection,
+                child_id=child_id,
+                shared_resource_ids=shared_ids,
+            )
+        except sqlite3.OperationalError:
+            return self._scoped_rows(
+                connection,
+                child_id=child_id,
+                shared_resource_ids=shared_ids,
+            )
 
     def search(
         self,
@@ -179,30 +340,27 @@ class HybridRagIndex:
                 query_vector = self.embedding.embed_query(query)
             except Exception:
                 query_vector = None
+        if not query_terms and query_vector is None:
+            return []
 
         connection = self._connect()
         try:
-            rows = list(
-                connection.execute(
-                    """
-                    SELECT * FROM rag_chunks
-                    WHERE child_id IS NULL OR child_id = ?
-                    """,
-                    (child_id,),
-                ).fetchall()
-            )
-            seen_chunk_ids = {str(row["chunk_id"]) for row in rows}
-            for resource_id in dict.fromkeys(shared_resource_ids or ()):
-                shared_rows = connection.execute(
-                    "SELECT * FROM rag_chunks WHERE resource_id = ?",
-                    (str(resource_id),),
-                ).fetchall()
-                for row in shared_rows:
-                    chunk_id = str(row["chunk_id"])
-                    if chunk_id in seen_chunk_ids:
-                        continue
-                    seen_chunk_ids.add(chunk_id)
-                    rows.append(row)
+            # Semantic ranking still needs all visible vectors. Without a query vector, FTS5 keeps
+            # the Python ranking set bounded while honoring normal ownership and explicit sharing.
+            if query_vector is not None:
+                rows = self._scoped_rows(
+                    connection,
+                    child_id=child_id,
+                    shared_resource_ids=shared_resource_ids,
+                )
+            else:
+                rows = self._lexical_candidates(
+                    connection,
+                    query_terms=query_terms,
+                    child_id=child_id,
+                    shared_resource_ids=shared_resource_ids,
+                    limit=limit,
+                )
         finally:
             connection.close()
 
@@ -214,7 +372,7 @@ class HybridRagIndex:
             if query_vector is not None and row["embedding_json"]:
                 try:
                     stored_vector = json.loads(row["embedding_json"])
-                except (TypeError, json.JSONDecodeError):
+                except (TypeError, ValueError, json.JSONDecodeError):
                     stored_vector = []
                 if isinstance(stored_vector, list):
                     vector_score = cosine_similarity(query_vector, stored_vector)
@@ -240,8 +398,8 @@ class HybridRagIndex:
             }
             ranked.append((score, payload))
 
-        # Relevance order is preserved inside each time tier. A very recent irrelevant chunk never
-        # enters this list in the first place, so temporal preference cannot manufacture relevance.
+        # Relevance order is preserved inside each time tier. Temporal preference never promotes an
+        # irrelevant chunk because only positive lexical/vector matches reach this list.
         ranked.sort(key=lambda item: item[0], reverse=True)
         relevant = [payload for _, payload in ranked]
         return hierarchical_temporal_order(
