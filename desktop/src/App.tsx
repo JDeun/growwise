@@ -184,6 +184,7 @@ function App() {
     setMaterialTopic,
     setMaterialGoal,
     toggleResourceRef,
+    removeResourceRef,
     setRevisionNote,
     setEditingMaterialId,
     handleGenerateMaterial,
@@ -595,9 +596,7 @@ function App() {
       await deleteResource(resourceId, childId);
       if (!scopeIsCurrent(childId, requestId)) return;
       setResources((current) => current.filter((resource) => resource.id !== resourceId));
-      setSelectedResourceRefs((current) =>
-        current.filter((ref) => ref !== `resource:${resourceId}`),
-      );
+      removeResourceRef(resourceId);
       announceWrite("자료를 삭제했습니다.");
     } catch (error) {
       if (scopeIsCurrent(childId, requestId)) {
