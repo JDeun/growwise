@@ -37,6 +37,7 @@ print(json.dumps({
     "app": inventory(main_module.app.routes),
     "study": inventory(study_module.router.routes),
     "resource": inventory(resource_module.router.routes),
+    "resource_import_stack": resource_module._IMPORT_STACK,
 }, sort_keys=True))
 '''
     repo_root = Path(__file__).resolve().parents[1]
@@ -57,7 +58,10 @@ print(json.dumps({
     result = json.loads(completed.stdout.strip())
 
     assert result["resource"], "resource router has no resource routes"
-    assert result["study"], f"resource routes lost before study router: {result['resource']}"
+    study_collection = [route for route in result["study"] if route["path"] == "/v1/resources"]
+    assert study_collection, "resource router was partial when mounted:\n" + "".join(
+        result["resource_import_stack"]
+    )
     assert result["app"], f"resource routes lost before app mount: {result['study']}"
 
     routes = [route for route in result["app"] if route["path"] == "/v1/resources"]
