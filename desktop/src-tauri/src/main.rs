@@ -42,6 +42,7 @@ fn acquire_instance_guard() -> io::Result<DesktopInstanceGuard> {
         .join(".growwise-desktop.lock");
     let file = OpenOptions::new()
         .create(true)
+        .truncate(false)
         .read(true)
         .write(true)
         .open(lock_path)?;
