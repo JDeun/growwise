@@ -18,12 +18,10 @@ from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
-from growwise.api.resource_routes import (
-    create_resource as create_resource_route,
-    delete_resource as delete_resource_route,
-    list_resources as list_resources_route,
-    update_resource as update_resource_route,
-)
+from growwise.api.resource_routes import create_resource as create_resource_route
+from growwise.api.resource_routes import delete_resource as delete_resource_route
+from growwise.api.resource_routes import list_resources as list_resources_route
+from growwise.api.resource_routes import update_resource as update_resource_route
 from growwise.config import Settings
 from growwise.domain.models import ChildProfile, Stage
 from growwise.domain.study import (
