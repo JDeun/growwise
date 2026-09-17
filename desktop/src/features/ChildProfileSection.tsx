@@ -125,7 +125,7 @@ export function ChildProfileSection({
                     {modelOnboarding.kind === "optional" && modelOnboarding.configured
                       ? "AI 보조 기능이 아직 준비되지 않았습니다."
                       : "AI 보조 기능을 지금 설정하지 않아도 됩니다."}
-                    {" "}관찰 기록, 검색, 성장 보기, 활동과 자료 관리는 그대로 사용할 수 있습니다. 나중에 설정에서 연결할 수 있습니다.
+                    {" "}관찰 기록, 검색, 성장 보기, 활동과 자료 관리는 그대로 사용할 수 있습니다. 나중에 설정에서 사용 가능 상태를 확인할 수 있습니다.
                   </p>
                 )}
               </div>
