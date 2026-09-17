@@ -349,6 +349,7 @@ mod tests {
             let (mut stream, _) = listener.accept().expect("accept probe");
             let mut request = vec![0_u8; SINGLE_INSTANCE_MAGIC.len()];
             let _ = stream.read_exact(&mut request);
+            let _ = stream.set_write_timeout(Some(Duration::from_millis(100)));
             let _ = stream.write_all(b"NOT_GROWWISE\n");
         });
 
