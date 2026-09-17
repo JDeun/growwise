@@ -80,12 +80,31 @@ struct ChildCreateInput {
     interests: Vec<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
+struct ChildUpdateInput {
+    nickname: String,
+    stage: String,
+    age_months: Option<u16>,
+    interests: Vec<String>,
+    primary_language: String,
+    additional_languages: Vec<String>,
+    learning_goals: Vec<String>,
+    notes: Option<String>,
+}
+#[derive(Debug, Serialize, Deserialize)]
 struct ChildProfileDto {
     id: String,
     nickname: String,
     stage: String,
     age_months: Option<u16>,
     interests: Vec<String>,
+    #[serde(default)]
+    primary_language: String,
+    #[serde(default)]
+    additional_languages: Vec<String>,
+    #[serde(default)]
+    learning_goals: Vec<String>,
+    #[serde(default)]
+    notes: Option<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct ObservationCreateInput {
@@ -254,6 +273,23 @@ async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, Stri
         .await
         .map_err(|error| error.to_string())?;
     ensure_success(response, "아이 프로필 저장 실패")
+        .await?
+        .json::<ChildProfileDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn update_child(
+    child_id: String,
+    request: ChildUpdateInput,
+) -> Result<ChildProfileDto, String> {
+    let response = client()?
+        .put(format!("{CORE_BASE_URL}/v1/children/{child_id}"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 프로필 수정 실패")
         .await?
         .json::<ChildProfileDto>()
         .await
@@ -878,6 +914,7 @@ pub fn run() {
             core_health,
             core_runtime_status,
             create_child,
+            update_child,
             list_children,
             delete_child,
             create_observation,
