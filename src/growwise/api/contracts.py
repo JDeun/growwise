@@ -13,6 +13,7 @@ from growwise.domain import (
     Stage,
 )
 
+
 class ChildCreateRequest(BaseModel):
     nickname: str
     stage: Stage
