@@ -33,18 +33,10 @@ def inventory(routes):
         })
     return result
 
-app_inventory = inventory(main_module.app.routes)
-study_inventory = inventory(study_module.router.routes)
-resource_inventory = inventory(resource_module.router.routes)
-routes = [item for item in app_inventory if item["path"] == "/v1/resources"]
 print(json.dumps({
-    "routes": routes,
-    "app_inventory": app_inventory,
-    "study_inventory": study_inventory,
-    "resource_inventory": resource_inventory,
-    "main_file": main_module.__file__,
-    "study_file": study_module.__file__,
-    "resource_file": resource_module.__file__,
+    "app": inventory(main_module.app.routes),
+    "study": inventory(study_module.router.routes),
+    "resource": inventory(resource_module.router.routes),
 }, sort_keys=True))
 '''
     repo_root = Path(__file__).resolve().parents[1]
@@ -63,7 +55,12 @@ print(json.dumps({
         env=env,
     )
     result = json.loads(completed.stdout.strip())
-    routes = result["routes"]
+
+    assert result["resource"], "resource router has no resource routes"
+    assert result["study"], f"resource routes lost before study router: {result['resource']}"
+    assert result["app"], f"resource routes lost before app mount: {result['study']}"
+
+    routes = [route for route in result["app"] if route["path"] == "/v1/resources"]
     posts = [route for route in routes if "POST" in route["methods"]]
     gets = [route for route in routes if "GET" in route["methods"]]
 
