@@ -3,13 +3,47 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 from contextlib import suppress
+from pathlib import Path
 from time import sleep
 
+from growwise.domain.models import EntityBase
 from growwise.jobs import Job, SQLiteJobQueue
 from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
 from growwise.services.photo_activity import PhotoActivityService
+from growwise.storage import EntityStore
 
 PHOTO_ANALYSIS_JOB = "photo_activity_analysis"
+
+
+class _StalePhotoJobClaim(RuntimeError):
+    pass
+
+
+class _ClaimFencedEntityStore(EntityStore):
+    """Delegate EntityStore mutations only while the worker still owns its queue lease."""
+
+    def __init__(self, delegate: EntityStore, claim_guard: Callable[[], bool]) -> None:
+        self._delegate = delegate
+        self._claim_guard = claim_guard
+        # Read paths inside PhotoActivityService access these attributes directly.
+        self.markdown = delegate.markdown
+        self.index = delegate.index
+
+    def _require_claim(self) -> None:
+        if not self._claim_guard():
+            raise _StalePhotoJobClaim("photo job claim is stale")
+
+    def save(self, entity: EntityBase, body: str = "") -> Path:
+        self._require_claim()
+        return self._delegate.save(entity, body=body)
+
+    def delete(self, entity: EntityBase) -> bool:
+        self._require_claim()
+        return self._delegate.delete(entity)
+
+    def purge_child(self, child_id: str) -> int:
+        self._require_claim()
+        return self._delegate.purge_child(child_id)
 
 
 class PhotoJobRunner:
@@ -111,6 +145,32 @@ class PhotoJobRunner:
             return
 
         service = self.service_factory()
+        original_store = service.store
+        service.store = _ClaimFencedEntityStore(original_store, renew_claim)
+        try:
+            self._process_with_claim(
+                job=job,
+                claim_token=claim_token,
+                renew_claim=renew_claim,
+                service=service,
+                record_id=record_id,
+                child_id=child_id,
+            )
+        finally:
+            # Factories may intentionally return a shared service in tests or local callers.
+            # Never leak a completed job's fencing token into later synchronous mutations.
+            service.store = original_store
+
+    def _process_with_claim(
+        self,
+        *,
+        job: Job,
+        claim_token: str,
+        renew_claim: Callable[[], bool],
+        service: PhotoActivityService,
+        record_id: str,
+        child_id: str,
+    ) -> None:
         try:
             record = service.get_record(record_id)
             if str(record.child_id) != child_id:
