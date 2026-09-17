@@ -51,7 +51,11 @@ def test_restore_keeps_atomic_swaps_with_assets_on_another_volume(
     def reject_cross_volume_replace(self: Path, target: Path | str) -> Path:
         source_volume = _volume(self)
         target_volume = _volume(Path(target))
-        if source_volume is not None and target_volume is not None and source_volume != target_volume:
+        if (
+            source_volume is not None
+            and target_volume is not None
+            and source_volume != target_volume
+        ):
             raise OSError(errno.EXDEV, "simulated cross-device rename")
         return real_replace(self, target)
 
