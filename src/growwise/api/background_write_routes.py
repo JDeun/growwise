@@ -318,10 +318,10 @@ def generate_material_background(
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
     try:
-        # Always return a complete deterministic draft immediately. The public goal is the only goal
-        # rendered in the learner-facing sheet. Closed-loop continuity is private generation guidance
-        # for the background model and a local parent-guide block; raw feedback is never sent to the
-        # model and internal guidance is never printed as learner metadata.
+        # Always return a complete deterministic draft immediately. The public goal is the only
+        # goal rendered in the learner-facing sheet. Closed-loop continuity is private generation
+        # guidance for the background model and a local parent-guide block; raw feedback is never
+        # sent to the model and internal guidance is never printed as learner metadata.
         material = MaterialGenerationService(provider=None).generate(
             child=child,
             kind=request.kind,
