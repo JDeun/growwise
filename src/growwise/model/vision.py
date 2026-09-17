@@ -56,7 +56,7 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
                 "image_url": f"data:{mime_type};base64,{image_base64}",
             },
         ]
-        self._circuit.before_call()
+        permit = self._circuit.before_call()
         try:
             response = self._chat.invoke(
                 [SystemMessage(content=self.SYSTEM), HumanMessage(content=content)]
@@ -65,7 +65,7 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
             if not caption:
                 raise ValueError("vision model returned an empty caption")
         except Exception:
-            self._circuit.record_failure()
+            self._circuit.record_failure(permit)
             raise
-        self._circuit.record_success()
+        self._circuit.record_success(permit)
         return caption[:4000]

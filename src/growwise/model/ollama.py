@@ -39,20 +39,20 @@ class OllamaProvider(ModelProvider):
         )
 
     def generate_text(self, *, system: str, user: str) -> str:
-        self._circuit.before_call()
+        permit = self._circuit.before_call()
         try:
             response = self._chat.invoke(
                 [SystemMessage(content=system), HumanMessage(content=user)]
             )
             content = str(response.content)
         except Exception:
-            self._circuit.record_failure()
+            self._circuit.record_failure(permit)
             raise
-        self._circuit.record_success()
+        self._circuit.record_success(permit)
         return content
 
     def generate_structured(self, *, system: str, user: str, schema: type[T]) -> T:
-        self._circuit.before_call()
+        permit = self._circuit.before_call()
         try:
             structured = self._chat.with_structured_output(schema)
             result = structured.invoke(
@@ -63,7 +63,7 @@ class OllamaProvider(ModelProvider):
             else:
                 parsed = schema.model_validate(result)
         except Exception:
-            self._circuit.record_failure()
+            self._circuit.record_failure(permit)
             raise
-        self._circuit.record_success()
+        self._circuit.record_success(permit)
         return parsed
