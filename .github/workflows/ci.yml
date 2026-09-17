@@ -34,9 +34,37 @@ jobs:
       - name: Ruff
         run: uv run ruff check src tests scripts desktop/scripts
       - name: Mypy
-        run: uv run mypy src/growwise
+        run: >-
+          uv run mypy src/growwise
+          --warn-unused-ignores
+          --warn-redundant-casts
+          --warn-unreachable
+          --check-untyped-defs
       - name: Test
         run: uv run pytest
+
+  python-coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install uv
+        run: python -m pip install "uv==0.12.13"
+      - name: Sync locked development environment
+        run: uv sync --locked --extra dev
+      - name: Install pinned coverage tool
+        run: uv pip install --python .venv/bin/python "coverage==7.16.1"
+      - name: Measure branch coverage
+        run: uv run --no-sync coverage run --branch --source=src/growwise -m pytest
+      - name: Enforce branch coverage floor
+        run: >-
+          uv run --no-sync coverage report
+          --show-missing
+          --skip-covered
+          --fail-under=78
 
   dependency-hygiene:
     runs-on: ubuntu-latest
