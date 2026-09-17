@@ -175,6 +175,11 @@ export function useMaterialManagement({
     );
   }
 
+  function removeResourceRef(resourceId: string) {
+    const ref = `resource:${resourceId}`;
+    setSelectedResourceRefs((current) => current.filter((item) => item !== ref));
+  }
+
   return {
     materialKind,
     materialTopic,
@@ -188,6 +193,7 @@ export function useMaterialManagement({
     setMaterialTopic,
     setMaterialGoal,
     toggleResourceRef,
+    removeResourceRef,
     setRevisionNote: (materialId: string, note: string) =>
       setRevisionNotes((current) => ({ ...current, [materialId]: note })),
     setEditingMaterialId,
