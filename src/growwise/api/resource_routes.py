@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import traceback
 from datetime import UTC, datetime
 from functools import lru_cache
 from typing import Annotated
@@ -24,6 +25,7 @@ from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngest
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
+_IMPORT_STACK = traceback.format_stack(limit=20)
 router = APIRouter(prefix="/resources", tags=["resources"])
 logger = logging.getLogger(__name__)
 
