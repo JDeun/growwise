@@ -228,7 +228,9 @@ class SQLiteProjection:
         if not entity_types or limit <= 0:
             return []
 
-        terms = [term.strip() for term in query_text.split() if term.strip()]
+        terms = list(
+            dict.fromkeys(term.strip() for term in query_text.split() if term.strip())
+        )[:_MAX_SEARCH_TERMS]
         type_placeholders = ",".join("?" for _ in entity_types)
 
         with self._connection() as connection:
@@ -245,12 +247,16 @@ class SQLiteProjection:
             where_params: list[str | int] = [*scope_params, *entity_types]
 
             if terms:
-                term_clauses = ["payload_json LIKE ?" for _ in terms]
+                term_clauses = ["payload_json LIKE ? ESCAPE '\\\\'" for _ in terms]
                 clauses.append("(" + " OR ".join(term_clauses) + ")")
-                patterns = [f"%{term}%" for term in terms]
+                patterns = [
+                    "%" + term.replace("\\\\", "\\\\\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+                    for term in terms
+                ]
                 where_params.extend(patterns)
                 score_sql = " + ".join(
-                    "CASE WHEN payload_json LIKE ? THEN 1 ELSE 0 END" for _ in terms
+                    "CASE WHEN payload_json LIKE ? ESCAPE '\\\\' THEN 1 ELSE 0 END"
+                    for _ in terms
                 )
                 sql = (
                     f"SELECT payload_json, ({score_sql}) AS match_score FROM entities "
