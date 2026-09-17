@@ -1,46 +1,6 @@
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::time::{SystemTime, UNIX_EPOCH};
-
 use serde::{Deserialize, Serialize};
 
-use super::{client, ensure_success, CORE_BASE_URL};
-
-static OPERATION_COUNTER: AtomicU64 = AtomicU64::new(0);
-
-fn next_operation_key(label: &str) -> String {
-    let nanos = SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .unwrap_or_default()
-        .as_nanos();
-    let counter = OPERATION_COUNTER.fetch_add(1, Ordering::Relaxed);
-    format!("desktop-{label}-{}-{nanos}-{counter}", std::process::id())
-}
-
-async fn post_idempotent_json(
-    url: String,
-    body: &serde_json::Value,
-    operation_label: &str,
-) -> Result<reqwest::Response, String> {
-    let key = next_operation_key(operation_label);
-    let first = client()?
-        .post(&url)
-        .header("Idempotency-Key", key.as_str())
-        .json(body)
-        .send()
-        .await;
-
-    match first {
-        Ok(response) => Ok(response),
-        Err(error) if error.is_timeout() || error.is_connect() => client()?
-            .post(&url)
-            .header("Idempotency-Key", key.as_str())
-            .json(body)
-            .send()
-            .await
-            .map_err(|retry_error| retry_error.to_string()),
-        Err(error) => Err(error.to_string()),
-    }
-}
+use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct BackgroundObservationRequest {
@@ -113,17 +73,4 @@ pub async fn revise_material_background(
         .json::<serde_json::Value>()
         .await
         .map_err(|error| error.to_string())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::next_operation_key;
-
-    #[test]
-    fn operation_keys_are_unique() {
-        assert_ne!(
-            next_operation_key("observation"),
-            next_operation_key("observation")
-        );
-    }
 }
