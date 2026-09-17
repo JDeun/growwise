@@ -207,7 +207,7 @@ def create_observation_background(
 
     idempotency_store = get_background_idempotency_store()
     request_hash = request_fingerprint(request.model_dump(mode="json"))
-    reserved_log_id = uuid7()
+    reserved_log_id: UUID = UUID(str(uuid7()))
     claim = None
     if idempotency_key is not None:
         try:
@@ -288,7 +288,7 @@ def generate_material_background(
     request_hash = request_fingerprint(
         {"child_id": str(child_id), **request.model_dump(mode="json")}
     )
-    reserved_material_id = uuid7()
+    reserved_material_id: UUID = UUID(str(uuid7()))
     claim = None
     if idempotency_key is not None:
         try:
