@@ -167,8 +167,15 @@ export function DataManagementSection({
     setPrivacyError(null);
     try {
       await deleteChild(selectedDeleteChild.id);
-      if (readRememberedChildId(window.localStorage) === selectedDeleteChild.id) {
-        writeRememberedChildId(window.localStorage, "");
+      // Storage cleanup is best-effort only. A restricted WebView must not turn a successful
+      // server-side purge into a misleading deletion error.
+      try {
+        const storage = window.localStorage;
+        if (readRememberedChildId(storage) === selectedDeleteChild.id) {
+          writeRememberedChildId(storage, "");
+        }
+      } catch {
+        // The full reload below will rebuild child selection from the authoritative store.
       }
       // A full reload deliberately discards every in-memory child-scoped view/request after purge.
       window.location.reload();
