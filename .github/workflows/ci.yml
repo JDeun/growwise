@@ -117,6 +117,20 @@ jobs:
       - name: Rust tests
         run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml --all-targets
 
+  rust-platform-tests:
+    name: rust-platform-tests (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Check Rust shell
+        run: cargo check --locked --manifest-path desktop/src-tauri/Cargo.toml
+      - name: Rust tests
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml --all-targets
+
   core-sidecar-smoke:
     runs-on: ubuntu-latest
     steps:
