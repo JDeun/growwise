@@ -13,17 +13,19 @@ def test_sqlite_job_queue_round_trip(tmp_path):
     assert claimed.status is JobStatus.RUNNING
     assert claimed.attempts == 1
     assert claimed.payload["child_id"] == "child-1"
+    assert claimed.claim_token is not None
 
-    queue.complete(claimed.id)
+    assert queue.complete(claimed.id, claimed.claim_token) is True
     assert queue.claim_next() is None
 
 
 def test_failed_job_is_not_reclaimed(tmp_path):
     queue = SQLiteJobQueue(tmp_path / "jobs.sqlite3")
-    created = queue.enqueue("embed", {"resource_id": "r1"})
+    queue.enqueue("embed", {"resource_id": "r1"})
 
     claimed = queue.claim_next()
     assert claimed is not None
-    queue.fail(created.id, "boom")
+    assert claimed.claim_token is not None
+    assert queue.fail(claimed.id, claimed.claim_token, "boom") is True
 
     assert queue.claim_next() is None

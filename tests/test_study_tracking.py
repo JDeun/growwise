@@ -5,6 +5,7 @@ from fastapi.testclient import TestClient
 from growwise.api.main import app
 from growwise.api.study_routes import get_study_store
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
 
@@ -109,6 +110,19 @@ def test_study_tracking_vertical_slice_is_child_scoped_and_peer_free(tmp_path) -
         assert str(global_resource.id) in resource_ids
         assert str(private_other.id) not in resource_ids
 
+        EntityLinkService(store).share_with_children(
+            source_id=private_other.id,
+            child_ids=[child.id],
+        )
+        shared_resources = client.get(
+            f"/v1/children/{child.id}/study/resources",
+            params={"subject": "수학", "unit": "일차함수"},
+        )
+        assert shared_resources.status_code == 200
+        shared_resource_ids = {item["resource_id"] for item in shared_resources.json()}
+        assert str(global_resource.id) in shared_resource_ids
+        assert str(private_other.id) in shared_resource_ids
+
         plan = client.post(
             f"/v1/children/{child.id}/study/plans",
             json={
@@ -121,8 +135,20 @@ def test_study_tracking_vertical_slice_is_child_scoped_and_peer_free(tmp_path) -
         plan_payload = plan.json()
         assert len(plan_payload["items"]) == 1
         assert plan_payload["items"][0]["unit"] == "일차함수"
+        assert plan_payload["items"][0]["status"] == "planned"
         assert "streak" not in plan_payload
         assert "rank" not in plan_payload
+
+        completed_item = client.post(
+            f"/v1/children/{child.id}/study/plans/{plan_payload['id']}/items/0/status",
+            json={"status": "done"},
+        )
+        assert completed_item.status_code == 200
+        assert completed_item.json()["items"][0]["status"] == "done"
+
+        listed_plans = client.get(f"/v1/children/{child.id}/study/plans")
+        assert listed_plans.status_code == 200
+        assert listed_plans.json()[0]["items"][0]["status"] == "done"
 
         persisted = store.index.list_entities(
             entity_type="self_explanation_log",

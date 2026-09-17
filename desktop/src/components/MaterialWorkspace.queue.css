@@ -35,6 +35,32 @@
   font-size: 11px;
 }
 
+.material-heading-statuses {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+
+.material-ai-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--surface-soft);
+  color: var(--ink-soft);
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.material-ai-status.ai-queued,
+.material-ai-status.ai-running {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
 .material-kind-guide {
   display: grid;
   grid-template-columns: minmax(0, 1.15fr) minmax(0, 0.85fr);

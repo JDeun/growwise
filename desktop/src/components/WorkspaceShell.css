@@ -5,7 +5,15 @@
 
 .workspace-shell-root {
   display: grid;
-  gap: 18px;
+  grid-template-columns: minmax(220px, 252px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+  width: min(1480px, calc(100% - 32px));
+  margin: 0 auto;
+}
+
+.workspace-shell {
+  min-height: 100vh;
 }
 
 .workspace-frame {
@@ -93,6 +101,28 @@
 
 .workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
   display: none;
+}
+
+@media (max-width: 1050px) {
+  .workspace-shell-root {
+    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
+    gap: 18px;
+  }
+}
+
+@media (max-width: 900px) {
+  .workspace-shell-root {
+    grid-template-columns: minmax(0, 1fr);
+    width: min(100% - 24px, 1180px);
+  }
+
+  .workspace-shell {
+    min-height: 0;
+  }
+
+  .workspace-shell > .app-shell {
+    width: 100%;
+  }
 }
 
 @media (max-width: 700px) {

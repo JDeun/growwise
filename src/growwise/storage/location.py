@@ -44,28 +44,53 @@ def _nearest_existing_ancestor(path: Path) -> Path:
     ancestor = path
     while not ancestor.exists():
         parent = ancestor.parent
-        if parent == ancestor:  # reached filesystem root
+        if parent == ancestor:
             return ancestor
         ancestor = parent
     return ancestor
 
 
+def _validate_relocation_paths(
+    *,
+    source_root: Path,
+    source_index: Path,
+    dest_root: Path,
+    dest_index: Path,
+) -> None:
+    if dest_root == source_root or _is_nested(dest_root, source_root):
+        raise StorageLocationError(
+            "destination and source root must not be the same or nested within each other"
+        )
+    if source_index == dest_index:
+        raise StorageLocationError("source and destination index paths must be different")
+
+    # A destination index under the source tree would be deleted during source cleanup. Conversely,
+    # a source index inside the destination tree can be copied as opaque data and later unlinked.
+    if dest_index.is_relative_to(source_root):
+        raise StorageLocationError("destination index must not be inside the source record tree")
+    if source_index.is_relative_to(dest_root):
+        raise StorageLocationError("source index must not be inside the destination record tree")
+
+    # Record roots contain authoritative Markdown only. Keeping disposable SQLite projections out of
+    # both trees makes copy verification and cleanup semantics deterministic.
+    if source_index.is_relative_to(source_root):
+        raise StorageLocationError("source index must not be inside the source record tree")
+    if dest_index.is_relative_to(dest_root):
+        raise StorageLocationError(
+            "destination index must not be inside the destination record tree"
+        )
+
+
 class StorageLocation:
     """Helpers to validate a data directory and safely relocate records + index.
 
-    Markdown is the source of truth; the SQLite index is a disposable projection.
-    Relocation copies the Markdown first, verifies it, rebuilds the index at the
-    destination, and only then removes the source. Any failure leaves the source
-    intact so records can never be lost by a partial move.
+    Markdown is the source of truth; the SQLite index is a disposable projection. Relocation
+    copies the Markdown first, verifies it, rebuilds the index at the destination, and only then
+    removes the source. Any failure before commit leaves the source intact.
     """
 
     @staticmethod
     def validate(path: Path | str) -> Path:
-        """Normalize ``path`` to an absolute, writable directory (or a creatable one).
-
-        Returns the resolved absolute path. Raises :class:`StorageLocationError`
-        when the target is a file or cannot be written to / created.
-        """
         resolved = Path(path).expanduser().resolve()
         if resolved.exists():
             if not resolved.is_dir():
@@ -90,28 +115,20 @@ class StorageLocation:
         dest_index: Path | str,
         overwrite: bool = False,
     ) -> RelocationReport:
-        """Relocate Markdown records + index from source to destination, safely.
-
-        The move is copy-then-verify-then-swap: the source is only removed after
-        the copy is byte-verified and the index has been rebuilt at the
-        destination. On any failure the source stays intact and freshly copied
-        destination files are rolled back. Refuses a destination that already
-        holds records unless ``overwrite=True``.
-        """
         source_root_path = Path(source_root).expanduser().resolve()
         source_index_path = Path(source_index).expanduser().resolve()
         dest_root_path = StorageLocation.validate(dest_root)
         dest_index_path = Path(dest_index).expanduser().resolve()
 
-        if dest_root_path == source_root_path or _is_nested(dest_root_path, source_root_path):
-            # Nested paths are fatal: relocating a dir into its own subtree (or vice-versa)
-            # would let the source removal delete the only surviving copy.
-            raise StorageLocationError(
-                "destination and source root must not be the same or nested within each other"
-            )
+        _validate_relocation_paths(
+            source_root=source_root_path,
+            source_index=source_index_path,
+            dest_root=dest_root_path,
+            dest_index=dest_index_path,
+        )
+        StorageLocation.validate(dest_index_path.parent)
 
         source_records = _markdown_records(source_root_path)
-
         existing = _markdown_records(dest_root_path)
         if existing and not overwrite:
             raise StorageLocationError(
@@ -121,7 +138,7 @@ class StorageLocation:
 
         dest_root_path.mkdir(parents=True, exist_ok=True)
         created: list[Path] = []
-        backups: list[tuple[Path, Path]] = []  # (target, backup of pre-existing content)
+        backups: list[tuple[Path, Path]] = []
         try:
             for src in _all_files(source_root_path):
                 rel = src.relative_to(source_root_path)
@@ -129,31 +146,27 @@ class StorageLocation:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 if target.exists():
                     backup = target.with_name(target.name + ".relocate-bak")
-                    shutil.copy2(target, backup)  # so a partial failure can restore it (I2)
+                    shutil.copy2(target, backup)
                     backups.append((target, backup))
                 else:
                     created.append(target)
                 shutil.copy2(src, target)
 
             _verify_copy(source_records, source_root_path, dest_root_path)
-
-            projection = SQLiteProjection(dest_index_path)
-            projection.rebuild(dest_root_path)
+            SQLiteProjection(dest_index_path).rebuild(dest_root_path)
         except Exception:
-            # Destination-only undo — the source has NOT been touched yet, so no records lost.
             for target in reversed(created):
                 target.unlink(missing_ok=True)
             for target, backup in reversed(backups):
-                shutil.copy2(backup, target)  # restore the overwritten original
+                shutil.copy2(backup, target)
                 backup.unlink(missing_ok=True)
             raise
 
-        for _target, backup in backups:  # commit: discard the overwrite backups
+        for _target, backup in backups:
             backup.unlink(missing_ok=True)
 
-        # Source removal happens ONLY after the destination is proven durable, and its own
-        # failure must never trigger the destination rollback above (C1): a leftover source
-        # duplicates records but loses none.
+        # Cleanup failure can leave a duplicate source, but must never roll back a verified
+        # destination and thereby turn a safe duplicate into data loss.
         try:
             if source_root_path.exists():
                 shutil.rmtree(source_root_path)

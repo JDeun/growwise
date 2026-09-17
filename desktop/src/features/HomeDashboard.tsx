@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { useActiveChild } from "../active-child-context";
 import {
   getGrowthMap,
   listActivities,
-  listChildren,
   listMaterials,
   listObservations,
   listResources,
@@ -16,8 +16,6 @@ import {
 } from "../api";
 import type { WorkspaceView } from "../components/workspaceTypes";
 import "./HomeDashboard.css";
-
-const LAST_CHILD_KEY = "growwise:last-child-id";
 
 type DashboardData = {
   child: ChildProfile;
@@ -48,23 +46,20 @@ function newestFirst(left: LearningLog, right: LearningLog): number {
 }
 
 export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
+  const { activeChild, syncRememberedChild } = useActiveChild();
   const [state, setState] = useState<DashboardState>({ kind: "idle" });
   const requestId = useRef(0);
 
   const load = useCallback(async () => {
     const currentRequest = ++requestId.current;
+    if (!activeChild) {
+      setState({ kind: "empty" });
+      return;
+    }
     setState({ kind: "loading" });
 
     try {
-      const children = await listChildren();
-      if (currentRequest !== requestId.current) return;
-      if (children.length === 0) {
-        setState({ kind: "empty" });
-        return;
-      }
-
-      const rememberedId = window.localStorage.getItem(LAST_CHILD_KEY);
-      const child = children.find((item) => item.id === rememberedId) ?? children[0];
+      const child = activeChild;
       const results = await Promise.allSettled([
         getGrowthMap(child.id),
         listObservations(child.id),
@@ -97,13 +92,18 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         message: error instanceof Error ? error.message : "홈 요약을 불러오지 못했습니다.",
       });
     }
-  }, []);
+  }, [activeChild]);
 
   useEffect(() => {
     if (!active) {
       requestId.current += 1;
       return;
     }
+    syncRememberedChild();
+  }, [active, syncRememberedChild]);
+
+  useEffect(() => {
+    if (!active) return;
     void load();
   }, [active, load]);
 
@@ -114,7 +114,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">TODAY</p>
+            <p className="eyebrow">오늘</p>
             <h2 id="home-dashboard-title">오늘의 GrowWise</h2>
           </div>
         </div>
@@ -130,7 +130,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">TODAY</p>
+            <p className="eyebrow">오늘</p>
             <h2 id="home-dashboard-title">오늘의 GrowWise</h2>
           </div>
         </div>
@@ -150,7 +150,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">START HERE</p>
+            <p className="eyebrow">처음 시작</p>
             <h2 id="home-dashboard-title">아이 프로필부터 시작해 주세요.</h2>
             <p>프로필을 만들면 관찰, 활동, 성장 맥락과 학습 자료를 한 화면에서 이어 볼 수 있습니다.</p>
           </div>
@@ -178,7 +178,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
     <section className="home-dashboard" aria-labelledby="home-dashboard-title">
       <div className="home-dashboard-heading">
         <div>
-          <p className="eyebrow">TODAY · {data.child.nickname}</p>
+          <p className="eyebrow">오늘 · {data.child.nickname}</p>
           <h2 id="home-dashboard-title">다음에 할 일을 바로 이어가세요.</h2>
           <p>최근 기록을 기준으로 자주 쓰는 작업만 앞에 둡니다.</p>
         </div>
@@ -197,7 +197,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         <article><span>최근 관찰</span><strong>{recentCount}</strong><small>최근 {data.growthMap?.period_days ?? 30}일</small></article>
         <article><span>진행 중 활동</span><strong>{activeActivities.length}</strong><small>이어갈 수 있는 활동</small></article>
         <article><span>검토할 자료</span><strong>{pendingMaterials.length}</strong><small>초안·검토·수정 요청</small></article>
-        <article><span>라이브러리</span><strong>{data.resources.length}</strong><small>연결된 자료</small></article>
+        <article><span>참고 자료</span><strong>{data.resources.length}</strong><small>저장된 자료</small></article>
       </div>
 
       <div className="home-dashboard-grid">
@@ -218,12 +218,12 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
               <small>선택한 활동만 저장하고 상태를 이어갑니다.</small>
             </button>
             <button type="button" onClick={() => onNavigate("materials")}>
-              <span>자료</span>
+              <span>학습 자료</span>
               <strong>{pendingMaterials.length > 0 ? `검토할 자료 ${pendingMaterials.length}건 확인` : "새 학습 자료 만들기"}</strong>
-              <small>생성 결과는 Parent Review를 거쳐 확정합니다.</small>
+              <small>만든 자료는 부모가 내용을 확인한 뒤 사용합니다.</small>
             </button>
             <button type="button" onClick={() => onNavigate("library")}>
-              <span>라이브러리</span>
+              <span>참고 자료</span>
               <strong>{data.resources.length > 0 ? `자료 ${data.resources.length}건 찾아보기` : "첫 참고 자료 저장하기"}</strong>
               <small>책, 메모, 교육과정, 웹 자료를 연결합니다.</small>
             </button>

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from enum import StrEnum
 
 from pydantic import BaseModel, Field
@@ -9,6 +10,52 @@ from growwise.model import ModelProvider
 
 CURRICULUM_SOURCE = "교육부고시 제2024-23호 2024 개정 표준보육과정(0~2세)"
 CURRICULUM_EFFECTIVE_DATE = "2025-03-01"
+
+# Automatic public book lookup must never forward arbitrary parent-entered interest text. Only
+# these generic education topics may leave the device. Unknown/free-form text falls back to a
+# generic infant-picture-book query.
+_BOOK_DISCOVERY_TOPICS: tuple[str, ...] = (
+    "동물",
+    "고양이",
+    "강아지",
+    "공룡",
+    "자동차",
+    "기차",
+    "탈것",
+    "우주",
+    "별",
+    "달",
+    "자연",
+    "나무",
+    "꽃",
+    "바다",
+    "물고기",
+    "곤충",
+    "음악",
+    "노래",
+    "색깔",
+    "숫자",
+    "모양",
+    "음식",
+    "과일",
+    "가족",
+    "친구",
+    "감정",
+    "몸",
+    "목욕",
+    "잠",
+    "animals",
+    "cats",
+    "dogs",
+    "dinosaurs",
+    "vehicles",
+    "space",
+    "nature",
+    "music",
+    "colors",
+    "numbers",
+    "shapes",
+)
 
 
 class InfantCurriculumDomain(StrEnum):
@@ -46,10 +93,13 @@ class InfantObservationHints(BaseModel):
 
 class BoardBookRecommendation(BaseModel):
     resource_id: str | None = None
+    discovery_candidate_id: str | None = Field(default=None, max_length=120)
     title: str
     reason: str
     read_aloud_tip: str
     source: str = "local_library_or_offline_fallback"
+    source_name: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=2_048)
 
 
 class BoardBookRecommendations(BaseModel):
@@ -103,7 +153,9 @@ Return concise Korean when the input is Korean."""
         candidates = [
             ActivitySuggestion(
                 title="천천히 함께 살펴보기",
-                description=f"{topic}와 관련된 안전한 사물이나 그림을 가까이에서 함께 살펴봅니다.",
+                description=(
+                    f"{topic}와 관련된 안전한 사물이나 그림을 가까이에서 함께 살펴봅니다."
+                ),
                 observation_cue="무엇을 오래 바라보거나 손을 뻗는지 가볍게 관찰합니다.",
                 tags=["관찰", "상호작용"],
             ),
@@ -124,12 +176,7 @@ Return concise Korean when the input is Korean."""
 
 
 class InfantObservationHintService:
-    """Parent-facing observation prompts aligned to the five official 0-2 curriculum domains.
-
-    These prompts intentionally do not reproduce milestone tables or turn curriculum content into
-    a diagnostic checklist. They help a parent notice the child's self-directed interests and
-    interactions in ordinary life.
-    """
+    """Parent-facing prompts aligned to the five official 0-2 curriculum domains."""
 
     SYSTEM = f"""Create non-diagnostic parent observation hints for an infant aged 0-2.
 Use only these curriculum-domain labels from {CURRICULUM_SOURCE}:
@@ -166,10 +213,20 @@ Return concise Korean when the input is Korean."""
             )
             allowed = set(InfantCurriculumDomain)
             forbidden = (
-                "adhd", "autism", "diagnos", "자폐", "발달장애", "진단",
-                "비정상", "또래보다", "또래 평균", "상위 ", "하위 ", "퍼센타일",
+                "adhd",
+                "autism",
+                "diagnos",
+                "자폐",
+                "발달장애",
+                "진단",
+                "비정상",
+                "또래보다",
+                "또래 평균",
+                "상위 ",
+                "하위 ",
+                "퍼센타일",
             )
-            by_domain = {}
+            by_domain: dict[InfantCurriculumDomain, ObservationHint] = {}
             for hint in result.hints:
                 text_value = f"{hint.cue} {hint.rationale}".casefold()
                 if hint.domain in allowed and not any(
@@ -247,7 +304,7 @@ Return concise Korean when the input is Korean."""
 
 
 class BoardBookRecommendationService:
-    """Recommend local book resources first, with an offline category fallback."""
+    """Prefer saved books, then privacy-bounded public candidates, then offline ideas."""
 
     def recommend(
         self,
@@ -255,6 +312,7 @@ class BoardBookRecommendationService:
         resources: list[ResourceRecord],
         interests: list[str],
         limit: int = 3,
+        discovery_candidates: list[BoardBookRecommendation] | None = None,
     ) -> BoardBookRecommendations:
         books = [resource for resource in resources if resource.kind is ResourceKind.BOOK]
         scored = sorted(
@@ -271,30 +329,144 @@ class BoardBookRecommendationService:
                     "끝까지 읽기보다 아이가 오래 보는 그림에서 멈추고 짧게 말해 주세요."
                 ),
                 source="local_library",
+                source_name=resource.source_name,
+                source_url=resource.source_url,
             )
             for resource in scored[:limit]
         ]
-        if recommendations:
-            return BoardBookRecommendations(recommendations=recommendations)
-        return BoardBookRecommendations(recommendations=self._fallback(interests=interests)[:limit])
+        seen_titles = {item.title.casefold() for item in recommendations}
+
+        candidates = discovery_candidates
+        if candidates is None and len(recommendations) < limit:
+            candidates = self._public_discovery_candidates(
+                interests=interests,
+                limit=limit - len(recommendations),
+            )
+        for candidate in candidates or []:
+            if len(recommendations) >= limit:
+                break
+            title_key = candidate.title.casefold()
+            if title_key in seen_titles:
+                continue
+            recommendations.append(
+                candidate.model_copy(
+                    update={"resource_id": None, "source": "public_discovery"}
+                )
+            )
+            seen_titles.add(title_key)
+
+        for fallback in self._fallback(interests=interests):
+            if len(recommendations) >= limit:
+                break
+            title_key = fallback.title.casefold()
+            if title_key in seen_titles:
+                continue
+            recommendations.append(fallback)
+            seen_titles.add(title_key)
+
+        return BoardBookRecommendations(recommendations=recommendations[:limit])
+
+    @staticmethod
+    def _generalized_book_query(interests: list[str]) -> str:
+        searchable = " ".join(interests).casefold()
+        topics: list[str] = []
+        for topic in _BOOK_DISCOVERY_TOPICS:
+            if topic.casefold() not in searchable or topic in topics:
+                continue
+            topics.append(topic)
+            if len(topics) >= 2:
+                break
+        if not topics:
+            return "영아 그림책"
+        return " ".join([*topics, "그림책"])
+
+    @classmethod
+    def _public_discovery_candidates(
+        cls,
+        *,
+        interests: list[str],
+        limit: int,
+    ) -> list[BoardBookRecommendation]:
+        """Look up books with allow-listed generic topics only; never raw interest text."""
+        from growwise.adapters import (
+            Data4LibraryAdapter,
+            ExternalAdapterError,
+            SQLiteExternalCache,
+        )
+        from growwise.config import Settings
+
+        settings = Settings()
+        api_key = (settings.data4library_api_key or "").strip()
+        if not api_key or limit <= 0:
+            return []
+
+        query = cls._generalized_book_query(interests)
+        adapter = Data4LibraryAdapter(
+            auth_key=api_key,
+            cache=SQLiteExternalCache(settings.external_cache_path),
+            endpoint=settings.data4library_endpoint,
+            ttl_seconds=settings.data4library_cache_ttl_seconds,
+        )
+        try:
+            result = adapter.search_books(
+                keyword=query,
+                page_size=min(8, max(3, limit * 2)),
+                offline=False,
+            )
+        except ExternalAdapterError:
+            return []
+
+        recommendations: list[BoardBookRecommendation] = []
+        for record in result.records:
+            title = str(record.get("title") or "").strip()
+            if not title:
+                continue
+            isbn = str(record.get("isbn13") or "").strip()
+            source_key = isbn or title
+            digest = hashlib.sha256(
+                f"{result.source}\x1f{source_key}".encode()
+            ).hexdigest()[:24]
+            source_url = str(record.get("book_detail_url") or "").strip() or None
+            recommendations.append(
+                BoardBookRecommendation(
+                    discovery_candidate_id=f"{result.source}:{digest}",
+                    title=title,
+                    reason=(
+                        f"'{query}'와 연결된 공개 도서 후보입니다. 보드북 판형과 영아용 내용 "
+                        "적합성은 상세 정보를 확인해 주세요."
+                    ),
+                    read_aloud_tip=(
+                        "상세 정보를 확인한 뒤 아이가 오래 보는 그림에서 멈추고 짧게 "
+                        "말해 주세요."
+                    ),
+                    source="public_discovery",
+                    source_name=result.source,
+                    source_url=source_url,
+                )
+            )
+            if len(recommendations) >= limit:
+                break
+        return recommendations
 
     @staticmethod
     def _score(*, resource: ResourceRecord, interests: list[str]) -> tuple[int, int, int]:
         searchable = " ".join(
             [resource.title, resource.summary or "", *resource.tags]
         ).casefold()
-        interest_hits = sum(1 for interest in interests if interest.casefold() in searchable)
+        interest_hits = sum(
+            1 for interest in interests if interest.casefold() in searchable
+        )
         infant_stage = int(Stage.INFANT_0_2 in resource.stage_tags)
         metadata_depth = len(resource.tags) + int(bool(resource.summary))
         return interest_hits, infant_stage, metadata_depth
 
     @staticmethod
     def _reason(*, resource: ResourceRecord, interests: list[str]) -> str:
+        searchable = " ".join(
+            [resource.title, resource.summary or "", *resource.tags]
+        ).casefold()
         matched = [
-            interest
-            for interest in interests
-            if interest.casefold()
-            in " ".join([resource.title, resource.summary or "", *resource.tags]).casefold()
+            interest for interest in interests if interest.casefold() in searchable
         ]
         if matched:
             return f"현재 관심사({', '.join(matched[:2])})와 연결되는 로컬 책 기록입니다."
@@ -309,7 +481,9 @@ class BoardBookRecommendationService:
             BoardBookRecommendation(
                 title=f"{topic} 그림이 크게 보이는 보드북",
                 reason="현재 관심사와 연결된 단순하고 선명한 그림을 함께 보기 좋습니다.",
-                read_aloud_tip="그림을 가리키며 한두 단어로 말하고 아이의 반응을 기다려 주세요.",
+                read_aloud_tip=(
+                    "그림을 가리키며 한두 단어로 말하고 아이의 반응을 기다려 주세요."
+                ),
             ),
             BoardBookRecommendation(
                 title="반복되는 말과 리듬이 있는 짧은 그림책",

@@ -9,7 +9,7 @@ describe("MaterialWorkspace product philosophy", () => {
     const html = renderToStaticMarkup(
       <MaterialWorkspace materials={[]} resources={[]} materialKind="activity_guide" topic="" goal="" selectedResourceRefs={[]} busy={false} error={null} revisionNotes={{}} editingMaterialId={null} onKindChange={noop} onTopicChange={noop} onGoalChange={noop} onToggleResource={noop} onGenerate={noop} onReview={noop} onRevisionNoteChange={noop} onRevise={noop} onEditStart={noop} onEdit={noop} onPrint={noop} />,
     );
-    expect(html).toContain("부모가 검토한 뒤 사용합니다");
+    expect(html).toContain("부모가 확인한 뒤 사용합니다");
     expect(html).toContain("승인 전 자료는 인쇄하거나 PDF로 내보낼 수 없습니다");
   });
 });

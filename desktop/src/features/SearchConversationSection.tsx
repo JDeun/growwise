@@ -56,16 +56,30 @@ function activeConversationChildId(conversation: ConversationSession | null): st
   return window.localStorage.getItem(LAST_CHILD_KEY);
 }
 
+function evidenceLabel(sourceId: string, index: number): string {
+  if (sourceId.startsWith("record:") || sourceId.startsWith("learning-log")) {
+    return `기록 ${index + 1}`;
+  }
+  if (sourceId.startsWith("resource:")) return `참고 자료 ${index + 1}`;
+  if (sourceId.startsWith("chunk:")) return `자료 근거 ${index + 1}`;
+  return `근거 ${index + 1}`;
+}
+
 function EvidenceChips({ sourceIds }: { sourceIds: string[] }) {
   return (
     <div className="conversation-evidence">
-      <strong>원본 근거</strong>
+      <strong>연결된 원본 근거</strong>
       {sourceIds.length > 0 ? (
-        <div className="conversation-source-chips" aria-label="답변 원본 근거 ID">
-          {sourceIds.map((sourceId) => <span key={sourceId}>{sourceId}</span>)}
-        </div>
+        <>
+          <div className="conversation-source-chips" aria-label={`원본 근거 ${sourceIds.length}건`}>
+            {sourceIds.map((sourceId, index) => (
+              <span key={sourceId} title={sourceId}>{evidenceLabel(sourceId, index)}</span>
+            ))}
+          </div>
+          <small className="muted">답변을 만들 때 다시 확인한 저장 기록과 참고 자료입니다.</small>
+        </>
       ) : (
-        <span className="muted">연결된 원본 근거 ID가 없습니다.</span>
+        <span className="muted">연결된 원본 근거가 없습니다.</span>
       )}
     </div>
   );
@@ -136,9 +150,9 @@ export function SearchConversationSection({
   return (
     <>
       <section className="search-section">
-        <p className="card-label">NATURAL-LANGUAGE SEARCH</p>
-        <h3>기록을 자연어로 찾습니다.</h3>
-        <p className="muted">AI가 없어도 child-scoped lexical 검색이 작동합니다.</p>
+        <p className="card-label">기록 검색</p>
+        <h3>기억나는 말로 기록을 찾아보세요.</h3>
+        <p className="muted">AI 보조 기능이 없어도 저장한 기록과 참고 자료에서 검색할 수 있습니다.</p>
         <form className="search-form" onSubmit={onSearch}>
           <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘" />
           <button className="primary-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button>
@@ -146,7 +160,7 @@ export function SearchConversationSection({
         {searchError && <p className="form-error" role="alert">{searchError}</p>}
         {searchResult && (
           <div className="search-results">
-            <p className="muted">검색 키워드: {searchResult.plan.keywords.join(", ") || "원문 사용"} · 결과 {searchResult.results.length}건</p>
+            <p className="muted">검색어: {searchResult.plan.keywords.join(", ") || searchQuery} · 결과 {searchResult.results.length}건</p>
             {searchResult.results.length === 0 ? (
               <ViewStateNotice kind="empty" title="일치하는 기록이 없습니다." description="검색어를 조금 넓히거나 다른 표현으로 다시 찾아보세요." />
             ) : (
@@ -161,26 +175,26 @@ export function SearchConversationSection({
       </section>
 
       <section className="conversation-section">
-        <p className="card-label">BOUNDED MULTI-TURN</p>
-        <h3>후속 질문으로 맥락을 좁힙니다.</h3>
-        <p className="muted">대화는 지시어 해석에만 쓰고, 사실 근거는 매 턴 원본 기록과 Resource KB에서 다시 찾습니다.</p>
+        <p className="card-label">후속 질문</p>
+        <h3>찾은 맥락을 질문으로 더 좁혀보세요.</h3>
+        <p className="muted">이전 답변만 믿지 않고, 질문할 때마다 저장한 원본 기록과 참고 자료를 다시 확인합니다.</p>
         <form className="search-form" onSubmit={onConversation}>
           <input value={conversationQuestion} onChange={(event) => onConversationQuestionChange(event.target.value)} placeholder="예: 그중 고양이 관련 기록만 보여줘" />
           <button className="primary-button" type="submit" disabled={conversationBusy}>
-            {conversationBusy ? "확인 중…" : conversation ? "후속 질문" : "세션 시작"}
+            {conversationBusy ? "확인 중…" : conversation ? "후속 질문" : "첫 질문"}
           </button>
         </form>
         {conversationError && <p className="form-error" role="alert">{conversationError}</p>}
-        {conversation && <p className="muted session-meta">현재 세션 {conversation.id.slice(0, 8)}… · child scope 고정</p>}
+        {conversation && <p className="muted session-meta">현재 대화를 이어서 질문할 수 있습니다.</p>}
 
         {conversationAnswers.length > 0 && (
-          <div className="conversation-live" aria-label="현재 세션 답변">
+          <div className="conversation-live" aria-label="현재 대화 답변">
             {conversationAnswers.map((item, index) => (
               <article className="conversation-card" key={`${item.session_id}-${index}`}>
                 <p>{item.answer.answer}</p>
                 <EvidenceChips sourceIds={item.answer.source_ids} />
                 {item.answer.insufficient_evidence && (
-                  <small className="conversation-insufficient">이 답변은 충분한 원본 근거를 찾지 못했습니다.</small>
+                  <small className="conversation-insufficient">충분한 원본 근거를 찾지 못한 답변입니다. 기록을 직접 확인해 주세요.</small>
                 )}
               </article>
             ))}
@@ -189,28 +203,28 @@ export function SearchConversationSection({
 
         <div className="conversation-history-heading">
           <div>
-            <p className="card-label">SESSION HISTORY</p>
-            <h4>이 아이의 이전 대화</h4>
+            <p className="card-label">이전 대화</p>
+            <h4>이 아이와 나눈 질문</h4>
           </div>
-          <span className="muted">{conversationHistory.length}개 세션</span>
+          <span className="muted">{conversationHistory.length}개</span>
         </div>
         <p className="conversation-evidence-policy muted">
-          대화 문장은 사실 근거로 재사용하지 않습니다. 각 assistant 답변 아래의 원본 근거 ID는 그 턴에서 다시 조회한 기록·Resource KB를 가리킵니다.
+          이전 답변 자체는 새 답변의 근거로 사용하지 않습니다. 각 답변에 표시된 원본 근거를 다시 확인합니다.
         </p>
 
         {historyLoading && (
-          <ViewStateNotice kind="loading" title="대화 기록을 불러오는 중입니다." description="현재 아이 범위의 저장된 세션을 확인합니다." />
+          <ViewStateNotice kind="loading" title="대화 기록을 불러오는 중입니다." description="현재 아이의 저장된 대화를 확인합니다." />
         )}
         {historyError && (
           <ViewStateNotice kind="error" title="대화 기록을 불러오지 못했습니다." description={historyError} />
         )}
         {!historyLoading && !historyError && conversationHistory.length === 0 && (
-          <ViewStateNotice kind="empty" title="저장된 대화가 아직 없습니다." description="첫 질문을 보내면 child scope가 고정된 세션이 여기에 저장됩니다." />
+          <ViewStateNotice kind="empty" title="저장된 대화가 아직 없습니다." description="첫 질문을 보내면 이 아이의 대화가 여기에 저장됩니다." />
         )}
 
         {conversationHistory.length > 0 && (
           <div className="conversation-history-layout">
-            <div className="conversation-session-list" role="list" aria-label="저장된 대화 세션">
+            <div className="conversation-session-list" role="list" aria-label="저장된 대화">
               {conversationHistory.map((session) => {
                 const time = conversationSessionTime(session);
                 const isCurrent = conversation?.id === session.id;
@@ -223,7 +237,7 @@ export function SearchConversationSection({
                   >
                     <span>
                       <strong>{conversationSessionLabel(session)}</strong>
-                      {isCurrent && <em>현재 세션</em>}
+                      {isCurrent && <em>현재 대화</em>}
                     </span>
                     <small>{Math.ceil(session.turns.length / 2)}개 질문{time ? ` · ${time}` : ""}</small>
                   </button>
@@ -235,13 +249,12 @@ export function SearchConversationSection({
               <div className="conversation-transcript" aria-label="선택한 대화 내용">
                 <div className="conversation-transcript-heading">
                   <div>
-                    <p className="card-label">SESSION DETAIL</p>
+                    <p className="card-label">대화 내용</p>
                     <h4>{conversationSessionLabel(selectedHistory)}</h4>
                   </div>
-                  <span className="muted">{selectedHistory.id.slice(0, 8)}…</span>
                 </div>
                 {selectedHistory.turns.length === 0 ? (
-                  <p className="muted">아직 질문이 없는 세션입니다.</p>
+                  <p className="muted">아직 질문이 없는 대화입니다.</p>
                 ) : (
                   selectedHistory.turns.map((turn, index) => (
                     <article className={`conversation-turn is-${turn.role}`} key={`${turn.created_at}-${index}`}>

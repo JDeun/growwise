@@ -1,0 +1,156 @@
+.material-presentation-template {
+  display: none;
+}
+
+@media print {
+  .approved-card:has(.material-presentation-template) {
+    break-inside: auto !important;
+  }
+
+  .material-parent-guide {
+    display: none !important;
+  }
+
+  .material-presentation-template {
+    display: block;
+    box-sizing: border-box;
+    min-height: 245mm;
+    padding: 8mm;
+    border: 1px solid #b8b8b8;
+    background: #fff;
+    break-before: page;
+  }
+
+  .material-presentation-template > header {
+    padding-bottom: 5mm;
+    border-bottom: 2px solid #222;
+  }
+
+  .material-presentation-template > header h3 {
+    margin: 1mm 0 2mm;
+    font-size: 22pt;
+    line-height: 1.15;
+  }
+
+  .material-presentation-template > header p:last-child {
+    margin: 0;
+    color: #444;
+    font-size: 9.5pt;
+    line-height: 1.5;
+  }
+
+  .material-presentation-kicker {
+    margin: 0;
+    font-size: 7.5pt;
+    font-weight: 800;
+    letter-spacing: 0.12em;
+  }
+
+  .material-presentation-guide {
+    margin: 5mm 0;
+    padding: 4mm;
+    border: 1px solid #d0d0d0;
+    background: #fafafa;
+    break-inside: avoid;
+  }
+
+  .material-presentation-guide > strong {
+    display: block;
+    margin-bottom: 2mm;
+    font-size: 9pt;
+  }
+
+  .material-presentation-guide .material-content {
+    font-size: 8.5pt;
+    line-height: 1.45;
+  }
+
+  .material-presentation-zones {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 4mm;
+    margin-top: 5mm;
+  }
+
+  .material-presentation-zone {
+    min-height: 42mm;
+    padding: 4mm;
+    border: 1px solid #aaa;
+    break-inside: avoid;
+  }
+
+  .material-presentation-zone-heading {
+    display: flex;
+    align-items: center;
+    gap: 2.5mm;
+    margin-bottom: 3mm;
+  }
+
+  .material-presentation-zone-heading > span {
+    display: inline-grid;
+    width: 7mm;
+    height: 7mm;
+    place-items: center;
+    border: 1px solid #333;
+    border-radius: 50%;
+    font-size: 8pt;
+    font-weight: 800;
+  }
+
+  .material-presentation-zone-heading strong {
+    font-size: 10pt;
+  }
+
+  .material-presentation-writing-space {
+    display: grid;
+    gap: 7mm;
+    padding-top: 3mm;
+  }
+
+  .material-presentation-writing-space span {
+    display: block;
+    border-bottom: 1px solid #d5d5d5;
+  }
+
+  .material-presentation-template > footer {
+    display: flex;
+    justify-content: space-between;
+    gap: 8mm;
+    margin-top: 5mm;
+    padding-top: 4mm;
+    border-top: 1px solid #bbb;
+    font-size: 8.5pt;
+  }
+
+  .material-presentation-template[data-presentation-layout="activity"] .material-presentation-zone:nth-child(2),
+  .material-presentation-template[data-presentation-layout="reading"] .material-presentation-zone:nth-child(2),
+  .material-presentation-template[data-presentation-layout="writing"] .material-presentation-zone:nth-child(2) {
+    min-height: 58mm;
+  }
+
+  .material-presentation-template[data-presentation-layout="language"] .material-presentation-zones,
+  .material-presentation-template[data-presentation-layout="field-trip"] .material-presentation-zones {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .material-presentation-template[data-presentation-layout="language"] .material-presentation-zone,
+  .material-presentation-template[data-presentation-layout="field-trip"] .material-presentation-zone {
+    min-height: 105mm;
+  }
+
+  .material-presentation-template[data-presentation-layout="math"] .material-presentation-zones {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .material-presentation-template[data-presentation-layout="math"] .material-presentation-zone:nth-child(3) {
+    grid-column: 1 / -1;
+  }
+
+  .material-presentation-template[data-presentation-layout="science"] .material-presentation-zone:nth-child(1) {
+    border-style: dashed;
+  }
+
+  .material-presentation-template[data-presentation-layout="science"] .material-presentation-zone:nth-child(3) {
+    border-width: 2px;
+  }
+}

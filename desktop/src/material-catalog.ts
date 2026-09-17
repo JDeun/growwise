@@ -76,16 +76,71 @@ export const MATERIAL_CATALOG: readonly MaterialCatalogItem[] = [
   },
 ] as const;
 
-const INFANT_KINDS = new Set<MaterialKind>([
-  "activity_guide",
-  "reading_activity",
-  "english_card",
-]);
-const PRESCHOOL_KINDS = new Set<MaterialKind>(MATERIAL_CATALOG.map((item) => item.kind));
+const INFANT_OVERRIDES: Partial<Record<MaterialKind, Partial<MaterialCatalogItem>>> = {
+  activity_guide: {
+    description: "부모와 함께하는 짧은 감각 놀이와 반응 관찰을 준비합니다.",
+    placeholder: "예: 부드러운 천 만져보기",
+    goalPlaceholder: "예: 결과를 요구하지 않고 아이가 오래 머무는 감각과 움직임 관찰하기",
+    flow: ["안전한 준비", "함께 놀이", "아이 반응 따라가기", "부모 메모"],
+    reviewPoints: ["수행을 요구하지 않는가", "안전하고 짧은 상호작용인가"],
+  },
+  reading_activity: {
+    label: "보드북 함께 보기",
+    description: "큰 그림과 소리를 함께 보며 아이의 시선·몸짓·소리 반응을 따라갑니다.",
+    placeholder: "예: 고양이가 나오는 보드북",
+    goalPlaceholder: "예: 끝까지 읽기보다 아이가 오래 보는 그림에서 멈추고 주고받기",
+    flow: ["책 준비", "함께 보기", "소리·몸짓 주고받기", "부모 메모"],
+    reviewPoints: ["대답을 요구하지 않는가", "아이가 고른 페이지와 반응을 따라가는가"],
+  },
+  english_card: {
+    label: "영어 소리 놀이",
+    description: "아주 짧은 영어 소리와 몸짓을 부모가 모델링하며 주고받습니다.",
+    placeholder: "예: hello 인사 놀이",
+    goalPlaceholder: "예: 발음을 가르치기보다 표정·소리·몸짓으로 즐겁게 주고받기",
+    flow: ["짧은 표현 고르기", "부모 모델링", "반응 기다리기", "부모 메모"],
+    reviewPoints: ["정확한 발음을 요구하지 않는가", "옹알이·몸짓도 반응으로 받아들이는가"],
+  },
+  math_activity: {
+    label: "수·크기 감각 놀이",
+    description: "세기·모으기·크기 차이를 실물 놀이로 경험하고 부모가 반응을 관찰합니다.",
+    placeholder: "예: 블록 하나씩 건네기",
+    goalPlaceholder: "예: 수를 맞히게 하지 않고 물건을 모으고 나누는 방식 관찰하기",
+    flow: ["안전한 실물 준비", "함께 세기·비교", "자유롭게 옮기기", "부모 메모"],
+    reviewPoints: ["수를 맞히게 하지 않는가", "손으로 자유롭게 탐색할 수 있는가"],
+  },
+  science_inquiry: {
+    label: "감각 탐색",
+    description: "안전한 사물의 소리·감촉·움직임을 함께 살피며 호기심을 따라갑니다.",
+    placeholder: "예: 물이 흔들리는 모습 보기",
+    goalPlaceholder: "예: 설명을 가르치기보다 아이가 반복해서 만지고 바라보는 변화 관찰하기",
+    flow: ["안전한 대상 준비", "감각으로 살피기", "반응 따라가기", "부모 메모"],
+    reviewPoints: ["안전하게 직접 탐색 가능한가", "결론이나 정답을 요구하지 않는가"],
+  },
+  writing_prompt: {
+    label: "끼적이기·소리 표현",
+    description: "말 이전의 몸짓·옹알이·끼적이기를 아이의 표현으로 받아 기록합니다.",
+    placeholder: "예: 큰 종이에 크레용 끼적이기",
+    goalPlaceholder: "예: 잘 그리거나 말하게 하지 않고 반복하는 선·색·소리 관찰하기",
+    flow: ["표현 재료 준비", "자유롭게 표현", "부모가 말로 담아주기", "부모 메모"],
+    reviewPoints: ["결과물을 요구하지 않는가", "몸짓·소리·끼적이기를 표현으로 존중하는가"],
+  },
+  field_trip: {
+    label: "짧은 나들이 기록",
+    description: "가까운 장소에서 아이가 바라보고 듣는 것에 머물며 부모가 관찰을 남깁니다.",
+    placeholder: "예: 집 앞 공원 나들이",
+    goalPlaceholder: "예: 일정을 채우기보다 아이가 멈추는 풍경과 소리에 충분히 머물기",
+    flow: ["가까운 장소 고르기", "천천히 함께 보기", "아이 반응 따라가기", "부모 메모"],
+    reviewPoints: ["일정이 아이에게 과하지 않은가", "아이의 휴식과 반응을 우선하는가"],
+  },
+};
 
 export function materialCatalogForStage(stage: Stage): MaterialCatalogItem[] {
-  const allowed = stage === "infant_0_2" ? INFANT_KINDS : PRESCHOOL_KINDS;
-  return MATERIAL_CATALOG.filter((item) => allowed.has(item.kind));
+  if (stage !== "infant_0_2") return [...MATERIAL_CATALOG];
+  return MATERIAL_CATALOG.map((item) => ({
+    ...item,
+    ...INFANT_OVERRIDES[item.kind],
+    kind: item.kind,
+  }));
 }
 
 export function materialCatalogItem(kind: MaterialKind): MaterialCatalogItem {

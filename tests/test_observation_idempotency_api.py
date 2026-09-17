@@ -1,11 +1,12 @@
 from pathlib import Path
+from uuid import UUID
 
 import pytest
 from fastapi import HTTPException
 
 import growwise.api.main as api
 from growwise.domain import ChildProfile, Stage
-from growwise.idempotency import SQLiteIdempotencyStore
+from growwise.idempotency import IdempotencyStatus, SQLiteIdempotencyStore
 from growwise.storage import EntityStore
 
 
@@ -69,7 +70,7 @@ def test_same_key_with_different_payload_is_rejected(
     assert exc_info.value.status_code == 409
 
 
-def test_failed_work_releases_pending_key_for_retry(
+def test_failed_work_expires_pending_lease_and_reuses_reserved_id(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
 ) -> None:
@@ -86,8 +87,17 @@ def test_failed_work_releases_pending_key_for_retry(
 
     with pytest.raises(RuntimeError):
         api.create_observation(request, store, "observation-retry")
-    assert idempotency.get("observation-retry") is None
+
+    released = idempotency.get("observation-retry")
+    assert released is not None
+    assert released.status is IdempotencyStatus.PENDING
+    assert released.lease_expires_at == released.updated_at
+    reserved_id = UUID(released.resource_id)
 
     monkeypatch.setattr(api, "get_observation_graph", lambda: _ObservationGraph())
     recovered = api.create_observation(request, store, "observation-retry")
+    assert recovered.id == reserved_id
     assert recovered.parent_observation == "재시도 가능한 관찰"
+    completed = idempotency.get("observation-retry")
+    assert completed is not None
+    assert completed.status is IdempotencyStatus.COMPLETED

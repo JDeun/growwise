@@ -35,6 +35,7 @@ class MaterialEditService:
             kind=material.kind,
             title=normalized_title,
             content_markdown=normalized_content,
+            parent_guide_markdown=material.parent_guide_markdown,
             status=MaterialStatus.REVIEW_PENDING,
             source_refs=list(material.source_refs),
             curriculum_targets=curriculum_targets,

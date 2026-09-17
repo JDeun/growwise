@@ -1,0 +1,156 @@
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
+
+import { listChildren, type ChildProfile } from "./api";
+
+export const LAST_CHILD_KEY = "growwise:last-child-id";
+
+export function readRememberedChildId(storage: Pick<Storage, "getItem">): string | null {
+  try {
+    return storage.getItem(LAST_CHILD_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function writeRememberedChildId(
+  storage: Pick<Storage, "setItem" | "removeItem">,
+  childId: string,
+): void {
+  try {
+    if (childId) {
+      storage.setItem(LAST_CHILD_KEY, childId);
+    } else {
+      storage.removeItem(LAST_CHILD_KEY);
+    }
+  } catch {
+    // A restricted or unavailable storage backend must not break child switching in memory.
+  }
+}
+
+export function resolveActiveChildId(
+  children: ChildProfile[],
+  preferredId: string | null | undefined,
+  rememberedId: string | null,
+): string {
+  const candidates = [preferredId, rememberedId].filter(
+    (value): value is string => Boolean(value),
+  );
+  for (const candidate of candidates) {
+    if (children.some((child) => child.id === candidate)) return candidate;
+  }
+  return children[0]?.id ?? "";
+}
+
+interface ActiveChildContextValue {
+  children: ChildProfile[];
+  activeChildId: string;
+  activeChild: ChildProfile | null;
+  loading: boolean;
+  error: string | null;
+  selectChild: (childId: string) => void;
+  syncRememberedChild: () => void;
+  refreshChildren: (preferredId?: string | null) => Promise<ChildProfile | null>;
+  upsertChild: (child: ChildProfile, options?: { select?: boolean }) => void;
+}
+
+const ActiveChildContext = createContext<ActiveChildContextValue | null>(null);
+
+export function ActiveChildProvider({ children: content }: { children: ReactNode }) {
+  const [children, setChildren] = useState<ChildProfile[]>([]);
+  const [activeChildId, setActiveChildId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectChild = useCallback((childId: string) => {
+    setActiveChildId(childId);
+    writeRememberedChildId(window.localStorage, childId);
+  }, []);
+
+  const syncRememberedChild = useCallback(() => {
+    const rememberedId = readRememberedChildId(window.localStorage);
+    const selectedId = resolveActiveChildId(children, rememberedId, activeChildId);
+    if (selectedId !== activeChildId) setActiveChildId(selectedId);
+    if (!selectedId && rememberedId) writeRememberedChildId(window.localStorage, "");
+  }, [activeChildId, children]);
+
+  const refreshChildren = useCallback(async (preferredId?: string | null) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const loaded = await listChildren();
+      const rememberedId = readRememberedChildId(window.localStorage);
+      const selectedId = resolveActiveChildId(loaded, preferredId, rememberedId);
+      setChildren(loaded);
+      setActiveChildId(selectedId);
+      writeRememberedChildId(window.localStorage, selectedId);
+      return loaded.find((child) => child.id === selectedId) ?? null;
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "아이 목록을 불러오지 못했습니다.");
+      throw cause;
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const upsertChild = useCallback(
+    (child: ChildProfile, options: { select?: boolean } = {}) => {
+      setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
+      if (options.select) selectChild(child.id);
+    },
+    [selectChild],
+  );
+
+  useEffect(() => {
+    void refreshChildren().catch(() => undefined);
+  }, [refreshChildren]);
+
+  const activeChild = useMemo(
+    () => children.find((child) => child.id === activeChildId) ?? null,
+    [activeChildId, children],
+  );
+
+  const value = useMemo<ActiveChildContextValue>(
+    () => ({
+      children,
+      activeChildId,
+      activeChild,
+      loading,
+      error,
+      selectChild,
+      syncRememberedChild,
+      refreshChildren,
+      upsertChild,
+    }),
+    [
+      activeChild,
+      activeChildId,
+      children,
+      error,
+      loading,
+      refreshChildren,
+      selectChild,
+      syncRememberedChild,
+      upsertChild,
+    ],
+  );
+
+  return <ActiveChildContext.Provider value={value}>{content}</ActiveChildContext.Provider>;
+}
+
+export function useOptionalActiveChild(): ActiveChildContextValue | null {
+  return useContext(ActiveChildContext);
+}
+
+export function useActiveChild(): ActiveChildContextValue {
+  const value = useOptionalActiveChild();
+  if (!value) throw new Error("useActiveChild must be used inside ActiveChildProvider");
+  return value;
+}

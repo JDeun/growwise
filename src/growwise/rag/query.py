@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
+
 from pydantic import BaseModel, Field
 
 from growwise.model import ModelProvider
@@ -56,8 +58,20 @@ Return concise Korean when the question is Korean."""
         self.index = index
         self.provider = provider
 
-    def ask(self, *, query: str, child_id: str | None, limit: int = 8) -> GroundedAnswer:
-        hits = self.index.search(query=query, child_id=child_id, limit=limit)
+    def ask(
+        self,
+        *,
+        query: str,
+        child_id: str | None,
+        limit: int = 8,
+        shared_resource_ids: Iterable[str] | None = None,
+    ) -> GroundedAnswer:
+        hits = self.index.search(
+            query=query,
+            child_id=child_id,
+            limit=limit,
+            shared_resource_ids=shared_resource_ids,
+        )
         if not hits:
             return GroundedAnswer(
                 answer="관련 근거를 찾지 못했습니다.",

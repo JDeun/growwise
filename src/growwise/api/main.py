@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import sqlite3
 from datetime import UTC, datetime
 from functools import lru_cache
@@ -37,6 +38,7 @@ from growwise.generators import (
     MaterialGenerationService,
     MaterialRevisionError,
     MaterialRevisionService,
+    MaterialSourceEvidence,
 )
 from growwise.idempotency import (
     IdempotencyConflict,
@@ -68,12 +70,17 @@ from growwise.services import (
     ObservationEnricher,
     SQLiteConversationStore,
 )
+from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph, build_observation_graph
+
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
 app.include_router(backup_router)
 app.include_router(study_router)
+
+_MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
 
 
 class ChildCreateRequest(BaseModel):
@@ -174,6 +181,7 @@ def get_model_provider() -> ModelProvider | None:
     try:
         return create_model_provider(settings)
     except Exception:
+        logger.exception("model provider unavailable; continuing in deterministic core-only mode")
         return None
 
 
@@ -188,6 +196,7 @@ def get_rag_index() -> HybridRagIndex:
                 base_url=settings.model_base_url,
             )
         except Exception:
+            logger.exception("embedding provider unavailable; RAG will use lexical search")
             embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
@@ -215,11 +224,17 @@ def get_observation_graph():
 @lru_cache
 def get_material_review_graph():
     settings = get_settings()
-    settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
-    connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
-    checkpointer = SqliteSaver(connection)
-    checkpointer.setup()
-    return build_material_review_graph(checkpointer=checkpointer)
+    try:
+        settings.checkpoint_path.parent.mkdir(parents=True, exist_ok=True)
+        connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+        checkpointer = SqliteSaver(connection)
+        checkpointer.setup()
+        return build_material_review_graph(checkpointer=checkpointer)
+    except Exception:
+        logger.exception(
+            "material review checkpoint unavailable; using rebuildable in-memory projection"
+        )
+        return build_material_review_graph(checkpointer=None)
 
 
 def build_child_context_service(store: EntityStore) -> ChildContextService:
@@ -243,10 +258,14 @@ def validate_activity_link(
     payload = store.index.get_entity(str(activity_plan_id), entity_type="activity_plan")
     if payload is None:
         raise HTTPException(status_code=404, detail="activity_not_found")
-    activity = ActivityPlan.model_validate(payload)
-    if activity.child_id != child_id:
+    if not entity_visible_to_child(
+        store.index,
+        entity_id=str(activity_plan_id),
+        child_id=str(child_id),
+        entity_type="activity_plan",
+    ):
         raise HTTPException(status_code=409, detail="activity_child_mismatch")
-    return activity
+    return ActivityPlan.model_validate(payload)
 
 
 @app.get("/health")
@@ -384,7 +403,8 @@ def transition_activity(
     return activity
 
 
-@app.post("/v1/resources", response_model=ResourceRecord)
+# Compatibility helpers for direct service-level tests. HTTP /v1/resources collection routes are
+# owned solely by growwise.api.resource_routes to prevent duplicate FastAPI route registration.
 def create_resource(
     request: ResourceCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
@@ -395,7 +415,6 @@ def create_resource(
     return resource
 
 
-@app.get("/v1/resources")
 def list_resources(
     store: Annotated[EntityStore, Depends(get_store)],
     child_id: UUID | None = None,
@@ -407,15 +426,25 @@ def list_resources(
 
 
 @app.post("/v1/rag/ask")
-def ask_resources(request: RagQuestionRequest) -> dict:
+def ask_resources(
+    request: RagQuestionRequest,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> dict:
+    child_id = str(request.child_id) if request.child_id else None
+    if (
+        child_id is not None
+        and store.index.get_entity(child_id, entity_type="child_profile") is None
+    ):
+        raise HTTPException(status_code=404, detail="child_not_found")
     service = GroundedRagService(
         index=get_rag_index(),
         provider=get_model_provider(),
     )
     return service.ask(
         query=request.question,
-        child_id=str(request.child_id) if request.child_id else None,
+        child_id=child_id,
         limit=request.limit,
+        shared_resource_ids=(shared_source_ids(store.index, child_id) if child_id else None),
     ).model_dump(mode="json")
 
 
@@ -508,6 +537,7 @@ def validate_material_source_refs(
 ) -> list[str]:
     """Resolve material provenance to existing resources within the child's scope."""
     validated: list[str] = []
+    visible_shared_ids = shared_source_ids(store.index, str(child_id))
     for ref in dict.fromkeys(source_refs):
         if not ref.startswith("resource:"):
             raise HTTPException(status_code=422, detail="material_source_ref_invalid")
@@ -519,11 +549,52 @@ def validate_material_source_refs(
         payload = store.index.get_entity(str(resource_id), entity_type="resource")
         if payload is None:
             raise HTTPException(status_code=422, detail="material_source_not_found")
-        resource = ResourceRecord.model_validate(payload)
-        if resource.child_id is not None and resource.child_id != child_id:
+        if not entity_visible_to_child(
+            store.index,
+            entity_id=str(resource_id),
+            child_id=str(child_id),
+            entity_type="resource",
+            shared_ids=visible_shared_ids,
+        ):
             raise HTTPException(status_code=409, detail="material_source_child_mismatch")
+        resource = ResourceRecord.model_validate(payload)
         validated.append(f"resource:{resource.id}")
     return validated
+
+
+def material_source_evidence(
+    *,
+    source_refs: list[str],
+    store: EntityStore,
+) -> list[MaterialSourceEvidence]:
+    """Load bounded excerpts for already validated resource refs.
+
+    Source content remains untrusted. The generator wraps these excerpts as evidence and applies
+    its own total prompt budget, so a large saved resource cannot monopolize the model context.
+    """
+    evidence: list[MaterialSourceEvidence] = []
+    for ref in source_refs:
+        raw_id = ref.removeprefix("resource:")
+        payload = store.index.get_entity(raw_id, entity_type="resource")
+        if payload is None:
+            continue
+        resource = ResourceRecord.model_validate(payload)
+        parts: list[str] = []
+        if resource.summary:
+            parts.append(f"요약: {resource.summary.strip()}")
+        if resource.content:
+            content = resource.content.strip()
+            if content and content != (resource.summary or "").strip():
+                parts.append(f"내용: {content}")
+        excerpt = "\n\n".join(parts)[:_MATERIAL_SOURCE_EXCERPT_CHARS]
+        evidence.append(
+            MaterialSourceEvidence(
+                source_ref=ref,
+                title=resource.title,
+                excerpt=excerpt,
+            )
+        )
+    return evidence
 
 
 @app.post("/v1/children/{child_id}/materials", response_model=GeneratedMaterial)
@@ -541,12 +612,14 @@ def generate_material(
         source_refs=request.source_refs,
         store=store,
     )
+    source_evidence = material_source_evidence(source_refs=source_refs, store=store)
     material = MaterialGenerationService(provider=get_model_provider()).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
         goal=request.goal,
         source_refs=source_refs,
+        source_evidence=source_evidence,
     )
     material.request_topic = request.topic
     material.request_goal = request.goal
@@ -609,8 +682,9 @@ def review_material(
         except HTTPException:
             raise
         except Exception:
-            # Backward compatibility for materials created before review checkpoints existed.
-            pass
+            logger.exception(
+                "material review projection unavailable; applying domain transition directly"
+            )
     try:
         MaterialReviewService().transition(material, request.status, note=request.note)
     except InvalidMaterialTransition as exc:
@@ -641,8 +715,6 @@ def revise_material(
         raise HTTPException(status_code=409, detail="material_child_not_found")
     child = ChildProfile.model_validate(child_payload)
 
-    # Revision history is intentionally linear. Retrying the same parent revision must not
-    # create sibling versions; the already-persisted child version is the idempotent result.
     existing_revisions = store.index.list_entities(
         entity_type="generated_material",
         child_id=str(material.child_id),
@@ -651,10 +723,16 @@ def revise_material(
         if candidate.get("parent_material_id") == str(material.id):
             return GeneratedMaterial.model_validate(candidate)
 
+    source_evidence = material_source_evidence(source_refs=material.source_refs, store=store)
     try:
         revised = MaterialRevisionService(
             MaterialGenerationService(provider=get_model_provider())
-        ).revise(material=material, child=child, note=request.note)
+        ).revise(
+            material=material,
+            child=child,
+            note=request.note,
+            source_evidence=source_evidence,
+        )
     except MaterialRevisionError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
 
@@ -783,7 +861,7 @@ def create_observation(
                     dict.fromkeys([*experience_axes, *enrichment.experience_axes])
                 )
             except Exception:
-                pass
+                logger.exception("observation enrichment failed; deterministic record will persist")
 
         log = LearningLog(
             id=reserved_log_id,
@@ -862,11 +940,7 @@ def list_activity_observations(
     payload = store.index.get_entity(str(activity_id), entity_type="activity_plan")
     if payload is None:
         raise HTTPException(status_code=404, detail="activity_not_found")
-    activity = ActivityPlan.model_validate(payload)
-    logs = store.index.list_entities(
-        entity_type="learning_log",
-        child_id=str(activity.child_id),
-    )
+    logs = store.index.list_entities(entity_type="learning_log")
     return [item for item in logs if item.get("activity_plan_id") == str(activity_id)]
 
 
@@ -968,11 +1042,18 @@ def recommend_board_books(
     if child.stage is not Stage.INFANT_0_2:
         raise HTTPException(status_code=409, detail="child_is_not_in_infant_stage")
 
+    visible_shared_ids = shared_source_ids(store.index, str(child_id))
     resource_payloads = store.index.list_entities(entity_type="resource")
     resources = [
         ResourceRecord.model_validate(payload)
         for payload in resource_payloads
-        if payload.get("child_id") in (None, str(child_id))
+        if entity_visible_to_child(
+            store.index,
+            entity_id=str(payload.get("id") or ""),
+            child_id=str(child_id),
+            entity_type="resource",
+            shared_ids=visible_shared_ids,
+        )
     ]
     result = BoardBookRecommendationService().recommend(
         resources=resources,

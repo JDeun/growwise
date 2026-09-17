@@ -33,6 +33,7 @@ def _fsync_dir(directory: Path) -> None:
     finally:
         os.close(dir_fd)
 
+
 _RESERVED_METADATA_KEYS = {
     "content": "__growwise_content",
     "handler": "__growwise_handler",
@@ -60,13 +61,15 @@ class MarkdownRepository:
     GrowWise keeps the previous valid generation as ``.bak`` so corruption can be explicitly
     recovered without making SQLite the source of truth.
 
-    Saves for the same entity path are serialized across repository instances in this process. This
-    preserves the invariant that ``.bak`` is the generation immediately preceding the current
-    document even when multiple request handlers attempt to save the same entity concurrently.
+    Saves for the same entity path are serialized across repository instances. A bounded striped
+    lock table avoids accumulating one lock object for every record a long-lived desktop process has
+    ever observed; a hash collision merely serializes unrelated writes temporarily.
     """
 
-    _lock_registry_guard: ClassVar[threading.Lock] = threading.Lock()
-    _path_locks: ClassVar[dict[Path, threading.Lock]] = {}
+    _LOCK_STRIPES: ClassVar[int] = 256
+    _path_locks: ClassVar[tuple[threading.Lock, ...]] = tuple(
+        threading.Lock() for _ in range(_LOCK_STRIPES)
+    )
 
     def __init__(self, root: Path) -> None:
         self.root = root
@@ -79,16 +82,18 @@ class MarkdownRepository:
         """Public: the Markdown path an entity will be written to."""
         return self._path_for(entity)
 
+    def path_for_id(self, entity_type: str, entity_id: str) -> Path:
+        """Return the canonical source path for a previously reserved entity ID."""
+        return self.root / entity_type / f"{entity_id}.md"
+
     @classmethod
     def _lock_for(cls, path: Path) -> threading.Lock:
-        key = path.resolve()
-        with cls._lock_registry_guard:
-            return cls._path_locks.setdefault(key, threading.Lock())
+        key = str(path.expanduser().resolve())
+        return cls._path_locks[hash(key) % cls._LOCK_STRIPES]
 
     @classmethod
     def lock_for(cls, path: Path) -> threading.Lock:
-        """Public: the per-path write lock, so a caller can serialize a Markdown write
-        together with its downstream index update (write-through consistency)."""
+        """Public: the striped write lock for a Markdown source path."""
         return cls._lock_for(path)
 
     @staticmethod
@@ -158,7 +163,11 @@ class MarkdownRepository:
         return model.model_validate(payload)
 
     def recover(self, path: Path, model: type[T]) -> T:
-        """Restore the previous saved generation after validating the backup first."""
+        """Restore the previous saved generation after validating the backup first.
+
+        Recovery follows the same fsync-before-rename durability rule as a normal save so a power
+        loss cannot acknowledge recovery while leaving only an unflushed replacement on disk.
+        """
         backup = self.backup_path(path)
         if not backup.exists():
             raise FileNotFoundError(f"no backup exists for {path}")
@@ -169,8 +178,54 @@ class MarkdownRepository:
             os.close(fd)
             try:
                 shutil.copy2(backup, tmp_name)
+                with open(tmp_name, "rb") as handle:
+                    os.fsync(handle.fileno())
                 os.replace(tmp_name, path)
+                _fsync_dir(path.parent)
             finally:
                 if os.path.exists(tmp_name):
                     os.unlink(tmp_name)
         return recovered
+
+    @staticmethod
+    def _belongs_to_child(path: Path, child_id: str) -> bool:
+        """Identify child-owned current or backup records, including corrupt recoverable files."""
+        try:
+            post = frontmatter.load(path)
+            payload = _decode_metadata(dict(post.metadata))
+            return str(payload.get("child_id") or "") == child_id or (
+                payload.get("entity_type") == "child_profile" and str(payload.get("id")) == child_id
+            )
+        except Exception:
+            # Privacy deletion must not silently retain a corrupt file whose metadata cannot be
+            # parsed. UUID text is sufficiently specific to serve as a conservative fallback.
+            try:
+                return child_id in path.read_text(encoding="utf-8", errors="ignore")
+            except OSError:
+                return child_id in path.name
+
+    def purge_child(self, child_id: str) -> int:
+        """Delete every authoritative and one-generation backup record owned by one child.
+
+        This operation is intentionally idempotent. Callers rebuild disposable projections after
+        it completes. Files with corrupt frontmatter are conservatively removed when they contain
+        the child's UUID so privacy deletion cannot be defeated by a malformed record.
+        """
+        targets = [
+            path
+            for path in self.root.rglob("*")
+            if path.is_file()
+            and (path.name.endswith(".md") or path.name.endswith(".md.bak"))
+            and self._belongs_to_child(path, child_id)
+        ]
+        deleted = 0
+        for path in targets:
+            lock_path = path.with_suffix("") if path.name.endswith(".md.bak") else path
+            with self._lock_for(lock_path):
+                try:
+                    path.unlink()
+                except FileNotFoundError:
+                    continue
+                deleted += 1
+                _fsync_dir(path.parent)
+        return deleted

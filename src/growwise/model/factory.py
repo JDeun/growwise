@@ -12,5 +12,8 @@ def create_model_provider(settings: Settings) -> ModelProvider:
             model=settings.model_id,
             base_url=settings.model_base_url,
             temperature=settings.model_temperature,
+            timeout_seconds=settings.model_timeout_seconds,
+            failure_threshold=settings.model_circuit_failure_threshold,
+            recovery_seconds=settings.model_circuit_recovery_seconds,
         )
     raise ValueError(f"Unsupported model provider: {settings.model_provider}")

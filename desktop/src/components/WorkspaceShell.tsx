@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 
 import "./WorkspaceShell.css";
 import { WorkspaceNav } from "./WorkspaceNav";
+import { WORKSPACE_LABELS } from "./workspaceLabels";
 import { readWorkspaceView, writeWorkspaceView } from "./workspaceStorage";
 import type { WorkspaceView } from "./workspaceTypes";
 
@@ -34,8 +35,8 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
       <div
         id="workspace-panel"
         className="workspace-shell"
-        role="tabpanel"
-        aria-labelledby={`workspace-tab-${activeView}`}
+        role="region"
+        aria-label={`${WORKSPACE_LABELS[activeView]} 작업공간`}
         tabIndex={-1}
         data-active-workspace={activeView}
       >

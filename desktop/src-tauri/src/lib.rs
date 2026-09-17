@@ -1,15 +1,59 @@
+mod background_write_commands;
 mod core_process;
+mod discovery_commands;
+mod learning_record_commands;
+mod link_commands;
+mod material_result_commands;
+mod photo_commands;
+mod study_commands;
 
+use std::fmt;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use background_write_commands::{
+    create_observation_background, generate_material_background, revise_material_background,
+};
 use core_process::CoreProcessManager;
+use discovery_commands::{discover_education_resources, save_discovered_resource};
+use learning_record_commands::{create_learning_record, list_learning_records};
+use link_commands::{get_entity_backlinks, share_entity_with_child};
+use material_result_commands::{list_material_results, record_material_result};
+use photo_commands::{
+    commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
+};
+use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
+use study_commands::{
+    create_study_plan, get_study_weak_map, list_self_explanations, list_study_mistakes,
+    list_study_plans, list_study_progress, list_study_reflections, recommend_study_resources,
+    record_self_explanation, record_study_mistake, record_study_progress, record_study_reflection,
+    update_study_plan_item_status,
+};
 use tauri::Manager;
 use tauri_plugin_dialog::DialogExt;
 
-const CORE_BASE_URL: &str = "http://127.0.0.1:8765";
+#[derive(Debug)]
+struct CoreConnection {
+    base_url: String,
+    session_token: String,
+}
+
+static CORE_CONNECTION: OnceLock<CoreConnection> = OnceLock::new();
+static OPERATION_COUNTER: AtomicU64 = AtomicU64::new(0);
+
+struct CoreBaseUrl;
+const CORE_BASE_URL: CoreBaseUrl = CoreBaseUrl;
+
+impl fmt::Display for CoreBaseUrl {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let connection = CORE_CONNECTION.get().ok_or(fmt::Error)?;
+        formatter.write_str(&connection.base_url)
+    }
+}
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -36,12 +80,31 @@ struct ChildCreateInput {
     interests: Vec<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
+struct ChildUpdateInput {
+    nickname: String,
+    stage: String,
+    age_months: Option<u16>,
+    interests: Vec<String>,
+    primary_language: String,
+    additional_languages: Vec<String>,
+    learning_goals: Vec<String>,
+    notes: Option<String>,
+}
+#[derive(Debug, Serialize, Deserialize)]
 struct ChildProfileDto {
     id: String,
     nickname: String,
     stage: String,
     age_months: Option<u16>,
     interests: Vec<String>,
+    #[serde(default)]
+    primary_language: String,
+    #[serde(default)]
+    additional_languages: Vec<String>,
+    #[serde(default)]
+    learning_goals: Vec<String>,
+    #[serde(default)]
+    notes: Option<String>,
 }
 #[derive(Debug, Serialize, Deserialize)]
 struct ObservationCreateInput {
@@ -120,10 +183,53 @@ struct ResourceCreateInput {
 }
 
 fn client() -> Result<reqwest::Client, String> {
+    let connection = CORE_CONNECTION
+        .get()
+        .ok_or_else(|| "GrowWise Core 연결 정보가 초기화되지 않았습니다.".to_string())?;
+    let authorization = HeaderValue::from_str(&format!("Bearer {}", connection.session_token))
+        .map_err(|error| format!("GrowWise Core 인증 헤더 생성 실패: {error}"))?;
+    let mut headers = HeaderMap::new();
+    headers.insert(AUTHORIZATION, authorization);
     reqwest::Client::builder()
+        .default_headers(headers)
         .timeout(std::time::Duration::from_millis(8000))
         .build()
         .map_err(|error| error.to_string())
+}
+
+fn next_operation_key(label: &str) -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let counter = OPERATION_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("desktop-{label}-{}-{nanos}-{counter}", std::process::id())
+}
+
+pub(crate) async fn post_idempotent_json(
+    url: String,
+    body: &serde_json::Value,
+    operation_label: &str,
+) -> Result<reqwest::Response, String> {
+    let key = next_operation_key(operation_label);
+    let first = client()?
+        .post(&url)
+        .header("Idempotency-Key", key.as_str())
+        .json(body)
+        .send()
+        .await;
+
+    match first {
+        Ok(response) => Ok(response),
+        Err(error) if error.is_timeout() || error.is_connect() => client()?
+            .post(&url)
+            .header("Idempotency-Key", key.as_str())
+            .json(body)
+            .send()
+            .await
+            .map_err(|retry_error| retry_error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
 }
 
 async fn ensure_success(
@@ -135,7 +241,8 @@ async fn ensure_success(
     }
     let status = response.status();
     let body = response.text().await.unwrap_or_default();
-    Err(format!("{label} ({status}): {body}"))
+    let bounded_body: String = body.chars().take(4096).collect();
+    Err(format!("{label} ({status}): {bounded_body}"))
 }
 
 #[tauri::command]
@@ -172,6 +279,23 @@ async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, Stri
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
+async fn update_child(
+    child_id: String,
+    request: ChildUpdateInput,
+) -> Result<ChildProfileDto, String> {
+    let response = client()?
+        .put(format!("{CORE_BASE_URL}/v1/children/{child_id}"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 프로필 수정 실패")
+        .await?
+        .json::<ChildProfileDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
 async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
     let response = client()?
         .get(format!("{CORE_BASE_URL}/v1/children"))
@@ -185,13 +309,27 @@ async fn list_children() -> Result<Vec<ChildProfileDto>, String> {
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
+async fn delete_child(child_id: String) -> Result<serde_json::Value, String> {
     let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/observations"))
-        .json(&request)
+        .delete(format!("{CORE_BASE_URL}/v1/children/{child_id}"))
         .send()
         .await
         .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 데이터 영구 삭제 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+#[tauri::command]
+async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/observations"),
+        &body,
+        "observation-sync",
+    )
+    .await?;
     ensure_success(response, "관찰 기록 저장 실패")
         .await?
         .json::<LearningLogDto>()
@@ -219,12 +357,17 @@ async fn create_activity(
     title: String,
     source_refs: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"))
-        .json(&serde_json::json!({"title": title, "source_refs": source_refs, "parent_note": null}))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({
+        "title": title,
+        "source_refs": source_refs,
+        "parent_note": null,
+    });
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"),
+        &body,
+        "activity",
+    )
+    .await?;
     ensure_success(response, "활동 저장 실패")
         .await?
         .json::<serde_json::Value>()
@@ -349,12 +492,9 @@ async fn append_conversation_turn(
 }
 #[tauri::command]
 async fn create_resource(request: ResourceCreateInput) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/resources"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response =
+        post_idempotent_json(format!("{CORE_BASE_URL}/v1/resources"), &body, "resource").await?;
     ensure_success(response, "자료 저장 실패")
         .await?
         .json::<serde_json::Value>()
@@ -378,9 +518,11 @@ async fn list_resources(child_id: Option<String>) -> Result<serde_json::Value, S
 async fn update_resource(
     resource_id: String,
     request: ResourceCreateInput,
+    acting_child_id: String,
 ) -> Result<serde_json::Value, String> {
     let response = client()?
         .put(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .query(&[("acting_child_id", acting_child_id.as_str())])
         .json(&request)
         .send()
         .await
@@ -392,9 +534,13 @@ async fn update_resource(
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
-async fn delete_resource(resource_id: String) -> Result<serde_json::Value, String> {
+async fn delete_resource(
+    resource_id: String,
+    acting_child_id: String,
+) -> Result<serde_json::Value, String> {
     let response = client()?
         .delete(format!("{CORE_BASE_URL}/v1/resources/{resource_id}"))
+        .query(&[("acting_child_id", acting_child_id.as_str())])
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -412,9 +558,17 @@ async fn generate_material(
     goal: Option<String>,
     source_refs: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?.post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
-        .json(&serde_json::json!({"kind": kind, "topic": topic, "goal": goal, "source_refs": source_refs}))
-        .send().await.map_err(|error| error.to_string())?;
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
+        .json(&serde_json::json!({
+            "kind": kind,
+            "topic": topic,
+            "goal": goal,
+            "source_refs": source_refs,
+        }))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
     ensure_success(response, "학습 자료 생성 실패")
         .await?
         .json::<serde_json::Value>()
@@ -576,6 +730,7 @@ async fn create_backup() -> Result<serde_json::Value, String> {
     let response = client()?
         .post(format!("{CORE_BASE_URL}/v1/admin/backups"))
         .json(&serde_json::json!({}))
+        .timeout(std::time::Duration::from_secs(600))
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -593,6 +748,7 @@ async fn restore_backup(archive_name: String) -> Result<serde_json::Value, Strin
             "{CORE_BASE_URL}/v1/admin/backups/{archive_name}/restore"
         ))
         .json(&serde_json::json!({"confirmed": true}))
+        .timeout(std::time::Duration::from_secs(600))
         .send()
         .await
         .map_err(|error| error.to_string())?;
@@ -739,8 +895,18 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             let resource_dir = app.path().resource_dir()?;
-            let manager =
-                CoreProcessManager::ensure_started(&resource_dir).map_err(std::io::Error::other)?;
+            let data_dir = app.path().app_data_dir()?;
+            fs::create_dir_all(&data_dir)?;
+            let manager = CoreProcessManager::ensure_started(&resource_dir, &data_dir)
+                .map_err(std::io::Error::other)?;
+            CORE_CONNECTION
+                .set(CoreConnection {
+                    base_url: manager.base_url().to_string(),
+                    session_token: manager.session_token().to_string(),
+                })
+                .map_err(|_| {
+                    std::io::Error::other("GrowWise Core 연결이 중복 초기화되었습니다.")
+                })?;
             app.manage(manager);
             Ok(())
         })
@@ -748,9 +914,27 @@ pub fn run() {
             core_health,
             core_runtime_status,
             create_child,
+            update_child,
             list_children,
+            delete_child,
             create_observation,
+            create_observation_background,
             list_observations,
+            create_learning_record,
+            list_learning_records,
+            record_study_progress,
+            list_study_progress,
+            record_study_mistake,
+            list_study_mistakes,
+            record_study_reflection,
+            list_study_reflections,
+            record_self_explanation,
+            list_self_explanations,
+            get_study_weak_map,
+            recommend_study_resources,
+            create_study_plan,
+            list_study_plans,
+            update_study_plan_item_status,
             create_activity,
             list_activities,
             transition_activity,
@@ -764,14 +948,26 @@ pub fn run() {
             update_resource,
             delete_resource,
             generate_material,
+            generate_material_background,
             list_materials,
             review_material,
             revise_material,
+            revise_material_background,
             edit_material,
+            record_material_result,
+            list_material_results,
             get_growth_map,
             get_infant_activities,
             get_infant_observation_hints,
             get_board_book_recommendations,
+            create_photo_record,
+            list_photo_records,
+            commit_photo_record,
+            get_photo_asset,
+            discover_education_resources,
+            save_discovered_resource,
+            share_entity_with_child,
+            get_entity_backlinks,
             list_backups,
             create_backup,
             restore_backup,
@@ -780,4 +976,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_operation_key;
+
+    #[test]
+    fn operation_keys_are_unique() {
+        assert_ne!(
+            next_operation_key("activity"),
+            next_operation_key("activity")
+        );
+    }
 }

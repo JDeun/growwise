@@ -1,5 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
+import { readRememberedChildId, useActiveChild } from "./active-child-context";
 import {
   ConfirmDialog,
   MaterialWorkspaceIntegration,
@@ -20,6 +21,7 @@ import {
 import {
   childContextState,
   errorMessage,
+  isCurrentChildScope,
   type ChildContextKey,
   type ChildContextLoadState,
   type ViewLoadState,
@@ -91,9 +93,11 @@ type BackupConfirmation =
 
 type WriteNotice = { id: number; message: string };
 
-const LAST_CHILD_KEY = "growwise:last-child-id";
-
 function App() {
+  const {
+    selectChild: selectSharedChild,
+    upsertChild: upsertSharedChild,
+  } = useActiveChild();
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
   const [children, setChildren] = useState<ChildProfile[]>([]);
   const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
@@ -106,6 +110,7 @@ function App() {
     childContextState("idle"),
   );
   const childContextRequestId = useRef(0);
+  const activeChildIdRef = useRef<string | null>(null);
 
   const [nickname, setNickname] = useState("");
   const [childStage, setChildStage] = useState<Stage>("infant_0_2");
@@ -167,83 +172,116 @@ function App() {
     setChildContext((current) => ({ ...current, [key]: state }));
   }, []);
 
-  const loadChildContext = useCallback(async (child: ChildProfile) => {
-    const requestId = ++childContextRequestId.current;
-    setActiveChild(child);
-    setGrowthMap(null);
-    setTimeline([]);
-    setResources([]);
-    setMaterials([]);
-    setActivityPlans([]);
-    setChildContext(childContextState("loading"));
-    setSelectedResourceRefs([]);
-    setSelectedActivityId("");
-    setActivities(null);
-    setObservationHints(null);
-    setBoardBooks(null);
-    setInfantGuidanceError(null);
-    setSearchResult(null);
-    setSearchError(null);
-    setConversation(null);
-    setConversationAnswers([]);
-    setConversationError(null);
-    localStorage.setItem(LAST_CHILD_KEY, child.id);
-
-    const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
-      await Promise.allSettled([
-        getGrowthMap(child.id),
-        listObservations(child.id),
-        listResources(child.id),
-        listMaterials(child.id),
-        listActivities(child.id),
-      ]);
-
-    if (requestId !== childContextRequestId.current) return;
-
-    if (growthResult.status === "fulfilled") setGrowthMap(growthResult.value);
-    if (observationsResult.status === "fulfilled") setTimeline(observationsResult.value);
-    if (resourcesResult.status === "fulfilled") setResources(resourcesResult.value);
-    if (materialsResult.status === "fulfilled") setMaterials(materialsResult.value);
-    if (activitiesResult.status === "fulfilled") setActivityPlans(activitiesResult.value);
-
-    setChildContext({
-      growth:
-        growthResult.status === "fulfilled"
-          ? { kind: "ready" }
-          : {
-              kind: "error",
-              message: errorMessage(growthResult.reason, "성장 맥락을 불러오지 못했습니다."),
-            },
-      observations:
-        observationsResult.status === "fulfilled"
-          ? { kind: "ready" }
-          : {
-              kind: "error",
-              message: errorMessage(observationsResult.reason, "관찰 기록을 불러오지 못했습니다."),
-            },
-      library:
-        resourcesResult.status === "fulfilled"
-          ? { kind: "ready" }
-          : {
-              kind: "error",
-              message: errorMessage(resourcesResult.reason, "자료 목록을 불러오지 못했습니다."),
-            },
-      materials:
-        materialsResult.status === "fulfilled"
-          ? { kind: "ready" }
-          : {
-              kind: "error",
-              message: errorMessage(materialsResult.reason, "생성 자료를 불러오지 못했습니다."),
-            },
-      activities:
-        activitiesResult.status === "fulfilled"
-          ? { kind: "ready" }
-          : {
-              kind: "error",
-              message: errorMessage(activitiesResult.reason, "활동 목록을 불러오지 못했습니다."),
-            },
-    });
+  const scopeIsCurrent = useCallback((childId: string, requestId: number) => {
+    return isCurrentChildScope(
+      childId,
+      requestId,
+      activeChildIdRef.current,
+      childContextRequestId.current,
+    );
   }, []);
+
+  const loadChildContext = useCallback(
+    async (child: ChildProfile) => {
+      const requestId = ++childContextRequestId.current;
+      activeChildIdRef.current = child.id;
+      selectSharedChild(child.id);
+      setActiveChild(child);
+      setGrowthMap(null);
+      setTimeline([]);
+      setResources([]);
+      setMaterials([]);
+      setActivityPlans([]);
+      setChildContext(childContextState("loading"));
+      setObservation("");
+      setSelectedAxes([]);
+      setSelectedResourceRefs([]);
+      setSelectedActivityId("");
+      setActivities(null);
+      setActivitiesLoading(false);
+      setActivitiesError(null);
+      setActivityPlanBusy(false);
+      setObservationHints(null);
+      setBoardBooks(null);
+      setInfantGuidanceLoading(false);
+      setInfantGuidanceError(null);
+      setSearchQuery("");
+      setSearchResult(null);
+      setSearching(false);
+      setSearchError(null);
+      setConversation(null);
+      setConversationAnswers([]);
+      setConversationQuestion("");
+      setConversationBusy(false);
+      setConversationError(null);
+      setResourceTitle("");
+      setResourceContent("");
+      setResourceSaving(false);
+      setResourceError(null);
+      setMaterialTopic("");
+      setMaterialGoal("");
+      setMaterialBusy(false);
+      setMaterialError(null);
+      setRevisionNotes({});
+      setEditingMaterialId(null);
+
+      const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
+        await Promise.allSettled([
+          getGrowthMap(child.id),
+          listObservations(child.id),
+          listResources(child.id),
+          listMaterials(child.id),
+          listActivities(child.id),
+        ]);
+
+      if (!scopeIsCurrent(child.id, requestId)) return;
+
+      if (growthResult.status === "fulfilled") setGrowthMap(growthResult.value);
+      if (observationsResult.status === "fulfilled") setTimeline(observationsResult.value);
+      if (resourcesResult.status === "fulfilled") setResources(resourcesResult.value);
+      if (materialsResult.status === "fulfilled") setMaterials(materialsResult.value);
+      if (activitiesResult.status === "fulfilled") setActivityPlans(activitiesResult.value);
+
+      setChildContext({
+        growth:
+          growthResult.status === "fulfilled"
+            ? { kind: "ready" }
+            : {
+                kind: "error",
+                message: errorMessage(growthResult.reason, "성장 맥락을 불러오지 못했습니다."),
+              },
+        observations:
+          observationsResult.status === "fulfilled"
+            ? { kind: "ready" }
+            : {
+                kind: "error",
+                message: errorMessage(observationsResult.reason, "관찰 기록을 불러오지 못했습니다."),
+              },
+        library:
+          resourcesResult.status === "fulfilled"
+            ? { kind: "ready" }
+            : {
+                kind: "error",
+                message: errorMessage(resourcesResult.reason, "자료 목록을 불러오지 못했습니다."),
+              },
+        materials:
+          materialsResult.status === "fulfilled"
+            ? { kind: "ready" }
+            : {
+                kind: "error",
+                message: errorMessage(materialsResult.reason, "생성 자료를 불러오지 못했습니다."),
+              },
+        activities:
+          activitiesResult.status === "fulfilled"
+            ? { kind: "ready" }
+            : {
+                kind: "error",
+                message: errorMessage(activitiesResult.reason, "활동 목록을 불러오지 못했습니다."),
+              },
+      });
+    },
+    [scopeIsCurrent, selectSharedChild],
+  );
 
   const refresh = useCallback(async () => {
     setConnection({ kind: "loading" });
@@ -265,12 +303,14 @@ function App() {
       }
 
       if (storedChildren.length > 0) {
-        const rememberedId = localStorage.getItem(LAST_CHILD_KEY);
+        const rememberedId = readRememberedChildId(window.localStorage);
         const selected =
           storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
         await loadChildContext(selected);
       } else {
         childContextRequestId.current += 1;
+        activeChildIdRef.current = null;
+        selectSharedChild("");
         setActiveChild(null);
         setGrowthMap(null);
         setTimeline([]);
@@ -282,12 +322,13 @@ function App() {
       }
     } catch (error) {
       childContextRequestId.current += 1;
+      activeChildIdRef.current = null;
       setConnection({
         kind: "offline",
         message: errorMessage(error, "GrowWise Core 상태를 확인할 수 없습니다."),
       });
     }
-  }, [loadChildContext]);
+  }, [loadChildContext, selectSharedChild]);
 
   useEffect(() => {
     void refresh();
@@ -311,35 +352,36 @@ function App() {
     if (!activeChild) return;
     const childId = activeChild.id;
     const requestId = childContextRequestId.current;
+    if (!scopeIsCurrent(childId, requestId)) return;
     updateChildContextState(key, { kind: "loading" });
 
     try {
       if (key === "growth") {
         const value = await getGrowthMap(childId);
-        if (requestId !== childContextRequestId.current) return;
+        if (!scopeIsCurrent(childId, requestId)) return;
         setGrowthMap(value);
       } else if (key === "observations") {
         const value = await listObservations(childId);
-        if (requestId !== childContextRequestId.current) return;
+        if (!scopeIsCurrent(childId, requestId)) return;
         setTimeline(value);
       } else if (key === "library") {
         const value = await listResources(childId);
-        if (requestId !== childContextRequestId.current) return;
+        if (!scopeIsCurrent(childId, requestId)) return;
         setResources(value);
       } else if (key === "materials") {
         const value = await listMaterials(childId);
-        if (requestId !== childContextRequestId.current) return;
+        if (!scopeIsCurrent(childId, requestId)) return;
         setMaterials(value);
       } else {
         const value = await listActivities(childId);
-        if (requestId !== childContextRequestId.current) return;
+        if (!scopeIsCurrent(childId, requestId)) return;
         setActivityPlans(value);
       }
-      if (requestId === childContextRequestId.current) {
+      if (scopeIsCurrent(childId, requestId)) {
         updateChildContextState(key, { kind: "ready" });
       }
     } catch (error) {
-      if (requestId !== childContextRequestId.current) return;
+      if (!scopeIsCurrent(childId, requestId)) return;
       const fallback = {
         growth: "성장 맥락을 불러오지 못했습니다.",
         observations: "관찰 기록을 불러오지 못했습니다.",
@@ -369,6 +411,7 @@ function App() {
         age_months: parsedAge,
         interests: [],
       });
+      upsertSharedChild(child, { select: true });
       setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
       await loadChildContext(child);
       setNickname("");
@@ -395,17 +438,20 @@ function App() {
   async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const text = observation.trim();
     if (!text) return setObservationError("기억할 가치가 있는 관찰을 짧게 적어 주세요.");
     setObservationSaving(true);
     setObservationError(null);
     try {
       await createObservation({
-        child_id: activeChild.id,
+        child_id: childId,
         observation: text,
         experience_axes: selectedAxes,
         activity_plan_id: selectedActivityId || null,
       });
+      if (!scopeIsCurrent(childId, requestId)) return;
       setObservation("");
       setSelectedAxes([]);
       setSelectedActivityId("");
@@ -415,56 +461,68 @@ function App() {
         reloadChildContextPart("growth"),
         reloadChildContextPart("observations"),
       ]);
-      announceWrite("관찰 기록을 저장했습니다.");
+      if (scopeIsCurrent(childId, requestId)) announceWrite("관찰 기록을 저장했습니다.");
     } catch (error) {
-      setObservationError(errorMessage(error, "관찰 기록 저장에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setObservationError(errorMessage(error, "관찰 기록 저장에 실패했습니다."));
+      }
     } finally {
-      setObservationSaving(false);
+      if (scopeIsCurrent(childId, requestId)) setObservationSaving(false);
     }
   }
 
   async function handleSearch(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const query = searchQuery.trim();
     if (query.length < 2) return setSearchError("두 글자 이상으로 검색해 주세요.");
     setSearching(true);
     setSearchError(null);
     try {
-      setSearchResult(await searchChildContext(activeChild.id, query));
+      const result = await searchChildContext(childId, query);
+      if (!scopeIsCurrent(childId, requestId)) return;
+      setSearchResult(result);
     } catch (error) {
-      setSearchError(errorMessage(error, "검색에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setSearchError(errorMessage(error, "검색에 실패했습니다."));
+      }
     } finally {
-      setSearching(false);
+      if (scopeIsCurrent(childId, requestId)) setSearching(false);
     }
   }
 
   async function handleConversation(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const question = conversationQuestion.trim();
     if (question.length < 2) return setConversationError("두 글자 이상으로 질문해 주세요.");
     setConversationBusy(true);
     setConversationError(null);
     try {
-      let session = conversation;
-      if (!session) {
-        session = await createConversation(activeChild.id);
-        setConversation(session);
-      }
+      const session = conversation ?? (await createConversation(childId));
       const answer = await appendConversationTurn(session.id, question);
+      if (!scopeIsCurrent(childId, requestId)) return;
+      setConversation(session);
       setConversationAnswers((current) => [...current, answer]);
       setConversationQuestion("");
     } catch (error) {
-      setConversationError(errorMessage(error, "후속 질문 처리에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setConversationError(errorMessage(error, "후속 질문 처리에 실패했습니다."));
+      }
     } finally {
-      setConversationBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setConversationBusy(false);
     }
   }
 
   async function handleCreateResource(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const title = resourceTitle.trim();
     const content = resourceContent.trim();
     if (!title) return setResourceError("자료 제목을 입력해 주세요.");
@@ -474,7 +532,7 @@ function App() {
       await createResource({
         kind: resourceKind,
         title,
-        child_id: activeChild.id,
+        child_id: childId,
         summary: null,
         content: content || null,
         source_url: null,
@@ -484,86 +542,110 @@ function App() {
         stage_tags: [activeChild.stage],
         provenance: { origin: "desktop_manual" },
       });
+      if (!scopeIsCurrent(childId, requestId)) return;
       setResourceTitle("");
       setResourceContent("");
       await reloadChildContextPart("library");
-      announceWrite("자료를 저장했습니다.");
+      if (scopeIsCurrent(childId, requestId)) announceWrite("자료를 저장했습니다.");
     } catch (error) {
-      setResourceError(errorMessage(error, "자료 저장에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setResourceError(errorMessage(error, "자료 저장에 실패했습니다."));
+      }
     } finally {
-      setResourceSaving(false);
+      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
     }
   }
 
   async function handleUpdateResource(resourceId: string, request: ResourceCreateInput) {
+    if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setResourceSaving(true);
     setResourceError(null);
     try {
-      const updated = await updateResource(resourceId, request);
+      const updated = await updateResource(resourceId, request, childId);
+      if (!scopeIsCurrent(childId, requestId)) return;
       setResources((current) =>
         current.map((resource) => (resource.id === updated.id ? updated : resource)),
       );
       announceWrite("자료를 수정했습니다.");
     } catch (error) {
-      setResourceError(errorMessage(error, "자료 수정에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setResourceError(errorMessage(error, "자료 수정에 실패했습니다."));
+      }
       throw error;
     } finally {
-      setResourceSaving(false);
+      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
     }
   }
 
   async function handleDeleteResource(resourceId: string) {
+    if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setResourceSaving(true);
     setResourceError(null);
     try {
-      await deleteResource(resourceId);
+      await deleteResource(resourceId, childId);
+      if (!scopeIsCurrent(childId, requestId)) return;
       setResources((current) => current.filter((resource) => resource.id !== resourceId));
       setSelectedResourceRefs((current) =>
         current.filter((ref) => ref !== `resource:${resourceId}`),
       );
       announceWrite("자료를 삭제했습니다.");
     } catch (error) {
-      setResourceError(errorMessage(error, "자료 삭제에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setResourceError(errorMessage(error, "자료 삭제에 실패했습니다."));
+      }
       throw error;
     } finally {
-      setResourceSaving(false);
+      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
     }
   }
 
   async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const topic = materialTopic.trim();
     if (!topic) return setMaterialError("자료 주제를 입력해 주세요.");
     setMaterialBusy(true);
     setMaterialError(null);
     try {
       await generateMaterial(
-        activeChild.id,
+        childId,
         materialKind,
         topic,
         materialGoal.trim() || undefined,
         selectedResourceRefs,
       );
+      if (!scopeIsCurrent(childId, requestId)) return;
       setMaterialTopic("");
       setMaterialGoal("");
       setSelectedResourceRefs([]);
       await reloadChildContextPart("materials");
-      announceWrite("학습 자료 초안을 생성했습니다.");
+      if (scopeIsCurrent(childId, requestId)) announceWrite("학습 자료 초안을 생성했습니다.");
     } catch (error) {
-      setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
+      }
     } finally {
-      setMaterialBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
     }
   }
 
   async function handleReviewMaterial(materialId: string, status: MaterialStatus) {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setMaterialBusy(true);
     setMaterialError(null);
     try {
       await reviewMaterial(materialId, status);
+      if (!scopeIsCurrent(childId, requestId)) return;
       await reloadChildContextPart("materials");
+      if (!scopeIsCurrent(childId, requestId)) return;
       announceWrite(
         status === "approved"
           ? "학습 자료를 승인했습니다."
@@ -572,21 +654,27 @@ function App() {
             : "자료 검토 상태를 변경했습니다.",
       );
     } catch (error) {
-      setMaterialError(errorMessage(error, "자료 검토 상태 변경에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setMaterialError(errorMessage(error, "자료 검토 상태 변경에 실패했습니다."));
+      }
     } finally {
-      setMaterialBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
     }
   }
 
   async function handleReviseMaterial(materialId: string) {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     const note = (revisionNotes[materialId] ?? "").trim();
     if (!note) return setMaterialError("수정할 내용을 짧게 적어 주세요.");
     setMaterialBusy(true);
     setMaterialError(null);
     try {
       await reviseMaterial(materialId, note);
+      if (!scopeIsCurrent(childId, requestId)) return;
       await reloadChildContextPart("materials");
+      if (!scopeIsCurrent(childId, requestId)) return;
       setRevisionNotes((current) => {
         const next = { ...current };
         delete next[materialId];
@@ -594,9 +682,11 @@ function App() {
       });
       announceWrite("수정본을 생성했습니다.");
     } catch (error) {
-      setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
+      }
     } finally {
-      setMaterialBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
     }
   }
 
@@ -607,78 +697,107 @@ function App() {
     note: string | null,
   ) {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setMaterialBusy(true);
     setMaterialError(null);
     try {
       await editMaterial(materialId, title, contentMarkdown, note);
+      if (!scopeIsCurrent(childId, requestId)) return;
       await reloadChildContextPart("materials");
+      if (!scopeIsCurrent(childId, requestId)) return;
       setEditingMaterialId(null);
       announceWrite("편집본을 저장했습니다.");
     } catch (error) {
-      setMaterialError(errorMessage(error, "편집본 저장에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setMaterialError(errorMessage(error, "편집본 저장에 실패했습니다."));
+      }
     } finally {
-      setMaterialBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
     }
   }
 
   async function handleLoadActivities() {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setActivitiesLoading(true);
     setActivitiesError(null);
     try {
-      setActivities(await getInfantActivities(activeChild.id));
+      const result = await getInfantActivities(childId);
+      if (!scopeIsCurrent(childId, requestId)) return;
+      setActivities(result);
     } catch (error) {
-      setActivitiesError(errorMessage(error, "활동 후보를 불러오지 못했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setActivitiesError(errorMessage(error, "활동 후보를 불러오지 못했습니다."));
+      }
     } finally {
-      setActivitiesLoading(false);
+      if (scopeIsCurrent(childId, requestId)) setActivitiesLoading(false);
     }
   }
 
   async function handleLoadInfantGuidance() {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setInfantGuidanceLoading(true);
     setInfantGuidanceError(null);
     try {
       const [hints, books] = await Promise.all([
-        getInfantObservationHints(activeChild.id),
-        getBoardBookRecommendations(activeChild.id),
+        getInfantObservationHints(childId),
+        getBoardBookRecommendations(childId),
       ]);
+      if (!scopeIsCurrent(childId, requestId)) return;
       setObservationHints(hints);
       setBoardBooks(books);
     } catch (error) {
-      setInfantGuidanceError(errorMessage(error, "영아 관찰 가이드를 불러오지 못했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setInfantGuidanceError(errorMessage(error, "영아 관찰 가이드를 불러오지 못했습니다."));
+      }
     } finally {
-      setInfantGuidanceLoading(false);
+      if (scopeIsCurrent(childId, requestId)) setInfantGuidanceLoading(false);
     }
   }
 
   async function handleSaveActivity(title: string) {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setActivityPlanBusy(true);
     setActivitiesError(null);
     try {
-      await createActivity(activeChild.id, title);
+      await createActivity(childId, title);
+      if (!scopeIsCurrent(childId, requestId)) return;
       await reloadChildContextPart("activities");
-      announceWrite("활동으로 저장했습니다.");
+      if (scopeIsCurrent(childId, requestId)) announceWrite("활동으로 저장했습니다.");
     } catch (error) {
-      setActivitiesError(errorMessage(error, "활동 저장에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setActivitiesError(errorMessage(error, "활동 저장에 실패했습니다."));
+      }
     } finally {
-      setActivityPlanBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setActivityPlanBusy(false);
     }
   }
 
   async function handleActivityTransition(activityId: string, status: ActivityStatus) {
     if (!activeChild) return;
+    const childId = activeChild.id;
+    const requestId = childContextRequestId.current;
     setActivityPlanBusy(true);
     setActivitiesError(null);
     try {
       await transitionActivity(activityId, status);
+      if (!scopeIsCurrent(childId, requestId)) return;
       await reloadChildContextPart("activities");
-      announceWrite(`활동 상태를 '${activityStatusLabel(status)}'으로 변경했습니다.`);
+      if (scopeIsCurrent(childId, requestId)) {
+        announceWrite(`활동 상태를 '${activityStatusLabel(status)}'으로 변경했습니다.`);
+      }
     } catch (error) {
-      setActivitiesError(errorMessage(error, "활동 상태 변경에 실패했습니다."));
+      if (scopeIsCurrent(childId, requestId)) {
+        setActivitiesError(errorMessage(error, "활동 상태 변경에 실패했습니다."));
+      }
     } finally {
-      setActivityPlanBusy(false);
+      if (scopeIsCurrent(childId, requestId)) setActivityPlanBusy(false);
     }
   }
 
@@ -796,15 +915,15 @@ function App() {
       <header className="topbar">
         <div className="brand">
           <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
-          <div><strong>GrowWise</strong><span>Personal Education OS</span></div>
+          <div><strong>GrowWise</strong><span>아이의 배움 기록</span></div>
         </div>
         <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
       </header>
 
       <section className="hero">
-        <p className="eyebrow">LOCAL-FIRST · PARENT-LED</p>
+        <p className="eyebrow">기록 · 연결 · 활용</p>
         <h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
-        <p className="hero-copy">핵심 기록·검색·자료 관리는 AI 없이도 동작합니다. 로컬 모델은 정리와 검색, 생성을 선택적으로 보강합니다.</p>
+        <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
       </section>
 
       <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />

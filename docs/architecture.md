@@ -57,7 +57,9 @@ GrowWise의 도메인 코어를 대체하지 않는다.
 
 ```text
 Desktop UI (Tauri + React/TypeScript)
-        ↓ typed IPC / localhost API
+        ↓ typed IPC
+Tauri Rust Host
+        ↓ authenticated ephemeral loopback HTTP
 Application Core (Python / FastAPI sidecar)
         ↓
 Use-case / Domain Core
@@ -78,6 +80,22 @@ Use-case / Domain Core
 
 외부 API와 LLM은 모두 **선택적 보강 계층**이다. 인터넷·모델이 없어도 기록·자료 관리·조회,
 기본 검색, 상태 관리, projection, export는 동작해야 한다.
+
+## Desktop local trust boundary
+
+Desktop 앱은 localhost에 떠 있는 임의의 프로세스를 GrowWise Core로 간주하지 않는다.
+
+1. `CoreProcessManager`가 OS에 ephemeral loopback port를 요청한다.
+2. OS CSPRNG로 매 실행 256-bit session token을 생성한다.
+3. Core에 host/port/token과 OS app-data 경로를 환경변수로 전달한다.
+4. Core는 desktop secure entrypoint에서 Bearer 인증 middleware를 활성화한다.
+5. Rust host는 세션 토큰이 포함된 `/_desktop/handshake` 응답에서 product/protocol version을
+   확인한 뒤에만 준비 완료로 본다.
+6. 이후 모든 Rust → Core 요청은 같은 Bearer token을 기본 header로 사용한다.
+7. 앱 종료 시 자신이 시작한 Core를 종료하고 메모리에 보관한 token 문자열을 비운다.
+
+독립 개발용 `growwise` Core는 기본 `127.0.0.1:8765` API 계약을 유지한다. Desktop은 같은 API를
+사용하되 `growwise.api.secure_entry`가 인증만 추가하므로 개발/배포 API가 서로 갈라지지 않는다.
 
 ## 상태 머신
 
@@ -133,9 +151,11 @@ provider 인터페이스 뒤에서 수행한다. **Provider는 nullable/optional
 ### Provider failure policy
 
 - startup 시 모델 연결 실패가 앱 startup 실패로 이어지지 않는다.
-- 호출에는 timeout/circuit breaker를 둔다.
-- 실패 횟수가 임계치를 넘으면 일정 시간 provider를 우회한다.
-- 재연결은 background health probe로 시도할 수 있다.
+- chat/structured output과 embedding 호출에 bounded HTTP timeout을 둔다.
+- consecutive failure circuit breaker를 둔다.
+- 실패 횟수가 임계치를 넘으면 cooldown 동안 provider를 즉시 우회한다.
+- cooldown 뒤 첫 호출은 half-open probe처럼 동작하며 성공 시 circuit을 reset한다.
+- embedding exception/circuit-open은 lexical retrieval fallback으로 수렴한다.
 - core use case는 provider 결과를 필수 반환값으로 요구하지 않는다.
 
 ## LangGraph 설계 원칙
@@ -166,6 +186,7 @@ START
 - **LLM node 실패가 가능한 경우 deterministic fallback edge를 둔다.**
 - checkpoint를 통해 crash/restart 후 재개한다.
 - idempotency key로 중복 저장·중복 export를 방지한다.
+- create idempotency는 lease와 stable reserved resource ID를 사용해 crash 후 같은 ID로 수렴한다.
 - timeout/cancellation/circuit breaker를 공급자 계층에 둔다.
 
 ### 적대적 검토
@@ -184,6 +205,20 @@ START
 - corrupt Markdown/SQLite index
 - offline mode
 - duplicate/replayed request
+- child switch 중 stale async response
+- backup restore 후 stale live record
+
+## RAG 장기 검색
+
+RAG는 relevance와 recency를 혼합한 하나의 불투명 점수로 만들지 않는다.
+
+1. lexical/vector relevance로 관련 후보를 만든다.
+2. relevance 순서를 각 시간 tier 안에서 유지한다.
+3. 현재 월 → 현재 연도 → archive → timestamp unknown 순서로 결과 limit을 채운다.
+4. embedding 장애 시 동일 후보 집합을 lexical 기반으로 만들 수 있어야 한다.
+
+따라서 최근이지만 무관한 기록이 오래된 관련 기록을 이기는 식으로 recency가 relevance를
+제조하지 않는다.
 
 ## 저장
 
@@ -206,6 +241,17 @@ updated_at: <ISO-8601>
 SQLite 전체 삭제 뒤 Markdown만으로 동일한 projection을 복구할 수 있어야 한다. AI 파생
 메타데이터가 없어져도 원본 기록의 의미와 기본 기능은 유지되어야 한다.
 
+### 개인정보 삭제 lifecycle
+
+`DELETE /v1/children/{child_id}`는 child profile만 삭제하지 않는다. 해당 child의 Markdown 정본과
+`.md.bak`, SQLite projection, RAG chunks, conversation, background jobs, idempotency metadata,
+observation/material-review checkpoint까지 함께 purge한다. 다른 child와 global/public resource는
+보존한다.
+
+기존 backup ZIP은 immutable historical snapshot으로 유지한다. 따라서 UI는 삭제 후에도 과거
+backup에 개인정보가 남아 있을 수 있음을 알리고, 완전 폐기가 필요하면 해당 ZIP을 별도로
+삭제하도록 한다.
+
 ## 기술 스택
 
 - Desktop: Tauri 2 + React + TypeScript + Vite
@@ -221,12 +267,15 @@ SQLite 전체 삭제 뒤 Markdown만으로 동일한 projection을 복구할 수
 
 ## 데스크탑 패키징
 
-Tauri가 Python 코어를 sidecar로 실행한다. Python 코어는 PyInstaller/Nuitka 등을 검증해
-플랫폼별 번들을 만든다. 모델은 앱과 분리하며 **모델 설치를 앱 실행의 전제조건으로 두지
-않는다.** 모델이 없는 첫 실행에서도 기본 기능을 사용할 수 있어야 한다.
+Tauri가 Python 코어를 sidecar로 실행한다. Python 코어는 PyInstaller로 독립 실행 파일을 만들고
+플랫폼별 Tauri bundle에 resource로 포함한다. 모델은 앱과 분리하며 **모델 설치를 앱 실행의
+전제조건으로 두지 않는다.** 모델이 없는 첫 실행에서도 기본 기능을 사용할 수 있어야 한다.
 
-WeasyPrint의 Windows 네이티브 의존성은 초기 CI spike에서 반드시 검증한다. 실패하면
-동일한 export interface 아래 Typst/다른 renderer로 교체할 수 있어야 한다.
+패키지 CI는 sidecar를 build한 뒤 랜덤 port/token으로 실제 실행해 unauthenticated 요청 거부와
+인증 handshake를 smoke-test한다. Python/Node/Rust toolchain과 lockfile을 고정하고 외부 GitHub
+Actions도 commit SHA로 pin한다.
+
+OS-native print/PDF가 현재 공식 승인 자료 출력 경로다. 자세한 결정은 관련 ADR을 따른다.
 
 ## 전체 완성 목표
 
@@ -234,3 +283,6 @@ WeasyPrint의 Windows 네이티브 의존성은 초기 CI spike에서 반드시 
 영아 상호작용·자료 생성·학습 기록·성장 지도·퀘스트·RAG·외부 연동·PDF·중고등 트래킹을
 모두 구현한다. 각 기능은 구현 후 안정화, 적대적 테스트, dependency/license/security 위생,
 문서화까지 통과해야 완료로 본다.
+
+구체적인 production invariant와 merge 전 검증 목록은
+[`docs/hardening-contracts.md`](hardening-contracts.md)를 따른다.

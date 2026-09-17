@@ -1,0 +1,50 @@
+.material-parent-guide {
+  margin-top: 0.9rem;
+  padding: 0.85rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface-soft);
+}
+
+.material-parent-guide > summary {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.8rem;
+  cursor: pointer;
+  font-weight: 800;
+}
+
+.material-parent-guide > summary small {
+  color: var(--ink-soft);
+  font-weight: 500;
+}
+
+.material-parent-guide-content {
+  margin-top: 0.85rem;
+  padding-top: 0.85rem;
+  border-top: 1px solid var(--border);
+}
+
+@media (max-width: 700px) {
+  .material-parent-guide > summary {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media print {
+  .material-parent-guide {
+    break-before: page;
+    border: 0;
+    background: transparent;
+  }
+
+  .material-parent-guide > summary {
+    list-style: none;
+  }
+
+  .material-parent-guide-content {
+    border-top: 0;
+  }
+}
