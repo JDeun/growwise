@@ -9,11 +9,12 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain import ResourceKind, ResourceRecord, Stage
+from growwise.domain.models import TagText
 from growwise.idempotency import (
     IdempotencyConflict,
     IdempotencyStatus,
@@ -27,32 +28,36 @@ from growwise.storage import EntityStore
 router = APIRouter(prefix="/resources", tags=["resources"])
 logger = logging.getLogger(__name__)
 
+ResourceTitle = Annotated[str, Field(min_length=1, max_length=500)]
+ResourceSummary = Annotated[str, Field(max_length=20_000)]
+ResourceContent = Annotated[str, Field(max_length=500_000)]
+ResourceUrl = Annotated[str, Field(max_length=2_048)]
+ResourceText = Annotated[str, Field(max_length=500)]
+ProvenanceKey = Annotated[str, Field(min_length=1, max_length=200)]
+ProvenanceValue = Annotated[str, Field(max_length=4_000)]
 
-class ResourceCreateRequest(BaseModel):
+
+class _ResourcePayload(BaseModel):
+    """API payload whose bounds mirror ``ResourceRecord`` exactly."""
+
     kind: ResourceKind
-    title: str = Field(min_length=1, max_length=500)
+    title: ResourceTitle
+    summary: ResourceSummary | None = None
+    content: ResourceContent | None = None
+    source_url: ResourceUrl | None = None
+    source_name: ResourceText | None = None
+    author: ResourceText | None = None
+    tags: list[TagText] = Field(default_factory=list, max_length=100)
+    stage_tags: list[Stage] = Field(default_factory=list, max_length=10)
+    provenance: dict[ProvenanceKey, ProvenanceValue] = Field(default_factory=dict, max_length=100)
+
+
+class ResourceCreateRequest(_ResourcePayload):
     child_id: UUID | None = None
-    summary: str | None = None
-    content: str | None = None
-    source_url: str | None = None
-    source_name: str | None = None
-    author: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    stage_tags: list[Stage] = Field(default_factory=list)
-    provenance: dict[str, str] = Field(default_factory=dict)
 
 
-class ResourceUpdateRequest(BaseModel):
-    kind: ResourceKind
-    title: str = Field(min_length=1, max_length=500)
-    summary: str | None = None
-    content: str | None = None
-    source_url: str | None = None
-    source_name: str | None = None
-    author: str | None = None
-    tags: list[str] = Field(default_factory=list)
-    stage_tags: list[Stage] = Field(default_factory=list)
-    provenance: dict[str, str] = Field(default_factory=dict)
+class ResourceUpdateRequest(_ResourcePayload):
+    pass
 
 
 @lru_cache
@@ -190,12 +195,18 @@ def update_resource(
 ) -> ResourceRecord:
     current = _resource(store, resource_id)
     _require_mutation_scope(current, acting_child_id=acting_child_id)
-    updated = current.model_copy(
-        update={
-            **request.model_dump(),
-            "updated_at": datetime.now(UTC),
-        }
-    )
+    try:
+        updated = ResourceRecord.model_validate(
+            {
+                **current.model_dump(mode="python"),
+                **request.model_dump(mode="python"),
+                "updated_at": datetime.now(UTC),
+            }
+        )
+    except ValidationError as exc:
+        # Defense in depth: never persist an update that bypassed request-model validation or
+        # became invalid after DTO/domain constraints drift apart in a future change.
+        raise HTTPException(status_code=422, detail=exc.errors(include_url=False)) from exc
 
     # Source first. A stale or unavailable retrieval projection can be rebuilt; the user's saved
     # library record cannot be reconstructed from RAG and therefore remains authoritative.
