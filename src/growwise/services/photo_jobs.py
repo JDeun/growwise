@@ -90,10 +90,24 @@ class PhotoJobRunner:
                 self._process(job)
 
     def _process(self, job: Job) -> None:
+        claim_token = job.claim_token
+        if not claim_token:
+            # claim_next always assigns a token. A tokenless RUNNING job is legacy/corrupt state and
+            # must never be allowed to mutate records without a fencing identity.
+            self.queue.cancel(job.id)
+            return
+
+        def renew_claim() -> bool:
+            return self.queue.heartbeat(
+                job.id,
+                claim_token,
+                lease_seconds=self.lease_seconds,
+            )
+
         record_id = str(job.payload.get("record_id", "")).strip()
         child_id = str(job.payload.get("child_id", "")).strip()
         if not record_id or not child_id:
-            self.queue.fail(job.id, "photo job payload is incomplete")
+            self.queue.fail(job.id, claim_token, "photo job payload is incomplete")
             return
 
         service = self.service_factory()
@@ -101,12 +115,15 @@ class PhotoJobRunner:
             record = service.get_record(record_id)
             if str(record.child_id) != child_id:
                 raise ValueError("photo job child scope mismatch")
-            self.queue.heartbeat(job.id, lease_seconds=self.lease_seconds)
+            if not renew_claim():
+                return
             # Share one background-only execution lane with text enrichment/material generation so
             # slow multimodal and text jobs do not compete for consumer VRAM/unified memory.
             with BACKGROUND_AI_LOCK:
+                if not renew_claim():
+                    return
                 service.process_draft(record_id)
-            self.queue.complete(job.id)
+            self.queue.complete(job.id, claim_token)
             return
         except KeyError:
             # The most common reason is an intentional child purge while slow inference was still
@@ -117,9 +134,12 @@ class PhotoJobRunner:
             error = f"{type(exc).__name__}: {exc}"
 
         if job.attempts < self.max_attempts:
+            # Do not let an expired/reclaimed worker rewrite the domain record back to queued.
+            if not renew_claim():
+                return
             with suppress(Exception):
                 service.mark_queued(record_id, error=error)
-            self.queue.retry(job.id, error)
+            self.queue.retry(job.id, claim_token, error)
             # Avoid a tight retry loop when Ollama is temporarily unavailable.
             sleep(min(5.0, max(1.0, self.poll_interval_seconds * 2)))
             return
@@ -128,15 +148,20 @@ class PhotoJobRunner:
         # providers and turn the already-saved photos/parent note into a deterministic editable
         # draft. Only a failure in that local fallback is allowed to mark the record itself failed.
         try:
+            if not renew_claim():
+                return
             service.text_provider = None
             service.vision_provider = None
             service.mark_queued(record_id, error=error)
             service.process_draft(record_id)
-            self.queue.complete(job.id)
+            self.queue.complete(job.id, claim_token)
         except KeyError:
             self.queue.cancel(job.id)
         except Exception as fallback_exc:
             fallback_error = f"{type(fallback_exc).__name__}: {fallback_exc}"
+            # A stale worker has no authority to mark the source record failed.
+            if not renew_claim():
+                return
             with suppress(Exception):
                 service.mark_failed(record_id, fallback_error)
-            self.queue.fail(job.id, fallback_error)
+            self.queue.fail(job.id, claim_token, fallback_error)
