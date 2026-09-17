@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 from pathlib import Path
@@ -33,7 +34,11 @@ def test_prepare_unsigned_release_copies_installers_without_manifest(tmp_path: P
         "GrowWise-arm64.dmg",
         "GrowWise-x64.dmg",
         "GrowWise.exe",
+        "SHA256SUMS",
     ]
+    checksums = (output / "SHA256SUMS").read_text(encoding="utf-8")
+    expected = hashlib.sha256((output / "GrowWise.exe").read_bytes()).hexdigest()
+    assert f"{expected}  GrowWise.exe" in checksums
 
 
 def test_prepare_signed_release_generates_three_platform_manifest(tmp_path: Path) -> None:
@@ -69,6 +74,11 @@ def test_prepare_signed_release_generates_three_platform_manifest(tmp_path: Path
         "growwise-macos-x64-GrowWise.app.tar.gz"
         in payload["platforms"]["darwin-x86_64"]["url"]
     )
+    checksums = (output / "SHA256SUMS").read_text(encoding="utf-8")
+    assert "  latest.json" in checksums
+    assert "  GrowWise.exe" in checksums
+    assert "  growwise-macos-arm64-GrowWise.app.tar.gz" in checksums
+    assert "  growwise-macos-x64-GrowWise.app.tar.gz" in checksums
 
 
 def test_prepare_rejects_partial_updater_artifact_set(tmp_path: Path) -> None:
@@ -80,3 +90,18 @@ def test_prepare_rejects_partial_updater_artifact_set(tmp_path: Path) -> None:
 
     with pytest.raises(RuntimeError, match="partial updater"):
         MODULE.prepare(source, tmp_path / "release", "v1.2.3", "JDeun/growwise")
+
+
+def test_prepare_includes_extra_sbom_artifact_in_release_checksums(tmp_path: Path) -> None:
+    source = tmp_path / "dist"
+    _write(source / "growwise-windows-x64" / "GrowWise.exe")
+    _write(source / "growwise-macos-arm64" / "GrowWise-arm64.dmg")
+    _write(source / "growwise-macos-x64" / "GrowWise-x64.dmg")
+    _write(source / "growwise-source-sbom" / "sbom.spdx.json", '{"spdxVersion":"SPDX-2.3"}')
+    output = tmp_path / "release"
+
+    MODULE.prepare(source, output, "v0.1.0-alpha.0", "JDeun/growwise")
+
+    assert (output / "sbom.spdx.json").is_file()
+    checksums = (output / "SHA256SUMS").read_text(encoding="utf-8")
+    assert "  sbom.spdx.json" in checksums

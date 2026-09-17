@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import shutil
 from collections import Counter
@@ -47,6 +48,27 @@ def _updater_pair(artifact_dir: Path, suffix: str) -> tuple[Path, Path] | None:
         )
     return pairs[0]
 
+
+
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def _write_checksums(output_dir: Path) -> Path:
+    output = output_dir / "SHA256SUMS"
+    lines = [
+        f"{_sha256(path)}  {path.name}"
+        for path in sorted(output_dir.iterdir(), key=lambda item: item.name)
+        if path.is_file() and path.name != output.name
+    ]
+    if not lines:
+        raise RuntimeError("no release assets are available for checksum generation")
+    output.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return output
 
 def prepare(input_dir: Path, output_dir: Path, tag: str, repository: str) -> Path | None:
     if not input_dir.is_dir():
@@ -95,6 +117,7 @@ def prepare(input_dir: Path, output_dir: Path, tag: str, repository: str) -> Pat
         )
 
     if not updater_artifacts_present:
+        _write_checksums(output_dir)
         return None
 
     manifest = {
@@ -104,6 +127,7 @@ def prepare(input_dir: Path, output_dir: Path, tag: str, repository: str) -> Pat
     }
     output = output_dir / "latest.json"
     output.write_text(json.dumps(manifest, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    _write_checksums(output_dir)
     return output
 
 
