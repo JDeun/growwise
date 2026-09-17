@@ -51,21 +51,21 @@ class OllamaEmbeddingProvider:
         )
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        self._circuit.before_call()
+        permit = self._circuit.before_call()
         try:
             result = self._embedding.embed_documents(texts)
         except Exception:
-            self._circuit.record_failure()
+            self._circuit.record_failure(permit)
             raise
-        self._circuit.record_success()
+        self._circuit.record_success(permit)
         return result
 
     def embed_query(self, text: str) -> list[float]:
-        self._circuit.before_call()
+        permit = self._circuit.before_call()
         try:
             result = self._embedding.embed_query(text)
         except Exception:
-            self._circuit.record_failure()
+            self._circuit.record_failure(permit)
             raise
-        self._circuit.record_success()
+        self._circuit.record_success(permit)
         return result
