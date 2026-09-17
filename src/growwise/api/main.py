@@ -7,7 +7,6 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
@@ -993,13 +992,11 @@ def recommend_board_books(
 
 
 def run() -> None:
-    settings = get_settings()
-    uvicorn.run(
-        "growwise.api.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=False,
-    )
+    # Keep direct module execution on the same guarded path as the installed console script.
+    # Import lazily so app construction remains importable without starting the runtime.
+    from growwise.api.entry import run as run_guarded_core
+
+    run_guarded_core()
 
 
 if __name__ == "__main__":
