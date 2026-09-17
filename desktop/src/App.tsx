@@ -30,11 +30,10 @@ import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
 import { useMaterialManagement } from "./use-material-management";
 import { useResourceManagement } from "./use-resource-management";
+import { useSearchConversation } from "./use-search-conversation";
 import {
-  appendConversationTurn,
   createActivity,
   createChild,
-  createConversation,
   createObservation,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
@@ -47,14 +46,11 @@ import {
   listMaterials,
   listObservations,
   listResources,
-  searchChildContext,
   transitionActivity,
   type ActivityPlan,
   type ActivityStatus,
   type BoardBookRecommendations,
   type ChildProfile,
-  type ConversationAnswer,
-  type ConversationSession,
   type CoreRuntimeStatus,
   type ExperienceAxis,
   type GeneratedMaterial,
@@ -64,7 +60,6 @@ import {
   type InfantObservationHints,
   type LearningLog,
   type ResourceRecord,
-  type SearchResponse,
   type Stage,
 } from "./api";
 
@@ -123,10 +118,6 @@ function App() {
   const [observationSaving, setObservationSaving] = useState(false);
   const [observationError, setObservationError] = useState<string | null>(null);
 
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
 
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
@@ -137,11 +128,6 @@ function App() {
   const [infantGuidanceLoading, setInfantGuidanceLoading] = useState(false);
   const [infantGuidanceError, setInfantGuidanceError] = useState<string | null>(null);
 
-  const [conversation, setConversation] = useState<ConversationSession | null>(null);
-  const [conversationAnswers, setConversationAnswers] = useState<ConversationAnswer[]>([]);
-  const [conversationQuestion, setConversationQuestion] = useState("");
-  const [conversationBusy, setConversationBusy] = useState(false);
-  const [conversationError, setConversationError] = useState<string | null>(null);
 
 
 
@@ -219,6 +205,28 @@ function App() {
     announceWrite,
   });
 
+  const {
+    searchQuery,
+    searchResult,
+    searching,
+    searchError,
+    conversation,
+    conversationAnswers,
+    conversationQuestion,
+    conversationBusy,
+    conversationError,
+    setSearchQuery,
+    setConversationQuestion,
+    handleSearch,
+    handleConversation,
+    clearSearchResult,
+    resetSearchConversation,
+  } = useSearchConversation({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+  });
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -242,17 +250,9 @@ function App() {
       setBoardBooks(null);
       setInfantGuidanceLoading(false);
       setInfantGuidanceError(null);
-      setSearchQuery("");
-      setSearchResult(null);
-      setSearching(false);
-      setSearchError(null);
-      setConversation(null);
-      setConversationAnswers([]);
-      setConversationQuestion("");
-      setConversationBusy(false);
-      setConversationError(null);
       resetMaterialState();
       resetResourceState();
+      resetSearchConversation();
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -309,7 +309,7 @@ function App() {
               },
       });
     },
-    [resetMaterialState, resetResourceState, scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, resetResourceState, resetSearchConversation, scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -479,7 +479,7 @@ function App() {
       setSelectedAxes([]);
       setSelectedActivityId("");
       setActivities(null);
-      setSearchResult(null);
+      clearSearchResult();
       await Promise.all([
         reloadChildContextPart("growth"),
         reloadChildContextPart("observations"),
@@ -491,53 +491,6 @@ function App() {
       }
     } finally {
       if (scopeIsCurrent(childId, requestId)) setObservationSaving(false);
-    }
-  }
-
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const query = searchQuery.trim();
-    if (query.length < 2) return setSearchError("두 글자 이상으로 검색해 주세요.");
-    setSearching(true);
-    setSearchError(null);
-    try {
-      const result = await searchChildContext(childId, query);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setSearchResult(result);
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setSearchError(errorMessage(error, "검색에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setSearching(false);
-    }
-  }
-
-  async function handleConversation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const question = conversationQuestion.trim();
-    if (question.length < 2) return setConversationError("두 글자 이상으로 질문해 주세요.");
-    setConversationBusy(true);
-    setConversationError(null);
-    try {
-      const session = conversation ?? (await createConversation(childId));
-      const answer = await appendConversationTurn(session.id, question);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setConversation(session);
-      setConversationAnswers((current) => [...current, answer]);
-      setConversationQuestion("");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setConversationError(errorMessage(error, "후속 질문 처리에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setConversationBusy(false);
     }
   }
 
