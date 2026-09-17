@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.storage import SQLiteProjection
+
+logger = logging.getLogger(__name__)
 
 
 def shared_source_ids(index: SQLiteProjection, child_id: str) -> set[str]:
@@ -15,6 +19,10 @@ def shared_source_ids(index: SQLiteProjection, child_id: str) -> set[str]:
         try:
             link = EntityLink.model_validate(payload)
         except Exception:
+            logger.exception(
+                "ignoring malformed child-scope link while resolving visibility: %s",
+                payload.get("id", "unknown"),
+            )
             continue
         if link.relation is EntityLinkRelation.CHILD_SCOPE:
             source_ids.add(str(link.source_id))
