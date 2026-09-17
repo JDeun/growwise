@@ -39,8 +39,8 @@ export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
   return (
     <nav className="workspace-nav" aria-label="GrowWise 주요 메뉴">
       <div className="workspace-nav-brand" aria-hidden="true">
-        <strong>GrowWise</strong>
-        <span>아이의 기록과 배움을 한곳에서</span>
+        <strong>메뉴</strong>
+        <span>기록·성장·자료를 목적별로 찾습니다.</span>
       </div>
 
       <div className="workspace-nav-tree">
