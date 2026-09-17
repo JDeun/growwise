@@ -29,12 +29,12 @@ import {
 import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
 import { useMaterialManagement } from "./use-material-management";
+import { useObservationManagement } from "./use-observation-management";
 import { useResourceManagement } from "./use-resource-management";
 import { useSearchConversation } from "./use-search-conversation";
 import {
   createActivity,
   createChild,
-  createObservation,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
   getGrowthMap,
@@ -52,7 +52,6 @@ import {
   type BoardBookRecommendations,
   type ChildProfile,
   type CoreRuntimeStatus,
-  type ExperienceAxis,
   type GeneratedMaterial,
   type GrowthMap,
   type HealthResponse,
@@ -111,13 +110,6 @@ function App() {
   const [ageMonths, setAgeMonths] = useState("9");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-
-  const [observation, setObservation] = useState("");
-  const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
-  const [selectedActivityId, setSelectedActivityId] = useState("");
-  const [observationSaving, setObservationSaving] = useState(false);
-  const [observationError, setObservationError] = useState<string | null>(null);
-
 
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
@@ -227,6 +219,28 @@ function App() {
     scopeIsCurrent,
   });
 
+  const {
+    observation,
+    selectedAxes,
+    selectedActivityId,
+    observationSaving,
+    observationError,
+    setObservation,
+    setSelectedAxes,
+    setSelectedActivityId,
+    handleCreateObservation,
+    resetObservationState,
+  } = useObservationManagement({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    clearActivities: () => setActivities(null),
+    clearSearchResult,
+    reloadGrowth: () => reloadChildContextPart("growth"),
+    reloadObservations: () => reloadChildContextPart("observations"),
+    announceWrite,
+  });
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -239,9 +253,6 @@ function App() {
       setMaterials([]);
       setActivityPlans([]);
       setChildContext(childContextState("loading"));
-      setObservation("");
-      setSelectedAxes([]);
-      setSelectedActivityId("");
       setActivities(null);
       setActivitiesLoading(false);
       setActivitiesError(null);
@@ -253,6 +264,7 @@ function App() {
       resetMaterialState();
       resetResourceState();
       resetSearchConversation();
+      resetObservationState();
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -309,7 +321,7 @@ function App() {
               },
       });
     },
-    [resetMaterialState, resetResourceState, resetSearchConversation, scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, resetObservationState, resetResourceState, resetSearchConversation, scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -455,42 +467,6 @@ function App() {
       await loadChildContext(child);
     } catch (error) {
       setFormError(errorMessage(error, "아이 정보를 불러오지 못했습니다."));
-    }
-  }
-
-  async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const text = observation.trim();
-    if (!text) return setObservationError("기억할 가치가 있는 관찰을 짧게 적어 주세요.");
-    setObservationSaving(true);
-    setObservationError(null);
-    try {
-      await createObservation({
-        child_id: childId,
-        observation: text,
-        experience_axes: selectedAxes,
-        activity_plan_id: selectedActivityId || null,
-      });
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setObservation("");
-      setSelectedAxes([]);
-      setSelectedActivityId("");
-      setActivities(null);
-      clearSearchResult();
-      await Promise.all([
-        reloadChildContextPart("growth"),
-        reloadChildContextPart("observations"),
-      ]);
-      if (scopeIsCurrent(childId, requestId)) announceWrite("관찰 기록을 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setObservationError(errorMessage(error, "관찰 기록 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setObservationSaving(false);
     }
   }
 
