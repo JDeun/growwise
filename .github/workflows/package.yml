@@ -179,9 +179,45 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  sbom:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Install pinned Syft
+        env:
+          SYFT_VERSION: "1.52.0"
+          SYFT_SHA256: "caeedb81fb0491615f1ebd1761e4145d41ee86dd2cc7bf80669f9f5ad9d6133d"
+        run: |
+          set -euo pipefail
+          curl -fsSL -o /tmp/syft.tar.gz \
+            "https://github.com/anchore/syft/releases/download/v${SYFT_VERSION}/syft_${SYFT_VERSION}_linux_amd64.tar.gz"
+          echo "${SYFT_SHA256}  /tmp/syft.tar.gz" | sha256sum -c -
+          tar -xzf /tmp/syft.tar.gz -C /tmp syft
+      - name: Generate SPDX SBOM
+        run: /tmp/syft dir:. -o spdx-json=sbom.spdx.json
+      - name: Validate generated SBOM
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          payload = json.loads(Path("sbom.spdx.json").read_text(encoding="utf-8"))
+          if payload.get("spdxVersion") != "SPDX-2.3":
+              raise SystemExit("unexpected SPDX version")
+          if not payload.get("packages"):
+              raise SystemExit("SBOM contains no packages")
+          PY
+      - name: Upload SBOM artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: growwise-source-sbom
+          path: sbom.spdx.json
+          if-no-files-found: error
+          retention-days: 14
+
   release:
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: package
+    needs: [package, sbom]
     runs-on: ubuntu-latest
     permissions:
       contents: write
