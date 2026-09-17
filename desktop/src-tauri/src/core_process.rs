@@ -1,5 +1,5 @@
 use std::env;
-use std::fs::File;
+use std::fs::{File, OpenOptions};
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
 use std::path::Path;
@@ -12,15 +12,20 @@ const CORE_HOST: &str = "127.0.0.1";
 const STARTUP_ATTEMPTS: usize = 100;
 const STARTUP_INTERVAL: Duration = Duration::from_millis(100);
 const DESKTOP_PROTOCOL_VERSION: u32 = 1;
+const DATA_LOCK_FILE: &str = ".growwise-core.lock";
 
 pub struct CoreProcessManager {
     child: Mutex<Option<Child>>,
     base_url: String,
     session_token: String,
+    _data_lock: File,
 }
 
 impl CoreProcessManager {
     pub fn ensure_started(resource_dir: &Path, data_dir: &Path) -> Result<Self, String> {
+        // Hold an OS-level lock for the entire desktop/Core lifetime. Thread locks inside the
+        // Python Core cannot protect authoritative Markdown from a second desktop process.
+        let data_lock = acquire_data_dir_lock(data_dir)?;
         let port = reserve_loopback_port()?;
         let session_token = secure_session_token()?;
         let base_url = format!("http://{CORE_HOST}:{port}");
@@ -49,6 +54,7 @@ impl CoreProcessManager {
                     child: Mutex::new(Some(child)),
                     base_url,
                     session_token,
+                    _data_lock: data_lock,
                 });
             }
 
@@ -97,6 +103,24 @@ impl Drop for CoreProcessManager {
         *child_slot = None;
         self.session_token.clear();
     }
+}
+
+fn acquire_data_dir_lock(data_dir: &Path) -> Result<File, String> {
+    std::fs::create_dir_all(data_dir)
+        .map_err(|error| format!("GrowWise 데이터 폴더를 준비할 수 없습니다: {error}"))?;
+    let lock_path = data_dir.join(DATA_LOCK_FILE);
+    let file = OpenOptions::new()
+        .create(true)
+        .read(true)
+        .write(true)
+        .open(&lock_path)
+        .map_err(|error| format!("GrowWise 데이터 잠금 파일을 열 수 없습니다: {error}"))?;
+    file.try_lock().map_err(|error| {
+        format!(
+            "GrowWise 데이터가 다른 실행 인스턴스에서 사용 중입니다. 이미 실행 중인 GrowWise 창을 확인해 주세요: {error}"
+        )
+    })?;
+    Ok(file)
 }
 
 fn core_command(resource_dir: &Path) -> Result<Command, String> {
@@ -222,7 +246,12 @@ fn authenticated_handshake(port: u16, session_token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{core_binary_name, default_python, reserve_loopback_port, secure_session_token};
+    use super::{
+        acquire_data_dir_lock, core_binary_name, default_python, reserve_loopback_port,
+        secure_session_token,
+    };
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn platform_names_are_stable() {
@@ -244,5 +273,28 @@ mod tests {
         assert_eq!(first.len(), 64);
         assert_eq!(second.len(), 64);
         assert_ne!(first, second);
+    }
+
+    #[test]
+    fn data_directory_lock_rejects_second_core_until_release() {
+        let unique = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("clock")
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!(
+            "growwise-core-lock-{}-{unique}",
+            std::process::id()
+        ));
+        fs::create_dir_all(&root).expect("temp data dir");
+
+        let first = acquire_data_dir_lock(&root).expect("first lock");
+        let second = acquire_data_dir_lock(&root);
+        assert!(second.is_err(), "second Core must not share one data directory");
+
+        drop(first);
+        let third = acquire_data_dir_lock(&root).expect("lock after release");
+        drop(third);
+
+        let _ = fs::remove_dir_all(root);
     }
 }
