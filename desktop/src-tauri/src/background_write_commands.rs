@@ -121,6 +121,9 @@ mod tests {
 
     #[test]
     fn operation_keys_are_unique() {
-        assert_ne!(next_operation_key("observation"), next_operation_key("observation"));
+        assert_ne!(
+            next_operation_key("observation"),
+            next_operation_key("observation")
+        );
     }
 }
