@@ -10,6 +10,7 @@ mod study_commands;
 use std::fmt;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -42,6 +43,7 @@ struct CoreConnection {
 }
 
 static CORE_CONNECTION: OnceLock<CoreConnection> = OnceLock::new();
+static OPERATION_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 struct CoreBaseUrl;
 const CORE_BASE_URL: CoreBaseUrl = CoreBaseUrl;
@@ -176,6 +178,41 @@ fn client() -> Result<reqwest::Client, String> {
         .map_err(|error| error.to_string())
 }
 
+fn next_operation_key(label: &str) -> String {
+    let nanos = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_nanos();
+    let counter = OPERATION_COUNTER.fetch_add(1, Ordering::Relaxed);
+    format!("desktop-{label}-{}-{nanos}-{counter}", std::process::id())
+}
+
+pub(crate) async fn post_idempotent_json(
+    url: String,
+    body: &serde_json::Value,
+    operation_label: &str,
+) -> Result<reqwest::Response, String> {
+    let key = next_operation_key(operation_label);
+    let first = client()?
+        .post(&url)
+        .header("Idempotency-Key", key.as_str())
+        .json(body)
+        .send()
+        .await;
+
+    match first {
+        Ok(response) => Ok(response),
+        Err(error) if error.is_timeout() || error.is_connect() => client()?
+            .post(&url)
+            .header("Idempotency-Key", key.as_str())
+            .json(body)
+            .send()
+            .await
+            .map_err(|retry_error| retry_error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 async fn ensure_success(
     response: reqwest::Response,
     label: &str,
@@ -250,12 +287,13 @@ async fn delete_child(child_id: String) -> Result<serde_json::Value, String> {
 }
 #[tauri::command]
 async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/observations"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/observations"),
+        &body,
+        "observation-sync",
+    )
+    .await?;
     ensure_success(response, "관찰 기록 저장 실패")
         .await?
         .json::<LearningLogDto>()
@@ -283,12 +321,17 @@ async fn create_activity(
     title: String,
     source_refs: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"))
-        .json(&serde_json::json!({"title": title, "source_refs": source_refs, "parent_note": null}))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({
+        "title": title,
+        "source_refs": source_refs,
+        "parent_note": null,
+    });
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children/{child_id}/activities"),
+        &body,
+        "activity",
+    )
+    .await?;
     ensure_success(response, "활동 저장 실패")
         .await?
         .json::<serde_json::Value>()
@@ -413,12 +456,9 @@ async fn append_conversation_turn(
 }
 #[tauri::command]
 async fn create_resource(request: ResourceCreateInput) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/resources"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response =
+        post_idempotent_json(format!("{CORE_BASE_URL}/v1/resources"), &body, "resource").await?;
     ensure_success(response, "자료 저장 실패")
         .await?
         .json::<serde_json::Value>()
@@ -897,4 +937,17 @@ pub fn run() {
         ])
         .run(tauri::generate_context!())
         .expect("error while running GrowWise desktop application");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::next_operation_key;
+
+    #[test]
+    fn operation_keys_are_unique() {
+        assert_ne!(
+            next_operation_key("activity"),
+            next_operation_key("activity")
+        );
+    }
 }
