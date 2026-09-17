@@ -28,16 +28,13 @@ import {
 } from "./child-context-state";
 import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
+import { useMaterialManagement } from "./use-material-management";
+import { useObservationManagement } from "./use-observation-management";
+import { useResourceManagement } from "./use-resource-management";
+import { useSearchConversation } from "./use-search-conversation";
 import {
-  appendConversationTurn,
   createActivity,
   createChild,
-  createConversation,
-  createObservation,
-  createResource,
-  deleteResource,
-  editMaterial,
-  generateMaterial,
   getBoardBookRecommendations,
   getCoreRuntimeStatus,
   getGrowthMap,
@@ -49,31 +46,19 @@ import {
   listMaterials,
   listObservations,
   listResources,
-  reviewMaterial,
-  reviseMaterial,
-  searchChildContext,
   transitionActivity,
-  updateResource,
   type ActivityPlan,
   type ActivityStatus,
   type BoardBookRecommendations,
   type ChildProfile,
-  type ConversationAnswer,
-  type ConversationSession,
   type CoreRuntimeStatus,
-  type ExperienceAxis,
   type GeneratedMaterial,
   type GrowthMap,
   type HealthResponse,
   type InfantActivitySuggestions,
   type InfantObservationHints,
   type LearningLog,
-  type MaterialKind,
-  type MaterialStatus,
-  type ResourceCreateInput,
-  type ResourceKind,
   type ResourceRecord,
-  type SearchResponse,
   type Stage,
 } from "./api";
 
@@ -126,17 +111,6 @@ function App() {
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const [observation, setObservation] = useState("");
-  const [selectedAxes, setSelectedAxes] = useState<ExperienceAxis[]>([]);
-  const [selectedActivityId, setSelectedActivityId] = useState("");
-  const [observationSaving, setObservationSaving] = useState(false);
-  const [observationError, setObservationError] = useState<string | null>(null);
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResult, setSearchResult] = useState<SearchResponse | null>(null);
-  const [searching, setSearching] = useState(false);
-  const [searchError, setSearchError] = useState<string | null>(null);
-
   const [activities, setActivities] = useState<InfantActivitySuggestions | null>(null);
   const [activitiesLoading, setActivitiesLoading] = useState(false);
   const [activitiesError, setActivitiesError] = useState<string | null>(null);
@@ -146,26 +120,8 @@ function App() {
   const [infantGuidanceLoading, setInfantGuidanceLoading] = useState(false);
   const [infantGuidanceError, setInfantGuidanceError] = useState<string | null>(null);
 
-  const [conversation, setConversation] = useState<ConversationSession | null>(null);
-  const [conversationAnswers, setConversationAnswers] = useState<ConversationAnswer[]>([]);
-  const [conversationQuestion, setConversationQuestion] = useState("");
-  const [conversationBusy, setConversationBusy] = useState(false);
-  const [conversationError, setConversationError] = useState<string | null>(null);
 
-  const [resourceKind, setResourceKind] = useState<ResourceKind>("note");
-  const [resourceTitle, setResourceTitle] = useState("");
-  const [resourceContent, setResourceContent] = useState("");
-  const [resourceSaving, setResourceSaving] = useState(false);
-  const [resourceError, setResourceError] = useState<string | null>(null);
 
-  const [materialKind, setMaterialKind] = useState<MaterialKind>("activity_guide");
-  const [materialTopic, setMaterialTopic] = useState("");
-  const [materialGoal, setMaterialGoal] = useState("");
-  const [selectedResourceRefs, setSelectedResourceRefs] = useState<string[]>([]);
-  const [materialBusy, setMaterialBusy] = useState(false);
-  const [materialError, setMaterialError] = useState<string | null>(null);
-  const [revisionNotes, setRevisionNotes] = useState<Record<string, string>>({});
-  const [editingMaterialId, setEditingMaterialId] = useState<string | null>(null);
 
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
   const [writeNotice, setWriteNotice] = useState<WriteNotice | null>(null);
@@ -184,6 +140,108 @@ function App() {
     );
   }, []);
 
+  const {
+    materialKind,
+    materialTopic,
+    materialGoal,
+    selectedResourceRefs,
+    materialBusy,
+    materialError,
+    revisionNotes,
+    editingMaterialId,
+    setMaterialKind,
+    setMaterialTopic,
+    setMaterialGoal,
+    toggleResourceRef,
+    removeResourceRef,
+    setRevisionNote,
+    setEditingMaterialId,
+    handleGenerateMaterial,
+    handleReviewMaterial,
+    handleReviseMaterial,
+    handleParentEdit,
+    resetMaterialState,
+  } = useMaterialManagement({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    reloadMaterials: () => reloadChildContextPart("materials"),
+    announceWrite,
+  });
+
+  const {
+    resourceKind,
+    resourceTitle,
+    resourceContent,
+    resourceSaving,
+    resourceError,
+    setResourceKind,
+    setResourceTitle,
+    setResourceContent,
+    handleCreateResource,
+    handleUpdateResource,
+    handleDeleteResource,
+    resetResourceState,
+  } = useResourceManagement({
+    child: activeChild,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    reloadLibrary: () => reloadChildContextPart("library"),
+    replaceResource: (updated) =>
+      setResources((current) =>
+        current.map((resource) => (resource.id === updated.id ? updated : resource)),
+      ),
+    removeResource: (resourceId) =>
+      setResources((current) => current.filter((resource) => resource.id !== resourceId)),
+    removeResourceRef,
+    announceWrite,
+  });
+
+  const {
+    searchQuery,
+    searchResult,
+    searching,
+    searchError,
+    conversation,
+    conversationAnswers,
+    conversationQuestion,
+    conversationBusy,
+    conversationError,
+    setSearchQuery,
+    setConversationQuestion,
+    handleSearch,
+    handleConversation,
+    clearSearchResult,
+    resetSearchConversation,
+  } = useSearchConversation({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+  });
+
+  const {
+    observation,
+    selectedAxes,
+    selectedActivityId,
+    observationSaving,
+    observationError,
+    setObservation,
+    setSelectedAxes,
+    setSelectedActivityId,
+    toggleAxis,
+    handleCreateObservation,
+    resetObservationState,
+  } = useObservationManagement({
+    childId: activeChild?.id ?? null,
+    getRequestId: () => childContextRequestId.current,
+    scopeIsCurrent,
+    clearActivities: () => setActivities(null),
+    clearSearchResult,
+    reloadGrowth: () => reloadChildContextPart("growth"),
+    reloadObservations: () => reloadChildContextPart("observations"),
+    announceWrite,
+  });
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -196,10 +254,6 @@ function App() {
       setMaterials([]);
       setActivityPlans([]);
       setChildContext(childContextState("loading"));
-      setObservation("");
-      setSelectedAxes([]);
-      setSelectedResourceRefs([]);
-      setSelectedActivityId("");
       setActivities(null);
       setActivitiesLoading(false);
       setActivitiesError(null);
@@ -208,25 +262,10 @@ function App() {
       setBoardBooks(null);
       setInfantGuidanceLoading(false);
       setInfantGuidanceError(null);
-      setSearchQuery("");
-      setSearchResult(null);
-      setSearching(false);
-      setSearchError(null);
-      setConversation(null);
-      setConversationAnswers([]);
-      setConversationQuestion("");
-      setConversationBusy(false);
-      setConversationError(null);
-      setResourceTitle("");
-      setResourceContent("");
-      setResourceSaving(false);
-      setResourceError(null);
-      setMaterialTopic("");
-      setMaterialGoal("");
-      setMaterialBusy(false);
-      setMaterialError(null);
-      setRevisionNotes({});
-      setEditingMaterialId(null);
+      resetMaterialState();
+      resetResourceState();
+      resetSearchConversation();
+      resetObservationState();
 
       const [growthResult, observationsResult, resourcesResult, materialsResult, activitiesResult] =
         await Promise.allSettled([
@@ -283,7 +322,7 @@ function App() {
               },
       });
     },
-    [scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, resetObservationState, resetResourceState, resetSearchConversation, scopeIsCurrent, selectSharedChild],
   );
 
   const refresh = useCallback(async () => {
@@ -432,288 +471,6 @@ function App() {
     }
   }
 
-  async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const text = observation.trim();
-    if (!text) return setObservationError("기억할 가치가 있는 관찰을 짧게 적어 주세요.");
-    setObservationSaving(true);
-    setObservationError(null);
-    try {
-      await createObservation({
-        child_id: childId,
-        observation: text,
-        experience_axes: selectedAxes,
-        activity_plan_id: selectedActivityId || null,
-      });
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setObservation("");
-      setSelectedAxes([]);
-      setSelectedActivityId("");
-      setActivities(null);
-      setSearchResult(null);
-      await Promise.all([
-        reloadChildContextPart("growth"),
-        reloadChildContextPart("observations"),
-      ]);
-      if (scopeIsCurrent(childId, requestId)) announceWrite("관찰 기록을 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setObservationError(errorMessage(error, "관찰 기록 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setObservationSaving(false);
-    }
-  }
-
-  async function handleSearch(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const query = searchQuery.trim();
-    if (query.length < 2) return setSearchError("두 글자 이상으로 검색해 주세요.");
-    setSearching(true);
-    setSearchError(null);
-    try {
-      const result = await searchChildContext(childId, query);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setSearchResult(result);
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setSearchError(errorMessage(error, "검색에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setSearching(false);
-    }
-  }
-
-  async function handleConversation(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const question = conversationQuestion.trim();
-    if (question.length < 2) return setConversationError("두 글자 이상으로 질문해 주세요.");
-    setConversationBusy(true);
-    setConversationError(null);
-    try {
-      const session = conversation ?? (await createConversation(childId));
-      const answer = await appendConversationTurn(session.id, question);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setConversation(session);
-      setConversationAnswers((current) => [...current, answer]);
-      setConversationQuestion("");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setConversationError(errorMessage(error, "후속 질문 처리에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setConversationBusy(false);
-    }
-  }
-
-  async function handleCreateResource(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const title = resourceTitle.trim();
-    const content = resourceContent.trim();
-    if (!title) return setResourceError("자료 제목을 입력해 주세요.");
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      await createResource({
-        kind: resourceKind,
-        title,
-        child_id: childId,
-        summary: null,
-        content: content || null,
-        source_url: null,
-        source_name: "parent",
-        author: null,
-        tags: [],
-        stage_tags: [activeChild.stage],
-        provenance: { origin: "desktop_manual" },
-      });
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResourceTitle("");
-      setResourceContent("");
-      await reloadChildContextPart("library");
-      if (scopeIsCurrent(childId, requestId)) announceWrite("자료를 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
-    }
-  }
-
-  async function handleUpdateResource(resourceId: string, request: ResourceCreateInput) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      const updated = await updateResource(resourceId, request, childId);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResources((current) =>
-        current.map((resource) => (resource.id === updated.id ? updated : resource)),
-      );
-      announceWrite("자료를 수정했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 수정에 실패했습니다."));
-      }
-      throw error;
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
-    }
-  }
-
-  async function handleDeleteResource(resourceId: string) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setResourceSaving(true);
-    setResourceError(null);
-    try {
-      await deleteResource(resourceId, childId);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setResources((current) => current.filter((resource) => resource.id !== resourceId));
-      setSelectedResourceRefs((current) =>
-        current.filter((ref) => ref !== `resource:${resourceId}`),
-      );
-      announceWrite("자료를 삭제했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setResourceError(errorMessage(error, "자료 삭제에 실패했습니다."));
-      }
-      throw error;
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setResourceSaving(false);
-    }
-  }
-
-  async function handleGenerateMaterial(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const topic = materialTopic.trim();
-    if (!topic) return setMaterialError("자료 주제를 입력해 주세요.");
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await generateMaterial(
-        childId,
-        materialKind,
-        topic,
-        materialGoal.trim() || undefined,
-        selectedResourceRefs,
-      );
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setMaterialTopic("");
-      setMaterialGoal("");
-      setSelectedResourceRefs([]);
-      await reloadChildContextPart("materials");
-      if (scopeIsCurrent(childId, requestId)) announceWrite("학습 자료 초안을 생성했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleReviewMaterial(materialId: string, status: MaterialStatus) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await reviewMaterial(materialId, status);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      announceWrite(
-        status === "approved"
-          ? "학습 자료를 승인했습니다."
-          : status === "rejected"
-            ? "학습 자료를 반려했습니다."
-            : "자료 검토 상태를 변경했습니다.",
-      );
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "자료 검토 상태 변경에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleReviseMaterial(materialId: string) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    const note = (revisionNotes[materialId] ?? "").trim();
-    if (!note) return setMaterialError("수정할 내용을 짧게 적어 주세요.");
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await reviseMaterial(materialId, note);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setRevisionNotes((current) => {
-        const next = { ...current };
-        delete next[materialId];
-        return next;
-      });
-      announceWrite("수정본을 생성했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
-  async function handleParentEdit(
-    materialId: string,
-    title: string,
-    contentMarkdown: string,
-    note: string | null,
-  ) {
-    if (!activeChild) return;
-    const childId = activeChild.id;
-    const requestId = childContextRequestId.current;
-    setMaterialBusy(true);
-    setMaterialError(null);
-    try {
-      await editMaterial(materialId, title, contentMarkdown, note);
-      if (!scopeIsCurrent(childId, requestId)) return;
-      await reloadChildContextPart("materials");
-      if (!scopeIsCurrent(childId, requestId)) return;
-      setEditingMaterialId(null);
-      announceWrite("편집본을 저장했습니다.");
-    } catch (error) {
-      if (scopeIsCurrent(childId, requestId)) {
-        setMaterialError(errorMessage(error, "편집본 저장에 실패했습니다."));
-      }
-    } finally {
-      if (scopeIsCurrent(childId, requestId)) setMaterialBusy(false);
-    }
-  }
-
   async function handleLoadActivities() {
     if (!activeChild) return;
     const childId = activeChild.id;
@@ -808,19 +565,6 @@ function App() {
     if (material.status !== "approved") return;
     setPrintMaterial(material);
     window.setTimeout(() => window.print(), 0);
-  }
-
-  function toggleAxis(axis: ExperienceAxis) {
-    setSelectedAxes((current) =>
-      current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
-    );
-  }
-
-  function toggleResourceRef(resourceId: string) {
-    const ref = `resource:${resourceId}`;
-    setSelectedResourceRefs((current) =>
-      current.includes(ref) ? current.filter((item) => item !== ref) : [...current, ref],
-    );
   }
 
   const isConnected = connection.kind === "connected";
@@ -946,8 +690,7 @@ function App() {
                   toggleResourceRef,
                   handleGenerateMaterial,
                   handleReviewMaterial,
-                  setRevisionNote: (materialId, note) =>
-                    setRevisionNotes((current) => ({ ...current, [materialId]: note })),
+                  setRevisionNote,
                   handleReviseMaterial,
                   setEditingMaterialId,
                   handleParentEdit,
