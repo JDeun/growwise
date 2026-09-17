@@ -14,6 +14,12 @@ from .markdown import _decode_metadata
 from .schema import UnsupportedSchemaVersion, validate_schema_version
 
 _REQUIRED_RECORD_KEYS = ("id", "entity_type", "created_at", "updated_at")
+_MAX_SEARCH_TERMS = 32
+_MAX_SEARCH_TERM_CHARS = 128
+
+
+def _escape_like(value: str) -> str:
+    return value.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 class SQLiteProjection:
@@ -228,7 +234,16 @@ class SQLiteProjection:
         if not entity_types or limit <= 0:
             return []
 
-        terms = [term.strip() for term in query_text.split() if term.strip()]
+        terms: list[str] = []
+        seen_terms: set[str] = set()
+        for raw_term in query_text.split():
+            term = raw_term.strip()[:_MAX_SEARCH_TERM_CHARS]
+            if not term or term in seen_terms:
+                continue
+            seen_terms.add(term)
+            terms.append(term)
+            if len(terms) >= _MAX_SEARCH_TERMS:
+                break
         type_placeholders = ",".join("?" for _ in entity_types)
 
         with self._connection() as connection:
@@ -245,12 +260,12 @@ class SQLiteProjection:
             where_params: list[str | int] = [*scope_params, *entity_types]
 
             if terms:
-                term_clauses = ["payload_json LIKE ?" for _ in terms]
+                term_clauses = ["payload_json LIKE ? ESCAPE '\\'" for _ in terms]
                 clauses.append("(" + " OR ".join(term_clauses) + ")")
-                patterns = [f"%{term}%" for term in terms]
+                patterns = [f"%{_escape_like(term)}%" for term in terms]
                 where_params.extend(patterns)
                 score_sql = " + ".join(
-                    "CASE WHEN payload_json LIKE ? THEN 1 ELSE 0 END" for _ in terms
+                    "CASE WHEN payload_json LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END" for _ in terms
                 )
                 sql = (
                     f"SELECT payload_json, ({score_sql}) AS match_score FROM entities "
