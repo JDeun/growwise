@@ -37,6 +37,10 @@ print(json.dumps({
     "app": inventory(main_module.app.routes),
     "study": inventory(study_module.router.routes),
     "resource": inventory(resource_module.router.routes),
+    "resource_route_count_at_mount": study_module._RESOURCE_ROUTE_COUNT_AT_MOUNT,
+    "resource_router_id_at_mount": study_module._RESOURCE_ROUTER_ID_AT_MOUNT,
+    "resource_router_id_final": id(resource_module.router),
+    "study_paths_after_mount": study_module._RESOURCE_STUDY_PATHS_AFTER_MOUNT,
     "resource_import_stack": resource_module._IMPORT_STACK,
 }, sort_keys=True))
 '''
@@ -59,9 +63,7 @@ print(json.dumps({
 
     assert result["resource"], "resource router has no resource routes"
     study_collection = [route for route in result["study"] if route["path"] == "/v1/resources"]
-    assert study_collection, "resource router was partial when mounted:\n" + "".join(
-        result["resource_import_stack"]
-    )
+    assert study_collection, result
     assert result["app"], f"resource routes lost before app mount: {result['study']}"
 
     routes = [route for route in result["app"] if route["path"] == "/v1/resources"]
