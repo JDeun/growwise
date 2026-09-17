@@ -5,7 +5,6 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-import uvicorn
 from fastapi import Depends, FastAPI, Header, HTTPException, Query
 from uuid6 import uuid7
 
@@ -621,13 +620,9 @@ def recommend_board_books(
 
 
 def run() -> None:
-    settings = get_settings()
-    uvicorn.run(
-        "growwise.api.main:app",
-        host=settings.api_host,
-        port=settings.api_port,
-        reload=False,
-    )
+    from growwise.api.entry import run as guarded_run
+
+    guarded_run()
 
 
 if __name__ == "__main__":
