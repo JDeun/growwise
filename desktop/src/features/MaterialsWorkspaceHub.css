@@ -97,6 +97,21 @@
   display: none !important;
 }
 
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .material-workspace,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .resource-section {
+  display: none !important;
+}
+
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .infant-guidance-section,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .activity-section,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .quest-section {
+  display: block !important;
+}
+
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .activity-section {
+  margin-top: 0;
+}
+
 .materials-hub .app-shell > .workspace > .material-workspace {
   margin-top: 0;
 }
