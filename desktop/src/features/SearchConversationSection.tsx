@@ -28,6 +28,7 @@ interface SearchConversationSectionProps {
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
   onNewConversation?: () => void;
+  onSelectConversation?: (session: ConversationSession) => void;
   backups?: BackupItem[];
   backupBusy?: boolean;
   backupError?: string | null;
@@ -110,6 +111,7 @@ export function SearchConversationSection({
   onConversationQuestionChange,
   onConversation,
   onNewConversation = () => undefined,
+  onSelectConversation = () => undefined,
   backups = [],
   backupBusy = false,
   backupError = null,
@@ -239,6 +241,7 @@ export function SearchConversationSection({
                   onClick={() => {
                     setNewConversationMode(false);
                     setSelectedHistoryId(session.id);
+                    onSelectConversation(session);
                   }}
                 >
                   <span>
