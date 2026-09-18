@@ -20,7 +20,6 @@ from growwise.model import ModelProvider
 from .scaffold import ScaffoldGuard
 from .templates import select_body
 
-
 _DraftSourceRef = Annotated[str, Field(min_length=1, max_length=500)]
 
 
