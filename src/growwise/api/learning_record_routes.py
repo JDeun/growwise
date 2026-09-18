@@ -177,8 +177,7 @@ def create_learning_record(
                 store.delete(log)
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
         queue_learning_log_enrichment(log=log, store=store)
-        if claim is not None and claim.acquired:
-            assert idempotency_store is not None
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -186,7 +185,7 @@ def create_learning_record(
             )
         return log
     except Exception:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             existing = store.index.get_entity(
                 claim.record.resource_id,
                 entity_type="learning_log",
