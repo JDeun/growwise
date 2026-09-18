@@ -18,6 +18,7 @@ from growwise.domain.models import (
     LearningLog,
     LearningRecordKind,
     MaterialStatus,
+    TagText,
 )
 from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
 from growwise.services.activity import ActivityPlanService, InvalidActivityTransition
@@ -45,7 +46,7 @@ class MaterialResultRequest(BaseModel):
     interest: str | None = Field(default=None, max_length=2_000)
     difficulty_note: str | None = Field(default=None, max_length=4_000)
     next_activity: str | None = Field(default=None, max_length=4_000)
-    tags: list[str] = Field(default_factory=list, max_length=100)
+    tags: list[TagText] = Field(default_factory=list, max_length=100)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
     activity_plan_id: UUID | None = None
     photo_record_ids: list[UUID] = Field(default_factory=list, max_length=12)
