@@ -157,10 +157,19 @@ def append_conversation_turn(
     if store.index.get_entity(session.child_id, entity_type="child_profile") is None:
         raise HTTPException(status_code=409, detail="conversation_child_not_found")
 
-    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     request_hash = request_fingerprint(
         {"session_id": session_id, **request.model_dump(mode="json")}
     )
+    if idempotency_key is not None:
+        persisted_exchange = _existing_exchange(
+            session=session,
+            operation_key=idempotency_key,
+            operation_hash=request_hash,
+        )
+        if persisted_exchange is not None:
+            return persisted_exchange
+
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     claim = None
     if idempotency_key is not None:
         assert idempotency_store is not None
