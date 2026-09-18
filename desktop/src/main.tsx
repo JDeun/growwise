@@ -43,10 +43,13 @@ createRoot(document.getElementById("root")!).render(
                 onNavigate={navigate}
               />
             ) : activeView === "materials" ? (
-              <MaterialsWorkspaceHub
-                app={<App activeView={activeView} />}
-                renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
-              />
+              <>
+                <MaterialsWorkspaceHub
+                  app={<App activeView={activeView} />}
+                  renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
+                />
+                <PrintApprovedMaterials />
+              </>
             ) : (
               activeView !== "home"
               && activeView !== "photos"
@@ -61,7 +64,6 @@ createRoot(document.getElementById("root")!).render(
           </>
         )}
       />
-      <PrintApprovedMaterials />
     </ActiveChildProvider>
   </StrictMode>,
 );
