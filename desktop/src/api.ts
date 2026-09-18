@@ -397,6 +397,7 @@ export interface BackupRestoreResult {
   archive: string;
   restored: boolean;
   rag_chunk_count: number;
+  rag_status: "ready" | "degraded";
   manifest: BackupCreateResult["manifest"];
 }
 
