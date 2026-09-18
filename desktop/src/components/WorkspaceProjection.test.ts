@@ -6,6 +6,10 @@ const mainSource = readFileSync(
   fileURLToPath(new URL("../main.tsx", import.meta.url)),
   "utf8",
 );
+const appSource = readFileSync(
+  fileURLToPath(new URL("../App.tsx", import.meta.url)),
+  "utf8",
+);
 const shellCss = readFileSync(
   fileURLToPath(new URL("./WorkspaceShell.css", import.meta.url)),
   "utf8",
@@ -28,18 +32,23 @@ describe("product workspace composition contract", () => {
         `activeView === "${workspace}"`,
       );
     }
-
     expect(mainSource).toContain("<App activeView={activeView} />");
   });
 
-  it("keeps App-backed product surfaces projected without reviving removed sidebar tools", () => {
-    for (const workspace of ["conversation", "backup", "settings"]) {
-      expect(shellCss).toContain(`data-active-workspace="${workspace}"`);
-    }
+  it("mounts feature surfaces from App instead of reviving them through shell CSS", () => {
+    expect(appSource).toContain('activeView === "conversation"');
+    expect(appSource).toContain('activeView === "backup"');
+    expect(appSource).toContain('activeView === "settings"');
+    expect(appSource).toContain("showProfile");
+    expect(appSource).toContain("showMaterials");
+    expect(appSource).toContain("showTimeline");
 
-    expect(shellCss).toContain(".conversation-workspace-grid");
-    expect(shellCss).toContain(".data-management-section");
-    expect(shellCss).toContain("display: none");
+    expect(shellCss).not.toContain('data-active-workspace="profile"] .app-shell');
+    expect(shellCss).not.toContain('data-active-workspace="materials"] .app-shell');
+    expect(shellCss).toContain('data-active-workspace="growth"');
+  });
+
+  it("does not expose removed legacy routes in the product composition", () => {
     expect(mainSource).not.toContain('activeView === "observations"');
     expect(mainSource).not.toContain('activeView === "growth"');
     expect(mainSource).not.toContain('activeView === "activities"');
