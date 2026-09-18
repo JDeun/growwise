@@ -72,6 +72,9 @@ GrowWise는 육아 ERP나 상시 감시 시스템을 목표로 하지 않는다.
 - **API 키**: OS 키체인/자격증명 저장소를 사용하고 저장소에 커밋하지 않는다.
 - **외부 콘텐츠**: 웹·도서·지도 텍스트는 데이터로만 취급하고 명령으로 실행하지 않는다.
   prompt injection과 malicious document를 별도 threat로 다룬다.
+- **Public HTTP trust boundary**: public-data adapter는 HTTPS만 허용하고 redirect가 원래 HTTPS
+  origin을 벗어나거나 downgrade되면 요청을 중단한다. credential이 포함된 요청을 다른 origin으로
+  따라가지 않는다.
 
 ## 해석 안전성
 
