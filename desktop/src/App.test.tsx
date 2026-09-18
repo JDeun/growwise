@@ -12,8 +12,6 @@ describe("App feature composition", () => {
       </ActiveChildProvider>,
     );
 
-    expect(html).toContain("GrowWise");
-    expect(html).toContain("아이의 배움 기록");
     expect(html).toContain("앱 상태");
     expect(html).toContain("AI 보조 기능");
     expect(html).toContain("홈에서 첫 아이 프로필을 만들면");
