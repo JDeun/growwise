@@ -179,90 +179,17 @@
   min-height: 240px;
 }
 
-/*
- * App remains mounted while the workspace changes so Core-backed state and unsaved forms survive
- * navigation. Product workspaces compose these legacy feature sections while the data controllers
- * remain mounted in one place.
- */
-.workspace-shell[data-active-workspace="home"] .app-shell {
+/* Legacy deep links remain visually compatible while persisted values migrate to product workspaces. */
+.workspace-shell[data-active-workspace="observations"] .observation-panel > .observation-result {
   display: none;
 }
 
-.workspace-shell[data-active-workspace] .app-shell > .hero,
-.workspace-shell[data-active-workspace] .app-shell > .status-grid,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .observation-panel,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .conversation-workspace-grid,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .search-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .conversation-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .resource-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .material-workspace,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .infant-guidance-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .activity-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .quest-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .timeline-section,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .child-profile-section,
-.workspace-shell[data-active-workspace] .app-shell > .data-management-section {
-  display: none;
-}
-
-.workspace-shell[data-active-workspace="profile"] .app-shell > .workspace > .child-profile-section {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .conversation-workspace-grid,
-.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .search-section,
-.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .conversation-section,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-workspace-grid,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .search-section,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-section {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="materials"] .app-shell > .workspace > .material-workspace,
-.workspace-shell[data-active-workspace="library"] .app-shell > .workspace > .resource-section {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="backup"] .app-shell > .data-management-section,
-.workspace-shell[data-active-workspace="settings"] .app-shell > .data-management-section {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
-  display: grid;
-}
-
-.workspace-shell[data-active-workspace="backup"] .app-shell > .workspace,
-.workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
-  display: none;
-}
-
-/* Legacy routes remain projection-compatible until each feature is fully recomposed. */
-.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel {
-  display: grid;
-}
-
-.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel > .observation-result {
-  display: none;
-}
-
-.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .timeline-section {
-  display: block;
-}
-
-.workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel {
-  display: grid;
+.workspace-shell[data-active-workspace="growth"] .observation-panel {
   grid-template-columns: minmax(0, 1fr);
 }
 
-.workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel > .observation-form {
+.workspace-shell[data-active-workspace="growth"] .observation-panel > .observation-form {
   display: none;
-}
-
-.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .infant-guidance-section,
-.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .activity-section,
-.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .quest-section {
-  display: block;
 }
 
 @media (max-width: 1080px) {
