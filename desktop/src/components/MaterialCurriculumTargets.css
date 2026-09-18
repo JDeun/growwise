@@ -2,7 +2,7 @@
   margin-top: 10px;
   border: 1px solid var(--border);
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.72);
+  background: var(--surface-translucent);
 }
 
 .material-curriculum-targets summary {
