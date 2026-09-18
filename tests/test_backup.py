@@ -10,6 +10,7 @@ import pytest
 
 from growwise.backup import BackupService, InvalidBackup
 from growwise.domain import ChildProfile, Stage
+from growwise.services import ConversationSession, SQLiteConversationStore
 from growwise.storage import EntityStore
 
 
@@ -176,3 +177,32 @@ def test_backup_fsyncs_archive_before_publish(
     assert calls
     with zipfile.ZipFile(archive) as created:
         assert "manifest.json" in created.namelist()
+
+
+
+def test_v1_restore_clears_post_backup_conversation_state(tmp_path: Path) -> None:
+    records = tmp_path / "records"
+    index = tmp_path / "index.sqlite3"
+    conversations_path = tmp_path / "conversations.sqlite3"
+    store = EntityStore(records, index)
+    child = ChildProfile(nickname="v1아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+
+    archive = tmp_path / "legacy-v1.zip"
+    manifest = BackupService().create(records_root=records, destination=archive)
+    assert manifest.format_version == 1
+
+    conversations = SQLiteConversationStore(conversations_path)
+    stale = ConversationSession(child_id=str(child.id), title="백업 이후 대화")
+    conversations.save(stale)
+    assert conversations.get(stale.id) is not None
+
+    BackupService().restore(
+        archive_path=archive,
+        records_root=records,
+        index_path=index,
+        conversations_path=conversations_path,
+    )
+
+    reopened = SQLiteConversationStore(conversations_path)
+    assert reopened.get(stale.id) is None
