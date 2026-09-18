@@ -306,14 +306,16 @@ class SQLiteProjection:
                     for _ in terms
                 )
                 sql = (
-                    f"SELECT id, payload_json, source_path, updated_at, ({score_sql}) AS match_score "
+                    "SELECT id, payload_json, source_path, updated_at, "
+                    f"({score_sql}) AS match_score "
                     f"FROM entities WHERE {' AND '.join(clauses)} "
                     "ORDER BY match_score DESC, updated_at DESC LIMIT ?"
                 )
                 params: list[str | int] = [*patterns, *where_params, limit]
             else:
                 sql = (
-                    "SELECT id, payload_json, source_path, updated_at, 0 AS match_score FROM entities "
+                    "SELECT id, payload_json, source_path, updated_at, "
+                    "0 AS match_score FROM entities "
                     f"WHERE {' AND '.join(clauses)} "
                     "ORDER BY updated_at DESC LIMIT ?"
                 )
