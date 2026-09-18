@@ -260,7 +260,6 @@ class SQLiteConversationStore:
             connection.commit()
         return len(session_ids)
 
-
     def snapshot_to(self, destination: Path) -> int:
         """Write one transactionally consistent portable SQLite snapshot."""
 
