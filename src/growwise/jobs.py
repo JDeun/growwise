@@ -132,7 +132,8 @@ class SQLiteJobQueue:
                 str(row["name"])
                 for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
             }
-            if "child_id" not in columns:
+            migrating_child_ownership = "child_id" not in columns
+            if migrating_child_ownership:
                 connection.execute("ALTER TABLE jobs ADD COLUMN child_id TEXT")
             if "lease_expires_at" not in columns:
                 connection.execute("ALTER TABLE jobs ADD COLUMN lease_expires_at TEXT")
@@ -149,20 +150,21 @@ class SQLiteJobQueue:
                 "CREATE INDEX IF NOT EXISTS idx_jobs_lease "
                 "ON jobs(status, lease_expires_at)"
             )
-            legacy_rows = connection.execute(
-                "SELECT id, payload_json FROM jobs WHERE child_id IS NULL"
-            ).fetchall()
-            for row in legacy_rows:
-                try:
-                    payload = json.loads(row["payload_json"])
-                except (TypeError, json.JSONDecodeError):
-                    continue
-                child_id = self._payload_child_id(payload)
-                if child_id is not None:
-                    connection.execute(
-                        "UPDATE jobs SET child_id = ? WHERE id = ?",
-                        (child_id, row["id"]),
-                    )
+            if migrating_child_ownership:
+                legacy_rows = connection.execute(
+                    "SELECT id, payload_json FROM jobs WHERE child_id IS NULL"
+                ).fetchall()
+                for row in legacy_rows:
+                    try:
+                        payload = json.loads(row["payload_json"])
+                    except (TypeError, json.JSONDecodeError):
+                        continue
+                    child_id = self._payload_child_id(payload)
+                    if child_id is not None:
+                        connection.execute(
+                            "UPDATE jobs SET child_id = ? WHERE id = ?",
+                            (child_id, row["id"]),
+                        )
 
     @staticmethod
     def _payload_child_id(payload: object) -> str | None:
