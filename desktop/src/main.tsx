@@ -30,7 +30,7 @@ createRoot(document.getElementById("root")!).render(
           <>
             <CapabilityStatus />
             {activeView !== "photos" && activeView !== "discovery" && activeView !== "learning" && (
-              <App />
+              <App activeView={activeView} />
             )}
             <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
             <PhotoActivityWorkspace active={activeView === "photos"} />
