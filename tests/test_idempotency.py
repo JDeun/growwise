@@ -258,7 +258,6 @@ def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path)
     assert record.claim_token is None
 
 
-
 def test_pre_restore_idempotency_owner_cannot_write_new_generation(tmp_path) -> None:
     path = tmp_path / "idempotency.sqlite3"
     old_store = SQLiteIdempotencyStore(path)
