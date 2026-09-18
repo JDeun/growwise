@@ -259,19 +259,19 @@ class SQLiteConversationStore:
             expected_generation=self._data_generation
         ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            rows = connection.execute(
-                "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
-            ).fetchall()
-            session_ids = [row["id"] for row in rows]
-            if session_ids:
-                placeholders = ",".join("?" for _ in session_ids)
-                connection.execute(
-                    f"DELETE FROM conversation_turns WHERE session_id IN ({placeholders})",
-                    session_ids,
-                )
-            connection.execute("DELETE FROM conversation_sessions WHERE child_id = ?", (child_id,))
+            row = connection.execute(
+                "SELECT COUNT(*) FROM conversation_sessions WHERE child_id = ?",
+                (child_id,),
+            ).fetchone()
+            session_count = int(row[0]) if row is not None else 0
+            # Turns are removed by the foreign-key ON DELETE CASCADE. Avoid materializing every
+            # session ID into one unbounded IN clause during privacy purge.
+            connection.execute(
+                "DELETE FROM conversation_sessions WHERE child_id = ?",
+                (child_id,),
+            )
             connection.commit()
-        return len(session_ids)
+        return session_count
 
     def snapshot_to(self, destination: Path) -> int:
         """Write one transactionally consistent portable SQLite snapshot."""
