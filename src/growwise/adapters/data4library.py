@@ -6,7 +6,7 @@ from typing import Any
 
 from .base import AdapterResult, ExternalAdapterError, ExternalUnavailable
 from .cache import CachedPayload, SQLiteExternalCache
-from .http import JsonHttpClient
+from .http import JsonHttpClient, validate_public_endpoint
 
 
 class Data4LibraryAdapter:
@@ -28,7 +28,7 @@ class Data4LibraryAdapter:
         self.auth_key = auth_key
         self.cache = cache
         self.http = http or JsonHttpClient()
-        self.endpoint = endpoint
+        self.endpoint = validate_public_endpoint(endpoint)
         self.ttl_seconds = ttl_seconds
 
     def search_books(
