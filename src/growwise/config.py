@@ -39,6 +39,7 @@ class Settings(BaseSettings):
     vision_timeout_seconds: float = Field(default=300.0, gt=0.0, le=1800.0)
     photo_text_timeout_seconds: float = Field(default=300.0, gt=0.0, le=1800.0)
     photo_remote_text_allowed: bool = False
+    photo_remote_vision_allowed: bool = False
     photo_job_lease_seconds: int = Field(default=7200, ge=60, le=86_400)
     photo_job_max_attempts: int = Field(default=3, ge=1, le=10)
     photo_job_poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
