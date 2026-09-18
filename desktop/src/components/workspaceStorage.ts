@@ -1,4 +1,4 @@
-import { isWorkspaceView } from "./workspaceViews";
+import { isProductWorkspaceView } from "./workspaceViews";
 import type { WorkspaceView } from "./workspaceTypes";
 
 export const LAST_WORKSPACE_KEY = "growwise:last-workspace-view:v2";
@@ -22,7 +22,7 @@ const LEGACY_WORKSPACE_MIGRATION: Readonly<Record<string, WorkspaceView>> = {
 export function readWorkspaceView(storage: Pick<Storage, "getItem">): WorkspaceView {
   try {
     const stored = storage.getItem(LAST_WORKSPACE_KEY);
-    if (stored && isWorkspaceView(stored)) return stored;
+    if (stored && isProductWorkspaceView(stored)) return stored;
 
     const legacy = storage.getItem(LEGACY_LAST_WORKSPACE_KEY);
     return legacy ? LEGACY_WORKSPACE_MIGRATION[legacy] ?? "home" : "home";
