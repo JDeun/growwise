@@ -1,6 +1,8 @@
+import sqlite3
 from pathlib import Path
 
 import pytest
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.backup.cli import (
     create_backup,
@@ -11,12 +13,14 @@ from growwise.backup.cli import (
 )
 from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
-from growwise.jobs import JobStatus, SQLiteJobQueue
+from growwise.idempotency import SQLiteIdempotencyStore
+from growwise.jobs import SQLiteJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
+from growwise.workflows import build_material_review_graph
 
 
 def test_backup_name_rejects_path_traversal(tmp_path: Path) -> None:
@@ -77,23 +81,49 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     assert running_claim is not None
     unrelated_job = queue.enqueue("unrelated-maintenance-test", {"child_id": str(child.id)})
 
+    idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    idempotency.record(
+        key="pre-restore-key",
+        request_hash="pre-restore-hash",
+        resource_type="resource",
+        resource_id=str(baseline_resource.id),
+    )
+
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+    checkpoint_saver = SqliteSaver(checkpoint_connection)
+    checkpoint_saver.setup()
+    checkpoint_graph = build_material_review_graph(checkpointer=checkpoint_saver)
+    checkpoint_graph.invoke(
+        {"material_id": "stale-material", "child_id": str(child.id), "title": "복원 전 상태"},
+        config={"configurable": {"thread_id": "stale-review-thread"}},
+    )
+    checkpoint_connection.close()
+
     with pytest.raises(ValueError):
         restore_backup(settings, "baseline.zip", confirmed=False)
 
     restored = restore_backup(settings, "baseline.zip", confirmed=True)
     assert restored["restored"] is True
     assert restored["cancelled_jobs"] == 2
+    assert restored["cleared_jobs"] == 3
+    assert restored["cleared_idempotency"] == 1
+    assert restored["cleared_checkpoint_threads"] == 1
     assert int(restored["rag_chunk_count"]) > 0
 
-    pending_after = queue.get(pending_job.id)
-    running_after = queue.get(running_job.id)
-    unrelated_after = queue.get(unrelated_job.id)
-    assert pending_after is not None
-    assert running_after is not None
-    assert unrelated_after is not None
-    assert pending_after.status is JobStatus.CANCELLED
-    assert running_after.status is JobStatus.CANCELLED
-    assert unrelated_after.status is JobStatus.PENDING
+    assert queue.get(pending_job.id) is None
+    assert queue.get(running_job.id) is None
+    assert queue.get(unrelated_job.id) is None
+    assert idempotency.get("pre-restore-key") is None
+
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path)
+    try:
+        checkpoint_count = checkpoint_connection.execute(
+            "SELECT COUNT(*) FROM checkpoints"
+        ).fetchone()
+        assert checkpoint_count is not None
+        assert checkpoint_count[0] == 0
+    finally:
+        checkpoint_connection.close()
 
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")
