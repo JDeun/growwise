@@ -289,3 +289,41 @@ def test_pre_restore_idempotency_owner_cannot_write_new_generation(tmp_path) -> 
     )
     assert fresh.acquired is True
     assert fresh.record.resource_id == "log-after"
+
+
+
+def test_delete_resources_chunks_large_set_below_sqlite_limit(tmp_path) -> None:
+    class LowVariableIdempotencyStore(SQLiteIdempotencyStore):
+        def _connect(self) -> sqlite3.Connection:
+            connection = super()._connect()
+            connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 512)
+            return connection
+
+    path = tmp_path / "idempotency.sqlite3"
+    store = LowVariableIdempotencyStore(path)
+    resource_ids = {f"resource-{index}" for index in range(1_200)}
+    rows = [
+        (
+            f"key-{index}",
+            "hash",
+            "resource",
+            resource_id,
+            "2026-01-01T00:00:00+00:00",
+        )
+        for index, resource_id in enumerate(sorted(resource_ids))
+    ]
+    rows.append(
+        ("survivor", "hash", "resource", "resource-survivor", "2026-01-01T00:00:00+00:00")
+    )
+    with sqlite3.connect(path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO idempotency_records (
+                key, request_hash, resource_type, resource_id, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+
+    assert store.delete_resources(resource_ids) == 1_200
+    assert store.get("survivor") is not None
