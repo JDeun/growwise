@@ -33,7 +33,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
         작업공간 본문으로 바로가기
       </a>
       <WorkspaceNav activeView={activeView} onChange={handleChange} />
-      <main className="workspace-shell-main">
+      <div className="workspace-shell-main">
         <header className="workspace-shell-topbar">
           <div className="workspace-shell-heading">
             <span>GrowWise</span>
@@ -70,7 +70,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
         >
           {renderWorkspace(activeView, handleChange)}
         </div>
-      </main>
+      </div>
     </div>
   );
 }
