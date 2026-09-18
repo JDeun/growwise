@@ -13,7 +13,7 @@ from growwise.api.contracts import (
     MaterialReviewRequest,
     MaterialRevisionRequest,
 )
-from growwise.api.dependencies import get_material_review_graph, get_model_provider, get_store
+from growwise.api.dependencies import get_store
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialStatus, ResourceRecord
 from growwise.generators import (
     MaterialEditError,
@@ -32,6 +32,20 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["materials"])
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
+
+
+def _model_provider():
+    # Preserve the historical direct-call seam exposed by growwise.api.main. A number of
+    # integration tests and downstream callers monkeypatch that accessor explicitly.
+    from growwise.api import main as api_main
+
+    return api_main._model_provider()
+
+
+def _material_review_graph():
+    from growwise.api import main as api_main
+
+    return api_main._material_review_graph()
 
 
 def validate_material_source_refs(
@@ -114,7 +128,7 @@ def generate_material(
         store=store,
     )
     source_evidence = material_source_evidence(source_refs=source_refs, store=store)
-    material = MaterialGenerationService(provider=get_model_provider()).generate(
+    material = MaterialGenerationService(provider=_model_provider()).generate(
         child=child,
         kind=request.kind,
         topic=request.topic,
@@ -126,7 +140,7 @@ def generate_material(
     material.request_goal = request.goal
     store.save(material)
     review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
-    get_material_review_graph().invoke(
+    _material_review_graph().invoke(
         {
             "material_id": str(material.id),
             "child_id": str(child.id),
@@ -169,7 +183,7 @@ def review_material(
     if material.status is MaterialStatus.REVIEW_PENDING:
         config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
         try:
-            review_state = get_material_review_graph().invoke(
+            review_state = _material_review_graph().invoke(
                 Command(
                     resume={
                         "status": request.status.value,
@@ -227,7 +241,7 @@ def revise_material(
     source_evidence = material_source_evidence(source_refs=material.source_refs, store=store)
     try:
         revised = MaterialRevisionService(
-            MaterialGenerationService(provider=get_model_provider())
+            MaterialGenerationService(provider=_model_provider())
         ).revise(
             material=material,
             child=child,
@@ -239,7 +253,7 @@ def revise_material(
 
     store.save(revised)
     review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
-    get_material_review_graph().invoke(
+    _material_review_graph().invoke(
         {
             "material_id": str(revised.id),
             "child_id": str(child.id),
@@ -276,7 +290,7 @@ def edit_material(
     except MaterialEditError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     store.save(edited)
-    get_material_review_graph().invoke(
+    _material_review_graph().invoke(
         {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
         config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
     )
