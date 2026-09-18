@@ -10,6 +10,12 @@ from pathlib import Path
 
 from .conversation import ConversationSession, ConversationTurn
 
+CURRENT_CONVERSATION_SCHEMA_VERSION = 1
+
+
+class UnsupportedConversationSchema(ValueError):
+    pass
+
 
 class SQLiteConversationStore:
     """Durable conversation storage with append-only normalized turns.
@@ -56,8 +62,28 @@ class SQLiteConversationStore:
         ).encode("utf-8")
         return hashlib.sha256(canonical).hexdigest()
 
+    @staticmethod
+    def _schema_version(connection: sqlite3.Connection) -> int:
+        row = connection.execute("PRAGMA user_version").fetchone()
+        return 0 if row is None else int(row[0])
+
+    @classmethod
+    def _validate_schema_version(cls, version: int) -> None:
+        if version > CURRENT_CONVERSATION_SCHEMA_VERSION:
+            raise UnsupportedConversationSchema(
+                "conversation database schema is newer than this GrowWise build: "
+                f"{version} > {CURRENT_CONVERSATION_SCHEMA_VERSION}"
+            )
+        if version < 0:
+            raise UnsupportedConversationSchema(
+                f"conversation database schema version is invalid: {version}"
+            )
+
     def _ensure_schema(self) -> None:
         with self._connection() as connection:
+            version = self._schema_version(connection)
+            self._validate_schema_version(version)
+            connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversation_sessions (
@@ -91,7 +117,10 @@ class SQLiteConversationStore:
                 "CREATE INDEX IF NOT EXISTS idx_conversation_turn_order "
                 "ON conversation_turns(session_id, created_at)"
             )
-            self._migrate_legacy_turns(connection)
+            if version == 0:
+                self._migrate_legacy_turns(connection)
+            connection.execute(f"PRAGMA user_version = {CURRENT_CONVERSATION_SCHEMA_VERSION}")
+            connection.commit()
 
     def _migrate_legacy_turns(self, connection: sqlite3.Connection) -> None:
         rows = connection.execute(
@@ -293,6 +322,7 @@ class SQLiteConversationStore:
         connection = sqlite3.connect(uri, uri=True)
         connection.row_factory = sqlite3.Row
         try:
+            cls._validate_schema_version(cls._schema_version(connection))
             integrity = connection.execute("PRAGMA integrity_check").fetchone()
             if integrity is None or str(integrity[0]).lower() != "ok":
                 raise ValueError("conversation snapshot failed SQLite integrity check")
