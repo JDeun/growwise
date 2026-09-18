@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from growwise.backup import BackupService
 from growwise.backup.cli import (
     create_backup,
     list_backups,
@@ -343,3 +344,38 @@ def test_invalid_restore_preflight_preserves_operational_state(tmp_path: Path) -
         assert checkpoint_count[0] > 0
     finally:
         checkpoint_connection.close()
+
+
+
+def test_restore_uses_same_immutable_archive_after_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    baseline = ChildProfile(nickname="백업시점", stage=Stage.ELEMENTARY)
+    store.save(baseline)
+    create_backup(settings, "stable.zip")
+
+    later = ChildProfile(nickname="복원전추가", stage=Stage.ELEMENTARY)
+    store.save(later)
+
+    original_validate = BackupService.validate_archive
+    original_archive = settings.backups_dir / "stable.zip"
+
+    def validate_then_replace_source(
+        self: BackupService,
+        archive_path: Path,
+    ):
+        manifest = original_validate(self, archive_path)
+        original_archive.write_bytes(b"changed-after-snapshot")
+        return manifest
+
+    monkeypatch.setattr(BackupService, "validate_archive", validate_then_replace_source)
+
+    restored = restore_backup(settings, "stable.zip", confirmed=True)
+
+    assert restored["restored"] is True
+    rebuilt = EntityStore(settings.records_dir, settings.index_path)
+    children = rebuilt.index.list_entities(entity_type="child_profile")
+    assert [item["nickname"] for item in children] == ["백업시점"]
