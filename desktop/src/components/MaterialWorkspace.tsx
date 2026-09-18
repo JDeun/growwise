@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { MaterialEditPanel } from "../MaterialEditPanel";
 import type {
@@ -195,6 +195,20 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
   const editingMaterial = editingMaterialId
     ? materials.find((material) => material.id === editingMaterialId) ?? null
     : null;
+  const activeMaterials = materials.filter(
+    (material) => !["rejected", "archived"].includes(material.status),
+  );
+  const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedMaterialId((current) => {
+      if (current && activeMaterials.some((material) => material.id === current)) return current;
+      return activeMaterials[0]?.id ?? null;
+    });
+  }, [activeMaterials]);
+
+  const selectedMaterial =
+    activeMaterials.find((material) => material.id === selectedMaterialId) ?? null;
 
   function printApprovedCard(material: GeneratedMaterial, card: Element | null) {
     if (!card) return;
@@ -252,7 +266,74 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         </article>
       </div>
 
-      <form className="material-composer" onSubmit={onGenerate}>
+      <div className="material-studio" data-testid="material-studio">
+        <aside className="material-studio-list" aria-label="학습 자료 목록">
+          <div className="material-studio-list-heading">
+            <div>
+              <p className="card-label">Library</p>
+              <h3>자료 목록</h3>
+            </div>
+            <span>{activeMaterials.length}</span>
+          </div>
+          {activeMaterials.length === 0 ? (
+            <EmptyState
+              title="아직 만든 자료가 없습니다."
+              description="오른쪽 설정에서 첫 자료를 만들면 중앙 문서 캔버스에 표시됩니다."
+            />
+          ) : (
+            <div className="material-studio-list-items">
+              {activeMaterials.map((material) => (
+                <button
+                  key={material.id}
+                  type="button"
+                  className={`material-studio-list-item${selectedMaterial?.id === material.id ? " is-selected" : ""}`}
+                  onClick={() => setSelectedMaterialId(material.id)}
+                >
+                  <span className={`material-studio-status status-${material.status}`}>
+                    {STATUS_LABELS[material.status]}
+                  </span>
+                  <strong>{material.title}</strong>
+                  <small>{materialCatalogItem(material.kind).label} · v{material.version}</small>
+                </button>
+              ))}
+            </div>
+          )}
+        </aside>
+
+        <section className="material-document-stage" aria-label="선택한 학습 자료 미리보기">
+          {selectedMaterial ? (
+            <>
+              <div className="material-document-toolbar">
+                <div>
+                  <span>Document preview</span>
+                  <strong>{selectedMaterial.title}</strong>
+                </div>
+                <span className={`material-status status-${selectedMaterial.status}`}>
+                  {STATUS_LABELS[selectedMaterial.status]}
+                </span>
+              </div>
+              <article className="material-document-paper">
+                <MaterialCore material={selectedMaterial} resources={resources} />
+              </article>
+            </>
+          ) : (
+            <div className="material-document-empty">
+              <span aria-hidden="true">✦</span>
+              <h3>학습 자료가 이곳에 표시됩니다.</h3>
+              <p>주제와 목표를 입력하면 부모가 검토할 수 있는 초안을 만듭니다.</p>
+            </div>
+          )}
+        </section>
+
+        <aside className="material-control-panel" aria-label="AI 학습자료 설정">
+          <div className="material-control-heading">
+            <div>
+              <p className="card-label">AI Controls</p>
+              <h3>자료 만들기</h3>
+            </div>
+            <span className="material-ai-indicator">AI · optional</span>
+          </div>
+          <form className="material-composer material-studio-controls" onSubmit={onGenerate}>
         <fieldset className="material-kind-picker">
           <legend>무엇을 만들까요?</legend>
           <div className="material-kind-options">
@@ -333,7 +414,69 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             {error}
           </p>
         )}
-      </form>
+          </form>
+
+          {selectedMaterial ? (
+            <section className="material-selected-actions" aria-label="선택 자료 작업">
+              <div>
+                <span>선택 자료</span>
+                <strong>{selectedMaterial.title}</strong>
+              </div>
+              <div className="material-actions">
+                {selectedMaterial.status === "draft" ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={busy}
+                    onClick={() => onReview(selectedMaterial.id, "review_pending")}
+                  >
+                    부모 검토로 보내기
+                  </button>
+                ) : null}
+                {["review_pending", "revision_requested"].includes(selectedMaterial.status) ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={busy}
+                    onClick={() => onReview(selectedMaterial.id, "approved")}
+                  >
+                    승인하고 사용
+                  </button>
+                ) : null}
+                {selectedMaterial.status === "approved" ? (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    onClick={(event) =>
+                      printApprovedCard(
+                        selectedMaterial,
+                        document.querySelector(
+                          `.approved-card[data-material-id="${selectedMaterial.id}"]`,
+                        ) ?? event.currentTarget.closest(".material-workspace"),
+                      )
+                    }
+                  >
+                    인쇄 / PDF
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className="quiet-button"
+                  disabled={busy}
+                  onClick={() => onEditStart(selectedMaterial.id)}
+                >
+                  직접 편집
+                </button>
+              </div>
+            </section>
+          ) : null}
+        </aside>
+      </div>
+
+      <div className="material-workflow-divider">
+        <span>Workflow</span>
+        <strong>전체 자료 흐름</strong>
+      </div>
 
       <div className="material-queue-lanes">
         <section className="material-lane" aria-labelledby="draft-lane-title">
@@ -474,7 +617,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
             />
           ) : (
             approved.map((material) => (
-              <article className="material-card approved-card" key={material.id}>
+              <article className="material-card approved-card" data-material-id={material.id} key={material.id}>
                 <MaterialHeading material={material} />
                 <MaterialCore material={material} resources={resources} compact />
                 <div className="material-actions">
