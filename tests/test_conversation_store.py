@@ -37,7 +37,6 @@ def test_conversation_store_updates_and_deletes(tmp_path) -> None:
     assert store.get(session.id) is None
 
 
-
 def test_pre_restore_conversation_store_is_generation_fenced(tmp_path) -> None:
     path = tmp_path / "conversations.sqlite3"
     old_store = SQLiteConversationStore(path)
