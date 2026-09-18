@@ -14,6 +14,7 @@ from pathlib import Path, PurePosixPath
 from pydantic import BaseModel
 
 from growwise.backup.record_validation import InvalidRecordTree, validate_record_tree
+from growwise.backup.restore_journal import RestoreJournalManager
 from growwise.services.conversation_store import SQLiteConversationStore
 from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
 from growwise.storage.sqlite import SQLiteProjection
@@ -381,15 +382,23 @@ class BackupService:
 
             # Each rollback directory lives on the same filesystem as the state it protects. This
             # keeps Path.replace() atomic even when records and managed assets live on different
-            # volumes (for example, local storage plus an external SSD).
+            # volumes. The durable journal is fsynced before the first live path changes, so a hard
+            # process exit can be rolled back on the next Core startup.
             previous_records = staging / "previous-records"
-            moved_records = False
-            moved_assets = False
-            moved_conversations = False
+            journal = RestoreJournalManager(
+                records_root=records_root,
+                index_path=index_path,
+                assets_root=assets_root,
+                conversations_path=conversations_path,
+            )
+            journal.begin(
+                records_transaction=staging,
+                assets_transaction=assets_transaction,
+                conversations_transaction=conversations_transaction,
+            )
             try:
                 if records_root.exists():
                     records_root.replace(previous_records)
-                    moved_records = True
                 records_ready.replace(records_root)
 
                 if assets_root is not None:
@@ -397,7 +406,6 @@ class BackupService:
                     assert previous_assets is not None
                     if assets_root.exists():
                         assets_root.replace(previous_assets)
-                        moved_assets = True
                     assets_ready.replace(assets_root)
 
                 if conversations_path is not None:
@@ -405,31 +413,14 @@ class BackupService:
                     assert previous_conversations is not None
                     if conversations_path.exists():
                         conversations_path.replace(previous_conversations)
-                        moved_conversations = True
                     conversations_ready.replace(conversations_path)
 
                 SQLiteProjection(index_path).rebuild(records_root)
             except Exception:
-                if records_root.exists():
-                    shutil.rmtree(records_root, ignore_errors=True)
-                if moved_records and previous_records.exists():
-                    previous_records.replace(records_root)
-
-                if assets_root is not None:
-                    assert previous_assets is not None
-                    if assets_root.exists():
-                        shutil.rmtree(assets_root, ignore_errors=True)
-                    if moved_assets and previous_assets.exists():
-                        previous_assets.replace(assets_root)
-
-                if conversations_path is not None:
-                    assert previous_conversations is not None
-                    conversations_path.unlink(missing_ok=True)
-                    if moved_conversations and previous_conversations.exists():
-                        previous_conversations.replace(conversations_path)
-
-                SQLiteProjection(index_path).rebuild(records_root)
+                journal.rollback()
                 raise
+            else:
+                journal.commit()
 
         return manifest
 
