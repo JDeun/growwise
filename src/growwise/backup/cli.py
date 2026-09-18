@@ -97,7 +97,7 @@ def reset_checkpoint_projection(path: Path) -> int:
             ).fetchall()
         }
         thread_ids: set[str] = set()
-        for table in ("checkpoints", "writes"):
+        for table in ("checkpoints", "checkpoint_writes", "checkpoint_blobs"):
             if table not in tables:
                 continue
             columns = {
