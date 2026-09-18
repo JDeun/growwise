@@ -13,6 +13,7 @@ from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.jobs import JobStatus, SQLiteJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
@@ -139,3 +140,34 @@ def test_restore_reports_rag_degraded_after_authoritative_success(
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")
     assert [item["nickname"] for item in children] == ["백업아이"]
+
+
+
+def test_managed_backup_roundtrips_conversations_at_snapshot_boundary(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(nickname="대화아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+
+    conversations = SQLiteConversationStore(settings.conversations_path)
+    baseline = ConversationSession(child_id=str(child.id), title="백업 시점")
+    baseline.turns.append(ConversationTurn(role="user", content="백업 전 질문"))
+    conversations.save(baseline)
+
+    created = create_backup(settings, "conversation-baseline.zip")
+    assert created["manifest"]["format_version"] == 2
+    assert created["manifest"]["conversation_count"] == 1
+
+    later = ConversationSession(child_id=str(child.id), title="백업 이후")
+    later.turns.append(ConversationTurn(role="user", content="백업 후 질문"))
+    conversations.save(later)
+    assert conversations.get(later.id) is not None
+
+    restored = restore_backup(settings, "conversation-baseline.zip", confirmed=True)
+    assert restored["restored"] is True
+
+    reopened = SQLiteConversationStore(settings.conversations_path)
+    restored_baseline = reopened.get(baseline.id)
+    assert restored_baseline is not None
+    assert [turn.content for turn in restored_baseline.turns] == ["백업 전 질문"]
+    assert reopened.get(later.id) is None
