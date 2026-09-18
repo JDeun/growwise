@@ -9,6 +9,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from growwise.config import Settings
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.jobs import SQLiteJobQueue
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.rag import HybridRagIndex
 from growwise.services.child_lock import child_operation_lock
 from growwise.services.conversation_store import SQLiteConversationStore
@@ -48,12 +49,14 @@ class ChildPurgeService:
         self.store = EntityStore(settings.records_dir, settings.index_path)
 
     def purge(self, child_id: str) -> ChildPurgeResult:
-        # Hold one outer source mutation lease across derived stores, photo binaries, and Markdown.
-        # Backup creation therefore cannot capture a child halfway through a privacy purge, and a
-        # restore cannot replace the active source set beneath the purge operation. Background model
-        # inference runs outside the child lock, but every child-scoped save takes the same lock.
-        with self.store.mutation_window(), child_operation_lock(child_id):
-            return self._purge_locked(child_id)
+        # Privacy purge is a destructive data-generation boundary, not an ordinary mutation.
+        # Drain every in-flight authoritative writer first, block new writers for the duration, and
+        # advance the generation on exit. Any worker/store created before the purge therefore becomes
+        # stale and cannot resurrect child-scoped records after deletion, even if that writer never
+        # participates in the per-child lock.
+        with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+            with child_operation_lock(child_id):
+                return self._purge_locked(child_id)
 
     def _purge_locked(self, child_id: str) -> ChildPurgeResult:
         profile = self.store.index.get_entity(child_id, entity_type="child_profile")
