@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from uuid import UUID
 
+from uuid6 import uuid7
+
 from growwise.domain.models import LearningLog, LearningRecordKind
 from growwise.domain.photo import (
     PhotoActivityRecord,
@@ -581,20 +583,44 @@ LearningLog."""
         if not final_text:
             raise PhotoValidationError("empty_photo_observation")
 
-        tags = list(dict.fromkeys(["사진기록", *record.suggested_tags]))[:100]
-        log = LearningLog(
-            child_id=record.child_id,
-            record_kind=LearningRecordKind.PHOTO_ACTIVITY,
-            parent_observation=final_text[:10_000],
-            tags=tags,
-            experience_axes=record.suggested_experience_axes,
-            interest=record.suggested_interest,
-            difficulty_note=record.suggested_difficulty_note,
-            next_activity=record.suggested_next_activity,
+        # Reserve the authoritative LearningLog ID on the photo record before creating the log.
+        # If the process dies after either write, a retry reuses this same UUID instead of creating
+        # a duplicate LearningLog. The DRAFT + learning_log_id state is therefore an intentional
+        # crash-recovery state.
+        if record.learning_log_id is None:
+            record.learning_log_id = uuid7()
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
+
+        reserved_log_id = record.learning_log_id
+        assert reserved_log_id is not None
+        existing_log = self.store.index.get_entity(
+            str(reserved_log_id),
+            entity_type="learning_log",
         )
-        self.store.save(log)
+        if existing_log is not None:
+            log = LearningLog.model_validate(existing_log)
+            if (
+                log.child_id != record.child_id
+                or log.record_kind is not LearningRecordKind.PHOTO_ACTIVITY
+            ):
+                raise RuntimeError("reserved photo learning_log_id points to incompatible data")
+        else:
+            tags = list(dict.fromkeys(["사진기록", *record.suggested_tags]))[:100]
+            log = LearningLog(
+                id=reserved_log_id,
+                child_id=record.child_id,
+                record_kind=LearningRecordKind.PHOTO_ACTIVITY,
+                parent_observation=final_text[:10_000],
+                tags=tags,
+                experience_axes=record.suggested_experience_axes,
+                interest=record.suggested_interest,
+                difficulty_note=record.suggested_difficulty_note,
+                next_activity=record.suggested_next_activity,
+            )
+            self.store.save(log)
+
         record.status = PhotoRecordStatus.COMMITTED
-        record.learning_log_id = log.id
         record.generated_observation = final_text[:10_000]
         record.updated_at = datetime.now(UTC)
         self.store.save(record)
