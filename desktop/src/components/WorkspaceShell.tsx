@@ -1,6 +1,6 @@
 import { useState, type ReactNode } from "react";
 
-import { useActiveChild } from "../active-child-context";
+import { useOptionalActiveChild } from "../active-child-context";
 import { ChildAvatar } from "./ChildAvatar";
 import "./WorkspaceShell.css";
 import { WorkspaceNav } from "./WorkspaceNav";
@@ -17,7 +17,7 @@ type WorkspaceShellProps = {
 };
 
 export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellProps) {
-  const { activeChild } = useActiveChild();
+  const activeChild = useOptionalActiveChild()?.activeChild ?? null;
   const [activeView, setActiveView] = useState<WorkspaceView>(() => {
     if (initialView) return initialView;
     if (typeof window === "undefined") return "home";
