@@ -4,6 +4,7 @@ import hashlib
 from collections.abc import Iterable
 from enum import StrEnum
 from typing import Any
+from uuid import uuid5
 
 from pydantic import BaseModel, Field
 
