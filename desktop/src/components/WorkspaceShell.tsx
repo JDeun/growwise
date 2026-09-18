@@ -39,7 +39,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
       writeWorkspaceView(window.localStorage, "conversation");
       window.requestAnimationFrame(() => {
         document.querySelector<HTMLElement>(
-          ".conversation-workspace-grid textarea, .conversation-section textarea, .search-section .search-form input",
+          ".conversation-composer input, .conversation-search-tools input",
         )?.focus();
       });
     }
