@@ -10,6 +10,7 @@ import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
   mode?: "backup" | "settings";
+  showHeading?: boolean;
   connected: boolean;
   backups: BackupItem[];
   busy: boolean;
@@ -31,6 +32,7 @@ export function parseLearningGoals(value: string): string[] {
 
 export function DataManagementSection({
   mode = "backup",
+  showHeading = true,
   connected,
   backups,
   busy,
@@ -196,17 +198,19 @@ export function DataManagementSection({
 
   return (
     <section className={`data-management-section data-management-section--${mode}`}>
-      <div className="data-management-page-heading">
-        <div>
-          <p className="eyebrow">{mode === "backup" ? "DATA SAFETY" : "PREFERENCES"}</p>
-          <h1>{mode === "backup" ? "백업 및 복원" : "설정"}</h1>
-          <p>
-            {mode === "backup"
-              ? "소중한 기록을 안전하게 보관하고 필요한 시점의 백업으로 복원합니다."
-              : "가족 프로필, 앱 상태와 개인정보 관련 설정을 관리합니다."}
-          </p>
+      {showHeading && (
+        <div className="data-management-page-heading">
+          <div>
+            <p className="eyebrow">{mode === "backup" ? "DATA SAFETY" : "PREFERENCES"}</p>
+            <h1>{mode === "backup" ? "백업 및 복원" : "설정"}</h1>
+            <p>
+              {mode === "backup"
+                ? "소중한 기록을 안전하게 보관하고 필요한 시점의 백업으로 복원합니다."
+                : "가족 프로필, 앱 상태와 개인정보 관련 설정을 관리합니다."}
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {mode === "settings" && (
       <section className="profile-management-zone" aria-labelledby="profile-management-title">
