@@ -33,7 +33,8 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
     function handleShortcut(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
       event.preventDefault();
-      handleChange("search");
+      setActiveView("search");
+      writeWorkspaceView(window.localStorage, "search");
       window.requestAnimationFrame(() => {
         document.querySelector<HTMLInputElement>(".search-section .search-form input")?.focus();
       });
