@@ -29,7 +29,6 @@
 
 /* Product photo archive composition */
 .photo-workspace-heading {
-  order: 0;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -65,14 +64,12 @@
 }
 
 .photo-history {
-  order: 1;
   margin-top: 0;
   padding: 18px;
   border-radius: 17px;
 }
 
 .photo-workspace-card {
-  order: 2;
   margin-top: 0;
   padding: 0;
   overflow: hidden;
