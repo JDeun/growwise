@@ -277,7 +277,7 @@ export function SearchConversationSection({
               >
                 <span>
                   <strong>{conversationSessionLabel(session)}</strong>
-                  {isCurrent ? <em>현재</em> : null}
+                  {isCurrent ? <em>현재 대화</em> : null}
                 </span>
                 <small>{Math.ceil(session.turns.length / 2)}개 질문{time ? ` · ${time}` : ""}</small>
               </button>
@@ -286,7 +286,7 @@ export function SearchConversationSection({
         </div>
         <div className="conversation-history-policy">
           <span aria-hidden="true">⌁</span>
-          <p>이전 답변은 새 질문의 근거로 재사용하지 않습니다.</p>
+          <p>이전 답변 자체는 새 답변의 근거로 사용하지 않습니다.</p>
         </div>
       </aside>
 
