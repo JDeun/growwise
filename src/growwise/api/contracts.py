@@ -36,12 +36,12 @@ class ObservationRequest(BaseModel):
 class ActivityCreateRequest(BaseModel):
     title: str = Field(min_length=1, max_length=500)
     source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
-    parent_note: str | None = Field(default=None, max_length=10_000)
+    parent_note: str | None = Field(default=None, max_length=2_000)
 
 
 class ActivityTransitionRequest(BaseModel):
     status: ActivityStatus
-    parent_note: str | None = Field(default=None, max_length=10_000)
+    parent_note: str | None = Field(default=None, max_length=2_000)
 
 
 class ResourceCreateRequest(BaseModel):
