@@ -299,7 +299,9 @@ def record_material_result(
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> MaterialResultResponse:
     material = _approved_material(store, material_id)
-    idempotency_store = get_material_result_idempotency_store()
+    idempotency_store = (
+        get_material_result_idempotency_store() if idempotency_key is not None else None
+    )
     request_hash = request_fingerprint(
         {"material_id": str(material_id), **request.model_dump(mode="json")}
     )
@@ -317,6 +319,7 @@ def record_material_result(
         )
 
         if idempotency_key is not None:
+            assert idempotency_store is not None
             try:
                 claim = idempotency_store.claim(
                     key=idempotency_key,
@@ -389,6 +392,7 @@ def record_material_result(
                 photos=photos,
             )
             if claim is not None and claim.acquired:
+                assert idempotency_store is not None
                 idempotency_store.complete(
                     key=claim.record.key,
                     request_hash=claim.record.request_hash,
