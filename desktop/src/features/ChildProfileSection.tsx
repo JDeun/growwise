@@ -36,7 +36,7 @@ interface ChildProfileSectionProps {
   onAgeMonthsChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectChild: (childId: string) => void;
-  onAvatarUpdated: (child: ChildProfile) => void;
+  onAvatarUpdated?: (child: ChildProfile) => void;
 }
 
 export function ChildProfileSection({
@@ -93,7 +93,7 @@ export function ChildProfileSection({
         mime_type: file.type,
         data_base64: dataBase64,
       });
-      onAvatarUpdated(updated);
+      onAvatarUpdated?.(updated);
     } catch (cause) {
       setAvatarError(cause instanceof Error ? cause.message : "프로필 사진 저장에 실패했습니다.");
     } finally {
@@ -106,7 +106,7 @@ export function ChildProfileSection({
     setAvatarBusy(true);
     setAvatarError(null);
     try {
-      onAvatarUpdated(await deleteChildAvatar(activeChild.id));
+      onAvatarUpdated?.(await deleteChildAvatar(activeChild.id));
     } catch (cause) {
       setAvatarError(cause instanceof Error ? cause.message : "프로필 사진 삭제에 실패했습니다.");
     } finally {
