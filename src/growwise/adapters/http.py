@@ -70,9 +70,13 @@ class JsonHttpClient:
 
     def get_json(self, url: str, *, params: Mapping[str, str | int | float]) -> dict[str, Any]:
         _https_origin(url)
-        query = urllib.parse.urlencode(params)
-        separator = "&" if "?" in url else "?"
-        return self._request_json(f"{url}{separator}{query}")
+        parsed = urllib.parse.urlsplit(url)
+        encoded = urllib.parse.urlencode(params)
+        query = "&".join(part for part in (parsed.query, encoded) if part)
+        request_url = urllib.parse.urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
+        )
+        return self._request_json(request_url)
 
     def post_form_json(
         self,
