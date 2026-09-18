@@ -146,3 +146,33 @@
     grid-column: 1;
   }
 }
+
+
+.discovery-form input,
+.discovery-form select {
+  min-height: 38px;
+  padding: 8px 10px;
+  border: 1px solid rgba(43, 42, 40, .10);
+  border-radius: 10px;
+  background: #fff;
+  color: #344139;
+  font: inherit;
+  font-size: 9.5px;
+  line-height: 1.35;
+  outline: none;
+}
+
+.discovery-form input:focus,
+.discovery-form select:focus {
+  border-color: rgba(47, 143, 107, .42);
+  box-shadow: 0 0 0 3px rgba(47, 143, 107, .08);
+}
+
+.discovery-form input::placeholder {
+  color: #a0a7a3;
+}
+
+.discovery-location-options {
+  border-color: rgba(43, 42, 40, .08);
+  background: #fafcfb;
+}
