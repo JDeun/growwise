@@ -10,7 +10,6 @@ from growwise.model import ModelProvider
 
 from .context import ChildContextService, ContextAnswer
 
-
 _ConversationContent = Annotated[str, Field(min_length=1, max_length=20_000)]
 _ConversationSourceId = Annotated[str, Field(min_length=1, max_length=500)]
 
