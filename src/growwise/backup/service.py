@@ -350,6 +350,10 @@ class BackupService:
                 )
                 if manifest.format_version == 2:
                     shutil.copy2(staged_conversations, conversations_ready)
+                    # Migrate the copied snapshot to the schema supported by this build before it
+                    # becomes live state. The original archive remains immutable and backwards
+                    # readable.
+                    SQLiteConversationStore(conversations_ready)
                 else:
                     SQLiteConversationStore(conversations_ready)
                 try:
