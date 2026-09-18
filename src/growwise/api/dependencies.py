@@ -58,7 +58,7 @@ def get_rag_index() -> HybridRagIndex:
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
 
-@lru_cache
+@lru_cache(maxsize=4)
 def _get_conversation_store(path: str, generation: int) -> SQLiteConversationStore:
     del generation
     return SQLiteConversationStore(Path(path))
@@ -66,13 +66,15 @@ def _get_conversation_store(path: str, generation: int) -> SQLiteConversationSto
 
 def get_conversation_store() -> SQLiteConversationStore:
     settings = get_settings()
-    return _get_conversation_store(
-        str(settings.conversations_path.absolute()),
-        DATA_MAINTENANCE.generation,
-    )
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_conversation_store(
+            str(settings.conversations_path.absolute()),
+            generation,
+        )
 
 
-@lru_cache
+@lru_cache(maxsize=4)
 def _get_idempotency_store(path: str, generation: int) -> SQLiteIdempotencyStore:
     del generation
     return SQLiteIdempotencyStore(Path(path))
@@ -80,10 +82,12 @@ def _get_idempotency_store(path: str, generation: int) -> SQLiteIdempotencyStore
 
 def get_idempotency_store() -> SQLiteIdempotencyStore:
     settings = get_settings()
-    return _get_idempotency_store(
-        str(settings.idempotency_path.absolute()),
-        DATA_MAINTENANCE.generation,
-    )
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_idempotency_store(
+            str(settings.idempotency_path.absolute()),
+            generation,
+        )
 
 
 # Preserve the historical test/downstream cache-reset seam while keying the actual cached object by
