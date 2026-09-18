@@ -401,7 +401,7 @@ class BackupService:
         """Apply restore-time archive limits before publishing a GrowWise backup."""
 
         cls._validate_portable_member_names(member_names)
-        member_count = 1 + len(files) + len(state_files)
+        member_count = len(member_names)
         if member_count > cls.MAX_ARCHIVE_MEMBERS:
             raise InvalidBackup("backup source contains too many members")
         if manifest_size > cls.MAX_MANIFEST_BYTES:
