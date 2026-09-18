@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 from enum import StrEnum
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -66,12 +67,17 @@ class InfantCurriculumDomain(StrEnum):
     NATURE_INQUIRY = "자연탐구"
 
 
+_SuggestionText = Annotated[str, Field(min_length=1, max_length=4_000)]
+_SuggestionItem = Annotated[str, Field(min_length=1, max_length=500)]
+_SuggestionTag = Annotated[str, Field(min_length=1, max_length=200)]
+
+
 class ActivitySuggestion(BaseModel):
-    title: str
-    description: str
-    materials: list[str] = Field(default_factory=list)
-    observation_cue: str | None = None
-    tags: list[str] = Field(default_factory=list)
+    title: str = Field(min_length=1, max_length=500)
+    description: _SuggestionText
+    materials: list[_SuggestionItem] = Field(default_factory=list, max_length=20)
+    observation_cue: str | None = Field(default=None, max_length=4_000)
+    tags: list[_SuggestionTag] = Field(default_factory=list, max_length=100)
 
 
 class InfantActivitySuggestions(BaseModel):
@@ -80,8 +86,8 @@ class InfantActivitySuggestions(BaseModel):
 
 class ObservationHint(BaseModel):
     domain: InfantCurriculumDomain
-    cue: str
-    rationale: str
+    cue: _SuggestionText
+    rationale: _SuggestionText
 
 
 class InfantObservationHints(BaseModel):
@@ -92,12 +98,12 @@ class InfantObservationHints(BaseModel):
 
 
 class BoardBookRecommendation(BaseModel):
-    resource_id: str | None = None
+    resource_id: str | None = Field(default=None, max_length=120)
     discovery_candidate_id: str | None = Field(default=None, max_length=120)
-    title: str
-    reason: str
-    read_aloud_tip: str
-    source: str = "local_library_or_offline_fallback"
+    title: str = Field(min_length=1, max_length=500)
+    reason: _SuggestionText
+    read_aloud_tip: _SuggestionText
+    source: str = Field(default="local_library_or_offline_fallback", max_length=160)
     source_name: str | None = Field(default=None, max_length=500)
     source_url: str | None = Field(default=None, max_length=2_048)
 
