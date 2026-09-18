@@ -55,3 +55,27 @@ def test_external_http_rejects_redirect_outside_original_https_origin(target: st
             {},
             target,
         )
+
+
+
+def test_external_http_structurally_merges_existing_query_and_fragment(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client = JsonHttpClient()
+    seen: list[str] = []
+
+    def fake_request(url: str) -> dict[str, object]:
+        seen.append(url)
+        return {}
+
+    monkeypatch.setattr(client, "_request_json", fake_request)
+
+    result = client.get_json(
+        "https://api.example.invalid/search?existing=1#section",
+        params={"query": "space value"},
+    )
+
+    assert result == {}
+    assert seen == [
+        "https://api.example.invalid/search?existing=1&query=space+value#section"
+    ]
