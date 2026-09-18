@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { MaterialEditPanel } from "../MaterialEditPanel";
 import type {
@@ -195,8 +195,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
   const editingMaterial = editingMaterialId
     ? materials.find((material) => material.id === editingMaterialId) ?? null
     : null;
-  const activeMaterials = materials.filter(
-    (material) => !["rejected", "archived"].includes(material.status),
+  const activeMaterials = useMemo(
+    () => materials.filter((material) => !["rejected", "archived"].includes(material.status)),
+    [materials],
   );
   const [selectedMaterialId, setSelectedMaterialId] = useState<string | null>(null);
 
