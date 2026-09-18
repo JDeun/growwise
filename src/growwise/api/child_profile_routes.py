@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 
 from growwise.config import Settings
 from growwise.domain import ChildProfile, Stage
+from growwise.domain.models import LanguageCode, ShortText, TagText
 from growwise.storage import EntityStore
 
 router = APIRouter(tags=["child-profile"])
@@ -19,10 +20,10 @@ class ChildProfileUpdateRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=120)
     stage: Stage
     age_months: int | None = Field(default=None, ge=0, le=240)
-    interests: list[str] = Field(default_factory=list, max_length=100)
-    primary_language: str = Field(default="ko-KR", min_length=2, max_length=35)
-    additional_languages: list[str] = Field(default_factory=list, max_length=20)
-    learning_goals: list[str] = Field(default_factory=list, max_length=100)
+    interests: list[TagText] = Field(default_factory=list, max_length=100)
+    primary_language: LanguageCode = "ko-KR"
+    additional_languages: list[LanguageCode] = Field(default_factory=list, max_length=20)
+    learning_goals: list[ShortText] = Field(default_factory=list, max_length=100)
     notes: str | None = Field(default=None, max_length=10_000)
 
 

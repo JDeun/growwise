@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from growwise.api.curriculum import generate_curriculum_grounded_material
 from growwise.config import Settings
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind
+from growwise.domain.models import SourceRef
 from growwise.generators import MaterialGenerationService
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.storage import EntityStore
@@ -22,7 +23,7 @@ class CurriculumMaterialRequest(BaseModel):
     topic: str = Field(min_length=1, max_length=500)
     goal: str | None = Field(default=None, max_length=1000)
     subject: str | None = Field(default=None, max_length=100)
-    source_refs: list[str] = Field(default_factory=list)
+    source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
 
 
 @lru_cache
