@@ -8,6 +8,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
 
 
 def test_same_idempotency_key_and_payload_returns_original_resource(tmp_path):
@@ -255,3 +256,37 @@ def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path)
     assert record.status is IdempotencyStatus.COMPLETED
     assert record.lease_expires_at is None
     assert record.claim_token is None
+
+
+
+def test_pre_restore_idempotency_owner_cannot_write_new_generation(tmp_path) -> None:
+    path = tmp_path / "idempotency.sqlite3"
+    old_store = SQLiteIdempotencyStore(path)
+    fingerprint = request_fingerprint({"value": "before-restore"})
+    claim = old_store.claim(
+        key="restore-fence",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-before",
+    )
+
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        old_store.reset()
+
+    with pytest.raises(StaleDataGeneration):
+        old_store.complete(
+            key=claim.record.key,
+            request_hash=claim.record.request_hash,
+            resource_id=claim.record.resource_id,
+            claim_token=claim.record.claim_token,
+        )
+
+    fresh_store = SQLiteIdempotencyStore(path)
+    fresh = fresh_store.claim(
+        key="restore-fence",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-after",
+    )
+    assert fresh.acquired is True
+    assert fresh.record.resource_id == "log-after"
