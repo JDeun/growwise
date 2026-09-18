@@ -17,9 +17,9 @@ describe("HomeDashboard", () => {
     expect(renderDashboard(false)).toBe("");
   });
 
-  it("announces the initial home summary load politely", () => {
+  it("announces the initial dashboard load politely", () => {
     const html = renderDashboard(true);
-    expect(html).toContain("오늘의 GrowWise");
+    expect(html).toContain("아이의 최근 기록을 정리하고 있습니다.");
     expect(html).toContain('role="status"');
     expect(html).toContain('aria-live="polite"');
   });
