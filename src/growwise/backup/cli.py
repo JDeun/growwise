@@ -16,7 +16,7 @@ from growwise.config import Settings
 from growwise.domain import ResourceRecord
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
-from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngestor
 from growwise.runtime_lock import DataDirectoryLock
 from growwise.services.background_ai import MATERIAL_ENHANCEMENT_JOB, OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
@@ -120,9 +120,24 @@ def reset_checkpoint_projection(path: Path) -> int:
 
 
 def rebuild_rag_projection(settings: Settings) -> int:
-    """Rebuild the lexical RAG projection from restored ResourceRecord source documents."""
+    """Rebuild RAG from restored resources, rehydrating embeddings when configured.
+
+    Embedding failures remain non-fatal inside HybridRagIndex.replace_resource(), so lexical
+    retrieval is always rebuilt even when the local embedding runtime is temporarily unavailable.
+    """
     store = EntityStore(settings.records_dir, settings.index_path)
-    index = HybridRagIndex(settings.rag_index_path, embedding=None)
+    embedding = None
+    if settings.embedding_features_enabled:
+        try:
+            embedding = OllamaEmbeddingProvider(
+                model=settings.embedding_model_id,
+                base_url=settings.model_base_url,
+            )
+        except Exception:
+            logger.exception(
+                "embedding provider unavailable during restore; rebuilding lexical RAG only"
+            )
+    index = HybridRagIndex(settings.rag_index_path, embedding=embedding)
     index.reset()
     ingestor = ResourceIngestor(index)
     count = 0
