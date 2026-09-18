@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from growwise.model import ModelProvider
@@ -8,10 +10,13 @@ from growwise.storage import SQLiteProjection
 
 from .graph_context import GraphContextExpander
 
+_AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
+_SourceId = Annotated[str, Field(min_length=1, max_length=500)]
+
 
 class ContextAnswer(BaseModel):
-    answer: str
-    source_ids: list[str] = Field(default_factory=list)
+    answer: _AnswerText
+    source_ids: list[_SourceId] = Field(default_factory=list, max_length=100)
     insufficient_evidence: bool = False
 
 
