@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { ChildContextLoadState } from "../child-context-state";
-import { ViewStateNotice } from "../components";
+import { ChildAvatar, ViewStateNotice } from "../components";
 import { getHealth, type ChildProfile, type GrowthMap, type Stage } from "../api";
 import { stageLabel } from "../presentation";
 import "./ChildProfileSection.css";
@@ -29,6 +29,7 @@ interface ChildProfileSectionProps {
   onAgeMonthsChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectChild: (childId: string) => void;
+  onChildUpdated: (child: ChildProfile) => void;
 }
 
 export function ChildProfileSection({
@@ -48,6 +49,7 @@ export function ChildProfileSection({
   onAgeMonthsChange,
   onSubmit,
   onSelectChild,
+  onChildUpdated,
 }: ChildProfileSectionProps) {
   const firstRun = children.length === 0;
   const [modelOnboarding, setModelOnboarding] = useState<ModelOnboardingState>({ kind: "idle" });
@@ -181,12 +183,24 @@ export function ChildProfileSection({
           {error && <p className="form-error" role="alert">{error}</p>}
         </form>
 
-        <article className="verification-card">
+        <article className="verification-card profile-summary-card">
           {activeChild ? (
             <>
-              <p className="card-label">현재 아이</p>
-              <h3>{activeChild.nickname}</h3>
-              <p className="muted">아이를 바꾸면 각 기록 영역도 선택한 아이에 맞춰 새로 불러옵니다.</p>
+              <div className="profile-summary-card__hero">
+                <ChildAvatar
+                  child={activeChild}
+                  size="xl"
+                  editable
+                  onUpdated={onChildUpdated}
+                />
+                <div>
+                  <p className="card-label">현재 아이</p>
+                  <h3>{activeChild.nickname}</h3>
+                  <p className="muted">{stageLabel(activeChild.stage)} · {activeChild.age_months ?? "—"}개월</p>
+                  <span className="profile-private-chip">로컬에만 저장</span>
+                </div>
+              </div>
+              <p className="profile-summary-note">프로필 사진을 포함한 아이 데이터는 GrowWise 관리 자산과 백업에 함께 보존됩니다.</p>
               <dl className="verification-list">
                 <div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div>
                 <div><dt>최근 기록</dt><dd>{childContext.growth.kind === "ready" && growthMap ? growthMap.total_logs_in_period : "—"}</dd></div>
