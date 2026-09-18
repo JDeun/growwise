@@ -197,6 +197,80 @@ def test_conversation_store_migrates_unversioned_legacy_turns(tmp_path) -> None:
         assert connection.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0] == 1
 
 
+def test_conversation_store_validates_v1_snapshot_without_mutating_it(tmp_path) -> None:
+    path = tmp_path / "v1-snapshot.sqlite3"
+    session = ConversationSession(child_id="legacy-child", title="v1 snapshot")
+    session.turns.append(ConversationTurn(role="user", content="legacy question"))
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE conversation_sessions (
+                id TEXT PRIMARY KEY,
+                child_id TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE TABLE conversation_turns (
+                session_id TEXT NOT NULL,
+                turn_key TEXT NOT NULL,
+                role TEXT NOT NULL,
+                content TEXT NOT NULL,
+                source_ids_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                PRIMARY KEY (session_id, turn_key)
+            )
+            """
+        )
+        payload = session.model_dump(mode="json")
+        payload["turns"] = []
+        connection.execute(
+            """
+            INSERT INTO conversation_sessions (
+                id, child_id, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                session.id,
+                session.child_id,
+                __import__("json").dumps(payload, ensure_ascii=False, default=str),
+                session.created_at.isoformat(),
+                session.updated_at.isoformat(),
+            ),
+        )
+        turn = session.turns[0]
+        connection.execute(
+            """
+            INSERT INTO conversation_turns (
+                session_id, turn_key, role, content, source_ids_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            (
+                session.id,
+                "legacy-turn",
+                turn.role,
+                turn.content,
+                "[]",
+                turn.created_at.isoformat(),
+            ),
+        )
+        connection.execute("PRAGMA user_version = 1")
+
+    assert SQLiteConversationStore.validate_snapshot(path) == 1
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 1
+        columns = {
+            row[1]
+            for row in connection.execute("PRAGMA table_info(conversation_turns)").fetchall()
+        }
+        assert "operation_key" not in columns
+
+
 def test_conversation_store_rejects_future_schema_without_mutation(tmp_path) -> None:
     path = tmp_path / "future.sqlite3"
     future_version = CURRENT_CONVERSATION_SCHEMA_VERSION + 1
