@@ -469,17 +469,18 @@ async fn generate_material(
     goal: Option<String>,
     source_refs: Vec<String>,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"))
-        .json(&serde_json::json!({
-            "kind": kind,
-            "topic": topic,
-            "goal": goal,
-            "source_refs": source_refs,
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({
+        "kind": kind,
+        "topic": topic,
+        "goal": goal,
+        "source_refs": source_refs,
+    });
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children/{child_id}/materials"),
+        &body,
+        "material-generate",
+    )
+    .await?;
     ensure_success(response, "학습 자료 생성 실패")
         .await?
         .json::<serde_json::Value>()
