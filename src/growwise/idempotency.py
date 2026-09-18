@@ -6,10 +6,10 @@ import secrets
 import sqlite3
 from collections.abc import Callable, Mapping
 from contextvars import ContextVar
-from functools import wraps
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from functools import wraps
 from pathlib import Path
 from typing import Any, Concatenate, ParamSpec, Protocol, TypeVar
 
