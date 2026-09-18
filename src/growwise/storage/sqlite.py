@@ -90,6 +90,58 @@ class SQLiteProjection:
                 "CREATE INDEX IF NOT EXISTS idx_entities_type_child "
                 "ON entities(entity_type, child_id)"
             )
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS entity_links_index (
+                    link_id TEXT PRIMARY KEY,
+                    source_id TEXT NOT NULL,
+                    target_id TEXT NOT NULL,
+                    relation TEXT NOT NULL
+                )
+                """
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_entity_links_source_relation "
+                "ON entity_links_index(source_id, relation)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_entity_links_target_relation "
+                "ON entity_links_index(target_id, relation)"
+            )
+            self._backfill_entity_links_index(connection)
+
+    @staticmethod
+    def _sync_entity_link_index(connection: sqlite3.Connection, payload: dict) -> None:
+        entity_id = str(payload["id"])
+        connection.execute("DELETE FROM entity_links_index WHERE link_id = ?", (entity_id,))
+        if str(payload.get("entity_type") or "") != "entity_link":
+            return
+        source_id = payload.get("source_id")
+        target_id = payload.get("target_id")
+        relation = payload.get("relation")
+        if not source_id or not target_id or not relation:
+            return
+        connection.execute(
+            """
+            INSERT INTO entity_links_index (link_id, source_id, target_id, relation)
+            VALUES (?, ?, ?, ?)
+            """,
+            (entity_id, str(source_id), str(target_id), str(relation)),
+        )
+
+    def _backfill_entity_links_index(self, connection: sqlite3.Connection) -> None:
+        rows = connection.execute(
+            """
+            SELECT entities.id, entities.payload_json, entities.source_path
+            FROM entities
+            LEFT JOIN entity_links_index AS links ON links.link_id = entities.id
+            WHERE entities.entity_type = 'entity_link' AND links.link_id IS NULL
+            """
+        ).fetchall()
+        for row in rows:
+            payload = self._decode_projection_row(connection, row)
+            if payload is not None:
+                self._sync_entity_link_index(connection, payload)
 
     def upsert(self, entity: EntityBase, source_path: Path) -> None:
         payload = entity.model_dump(mode="json")
@@ -126,6 +178,7 @@ class SQLiteProjection:
                 json.dumps(payload, ensure_ascii=False, sort_keys=True),
             ),
         )
+        SQLiteProjection._sync_entity_link_index(connection, payload)
 
     def delete_entity(self, entity_id: str, *, entity_type: str | None = None) -> bool:
         clauses = ["id = ?"]
@@ -138,6 +191,11 @@ class SQLiteProjection:
                 f"DELETE FROM entities WHERE {' AND '.join(clauses)}",
                 params,
             )
+            if cursor.rowcount:
+                connection.execute(
+                    "DELETE FROM entity_links_index WHERE link_id = ?",
+                    (entity_id,),
+                )
         return cursor.rowcount > 0
 
     def get_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
@@ -169,6 +227,10 @@ class SQLiteProjection:
             payload = self._read_record(source_path)
             if payload is None:
                 connection.execute("DELETE FROM entities WHERE id = ?", (str(row["id"]),))
+                connection.execute(
+                    "DELETE FROM entity_links_index WHERE link_id = ?",
+                    (str(row["id"]),),
+                )
                 return None
             self._upsert_on(connection, payload, source_path)
             return payload
@@ -180,20 +242,72 @@ class SQLiteProjection:
         child_id: str,
     ) -> set[str]:
         rows = connection.execute(
-            "SELECT id, payload_json, source_path FROM entities "
-            "WHERE entity_type = 'entity_link' AND child_id = ?",
+            """
+            SELECT source_id
+            FROM entity_links_index
+            WHERE target_id = ? AND relation = 'child_scope'
+            """,
             (child_id,),
         ).fetchall()
-        source_ids: set[str] = set()
-        for row in rows:
-            payload = self._decode_projection_row(connection, row)
-            if (
-                payload is not None
-                and payload.get("relation") == "child_scope"
-                and payload.get("source_id")
-            ):
-                source_ids.add(str(payload["source_id"]))
-        return source_ids
+        return {str(row["source_id"]) for row in rows}
+
+    def list_entity_links(
+        self,
+        *,
+        source_id: str | None = None,
+        target_id: str | None = None,
+        relation: str | None = None,
+    ) -> list[dict]:
+        clauses: list[str] = []
+        params: list[str] = []
+        if source_id is not None:
+            clauses.append("links.source_id = ?")
+            params.append(source_id)
+        if target_id is not None:
+            clauses.append("links.target_id = ?")
+            params.append(target_id)
+        if relation is not None:
+            clauses.append("links.relation = ?")
+            params.append(relation)
+
+        sql = (
+            "SELECT entities.id, entities.payload_json, entities.source_path "
+            "FROM entity_links_index AS links "
+            "JOIN entities ON entities.id = links.link_id"
+        )
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY entities.updated_at DESC"
+
+        with self._connection() as connection:
+            rows = connection.execute(sql, params).fetchall()
+            return [
+                payload
+                for row in rows
+                if (payload := self._decode_projection_row(connection, row)) is not None
+            ]
+
+    def entity_links_touching(self, entity_ids: set[str]) -> list[dict]:
+        if not entity_ids:
+            return []
+        by_id: dict[str, dict] = {}
+        ordered = sorted(entity_ids)
+        with self._connection() as connection:
+            for id_chunk in self._chunks(ordered):
+                placeholders = ",".join("?" for _ in id_chunk)
+                for column in ("source_id", "target_id"):
+                    rows = connection.execute(
+                        "SELECT entities.id, entities.payload_json, entities.source_path "
+                        "FROM entity_links_index AS links "
+                        "JOIN entities ON entities.id = links.link_id "
+                        f"WHERE links.{column} IN ({placeholders})",
+                        list(id_chunk),
+                    ).fetchall()
+                    for row in rows:
+                        payload = self._decode_projection_row(connection, row)
+                        if payload is not None:
+                            by_id.setdefault(str(payload["id"]), payload)
+        return list(by_id.values())
 
     def list_entities(
         self,
@@ -375,6 +489,7 @@ class SQLiteProjection:
         records = sorted(records_root.rglob("*.md"))
         indexed = 0
         with self._connection() as connection:
+            connection.execute("DELETE FROM entity_links_index")
             connection.execute("DELETE FROM entities")
             for path in records:
                 payload = self._read_record(path)

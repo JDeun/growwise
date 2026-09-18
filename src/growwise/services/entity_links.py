@@ -38,13 +38,13 @@ class EntityLinkService:
         ):
             raise EntityLinkError("child_scope_target_must_be_child")
 
-        for existing in self._all_links():
-            if (
-                existing.source_id == source_id
-                and existing.target_id == target_id
-                and existing.relation is relation
-            ):
-                return existing
+        existing_links = self.store.index.list_entity_links(
+            source_id=str(source_id),
+            target_id=str(target_id),
+            relation=relation.value,
+        )
+        if existing_links:
+            return EntityLink.model_validate(existing_links[0])
 
         link = EntityLink(
             child_id=child_id,
@@ -75,22 +75,24 @@ class EntityLinkService:
 
     def child_scope_targets(self, source_id: UUID) -> list[UUID]:
         return [
-            link.target_id
-            for link in self._all_links()
-            if link.source_id == source_id and link.relation is EntityLinkRelation.CHILD_SCOPE
+            EntityLink.model_validate(payload).target_id
+            for payload in self.store.index.list_entity_links(
+                source_id=str(source_id),
+                relation=EntityLinkRelation.CHILD_SCOPE.value,
+            )
         ]
 
     def backlinks(self, entity_id: UUID) -> dict[str, list[dict[str, object]]]:
         incoming: list[dict[str, object]] = []
         outgoing: list[dict[str, object]] = []
-        for link in self._all_links():
-            payload = link.model_dump(mode="json")
-            if link.target_id == entity_id:
-                source = self.store.index.get_entity(str(link.source_id))
-                incoming.append({"link": payload, "entity": source})
-            if link.source_id == entity_id:
-                target = self.store.index.get_entity(str(link.target_id))
-                outgoing.append({"link": payload, "entity": target})
+        for payload in self.store.index.list_entity_links(target_id=str(entity_id)):
+            link = EntityLink.model_validate(payload)
+            source = self.store.index.get_entity(str(link.source_id))
+            incoming.append({"link": link.model_dump(mode="json"), "entity": source})
+        for payload in self.store.index.list_entity_links(source_id=str(entity_id)):
+            link = EntityLink.model_validate(payload)
+            target = self.store.index.get_entity(str(link.target_id))
+            outgoing.append({"link": link.model_dump(mode="json"), "entity": target})
         return {"incoming": incoming, "outgoing": outgoing}
 
     def delete(self, link_id: UUID) -> bool:
@@ -101,14 +103,7 @@ class EntityLinkService:
 
     def delete_for_entities(self, entity_ids: set[str]) -> int:
         deleted = 0
-        for link in self._all_links():
-            touches_entity = str(link.source_id) in entity_ids or str(link.target_id) in entity_ids
-            if touches_entity and self.store.delete(link):
+        for payload in self.store.index.entity_links_touching(entity_ids):
+            if self.store.delete(EntityLink.model_validate(payload)):
                 deleted += 1
         return deleted
-
-    def _all_links(self) -> list[EntityLink]:
-        return [
-            EntityLink.model_validate(payload)
-            for payload in self.store.index.list_entities(entity_type="entity_link")
-        ]
