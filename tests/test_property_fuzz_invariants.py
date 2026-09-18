@@ -38,7 +38,7 @@ def test_portable_member_key_randomized_case_and_unicode_equivalence() -> None:
 def test_portable_member_validation_randomized_collision_rejection() -> None:
     rng = random.Random(_SEED + 1)
     for _ in range(300):
-        component = _random_component(rng)
+        component = f"Case{_random_component(rng)}"
         left = f"assets/{component}.jpg"
         right = f"assets/{component.swapcase()}.jpg"
         with pytest.raises(InvalidBackup, match="collide on a portable filesystem"):
