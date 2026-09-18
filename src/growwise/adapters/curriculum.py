@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 
 from .base import AdapterResult, ExternalAdapterError, ExternalUnavailable
 from .cache import CachedPayload, SQLiteExternalCache
-from .http import JsonHttpClient
+from .http import JsonHttpClient, validate_public_endpoint
 
 
 class CurriculumRecord(BaseModel):
@@ -47,7 +47,7 @@ class PublicCurriculumAdapter:
     ) -> None:
         if not endpoint.strip():
             raise ValueError("endpoint is required")
-        self.endpoint = endpoint
+        self.endpoint = validate_public_endpoint(endpoint)
         self.cache = cache
         self.http = http or JsonHttpClient()
         self.ttl_seconds = ttl_seconds
