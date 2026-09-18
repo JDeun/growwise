@@ -95,7 +95,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
     return () => {
       cancelled = true;
     };
-  }, [activeChild?.id]);
+  }, [activeChild?.id, activeView, notificationsOpen]);
 
   useEffect(() => {
     function handleShortcut(event: KeyboardEvent) {
@@ -113,6 +113,11 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
     window.addEventListener("keydown", handleShortcut);
     return () => window.removeEventListener("keydown", handleShortcut);
   }, []);
+
+  const notificationCount = notificationState.items.reduce(
+    (sum, item) => sum + item.count,
+    0,
+  );
 
   return (
     <div className="workspace-shell-root">
@@ -137,7 +142,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
               <button
                 type="button"
                 className="workspace-icon-button"
-                aria-label={notificationState.items.length > 0 ? `알림 ${notificationState.items.length}개` : "알림"}
+                aria-label={notificationCount > 0 ? `알림 ${notificationCount}건` : "알림"}
                 aria-expanded={notificationsOpen}
                 aria-controls="workspace-notification-popover"
                 onClick={() => setNotificationsOpen((current) => !current)}
@@ -148,7 +153,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
                 </svg>
                 {notificationState.items.length > 0 && (
                   <span className="workspace-notification-badge" aria-hidden="true">
-                    {notificationState.items.reduce((sum, item) => sum + item.count, 0)}
+                    {notificationCount}
                   </span>
                 )}
               </button>
@@ -162,7 +167,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
                   <div className="workspace-notification-heading">
                     <strong>알림</strong>
                     {notificationState.items.length > 0 && (
-                      <span>{notificationState.items.reduce((sum, item) => sum + item.count, 0)}건</span>
+                      <span>{notificationCount}건</span>
                     )}
                   </div>
                   {notificationState.kind === "loading" && notificationState.items.length === 0 ? (
