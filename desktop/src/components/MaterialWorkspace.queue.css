@@ -173,3 +173,257 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+.material-studio {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(300px, .72fr);
+  gap: 14px;
+  margin: 18px 0;
+  align-items: start;
+}
+
+.material-document-canvas,
+.material-control-panel {
+  min-width: 0;
+  border: 1px solid rgba(42, 73, 60, .09);
+  border-radius: 20px;
+  background: rgba(255,255,255,.97);
+  box-shadow: 0 10px 30px rgba(47, 66, 58, .05);
+}
+
+.material-document-canvas {
+  min-height: 620px;
+  padding: 22px 24px 28px;
+}
+
+.material-document-toolbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 72px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(42,73,60,.08);
+}
+
+.material-document-toolbar > div:first-child {
+  min-width: 0;
+}
+
+.material-document-toolbar h3 {
+  overflow: hidden;
+  margin: 3px 0 0;
+  color: #2d3933;
+  font-size: 20px;
+  letter-spacing: -.035em;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-document-toolbar .material-card-heading {
+  flex: 0 0 auto;
+  max-width: 48%;
+}
+
+.material-document-toolbar .material-card-heading h4 {
+  display: none;
+}
+
+.material-studio-tabs {
+  display: flex;
+  gap: 2px;
+  margin-top: 16px;
+  padding: 3px;
+  width: fit-content;
+  border-radius: 11px;
+  background: #f2f5f3;
+}
+
+.material-studio-tabs button {
+  min-width: 78px;
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: #7d8882;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 760;
+}
+
+.material-studio-tabs button.is-active {
+  background: #fff;
+  color: #2f7559;
+  box-shadow: 0 3px 10px rgba(43,66,56,.08);
+}
+
+.material-studio-pane {
+  padding-top: 20px;
+}
+
+.material-studio-pane .material-content {
+  min-height: 420px;
+  padding: 28px clamp(20px, 4vw, 48px);
+  border: 1px solid #ebefed;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 6px 18px rgba(42, 62, 54, .035);
+}
+
+.material-document-empty {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 8px;
+  min-height: 470px;
+  color: #839089;
+  text-align: center;
+}
+
+.material-document-empty > span {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  border-radius: 16px;
+  background: #eaf5ef;
+  color: #2f8f6b;
+  font-size: 22px;
+}
+
+.material-document-empty strong {
+  color: #425049;
+  font-size: 14px;
+}
+
+.material-document-empty p {
+  max-width: 360px;
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
+.material-control-panel {
+  position: sticky;
+  top: 84px;
+  padding: 18px;
+}
+
+.material-control-panel__heading {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+
+.material-control-panel__spark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 11px;
+  background: linear-gradient(145deg, #e7f4ed, #dceee5);
+  color: #2f8f6b;
+  font-weight: 850;
+}
+
+.material-control-panel__heading h3,
+.material-control-panel__heading p {
+  margin: 0;
+}
+
+.material-control-panel__heading h3 {
+  margin-top: 2px;
+  color: #2d3933;
+  font-size: 15px;
+}
+
+.material-control-panel__heading > div > p:last-child {
+  margin-top: 5px;
+  color: #7b8781;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.material-control-panel .material-composer {
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0;
+  background: transparent;
+}
+
+.material-control-panel .material-kind-picker,
+.material-control-panel .material-kind-guide,
+.material-control-panel .material-topic-field,
+.material-control-panel .material-goal-field,
+.material-control-panel .resource-grounding-picker,
+.material-control-panel .material-composer > .primary-button,
+.material-control-panel .material-composer > .form-error {
+  grid-column: 1;
+}
+
+.material-control-panel .material-kind-options,
+.material-control-panel .resource-grounding-list,
+.material-control-panel .material-kind-guide,
+.material-control-panel .material-kind-guide ol {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.material-control-panel .resource-grounding-list {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.material-card-heading__aside {
+  display: grid;
+  justify-items: end;
+  gap: 6px;
+}
+
+.material-focus-link {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #2f7c5e;
+  cursor: pointer;
+  font-size: 9px;
+  font-weight: 760;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+@media (max-width: 1040px) {
+  .material-studio {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .material-control-panel {
+    position: static;
+  }
+
+  .material-document-canvas {
+    min-height: 0;
+  }
+}
+
+@media (max-width: 620px) {
+  .material-document-toolbar {
+    display: grid;
+  }
+
+  .material-document-toolbar .material-card-heading {
+    max-width: none;
+  }
+
+  .material-studio-tabs {
+    width: 100%;
+  }
+
+  .material-studio-tabs button {
+    flex: 1;
+    min-width: 0;
+  }
+}
