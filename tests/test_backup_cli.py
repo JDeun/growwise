@@ -201,3 +201,53 @@ def test_managed_backup_roundtrips_conversations_at_snapshot_boundary(tmp_path: 
     assert restored_baseline is not None
     assert [turn.content for turn in restored_baseline.turns] == ["백업 전 질문"]
     assert reopened.get(later.id) is None
+
+
+
+def test_invalid_restore_preflight_preserves_operational_state(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(nickname="보존아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    create_backup(settings, "corrupt.zip")
+
+    queue = SQLiteJobQueue(settings.jobs_path)
+    job = queue.enqueue(
+        OBSERVATION_ENRICHMENT_JOB,
+        {"child_id": str(child.id), "log_id": "keep-log"},
+    )
+    idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    idempotency.record(
+        key="keep-key",
+        request_hash="keep-hash",
+        resource_type="resource",
+        resource_id="keep-resource",
+    )
+
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+    checkpoint_saver = SqliteSaver(checkpoint_connection)
+    checkpoint_saver.setup()
+    checkpoint_graph = build_material_review_graph(checkpointer=checkpoint_saver)
+    checkpoint_graph.invoke(
+        {"material_id": "keep-material", "child_id": str(child.id), "title": "보존 상태"},
+        config={"configurable": {"thread_id": "keep-review-thread"}},
+    )
+    checkpoint_connection.close()
+
+    (settings.backups_dir / "corrupt.zip").write_bytes(b"not-a-valid-zip")
+
+    with pytest.raises(ValueError):
+        restore_backup(settings, "corrupt.zip", confirmed=True)
+
+    assert queue.get(job.id) is not None
+    assert idempotency.get("keep-key") is not None
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path)
+    try:
+        checkpoint_count = checkpoint_connection.execute(
+            "SELECT COUNT(*) FROM checkpoints WHERE thread_id = ?",
+            ("keep-review-thread",),
+        ).fetchone()
+        assert checkpoint_count is not None
+        assert checkpoint_count[0] > 0
+    finally:
+        checkpoint_connection.close()
