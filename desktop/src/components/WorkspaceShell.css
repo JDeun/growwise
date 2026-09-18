@@ -6,7 +6,7 @@
 
 .workspace-shell-root {
   display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
+  grid-template-columns: 232px minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
   width: min(1540px, calc(100% - 32px));
@@ -225,7 +225,7 @@
 
 @media (max-width: 1080px) {
   .workspace-shell-root {
-    grid-template-columns: 205px minmax(0, 1fr);
+    grid-template-columns: 212px minmax(0, 1fr);
   }
   .workspace-search-trigger {
     width: min(300px, 40vw);
