@@ -495,7 +495,6 @@ class SQLiteIdempotencyStore:
             claim_token=claim.record.claim_token,
         )
 
-
     def reset(self) -> int:
         """Delete retry metadata that belongs to the pre-restore data generation."""
 
