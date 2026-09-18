@@ -3,6 +3,7 @@ export { ChildProfileSection } from "./ChildProfileSection";
 export { DataManagementSection } from "./DataManagementSection";
 export { DiscoveryWorkspace } from "./DiscoveryWorkspace";
 export { HomeDashboard } from "./HomeDashboard";
+export { HelpWorkspace } from "./HelpWorkspace";
 export { InfantGuidanceSection } from "./InfantGuidanceSection";
 export { LearningRecordWorkspace } from "./LearningRecordWorkspace";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
