@@ -3,7 +3,7 @@ use std::time::Duration;
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
 
-use super::{ensure_success, CORE_CONNECTION};
+use super::{ensure_success, next_operation_key, CORE_CONNECTION};
 
 const PHOTO_REQUEST_TIMEOUT: Duration = Duration::from_secs(90);
 
@@ -36,6 +36,32 @@ fn core_base_url() -> Result<String, String> {
         .ok_or_else(|| "GrowWise Core 연결 정보가 초기화되지 않았습니다.".to_string())
 }
 
+async fn post_photo_idempotent_json(
+    url: String,
+    body: &serde_json::Value,
+    operation_label: &str,
+) -> Result<reqwest::Response, String> {
+    let key = next_operation_key(operation_label);
+    let first = photo_client()?
+        .post(&url)
+        .header("Idempotency-Key", key.as_str())
+        .json(body)
+        .send()
+        .await;
+
+    match first {
+        Ok(response) => Ok(response),
+        Err(error) if error.is_timeout() || error.is_connect() => photo_client()?
+            .post(&url)
+            .header("Idempotency-Key", key.as_str())
+            .json(body)
+            .send()
+            .await
+            .map_err(|retry_error| retry_error.to_string()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
 #[tauri::command]
 pub(crate) async fn create_photo_record(
     child_id: String,
@@ -46,18 +72,19 @@ pub(crate) async fn create_photo_record(
     shared_child_ids: Vec<String>,
 ) -> Result<serde_json::Value, String> {
     let base_url = core_base_url()?;
-    let response = photo_client()?
-        .post(format!("{base_url}/v1/children/{child_id}/photo-records"))
-        .json(&serde_json::json!({
-            "files": files,
-            "user_context": user_context,
-            "manual_observation": manual_observation,
-            "ai_assist": ai_assist,
-            "shared_child_ids": shared_child_ids,
-        }))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({
+        "files": files,
+        "user_context": user_context,
+        "manual_observation": manual_observation,
+        "ai_assist": ai_assist,
+        "shared_child_ids": shared_child_ids,
+    });
+    let response = post_photo_idempotent_json(
+        format!("{base_url}/v1/children/{child_id}/photo-records"),
+        &body,
+        "photo-record-create",
+    )
+    .await?;
     ensure_success(response, "사진 기록 저장 실패")
         .await?
         .json::<serde_json::Value>()
