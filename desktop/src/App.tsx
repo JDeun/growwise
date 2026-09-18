@@ -604,7 +604,7 @@ function App() {
 
   const isConnected = connection.kind === "connected";
   return (
-    <main className="app-shell">
+    <div className="app-shell">
       <header className="topbar">
         <div className="brand">
           <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
@@ -674,6 +674,14 @@ function App() {
               onSearch={handleSearch}
               onConversationQuestionChange={setConversationQuestion}
               onConversation={handleConversation}
+              backups={backups}
+              backupBusy={backupBusy}
+              backupError={backupError}
+              backupNotice={backupNotice}
+              onBackupCreate={handleCreateBackup}
+              onBackupImport={handleImportBackup}
+              onBackupExport={handleExportBackup}
+              onBackupRestore={handleRestoreBackup}
             />
 
             <ResourceLibrarySection
@@ -798,7 +806,7 @@ function App() {
           <pre>{printMaterial.content_markdown}</pre>
         </article>
       )}
-    </main>
+    </div>
   );
 }
 

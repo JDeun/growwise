@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { MaterialEditPanel } from "../MaterialEditPanel";
 import type {
@@ -103,7 +103,13 @@ function MaterialSources({
   );
 }
 
-function MaterialHeading({ material }: { material: GeneratedMaterial }) {
+function MaterialHeading({
+  material,
+  onFocus,
+}: {
+  material: GeneratedMaterial;
+  onFocus?: () => void;
+}) {
   const aiStatus = material.ai_status ?? "not_requested";
   return (
     <div className="material-card-heading">
@@ -116,9 +122,16 @@ function MaterialHeading({ material }: { material: GeneratedMaterial }) {
         </div>
         <h4>{material.title}</h4>
       </div>
-      <small>
-        {material.version}번째 버전 · {materialCatalogItem(material.kind).label}
-      </small>
+      <div className="material-card-heading__aside">
+        <small>
+          {material.version}번째 버전 · {materialCatalogItem(material.kind).label}
+        </small>
+        {onFocus && (
+          <button type="button" className="material-focus-link" onClick={onFocus}>
+            스튜디오에서 보기
+          </button>
+        )}
+      </div>
     </div>
   );
 }
@@ -195,6 +208,12 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
   const editingMaterial = editingMaterialId
     ? materials.find((material) => material.id === editingMaterialId) ?? null
     : null;
+  const [focusedMaterialId, setFocusedMaterialId] = useState<string | null>(null);
+  const [studioTab, setStudioTab] = useState<"content" | "guide" | "sources">("content");
+  const defaultFocused = reviewQueue[0] ?? drafts[0] ?? approved[0] ?? null;
+  const focusedMaterial =
+    materials.find((material) => material.id === focusedMaterialId) ?? defaultFocused;
+
 
   function printApprovedCard(material: GeneratedMaterial, card: Element | null) {
     if (!card) return;
@@ -252,88 +271,154 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         </article>
       </div>
 
-      <form className="material-composer" onSubmit={onGenerate}>
-        <fieldset className="material-kind-picker">
-          <legend>무엇을 만들까요?</legend>
-          <div className="material-kind-options">
-            {catalog.map((item) => (
-              <label
-                key={item.kind}
-                className={`material-kind-option${materialKind === item.kind ? " selected" : ""}`}
-              >
-                <input
-                  type="radio"
-                  name="material-kind"
-                  value={item.kind}
-                  checked={materialKind === item.kind}
-                  onChange={() => onKindChange(item.kind)}
-                  disabled={busy}
-                />
-                <span>
-                  <strong>{item.label}</strong>
-                  <small>{item.description}</small>
-                </span>
-              </label>
-            ))}
+      <div className="material-studio">
+        <section className="material-document-canvas" aria-label="선택한 학습 자료 미리보기">
+          <div className="material-document-toolbar">
+            <div>
+              <p className="card-label">Document canvas</p>
+              <h3>{focusedMaterial?.title ?? "아직 생성한 자료가 없습니다."}</h3>
+            </div>
+            {focusedMaterial && <MaterialHeading material={focusedMaterial} />}
           </div>
-        </fieldset>
 
-        <MaterialKindGuide item={selectedCatalogItem} />
+          {focusedMaterial ? (
+            <>
+              <div className="material-studio-tabs" role="tablist" aria-label="자료 미리보기 탭">
+                {([
+                  ["content", "자료"],
+                  ["guide", "부모 가이드"],
+                  ["sources", "출처"],
+                ] as const).map(([tab, label]) => (
+                  <button
+                    key={tab}
+                    type="button"
+                    role="tab"
+                    aria-selected={studioTab === tab}
+                    className={studioTab === tab ? "is-active" : ""}
+                    onClick={() => setStudioTab(tab)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div className="material-studio-pane">
+                {studioTab === "content" && (
+                  <>
+                    <MaterialCurriculumTargets targets={focusedMaterial.curriculum_targets} />
+                    <MaterialContent markdown={focusedMaterial.content_markdown} />
+                  </>
+                )}
+                {studioTab === "guide" && <MaterialParentGuide material={focusedMaterial} />}
+                {studioTab === "sources" && (
+                  <>
+                    <MaterialSources material={focusedMaterial} resources={resources} />
+                    <MaterialLinks material={focusedMaterial} />
+                  </>
+                )}
+              </div>
+            </>
+          ) : (
+            <div className="material-document-empty">
+              <span aria-hidden="true">✦</span>
+              <strong>오른쪽에서 첫 학습 자료를 만들어 보세요.</strong>
+              <p>생성한 초안은 이 캔버스에 표시되고 부모 검토 workflow로 이어집니다.</p>
+            </div>
+          )}
+        </section>
 
-        <label className="material-topic-field">
-          <span>주제</span>
-          <input
-            value={topic}
-            onChange={(event) => onTopicChange(event.target.value)}
-            maxLength={200}
-            placeholder={selectedCatalogItem.placeholder}
-            disabled={busy}
-          />
-        </label>
-        <label className="material-goal-field">
-          <span>부모 목표(선택)</span>
-          <input
-            value={goal}
-            onChange={(event) => onGoalChange(event.target.value)}
-            maxLength={300}
-            placeholder={selectedCatalogItem.goalPlaceholder}
-            disabled={busy}
-          />
-        </label>
-        {resources.length > 0 && (
-          <fieldset className="resource-grounding-picker">
-            <legend>참고할 내 자료(선택)</legend>
-            <p className="muted">선택한 자료만 새 자료의 내용을 만들 때 참고합니다.</p>
-            <div className="resource-grounding-list">
-              {resources.map((resource) => {
-                const ref = `resource:${resource.id}`;
-                return (
-                  <label key={resource.id} className="resource-grounding-item">
+        <aside className="material-control-panel" aria-label="학습 자료 생성 컨트롤">
+          <div className="material-control-panel__heading">
+            <span className="material-control-panel__spark" aria-hidden="true">✦</span>
+            <div>
+              <p className="card-label">AI & template controls</p>
+              <h3>새 자료 만들기</h3>
+              <p>AI가 없어도 기본 템플릿으로 생성되며, 모든 결과는 부모 검토를 거칩니다.</p>
+            </div>
+          </div>
+          <form className="material-composer" onSubmit={onGenerate}>
+            <fieldset className="material-kind-picker">
+              <legend>무엇을 만들까요?</legend>
+              <div className="material-kind-options">
+                {catalog.map((item) => (
+                  <label
+                    key={item.kind}
+                    className={`material-kind-option${materialKind === item.kind ? " selected" : ""}`}
+                  >
                     <input
-                      type="checkbox"
-                      checked={selectedResourceRefs.includes(ref)}
-                      onChange={() => onToggleResource(resource.id)}
+                      type="radio"
+                      name="material-kind"
+                      value={item.kind}
+                      checked={materialKind === item.kind}
+                      onChange={() => onKindChange(item.kind)}
                       disabled={busy}
                     />
                     <span>
-                      <strong>{resource.title}</strong>
-                      <small>{RESOURCE_KIND_LABELS[resource.kind]}</small>
+                      <strong>{item.label}</strong>
+                      <small>{item.description}</small>
                     </span>
                   </label>
-                );
-              })}
-            </div>
-          </fieldset>
-        )}
-        <button className="primary-button" type="submit" disabled={busy || !topic.trim()}>
-          {busy ? "초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
-        </button>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-      </form>
+                ))}
+              </div>
+            </fieldset>
+
+            <MaterialKindGuide item={selectedCatalogItem} />
+
+            <label className="material-topic-field">
+              <span>주제</span>
+              <input
+                value={topic}
+                onChange={(event) => onTopicChange(event.target.value)}
+                maxLength={200}
+                placeholder={selectedCatalogItem.placeholder}
+                disabled={busy}
+              />
+            </label>
+            <label className="material-goal-field">
+              <span>부모 목표(선택)</span>
+              <input
+                value={goal}
+                onChange={(event) => onGoalChange(event.target.value)}
+                maxLength={300}
+                placeholder={selectedCatalogItem.goalPlaceholder}
+                disabled={busy}
+              />
+            </label>
+            {resources.length > 0 && (
+              <fieldset className="resource-grounding-picker">
+                <legend>참고할 내 자료(선택)</legend>
+                <p className="muted">선택한 자료만 새 자료의 내용을 만들 때 참고합니다.</p>
+                <div className="resource-grounding-list">
+                  {resources.map((resource) => {
+                    const ref = `resource:${resource.id}`;
+                    return (
+                      <label key={resource.id} className="resource-grounding-item">
+                        <input
+                          type="checkbox"
+                          checked={selectedResourceRefs.includes(ref)}
+                          onChange={() => onToggleResource(resource.id)}
+                          disabled={busy}
+                        />
+                        <span>
+                          <strong>{resource.title}</strong>
+                          <small>{RESOURCE_KIND_LABELS[resource.kind]}</small>
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+            )}
+            <button className="primary-button" type="submit" disabled={busy || !topic.trim()}>
+              {busy ? "초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
+            </button>
+            {error && (
+              <p className="form-error" role="alert">
+                {error}
+              </p>
+            )}
+          </form>
+        </aside>
+      </div>
 
       <div className="material-queue-lanes">
         <section className="material-lane" aria-labelledby="draft-lane-title">
@@ -352,7 +437,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           ) : (
             drafts.map((material) => (
               <article className="material-card draft-card" key={material.id}>
-                <MaterialHeading material={material} />
+                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
                 <MaterialCore material={material} resources={resources} compact />
                 <div className="material-actions">
                   <button
@@ -401,7 +486,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           ) : (
             reviewQueue.map((material) => (
               <article className="material-card review-card" key={material.id}>
-                <MaterialHeading material={material} />
+                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
                 <MaterialCore material={material} resources={resources} />
                 {material.review_note && (
                   <p className="review-note">
@@ -475,7 +560,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           ) : (
             approved.map((material) => (
               <article className="material-card approved-card" key={material.id}>
-                <MaterialHeading material={material} />
+                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
                 <MaterialCore material={material} resources={resources} compact />
                 <div className="material-actions">
                   <button

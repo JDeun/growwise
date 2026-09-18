@@ -60,6 +60,9 @@ describe("SearchConversationSection", () => {
     expect(markup).toContain("기록 1");
     expect(markup).toContain("참고 자료 2");
     expect(markup).toContain("이전 답변 자체는 새 답변의 근거로 사용하지 않습니다");
+    expect(markup).toContain("대화와 기록 백업");
+    expect(markup).toContain("지금 백업");
+    expect(markup).toContain("Grounding policy");
     expect(markup).not.toContain("BOUNDED MULTI-TURN");
     expect(markup).not.toContain("child scope");
   });

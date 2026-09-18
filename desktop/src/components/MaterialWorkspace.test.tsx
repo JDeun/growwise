@@ -65,6 +65,11 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
     expect(html).toContain("자료 사용과 결과");
+    expect(html).toContain("Document canvas");
+    expect(html).toContain("AI &amp; template controls");
+    expect(html).toContain('role="tablist"');
+    expect(html).toContain("부모 가이드");
+    expect(html).toContain("출처");
   });
 
   it("keeps review-pending material out of the printable and closed-loop lane", () => {
