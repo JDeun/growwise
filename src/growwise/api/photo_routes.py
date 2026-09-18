@@ -369,7 +369,11 @@ def create_photo_record(
     if not can_assist and manual_text:
         effective_context = manual_text
 
-    idempotency_store = SQLiteIdempotencyStore(settings.idempotency_path)
+    idempotency_store = (
+        SQLiteIdempotencyStore(settings.idempotency_path)
+        if idempotency_key is not None
+        else None
+    )
     request_hash = _photo_create_fingerprint(
         child_id=child_id,
         request=request,
@@ -378,6 +382,7 @@ def create_photo_record(
     reserved_record_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -442,6 +447,7 @@ def create_photo_record(
             ai_service=ai_service,
         )
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
