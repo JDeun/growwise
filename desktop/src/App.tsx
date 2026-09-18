@@ -620,10 +620,6 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
         <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
       </section>
 
-      {activeView === "settings" && (
-        <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />
-      )}
-
       <section className="workspace">
         <ChildProfileSection
           connected={isConnected}
@@ -780,9 +776,9 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
         )}
       </section>
 
-      {(activeView === "backup" || activeView === "settings") && (
+      {activeView === "backup" && (
         <DataManagementSection
-          mode={activeView}
+          mode="backup"
           connected={isConnected}
           backups={backups}
           busy={backupBusy}
@@ -793,6 +789,36 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
           onExport={(archiveName) => void handleExportBackup(archiveName)}
           onRestore={handleRestoreBackup}
         />
+      )}
+
+      {activeView === "settings" && (
+        <section className="settings-product-workspace" aria-labelledby="settings-product-title">
+          <header className="settings-product-heading">
+            <div>
+              <p className="eyebrow">PREFERENCES</p>
+              <h1 id="settings-product-title">설정</h1>
+              <p>앱 상태, 가족 프로필과 개인정보 관련 설정을 관리합니다.</p>
+            </div>
+          </header>
+          <SystemStatusSection
+            connection={connection}
+            activeChild={activeChild}
+            childrenCount={children.length}
+          />
+          <DataManagementSection
+            mode="settings"
+            showHeading={false}
+            connected={isConnected}
+            backups={backups}
+            busy={backupBusy}
+            error={backupError}
+            notice={backupNotice}
+            onImport={handleImportBackup}
+            onCreate={() => void handleCreateBackup()}
+            onExport={(archiveName) => void handleExportBackup(archiveName)}
+            onRestore={handleRestoreBackup}
+          />
+        </section>
       )}
 
       <ConfirmDialog
