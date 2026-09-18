@@ -25,6 +25,7 @@ function renderFirstRun(connected = true) {
         onAgeMonthsChange={() => undefined}
         onSubmit={() => undefined}
         onSelectChild={() => undefined}
+        onChildUpdated={() => undefined}
       />
     </ActiveChildProvider>,
   );
