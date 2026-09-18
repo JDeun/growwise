@@ -395,3 +395,16 @@
 .profile-hub[data-profile-tab="report"] .profile-hub-core .timeline-section {
   display: block !important;
 }
+
+
+/* Hub tabs own visibility; no global shell projection is required. */
+.profile-hub:not(.is-managing) .profile-hub-core .child-profile-section,
+.profile-hub[data-profile-tab="records"] .profile-hub-core .observation-panel,
+.profile-hub[data-profile-tab="records"] .profile-hub-core .timeline-section,
+.profile-hub[data-profile-tab="development"] .profile-hub-core .timeline-section {
+  display: none !important;
+}
+
+.profile-hub[data-profile-tab="development"] .profile-hub-core .observation-panel {
+  display: grid !important;
+}
