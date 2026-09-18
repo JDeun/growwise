@@ -37,6 +37,8 @@ pub(crate) struct ChildProfileDto {
     learning_goals: Vec<String>,
     #[serde(default)]
     notes: Option<String>,
+    #[serde(default)]
+    avatar_asset_id: Option<String>,
 }
 
 #[tauri::command]
