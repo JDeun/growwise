@@ -21,7 +21,7 @@ from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
 from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
-from growwise.domain.models import ChildProfile, Stage
+from growwise.domain.models import ChildProfile, SourceRef, Stage
 from growwise.domain.study import (
     MistakeRecord,
     MistakeType,
@@ -69,7 +69,7 @@ class SelfExplanationRequest(BaseModel):
     subject: str = Field(min_length=1, max_length=120)
     unit: str = Field(min_length=1, max_length=240)
     explanation: str = Field(min_length=1, max_length=8000)
-    evidence_refs: list[str] = Field(default_factory=list, max_length=30)
+    evidence_refs: list[SourceRef] = Field(default_factory=list, max_length=30)
     open_question: str | None = Field(default=None, max_length=4000)
 
 
