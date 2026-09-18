@@ -121,15 +121,25 @@ class SQLiteExternalCache:
                 "SELECT * FROM external_cache WHERE cache_key = ?",
                 (cache_key,),
             ).fetchone()
-        if row is None:
-            return None
-        fetched_at = self._parse_time(row["fetched_at"])
-        expires_at = self._parse_time(row["expires_at"])
+            if row is None:
+                return None
+            try:
+                fetched_at = self._parse_time(row["fetched_at"])
+                expires_at = self._parse_time(row["expires_at"])
+                payload = json.loads(row["payload_json"])
+                if not isinstance(payload, dict):
+                    raise ValueError("cached payload root is not an object")
+            except (TypeError, ValueError, json.JSONDecodeError):
+                # External enrichment is optional and this SQLite DB is disposable. A malformed row
+                # must degrade to a cache miss instead of making every future discovery request fail.
+                connection.execute(
+                    "DELETE FROM external_cache WHERE cache_key = ?",
+                    (cache_key,),
+                )
+                return None
+
         stale = expires_at <= reference
         if stale and not allow_stale:
-            return None
-        payload = json.loads(row["payload_json"])
-        if not isinstance(payload, dict):
             return None
         return CachedPayload(
             payload=payload,
