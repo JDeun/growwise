@@ -18,6 +18,7 @@ type WorkspaceShellProps = {
 
 export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellProps) {
   const activeChild = useOptionalActiveChild()?.activeChild ?? null;
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [activeView, setActiveView] = useState<WorkspaceView>(() => {
     if (initialView) return initialView;
     if (typeof window === "undefined") return "home";
@@ -25,6 +26,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
   });
 
   function handleChange(view: WorkspaceView) {
+    setNotificationsOpen(false);
     setActiveView(view);
     if (typeof window !== "undefined") writeWorkspaceView(window.localStorage, view);
   }
@@ -33,10 +35,12 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
     function handleShortcut(event: KeyboardEvent) {
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
       event.preventDefault();
-      setActiveView("search");
-      writeWorkspaceView(window.localStorage, "search");
+      setActiveView("conversation");
+      writeWorkspaceView(window.localStorage, "conversation");
       window.requestAnimationFrame(() => {
-        document.querySelector<HTMLInputElement>(".search-section .search-form input")?.focus();
+        document.querySelector<HTMLElement>(
+          ".conversation-workspace-grid textarea, .conversation-section textarea, .search-section .search-form input",
+        )?.focus();
       });
     }
 
@@ -56,20 +60,35 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
             <button
               type="button"
               className="workspace-search-trigger"
-              onClick={() => handleChange("search")}
-              aria-label="기록과 자료 검색으로 이동"
+              onClick={() => handleChange("conversation")}
+              aria-label="대화와 기록 검색으로 이동"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
               <span>검색어를 입력하세요...</span>
             </button>
-            <button
-              type="button"
-              className="workspace-quick-record"
-              onClick={() => handleChange("observations")}
-            >
-              <span aria-hidden="true">＋</span>
-              새 기록
-            </button>
+
+            <div className="workspace-notifications">
+              <button
+                type="button"
+                className="workspace-icon-button"
+                aria-label="알림"
+                aria-expanded={notificationsOpen}
+                aria-controls="workspace-notification-popover"
+                onClick={() => setNotificationsOpen((current) => !current)}
+              >
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M6.5 9.5a5.5 5.5 0 0 1 11 0c0 6 2.2 6.5 2.2 6.5H4.3s2.2-.5 2.2-6.5Z"/>
+                  <path d="M10 19h4"/>
+                </svg>
+              </button>
+              {notificationsOpen && (
+                <div id="workspace-notification-popover" className="workspace-notification-popover" role="status">
+                  <strong>알림</strong>
+                  <p>새로운 알림이 없습니다.</p>
+                </div>
+              )}
+            </div>
+
             <button
               type="button"
               className="workspace-topbar-avatar"
