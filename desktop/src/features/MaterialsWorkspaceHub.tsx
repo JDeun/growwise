@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 
 import "./MaterialsWorkspaceHub.css";
 
-type MaterialTab = "materials" | "library" | "discovery";
+type MaterialTab = "materials" | "activities" | "library" | "discovery";
 
 interface MaterialsWorkspaceHubProps {
   app: ReactNode;
@@ -11,6 +11,7 @@ interface MaterialsWorkspaceHubProps {
 
 const TABS: Array<{ value: MaterialTab; label: string; description: string }> = [
   { value: "materials", label: "활동 자료", description: "만들기 · 검토 · 승인" },
+  { value: "activities", label: "활동 관리", description: "추천 · 진행 · 결과" },
   { value: "library", label: "참고 자료", description: "내 자료와 출처" },
   { value: "discovery", label: "자료 찾기", description: "책 · 교육과정 · 탐방" },
 ];
