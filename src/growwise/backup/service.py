@@ -97,13 +97,17 @@ class BackupService:
             os.close(state_fd)
             conversation_snapshot = Path(state_name)
             conversation_snapshot.unlink(missing_ok=True)
-            if conversations_path.exists():
-                conversation_count = SQLiteConversationStore(conversations_path).snapshot_to(
-                    conversation_snapshot
-                )
-            else:
-                empty_store = SQLiteConversationStore(conversation_snapshot)
-                conversation_count = empty_store.validate_snapshot(conversation_snapshot)
+            try:
+                if conversations_path.exists():
+                    conversation_count = SQLiteConversationStore(conversations_path).snapshot_to(
+                        conversation_snapshot
+                    )
+                else:
+                    empty_store = SQLiteConversationStore(conversation_snapshot)
+                    conversation_count = empty_store.validate_snapshot(conversation_snapshot)
+            except Exception:
+                conversation_snapshot.unlink(missing_ok=True)
+                raise
 
         manifest = BackupManifest(
             format_version=2 if conversations_path is not None else 1,
@@ -117,11 +121,16 @@ class BackupService:
             ensure_ascii=False,
             indent=2,
         ).encode("utf-8")
-        self._validate_create_inputs(
-            files=[*records, *assets],
-            state_files=[conversation_snapshot] if conversation_snapshot is not None else [],
-            manifest_size=len(manifest_bytes),
-        )
+        try:
+            self._validate_create_inputs(
+                files=[*records, *assets],
+                state_files=[conversation_snapshot] if conversation_snapshot is not None else [],
+                manifest_size=len(manifest_bytes),
+            )
+        except Exception:
+            if conversation_snapshot is not None:
+                conversation_snapshot.unlink(missing_ok=True)
+            raise
 
         fd, tmp_name = tempfile.mkstemp(
             prefix=f".{destination.name}.",
