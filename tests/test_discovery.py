@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+
 from growwise.adapters import AdapterResult
 from growwise.config import Settings
 from growwise.domain import ActivityPlan, ChildProfile, LearningLog, Stage
+from growwise.services.discovery import DiscoverySuggestion
+from growwise.domain import ResourceKind
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services.discovery import EducationDiscoveryService
 from growwise.services.public_query import generalize_public_terms
@@ -67,6 +71,64 @@ def test_discovery_has_offline_curriculum_baseline_and_deduplicated_save(
     second = service.save(child=child, suggestion=suggestion)
     assert first.id == second.id
     assert first.provenance["discovery_candidate_id"] == suggestion.candidate_id
+
+
+
+def test_discovery_retry_reconciles_missing_rag_projection(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service, store = _service(tmp_path)
+    child = ChildProfile(name="테스트", nickname="테스트", stage=Stage.ELEMENTARY)
+    store.save(child)
+    suggestion = DiscoverySuggestion(
+        candidate_id="candidate-reconcile",
+        category="book",
+        resource_kind=ResourceKind.BOOK,
+        title="공룡 관찰 기록",
+        summary="공룡 화석을 관찰하는 참고 자료",
+        source_name="synthetic",
+        attribution="synthetic test",
+        license_note="test-only",
+        cache_status="fresh",
+        rationale="테스트",
+    )
+
+    original_ingest = service.ingestor.ingest
+    failed = False
+
+    def fail_once(resource):
+        nonlocal failed
+        if not failed:
+            failed = True
+            raise OSError("simulated RAG ingest crash")
+        return original_ingest(resource)
+
+    monkeypatch.setattr(service.ingestor, "ingest", fail_once)
+    with pytest.raises(OSError, match="simulated RAG ingest crash"):
+        service.save(child=child, suggestion=suggestion)
+
+    authoritative = [
+        item
+        for item in store.index.list_entities(
+            entity_type="resource",
+            child_id=str(child.id),
+        )
+        if (item.get("provenance") or {}).get("discovery_candidate_id")
+        == suggestion.candidate_id
+    ]
+    assert len(authoritative) == 1
+
+    monkeypatch.setattr(service.ingestor, "ingest", original_ingest)
+    recovered = service.save(child=child, suggestion=suggestion)
+    assert recovered.id == authoritative[0]["id"]
+
+    hits = HybridRagIndex(tmp_path / "rag.sqlite3").search(
+        query="공룡 화석",
+        child_id=str(child.id),
+        limit=10,
+    )
+    assert hits
 
 
 def test_external_book_search_receives_allowlisted_topics_only(
