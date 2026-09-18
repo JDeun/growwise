@@ -43,6 +43,7 @@
 }
 
 .workspace-topbar-actions {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: flex-end;
@@ -51,12 +52,12 @@
 }
 
 .workspace-search-trigger,
-.workspace-quick-record,
+.workspace-icon-button,
 .workspace-topbar-avatar {
-  border: 1px solid rgba(41, 70, 57, .11);
-  background: rgba(255,255,255,.88);
+  border: 1px solid rgba(41, 70, 57, 0.11);
+  background: rgba(255, 255, 255, 0.88);
   color: #59665f;
-  box-shadow: 0 4px 14px rgba(44,67,57,.04);
+  box-shadow: 0 4px 14px rgba(44, 67, 57, 0.04);
 }
 
 .workspace-search-trigger {
@@ -66,55 +67,81 @@
   width: min(340px, 42vw);
   min-width: 260px;
   height: 36px;
-  padding: 0 9px 0 11px;
+  padding: 0 11px;
   border-radius: 10px;
   cursor: pointer;
   text-align: left;
 }
 
-.workspace-search-trigger svg {
-  width: 15px;
-  height: 15px;
+.workspace-search-trigger svg,
+.workspace-icon-button svg {
+  display: block;
+  width: 16px;
+  height: 16px;
   fill: none;
   stroke: currentColor;
   stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .workspace-search-trigger span {
   flex: 1;
   color: #89938e;
   font-size: 10px;
+  line-height: 1;
 }
 
-.workspace-search-trigger kbd {
-  padding: 2px 5px;
-  border: 1px solid rgba(41,70,57,.09);
-  border-radius: 5px;
-  background: #f7f8f7;
-  color: #9aa39f;
-  font-family: inherit;
-  font-size: 8px;
+.workspace-notifications {
+  position: relative;
 }
 
-.workspace-quick-record {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
+.workspace-icon-button {
+  display: grid;
+  place-items: center;
+  width: 36px;
   height: 36px;
-  padding: 0 12px;
-  border-color: #2f8f6b;
+  padding: 0;
   border-radius: 10px;
-  background: #2f8f6b;
-  color: #fff;
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 750;
 }
 
-.workspace-quick-record span {
-  margin-top: -1px;
-  font-size: 15px;
-  font-weight: 400;
+.workspace-icon-button:hover,
+.workspace-icon-button[aria-expanded="true"] {
+  border-color: rgba(47, 143, 107, 0.24);
+  background: #f5faf7;
+  color: #2f8f6b;
+}
+
+.workspace-notification-popover {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 30;
+  display: grid;
+  gap: 4px;
+  width: 220px;
+  padding: 13px 14px;
+  border: 1px solid rgba(43, 42, 40, 0.09);
+  border-radius: 12px;
+  background: #fff;
+  box-shadow: 0 16px 40px rgba(43, 52, 47, 0.14);
+}
+
+.workspace-notification-popover strong,
+.workspace-notification-popover p {
+  margin: 0;
+}
+
+.workspace-notification-popover strong {
+  color: #2b2a28;
+  font-size: 11px;
+}
+
+.workspace-notification-popover p {
+  color: #89918d;
+  font-size: 9.5px;
+  line-height: 1.45;
 }
 
 .workspace-topbar-avatar {
@@ -154,8 +181,8 @@
 
 /*
  * App remains mounted while the workspace changes so Core-backed state and unsaved forms survive
- * navigation. Visual projection is explicit: only the section owned by the active workspace is
- * exposed.
+ * navigation. Product workspaces compose these legacy feature sections while the data controllers
+ * remain mounted in one place.
  */
 .workspace-shell[data-active-workspace="home"] .app-shell {
   display: none;
@@ -182,10 +209,35 @@
   display: block;
 }
 
+.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .conversation-workspace-grid,
+.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .search-section,
+.workspace-shell[data-active-workspace="conversation"] .app-shell > .workspace > .conversation-section,
+.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-workspace-grid,
+.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .search-section,
+.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-section {
+  display: block;
+}
+
+.workspace-shell[data-active-workspace="materials"] .app-shell > .workspace > .material-workspace,
+.workspace-shell[data-active-workspace="library"] .app-shell > .workspace > .resource-section {
+  display: block;
+}
+
+.workspace-shell[data-active-workspace="backup"] .app-shell > .data-management-section,
+.workspace-shell[data-active-workspace="settings"] .app-shell > .data-management-section {
+  display: block;
+}
+
 .workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
   display: grid;
 }
 
+.workspace-shell[data-active-workspace="backup"] .app-shell > .workspace,
+.workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
+  display: none;
+}
+
+/* Legacy routes remain projection-compatible until each feature is fully recomposed. */
 .workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel {
   display: grid;
 }
@@ -209,24 +261,15 @@
 
 .workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .infant-guidance-section,
 .workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .activity-section,
-.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .quest-section,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-workspace-grid,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .search-section,
-.workspace-shell[data-active-workspace="search"] .app-shell > .workspace > .conversation-section,
-.workspace-shell[data-active-workspace="library"] .app-shell > .workspace > .resource-section,
-.workspace-shell[data-active-workspace="materials"] .app-shell > .workspace > .material-workspace,
-.workspace-shell[data-active-workspace="settings"] .app-shell > .data-management-section {
+.workspace-shell[data-active-workspace="activities"] .app-shell > .workspace > .quest-section {
   display: block;
-}
-
-.workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
-  display: none;
 }
 
 @media (max-width: 1080px) {
   .workspace-shell-root {
     grid-template-columns: 212px minmax(0, 1fr);
   }
+
   .workspace-search-trigger {
     width: min(300px, 40vw);
     min-width: 200px;
@@ -239,14 +282,30 @@
     width: min(100% - 24px, 1180px);
     min-height: 0;
   }
-  .workspace-topbar { position: static; }
-  .workspace-shell { min-height: 0; padding: 18px; }
-  .workspace-shell > .app-shell { width: 100%; }
+
+  .workspace-topbar {
+    position: static;
+  }
+
+  .workspace-shell {
+    min-height: 0;
+    padding: 18px;
+  }
+
+  .workspace-shell > .app-shell {
+    width: 100%;
+  }
 }
 
 @media (max-width: 680px) {
-  .workspace-search-trigger span,
-  .workspace-search-trigger kbd { display: none; }
-  .workspace-search-trigger { min-width: 36px; width: 36px; justify-content: center; padding: 0; }
-  .workspace-quick-record { padding: 0 9px; }
+  .workspace-search-trigger span {
+    display: none;
+  }
+
+  .workspace-search-trigger {
+    min-width: 36px;
+    width: 36px;
+    justify-content: center;
+    padding: 0;
+  }
 }
