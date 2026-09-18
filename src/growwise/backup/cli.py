@@ -4,6 +4,7 @@ import argparse
 import json
 import logging
 import re
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -11,10 +12,12 @@ from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
 from growwise.config import Settings
 from growwise.domain import ResourceRecord
+from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.runtime_lock import DataDirectoryLock
 from growwise.services.background_ai import MATERIAL_ENHANCEMENT_JOB, OBSERVATION_ENRICHMENT_JOB
+from growwise.services.conversation_store import SQLiteConversationStore
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
 
@@ -42,8 +45,31 @@ def managed_archive_path(settings: Settings, name: str) -> Path:
     return settings.backups_dir / safe_name
 
 
+def clear_checkpoint_projection(path: Path) -> int:
+    """Clear rebuildable LangGraph checkpoint rows without replacing the SQLite file."""
+
+    if not path.exists():
+        return 0
+    with sqlite3.connect(path, timeout=30.0) as connection:
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        deleted = 0
+        for table in ("writes", "checkpoint_blobs", "checkpoints"):
+            if table not in tables:
+                continue
+            cursor = connection.execute(f"DELETE FROM {table}")
+            deleted += max(cursor.rowcount, 0)
+        connection.commit()
+    return deleted
+
+
 def create_backup(settings: Settings, name: str | None = None) -> dict[str, object]:
     archive = managed_archive_path(settings, name or default_archive_name())
+    SQLiteConversationStore(settings.conversations_path)
     # A backup must observe one coherent authoritative snapshot. This waits for source mutations
     # that already started and rejects new ones until the archive has closed. Read-only maintenance
     # does not advance the data generation because the active source set is unchanged.
@@ -52,6 +78,7 @@ def create_backup(settings: Settings, name: str | None = None) -> dict[str, obje
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
             destination=archive,
+            sqlite_state={"conversations.sqlite3": settings.conversations_path},
         )
     return {
         "archive": archive.name,
@@ -97,16 +124,28 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     # then cancelled before files are replaced, fencing model work that was started from the old
     # record set. The generation advances on exit, so even a worker still returning from inference
     # cannot persist through an old EntityStore or a generation-bound worker thread.
+    conversation_store = SQLiteConversationStore(settings.conversations_path)
+    queue = MaintenanceAwareJobQueue(settings.jobs_path)
     with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
-        cancelled_jobs = MaintenanceAwareJobQueue(settings.jobs_path).cancel_active(
-            job_types=_AI_JOB_TYPES
-        )
+        cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
+        purged_jobs = queue.delete_types(_AI_JOB_TYPES)
+        checkpoint_rows_deleted = clear_checkpoint_projection(settings.checkpoint_path)
+        idempotency_records_deleted = SQLiteIdempotencyStore(
+            settings.idempotency_path
+        ).clear()
+
         manifest = BackupService().restore(
             archive_path=archive,
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
             index_path=settings.index_path,
+            sqlite_state={"conversations.sqlite3": settings.conversations_path},
         )
+        if "conversations.sqlite3" not in manifest.state_files:
+            # v1 archives predate portable conversation state. Keeping newer live conversations
+            # would violate snapshot semantics and can retain data for children absent from restore.
+            conversation_store.reset_for_restore()
+
         try:
             rag_chunk_count = rebuild_rag_projection(settings)
             rag_status = "ready"
@@ -122,6 +161,9 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         "archive": archive.name,
         "restored": True,
         "cancelled_jobs": cancelled_jobs,
+        "purged_jobs": purged_jobs,
+        "checkpoint_rows_deleted": checkpoint_rows_deleted,
+        "idempotency_records_deleted": idempotency_records_deleted,
         "rag_chunk_count": rag_chunk_count,
         "rag_status": rag_status,
         "manifest": manifest.model_dump(mode="json"),
