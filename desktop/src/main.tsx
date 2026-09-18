@@ -43,13 +43,10 @@ createRoot(document.getElementById("root")!).render(
                 onNavigate={navigate}
               />
             ) : activeView === "materials" ? (
-              <>
-                <MaterialsWorkspaceHub
-                  app={<App activeView={activeView} />}
-                  renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
-                />
-                <PrintApprovedMaterials />
-              </>
+              <MaterialsWorkspaceHub
+                app={<App activeView={activeView} />}
+                renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
+              />
             ) : (
               activeView !== "home"
               && activeView !== "photos"
