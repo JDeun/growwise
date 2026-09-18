@@ -9,10 +9,9 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from uuid6 import uuid7
-
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain.photo import PhotoActivityRecord, PhotoAsset, PhotoRecordStatus
