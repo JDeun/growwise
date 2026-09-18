@@ -604,6 +604,27 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
   }
 
   const isConnected = connection.kind === "connected";
+  const showProfile = activeView === "profile";
+  const showObservation =
+    activeView === "profile"
+    || activeView === "learning"
+    || activeView === "observations"
+    || activeView === "growth";
+  const showConversation = activeView === "conversation" || activeView === "search";
+  const showLibrary = activeView === "materials" || activeView === "library";
+  const showMaterials = activeView === "materials";
+  const showActivities = activeView === "materials" || activeView === "activities";
+  const showTimeline =
+    activeView === "profile" || activeView === "learning" || activeView === "observations";
+  const showChildWorkspace =
+    showProfile
+    || showObservation
+    || showConversation
+    || showLibrary
+    || showMaterials
+    || showActivities
+    || showTimeline;
+
   return (
     <div className="app-shell">
       <header className="topbar">
@@ -620,29 +641,31 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
         <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
       </section>
 
-      <section className="workspace">
-        <ChildProfileSection
-          connected={isConnected}
-          children={children}
-          activeChild={activeChild}
-          childContext={childContext}
-          growthMap={growthMap}
-          activityCount={activityPlans.length}
-          nickname={nickname}
-          childStage={childStage}
-          ageMonths={ageMonths}
-          saving={saving}
-          error={formError}
-          onNicknameChange={setNickname}
-          onStageChange={setChildStage}
-          onAgeMonthsChange={setAgeMonths}
-          onSubmit={handleCreateChild}
-          onSelectChild={(childId) => void handleSelectChild(childId)}
-          onAvatarUpdated={handleAvatarUpdated}
-        />
+      {showChildWorkspace && (
+        <section className="workspace">
+          {showProfile && (
+            <ChildProfileSection
+              connected={isConnected}
+              children={children}
+              activeChild={activeChild}
+              childContext={childContext}
+              growthMap={growthMap}
+              activityCount={activityPlans.length}
+              nickname={nickname}
+              childStage={childStage}
+              ageMonths={ageMonths}
+              saving={saving}
+              error={formError}
+              onNicknameChange={setNickname}
+              onStageChange={setChildStage}
+              onAgeMonthsChange={setAgeMonths}
+              onSubmit={handleCreateChild}
+              onSelectChild={(childId) => void handleSelectChild(childId)}
+              onAvatarUpdated={handleAvatarUpdated}
+            />
+          )}
 
-        {activeChild && (
-          <>
+          {activeChild && showObservation && (
             <ObservationGrowthSection
               observation={observation}
               selectedAxes={selectedAxes}
@@ -658,7 +681,9 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               onSubmit={handleCreateObservation}
               onRetryGrowth={() => void reloadChildContextPart("growth")}
             />
+          )}
 
+          {activeChild && showConversation && (
             <SearchConversationSection
               searchQuery={searchQuery}
               searchResult={searchResult}
@@ -683,7 +708,9 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               onBackupExport={handleExportBackup}
               onBackupRestore={handleRestoreBackup}
             />
+          )}
 
+          {activeChild && showLibrary && (
             <ResourceLibrarySection
               resourceKind={resourceKind}
               resourceTitle={resourceTitle}
@@ -700,8 +727,10 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               onUpdate={handleUpdateResource}
               onDelete={handleDeleteResource}
             />
+          )}
 
-            {childContext.materials.kind === "loading" ? (
+          {activeChild && showMaterials && (
+            childContext.materials.kind === "loading" ? (
               <section className="material-workspace material-state-panel">
                 <ViewStateNotice kind="loading" title="생성 자료를 불러오는 중입니다." description="다른 작업공간은 계속 사용할 수 있습니다." />
               </section>
@@ -741,18 +770,20 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
                   handlePrintMaterial,
                 }}
               />
-            )}
+            )
+          )}
 
-            {activeChild.stage === "infant_0_2" && (
-              <InfantGuidanceSection
-                observationHints={observationHints}
-                boardBooks={boardBooks}
-                loading={infantGuidanceLoading}
-                error={infantGuidanceError}
-                onLoad={() => void handleLoadInfantGuidance()}
-              />
-            )}
+          {activeChild && showActivities && activeChild.stage === "infant_0_2" && (
+            <InfantGuidanceSection
+              observationHints={observationHints}
+              boardBooks={boardBooks}
+              loading={infantGuidanceLoading}
+              error={infantGuidanceError}
+              onLoad={() => void handleLoadInfantGuidance()}
+            />
+          )}
 
+          {activeChild && showActivities && (
             <ActivitiesSection
               suggestions={activities}
               suggestionsLoading={activitiesLoading}
@@ -765,16 +796,18 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               onTransition={(activityId, status) => void handleActivityTransition(activityId, status)}
               onRetryPlans={() => void reloadChildContextPart("activities")}
             />
+          )}
 
+          {activeChild && showTimeline && (
             <ObservationTimelineSection
               loadState={childContext.observations}
               timeline={timeline}
               activityPlans={activityPlans}
               onRetry={() => void reloadChildContextPart("observations")}
             />
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
       {activeView === "backup" && (
         <DataManagementSection
