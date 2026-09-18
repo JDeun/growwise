@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import uvicorn
 
+from growwise.backup.cli import recover_startup_state
 from growwise.config import Settings
 from growwise.runtime_lock import DataDirectoryLock
 
@@ -16,6 +17,7 @@ def run() -> None:
             "remote serving requires a separately authenticated deployment mode"
         )
     with DataDirectoryLock(settings.data_dir):
+        recover_startup_state(settings)
         uvicorn.run(
             "growwise.api.main:app",
             host=settings.api_host,
