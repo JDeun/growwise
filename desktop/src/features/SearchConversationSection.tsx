@@ -290,7 +290,7 @@ export function SearchConversationSection({
         </div>
       </aside>
 
-      <main className="conversation-chat-stage">
+      <section className="conversation-chat-stage">
         <header className="conversation-chat-header">
           <div>
             <p className="card-label">GrowWise Assistant</p>
@@ -345,7 +345,7 @@ export function SearchConversationSection({
           </button>
         </form>
         {conversationError ? <p className="form-error conversation-chat-error" role="alert">{conversationError}</p> : null}
-      </main>
+      </section>
 
       <aside className="conversation-utility-panel">
         <section className="search-section conversation-search-card">
