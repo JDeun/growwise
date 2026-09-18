@@ -9,6 +9,7 @@ from growwise.services.infant import (
     ActivitySuggestion,
     BoardBookRecommendation,
     InfantCurriculumDomain,
+    InfantObservationHints,
     ObservationHint,
 )
 from growwise.services.observation import ObservationEnrichment
@@ -68,6 +69,11 @@ def test_infant_generated_payloads_are_bounded() -> None:
             reason="이유",
             read_aloud_tip="팁",
         )
+
+    with pytest.raises(ValidationError):
+        InfantObservationHints(source="x" * 501)
+    with pytest.raises(ValidationError):
+        InfantObservationHints(effective_date="x" * 33)
 
 
 def test_grounded_answer_generated_output_is_bounded() -> None:
