@@ -44,7 +44,7 @@ class BackupManifest(BaseModel):
 
 
 class BackupService:
-    """Portable backup/restore for authoritative Markdown and managed local assets."""
+    """Portable backup/restore for Markdown, managed assets, and durable conversation state."""
 
     MANIFEST_NAME = "manifest.json"
     CONVERSATIONS_STATE_NAME = "state/conversations.sqlite3"
