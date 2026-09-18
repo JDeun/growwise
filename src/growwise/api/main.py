@@ -173,11 +173,12 @@ def create_child(
     store: Annotated[EntityStore, Depends(get_store)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> ChildProfile:
-    idempotency_store = get_idempotency_store()
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     request_hash = request_fingerprint(request.model_dump(mode="json"))
     reserved_child_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -209,6 +210,7 @@ def create_child(
     try:
         store.save(profile)
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
