@@ -1,11 +1,9 @@
 from __future__ import annotations
 
 import json
-import urllib.error
-import urllib.parse
-import urllib.request
 from collections.abc import Mapping
 from typing import Any
+from urllib import error, parse, request
 
 from .base import ExternalAdapterError
 
@@ -17,7 +15,7 @@ def validate_public_endpoint(url: str) -> str:
     """Accept encrypted public endpoints plus explicit loopback HTTP for local development."""
 
     candidate = url.strip()
-    parsed = urllib.parse.urlsplit(candidate)
+    parsed = parse.urlsplit(candidate)
     if not candidate or parsed.hostname is None:
         raise ValueError("external endpoint must be an absolute URL")
     if parsed.username is not None or parsed.password is not None:
@@ -31,16 +29,16 @@ def validate_public_endpoint(url: str) -> str:
     raise ValueError("external endpoint must use HTTPS or loopback HTTP")
 
 
-class _ValidatedRedirectHandler(urllib.request.HTTPRedirectHandler):
+class _ValidatedRedirectHandler(request.HTTPRedirectHandler):
     def redirect_request(
         self,
-        req: urllib.request.Request,
+        req: request.Request,
         fp: Any,
         code: int,
         msg: str,
         headers: Any,
         newurl: str,
-    ) -> urllib.request.Request | None:
+    ) -> request.Request | None:
         try:
             validate_public_endpoint(newurl)
         except ValueError as exc:
@@ -69,10 +67,10 @@ class JsonHttpClient:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
         self.user_agent = user_agent
-        self._opener = urllib.request.build_opener(_ValidatedRedirectHandler())
+        self._opener = request.build_opener(_ValidatedRedirectHandler())
 
     def get_json(self, url: str, *, params: Mapping[str, str | int | float]) -> dict[str, Any]:
-        query = urllib.parse.urlencode(params)
+        query = parse.urlencode(params)
         separator = "&" if "?" in url else "?"
         return self._request_json(f"{url}{separator}{query}")
 
@@ -82,8 +80,8 @@ class JsonHttpClient:
         *,
         form: Mapping[str, str],
     ) -> dict[str, Any]:
-        body = urllib.parse.urlencode(form).encode("utf-8")
-        request = urllib.request.Request(
+        body = parse.urlencode(form).encode("utf-8")
+        request = request.Request(
             url,
             data=body,
             headers={
@@ -96,14 +94,14 @@ class JsonHttpClient:
         return self._open_json(request)
 
     def _request_json(self, url: str) -> dict[str, Any]:
-        request = urllib.request.Request(
+        request = request.Request(
             url,
             headers={"User-Agent": self.user_agent, "Accept": "application/json"},
             method="GET",
         )
         return self._open_json(request)
 
-    def _open_json(self, request: urllib.request.Request) -> dict[str, Any]:
+    def _open_json(self, request: request.Request) -> dict[str, Any]:
         try:
             validate_public_endpoint(request.full_url)
             with self._opener.open(request, timeout=self.timeout_seconds) as response:
@@ -113,7 +111,7 @@ class JsonHttpClient:
                 raw = response.read(self.max_response_bytes + 1)
                 if len(raw) > self.max_response_bytes:
                     raise ExternalAdapterError("external response exceeds configured size limit")
-        except (OSError, urllib.error.URLError, ValueError) as exc:
+        except (OSError, error.URLError, ValueError) as exc:
             if isinstance(exc, ExternalAdapterError):
                 raise
             raise ExternalAdapterError(f"external request failed: {exc}") from exc
