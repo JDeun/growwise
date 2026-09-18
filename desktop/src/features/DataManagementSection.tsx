@@ -5,7 +5,7 @@ import {
   useActiveChild,
   writeRememberedChildId,
 } from "../active-child-context";
-import { deleteChild, updateChild, type BackupItem, type Stage } from "../api";
+import { deleteChild, updateChild, type BackupItem, type ChildProfile, type Stage } from "../api";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
@@ -20,6 +20,7 @@ interface DataManagementSectionProps {
   onCreate: () => void;
   onExport: (archiveName: string) => void;
   onRestore: (archiveName: string) => void;
+  onProfileUpdated?: (child: ChildProfile) => void | Promise<void>;
 }
 
 export function parseProfileList(value: string): string[] {
@@ -42,6 +43,7 @@ export function DataManagementSection({
   onCreate,
   onExport,
   onRestore,
+  onProfileUpdated = () => undefined,
 }: DataManagementSectionProps) {
   const { children, activeChild, upsertChild } = useActiveChild();
   const [profileChildId, setProfileChildId] = useState(activeChild?.id ?? children[0]?.id ?? "");
@@ -152,11 +154,8 @@ export function DataManagementSection({
         notes: profileNotes.trim() || null,
       });
       upsertChild(updated);
-      setProfileNotice("아이 프로필을 저장했습니다. 최신 정보로 화면을 갱신합니다.");
-      // App still owns a legacy child-state projection alongside ActiveChildContext. Reloading
-      // after this low-frequency settings mutation keeps every child-scoped view consistent
-      // with the authoritative store until that duplicate state is fully removed.
-      window.setTimeout(() => window.location.reload(), 0);
+      await onProfileUpdated(updated);
+      setProfileNotice("아이 프로필을 저장했습니다.");
     } catch (profileSaveError) {
       setProfileError(
         profileSaveError instanceof Error && profileSaveError.message.trim()
