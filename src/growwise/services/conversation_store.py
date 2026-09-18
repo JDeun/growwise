@@ -138,7 +138,7 @@ class SQLiteConversationStore:
 
         with DATA_MAINTENANCE.mutation(
             expected_generation=self._data_generation
-        ), self._connect() as connection:
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
@@ -210,7 +210,7 @@ class SQLiteConversationStore:
 
         with DATA_MAINTENANCE.mutation(
             expected_generation=self._data_generation
-        ), self._connect() as connection:
+        ), self._connection() as connection:
             row = connection.execute(
                 "SELECT payload_json, updated_at FROM conversation_sessions WHERE id = ?",
                 (session_id,),
@@ -224,7 +224,7 @@ class SQLiteConversationStore:
 
         with DATA_MAINTENANCE.mutation(
             expected_generation=self._data_generation
-        ), self._connect() as connection:
+        ), self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT payload_json, updated_at FROM conversation_sessions
@@ -241,7 +241,7 @@ class SQLiteConversationStore:
 
         with DATA_MAINTENANCE.mutation(
             expected_generation=self._data_generation
-        ), self._connect() as connection:
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
             cursor = connection.execute(
@@ -257,7 +257,7 @@ class SQLiteConversationStore:
 
         with DATA_MAINTENANCE.mutation(
             expected_generation=self._data_generation
-        ), self._connect() as connection:
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
                 "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
