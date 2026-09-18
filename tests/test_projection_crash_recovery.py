@@ -4,8 +4,6 @@ import os
 import subprocess
 import sys
 from pathlib import Path
-from uuid import UUID
-
 from growwise.domain import ChildProfile, Stage
 from growwise.storage import EntityStore
 
@@ -115,7 +113,7 @@ def test_dirty_marker_recovery_rebuilds_stale_projection_from_markdown(tmp_path:
     index = tmp_path / "index.sqlite3"
     store = EntityStore(records, index)
     child = ChildProfile(
-        id=UUID(_CHILD_ID),
+        id=_CHILD_ID,
         nickname="before",
         stage=Stage.ELEMENTARY,
     )
