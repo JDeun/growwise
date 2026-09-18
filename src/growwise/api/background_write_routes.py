@@ -26,6 +26,7 @@ from growwise.domain import (
     MaterialStatus,
     ResourceRecord,
 )
+from growwise.domain.models import SourceRef
 from growwise.generators import (
     MaterialGenerationService,
     MaterialRevisionError,
@@ -52,7 +53,7 @@ _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
 class BackgroundObservationRequest(BaseModel):
     child_id: UUID
     observation: str = Field(min_length=1, max_length=10_000)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
     activity_plan_id: UUID | None = None
 
 
@@ -60,7 +61,7 @@ class BackgroundMaterialRequest(BaseModel):
     kind: MaterialKind = MaterialKind.ACTIVITY_GUIDE
     topic: str = Field(min_length=1, max_length=500)
     goal: str | None = Field(default=None, max_length=1000)
-    source_refs: list[str] = Field(default_factory=list)
+    source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
 
 
 class BackgroundRevisionRequest(BaseModel):
