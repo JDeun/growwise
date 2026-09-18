@@ -58,7 +58,20 @@ class BackupService:
         assets_root: Path | None = None,
     ) -> BackupManifest:
         destination.parent.mkdir(parents=True, exist_ok=True)
+
+        # A backup that GrowWise creates must also satisfy the semantic rules enforced during
+        # restore. Validate the authoritative tree before publication instead of creating an
+        # archive that will only be rejected later when the user needs it most.
+        actual_record_count = self._validate_records(records_root)
         records = sorted(path for path in records_root.rglob("*.md") if path.is_file())
+        if actual_record_count != len(records):
+            raise InvalidBackup(
+                "validated record count does not match backup source files: "
+                f"expected {actual_record_count}, got {len(records)}"
+            )
+
+        if assets_root is not None:
+            self._validate_assets(assets_root)
         assets = (
             sorted(
                 path
@@ -73,6 +86,15 @@ class BackupService:
             record_count=len(records),
             asset_count=len(assets),
         )
+        manifest_bytes = json.dumps(
+            manifest.model_dump(mode="json"),
+            ensure_ascii=False,
+            indent=2,
+        ).encode("utf-8")
+        self._validate_create_inputs(
+            files=[*records, *assets],
+            manifest_size=len(manifest_bytes),
+        )
 
         fd, tmp_name = tempfile.mkstemp(
             prefix=f".{destination.name}.",
@@ -83,10 +105,7 @@ class BackupService:
         Path(tmp_name).unlink(missing_ok=True)
         try:
             with zipfile.ZipFile(tmp_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-                archive.writestr(
-                    self.MANIFEST_NAME,
-                    json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2),
-                )
+                archive.writestr(self.MANIFEST_NAME, manifest_bytes)
                 for path in records:
                     relative = path.relative_to(records_root).as_posix()
                     archive.write(path, f"records/{relative}")
@@ -240,6 +259,30 @@ class BackupService:
             raise InvalidBackup(f"unsupported format_version={manifest.format_version}")
         validate_schema_version({"schema_version": manifest.schema_version})
         return manifest
+
+    @classmethod
+    def _validate_create_inputs(
+        cls,
+        *,
+        files: list[Path],
+        manifest_size: int,
+    ) -> None:
+        """Apply restore-time archive limits before publishing a GrowWise backup."""
+
+        member_count = 1 + len(files)
+        if member_count > cls.MAX_ARCHIVE_MEMBERS:
+            raise InvalidBackup("backup source contains too many members")
+        if manifest_size > cls.MAX_MANIFEST_BYTES:
+            raise InvalidBackup("backup manifest is too large")
+
+        total_size = manifest_size
+        for path in files:
+            size = path.stat().st_size
+            if size > cls.MAX_SINGLE_FILE_BYTES:
+                raise InvalidBackup(f"backup source file is too large: {path.name}")
+            total_size += size
+            if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
+                raise InvalidBackup("backup source expands beyond the allowed size")
 
     @classmethod
     def _validate_members(cls, archive: zipfile.ZipFile) -> None:
