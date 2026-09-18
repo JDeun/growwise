@@ -119,7 +119,6 @@ pub(crate) async fn get_photo_asset(
         .map_err(|error| error.to_string())
 }
 
-
 #[tauri::command]
 pub(crate) async fn upload_child_avatar(
     child_id: String,
@@ -146,9 +145,7 @@ pub(crate) async fn upload_child_avatar(
 }
 
 #[tauri::command]
-pub(crate) async fn delete_child_avatar(
-    child_id: String,
-) -> Result<serde_json::Value, String> {
+pub(crate) async fn delete_child_avatar(child_id: String) -> Result<serde_json::Value, String> {
     let base_url = core_base_url()?;
     let response = photo_client()?
         .delete(format!("{base_url}/v1/children/{child_id}/avatar"))
