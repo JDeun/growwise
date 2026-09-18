@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ipaddress
+import urllib.parse
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -67,12 +69,33 @@ def get_photo_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
+def _model_endpoint_is_loopback(url: str) -> bool:
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        host = parsed.hostname
+    except ValueError:
+        return False
+    if host is None:
+        return False
+    if host.casefold() == "localhost":
+        return True
+    try:
+        return ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
 @lru_cache
 def get_photo_text_provider() -> ModelProvider | None:
     settings = get_photo_settings()
     if not settings.llm_features_enabled:
         return None
     if settings.model_provider.casefold() == "ollama":
+        if (
+            not _model_endpoint_is_loopback(settings.model_base_url)
+            and not settings.photo_remote_text_allowed
+        ):
+            return None
         try:
             return OllamaProvider(
                 model=settings.model_id,
@@ -96,6 +119,11 @@ def get_photo_text_provider() -> ModelProvider | None:
 def get_photo_vision_provider() -> OllamaVisionProvider | None:
     settings = get_photo_settings()
     if not settings.vision_features_enabled or settings.vision_provider.casefold() != "ollama":
+        return None
+    if (
+        not _model_endpoint_is_loopback(settings.vision_base_url)
+        and not settings.photo_remote_vision_allowed
+    ):
         return None
     try:
         return OllamaVisionProvider(

@@ -58,6 +58,9 @@ GrowWise는 육아 ERP나 상시 감시 시스템을 목표로 하지 않는다.
 
 - **Model Provider egress 계약**: 원격 모델은 외부 어댑터와 동일한 신뢰 경계로 본다. 기본은
   로컬이며, 원격 사용 시 전송 범위 고지·동의·식별정보 리댁션을 적용한다.
+- **사진 모델 egress**: 사진 기능의 text/vision provider는 loopback endpoint를 기본으로
+  사용한다. 원격 endpoint는 각각 `photo_remote_text_allowed`,
+  `photo_remote_vision_allowed`를 명시적으로 켠 경우에만 허용한다.
 - **데이터 최소화 RAG**: 자연어 질의가 전체 아동 기록을 무조건 프롬프트에 넣지 않는다.
   child scope, 기간, entity type, relevance로 필요한 최소 context만 선택한다.
 - **저장 위치**: 아동 데이터는 앱 전용 경로(OS app-data)를 기본으로 하고 동기화 폴더 사용
