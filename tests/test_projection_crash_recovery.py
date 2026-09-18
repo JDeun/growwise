@@ -4,6 +4,8 @@ import os
 import subprocess
 import sys
 from pathlib import Path
+from uuid import UUID
+
 from growwise.domain import ChildProfile, Stage
 from growwise.storage import EntityStore
 
