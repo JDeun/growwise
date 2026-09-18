@@ -426,12 +426,19 @@ class SQLiteIdempotencyStore:
         """Remove idempotency metadata for resources that were deliberately purged."""
         if not resource_ids:
             return 0
-        placeholders = ",".join("?" for _ in resource_ids)
         connection = self._connect()
         try:
+            connection.execute(
+                "CREATE TEMP TABLE IF NOT EXISTS purge_resource_ids (id TEXT PRIMARY KEY)"
+            )
+            connection.execute("DELETE FROM purge_resource_ids")
+            connection.executemany(
+                "INSERT OR IGNORE INTO purge_resource_ids (id) VALUES (?)",
+                ((resource_id,) for resource_id in sorted(resource_ids)),
+            )
             cursor = connection.execute(
-                f"DELETE FROM idempotency_records WHERE resource_id IN ({placeholders})",
-                tuple(sorted(resource_ids)),
+                "DELETE FROM idempotency_records "
+                "WHERE resource_id IN (SELECT id FROM purge_resource_ids)"
             )
             connection.commit()
             return cursor.rowcount
@@ -461,7 +468,6 @@ class SQLiteIdempotencyStore:
             resource_id=claim.record.resource_id,
             claim_token=claim.record.claim_token,
         )
-
 
     def reset(self) -> int:
         """Delete retry metadata that belongs to the pre-restore data generation."""
