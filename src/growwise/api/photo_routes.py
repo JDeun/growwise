@@ -268,10 +268,13 @@ def create_photo_record(
         }
 
     runner = get_photo_job_runner()
-    runner.start()
     try:
-        job = runner.submit(child_id=str(child_id), record_id=str(record.id))
-        record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
+        with store.mutation_window():
+            runner.start()
+            job = runner.submit(child_id=str(child_id), record_id=str(record.id))
+            record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
+    except HTTPException:
+        raise
     except Exception as exc:
         # Queue failure must not make a locally-saved diary unusable. Convert immediately to a
         # deterministic parent-editable draft rather than returning a hard dependency on AI.
@@ -348,11 +351,12 @@ def retry_photo_record(
     if record.status is not PhotoRecordStatus.FAILED:
         raise HTTPException(status_code=409, detail="photo_record_not_failed")
 
-    service.mark_queued(str(record_id))
     runner = get_photo_job_runner()
-    runner.start()
-    job = runner.submit(child_id=str(record.child_id), record_id=str(record.id))
-    record = service.attach_job(record_id=str(record.id), job_id=job.id)
+    with store.mutation_window():
+        service.mark_queued(str(record_id))
+        runner.start()
+        job = runner.submit(child_id=str(record.child_id), record_id=str(record.id))
+        record = service.attach_job(record_id=str(record.id), job_id=job.id)
     return {
         "record": record.model_dump(mode="json"),
         "job": {"id": str(job.id), "status": job.status, "attempts": job.attempts},
