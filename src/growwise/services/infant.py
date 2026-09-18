@@ -91,8 +91,8 @@ class ObservationHint(BaseModel):
 
 
 class InfantObservationHints(BaseModel):
-    source: str = CURRICULUM_SOURCE
-    effective_date: str = CURRICULUM_EFFECTIVE_DATE
+    source: str = Field(default=CURRICULUM_SOURCE, max_length=500)
+    effective_date: str = Field(default=CURRICULUM_EFFECTIVE_DATE, max_length=32)
     diagnostic: bool = False
     hints: list[ObservationHint] = Field(default_factory=list, max_length=5)
 
