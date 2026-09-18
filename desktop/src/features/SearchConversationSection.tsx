@@ -371,4 +371,5 @@ export function SearchConversationSection({
         </section>
       </aside>
     </section>
-
+  );
+}
