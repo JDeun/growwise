@@ -143,6 +143,15 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
         queue = MaintenanceAwareJobQueue(settings.jobs_path)
         cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
+
+        # Clear disposable execution state before replacing authoritative data. If any reset fails,
+        # restore aborts while the current records/assets/conversations are still untouched. Losing
+        # these projections is safe; reporting restore failure after source data already changed is
+        # not.
+        cleared_jobs = queue.reset()
+        cleared_idempotency = SQLiteIdempotencyStore(settings.idempotency_path).reset()
+        cleared_checkpoint_threads = reset_checkpoint_projection(settings.checkpoint_path)
+
         manifest = BackupService().restore(
             archive_path=archive,
             records_root=settings.records_dir,
@@ -150,9 +159,6 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
             conversations_path=settings.conversations_path,
             index_path=settings.index_path,
         )
-        cleared_jobs = queue.reset()
-        cleared_idempotency = SQLiteIdempotencyStore(settings.idempotency_path).reset()
-        cleared_checkpoint_threads = reset_checkpoint_projection(settings.checkpoint_path)
         try:
             rag_chunk_count = rebuild_rag_projection(settings)
             rag_status = "ready"
