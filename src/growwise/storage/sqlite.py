@@ -131,7 +131,12 @@ class SQLiteProjection:
 
     def _backfill_entity_links_index(self, connection: sqlite3.Connection) -> None:
         rows = connection.execute(
-            "SELECT id, payload_json, source_path FROM entities WHERE entity_type = 'entity_link'"
+            """
+            SELECT entities.id, entities.payload_json, entities.source_path
+            FROM entities
+            LEFT JOIN entity_links_index AS links ON links.link_id = entities.id
+            WHERE entities.entity_type = 'entity_link' AND links.link_id IS NULL
+            """
         ).fetchall()
         for row in rows:
             payload = self._decode_projection_row(connection, row)
