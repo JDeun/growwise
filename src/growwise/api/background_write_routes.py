@@ -38,6 +38,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.material_versions import serialize_material_successor
 from growwise.services.material_feedback import MaterialFeedbackService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
@@ -79,7 +80,8 @@ def get_background_write_store(
 
 
 def get_background_idempotency_store() -> SQLiteIdempotencyStore:
-    return SQLiteIdempotencyStore(get_background_write_settings().idempotency_path)
+    with DATA_MAINTENANCE.mutation():
+        return SQLiteIdempotencyStore(get_background_write_settings().idempotency_path)
 
 
 @lru_cache
