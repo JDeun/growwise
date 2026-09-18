@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -33,6 +35,17 @@ class SQLiteConversationStore:
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        # sqlite3.Connection.__exit__ commits/rolls back but does not close the handle. That is
+        # observable on Windows, where an open handle prevents backup snapshot unlink/replace.
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     @staticmethod
     def _turn_key(turn: ConversationTurn) -> str:
         canonical = json.dumps(
@@ -44,7 +57,7 @@ class SQLiteConversationStore:
         return hashlib.sha256(canonical).hexdigest()
 
     def _ensure_schema(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversation_sessions (
@@ -265,7 +278,7 @@ class SQLiteConversationStore:
 
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.unlink(missing_ok=True)
-        with self._connect() as source:
+        with self._connection() as source:
             target = sqlite3.connect(destination)
             try:
                 source.backup(target)
