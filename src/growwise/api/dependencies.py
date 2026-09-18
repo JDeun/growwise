@@ -56,8 +56,10 @@ def get_rag_index() -> HybridRagIndex:
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
 
-@lru_cache
 def get_conversation_store() -> SQLiteConversationStore:
+    # Conversation stores are generation-bound. A request created before a destructive restore
+    # must retain its stale generation, while the first request after restore must receive a fresh
+    # store rather than a process-global cached instance.
     return SQLiteConversationStore(get_settings().conversations_path)
 
 
