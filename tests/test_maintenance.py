@@ -6,6 +6,7 @@ import pytest
 
 from growwise.config import Settings
 from growwise.domain import ChildProfile, Stage
+from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.maintenance import (
     DATA_MAINTENANCE,
     DataMaintenanceCoordinator,
@@ -13,6 +14,7 @@ from growwise.maintenance import (
     MaintenanceInProgress,
     StaleDataGeneration,
 )
+from growwise.services import ConversationSession, SQLiteConversationStore
 from growwise.storage import EntityStore
 
 
@@ -96,3 +98,58 @@ def test_maintenance_aware_job_heartbeat_fences_new_store_on_same_worker_thread(
 
     retry_store = EntityStore(settings.records_dir, settings.index_path)
     retry_store.save(_child("after-clear"))
+
+
+
+def test_destructive_maintenance_fences_old_conversation_store_generation(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    old_store = SQLiteConversationStore(settings.conversations_path)
+    old_session = ConversationSession(child_id="child-before")
+    old_store.save(old_session)
+
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        pass
+
+    with pytest.raises(StaleDataGeneration):
+        old_store.get(old_session.id)
+    with pytest.raises(StaleDataGeneration):
+        old_store.save(ConversationSession(child_id="stale-child"))
+
+    fresh_store = SQLiteConversationStore(settings.conversations_path)
+    fresh_session = ConversationSession(child_id="child-after")
+    fresh_store.save(fresh_session)
+    assert fresh_store.get(fresh_session.id) is not None
+
+
+def test_destructive_maintenance_fences_old_idempotency_store_generation(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    old_store = SQLiteIdempotencyStore(settings.idempotency_path)
+    fingerprint = request_fingerprint({"value": "before"})
+    old_store.record(
+        key="before",
+        request_hash=fingerprint,
+        resource_type="learning_log",
+        resource_id="log-before",
+    )
+
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        old_store.reset()
+
+    with pytest.raises(StaleDataGeneration):
+        old_store.get("before")
+    with pytest.raises(StaleDataGeneration):
+        old_store.claim(
+            key="stale",
+            request_hash=request_fingerprint({"value": "stale"}),
+            resource_type="learning_log",
+            resource_id="log-stale",
+        )
+
+    fresh_store = SQLiteIdempotencyStore(settings.idempotency_path)
+    fresh = fresh_store.record(
+        key="after",
+        request_hash=request_fingerprint({"value": "after"}),
+        resource_type="learning_log",
+        resource_id="log-after",
+    )
+    assert fresh.resource_id == "log-after"
