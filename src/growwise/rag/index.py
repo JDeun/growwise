@@ -11,7 +11,6 @@ from .chunking import ResourceChunk
 from .embeddings import EmbeddingProvider
 from .temporal import hierarchical_temporal_order, temporal_tier
 
-
 _MAX_QUERY_TERMS = 32
 _MAX_QUERY_TERM_CHARS = 128
 
