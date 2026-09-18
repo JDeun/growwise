@@ -6,6 +6,7 @@ import {
   MaterialWorkspaceIntegration,
   OperationNotice,
   ViewStateNotice,
+  type WorkspaceViewName,
 } from "./components";
 import {
   ActivitiesSection,
@@ -70,7 +71,7 @@ type ConnectionState =
 
 type WriteNotice = { id: number; message: string };
 
-function App() {
+function App({ activeView }: { activeView: WorkspaceViewName }) {
   const {
     selectChild: selectSharedChild,
     upsertChild: upsertSharedChild,
@@ -619,7 +620,9 @@ function App() {
         <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
       </section>
 
-      <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />
+      {activeView === "settings" && (
+        <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />
+      )}
 
       <section className="workspace">
         <ChildProfileSection
@@ -776,17 +779,20 @@ function App() {
         )}
       </section>
 
-      <DataManagementSection
-        connected={isConnected}
-        backups={backups}
-        busy={backupBusy}
-        error={backupError}
-        notice={backupNotice}
-        onImport={handleImportBackup}
-        onCreate={() => void handleCreateBackup()}
-        onExport={(archiveName) => void handleExportBackup(archiveName)}
-        onRestore={handleRestoreBackup}
-      />
+      {(activeView === "backup" || activeView === "settings") && (
+        <DataManagementSection
+          mode={activeView}
+          connected={isConnected}
+          backups={backups}
+          busy={backupBusy}
+          error={backupError}
+          notice={backupNotice}
+          onImport={handleImportBackup}
+          onCreate={() => void handleCreateBackup()}
+          onExport={(archiveName) => void handleExportBackup(archiveName)}
+          onRestore={handleRestoreBackup}
+        />
+      )}
 
       <ConfirmDialog
         open={backupConfirmation !== null}
