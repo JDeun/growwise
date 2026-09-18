@@ -60,8 +60,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
               aria-label="기록과 자료 검색으로 이동"
             >
               <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="m16 16 4 4"/></svg>
-              <span>기록과 자료 검색</span>
-              <kbd>⌘ K</kbd>
+              <span>검색어를 입력하세요...</span>
             </button>
             <button
               type="button"
