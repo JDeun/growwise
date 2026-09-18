@@ -118,3 +118,46 @@ pub(crate) async fn get_photo_asset(
         .await
         .map_err(|error| error.to_string())
 }
+
+
+#[tauri::command]
+pub(crate) async fn upload_child_avatar(
+    child_id: String,
+    filename: String,
+    mime_type: String,
+    data_base64: String,
+) -> Result<serde_json::Value, String> {
+    let base_url = core_base_url()?;
+    let response = photo_client()?
+        .post(format!("{base_url}/v1/children/{child_id}/avatar"))
+        .json(&serde_json::json!({
+            "filename": filename,
+            "mime_type": mime_type,
+            "data_base64": data_base64,
+        }))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "프로필 사진 저장 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn delete_child_avatar(
+    child_id: String,
+) -> Result<serde_json::Value, String> {
+    let base_url = core_base_url()?;
+    let response = photo_client()?
+        .delete(format!("{base_url}/v1/children/{child_id}/avatar"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "프로필 사진 삭제 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
