@@ -5,6 +5,7 @@ import os
 import shutil
 import stat
 import tempfile
+import unicodedata
 import zipfile
 from contextlib import ExitStack
 from datetime import UTC, datetime
@@ -53,6 +54,12 @@ class BackupService:
     MAX_SINGLE_FILE_BYTES = 16 * 1024 * 1024
     MAX_STATE_FILE_BYTES = 256 * 1024 * 1024
     MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
+    _WINDOWS_INVALID_CHARS = frozenset('<>:"|?*')
+    _WINDOWS_RESERVED_NAMES = frozenset(
+        {"con", "prn", "aux", "nul"}
+        | {f"com{index}" for index in range(1, 10)}
+        | {f"lpt{index}" for index in range(1, 10)}
+    )
 
     def create(
         self,
@@ -121,10 +128,22 @@ class BackupService:
             ensure_ascii=False,
             indent=2,
         ).encode("utf-8")
+        member_names = [
+            self.MANIFEST_NAME,
+            *(f"records/{path.relative_to(records_root).as_posix()}" for path in records),
+            *(
+                f"assets/{path.relative_to(assets_root).as_posix()}"
+                for path in assets
+                if assets_root is not None
+            ),
+        ]
+        if conversation_snapshot is not None:
+            member_names.append(self.CONVERSATIONS_STATE_NAME)
         try:
             self._validate_create_inputs(
                 files=[*records, *assets],
                 state_files=[conversation_snapshot] if conversation_snapshot is not None else [],
+                member_names=member_names,
                 manifest_size=len(manifest_bytes),
             )
         except Exception:
@@ -376,11 +395,13 @@ class BackupService:
         *,
         files: list[Path],
         state_files: list[Path],
+        member_names: list[str],
         manifest_size: int,
     ) -> None:
         """Apply restore-time archive limits before publishing a GrowWise backup."""
 
-        member_count = 1 + len(files) + len(state_files)
+        cls._validate_portable_member_names(member_names)
+        member_count = len(member_names)
         if member_count > cls.MAX_ARCHIVE_MEMBERS:
             raise InvalidBackup("backup source contains too many members")
         if manifest_size > cls.MAX_MANIFEST_BYTES:
@@ -405,24 +426,58 @@ class BackupService:
                 raise InvalidBackup("backup source expands beyond the allowed size")
 
     @classmethod
+    def _portable_member_key(cls, filename: str) -> str:
+        if "\\" in filename or "\x00" in filename:
+            raise InvalidBackup(f"unsafe archive member: {filename}")
+
+        raw = filename[:-1] if filename.endswith("/") else filename
+        raw_parts = raw.split("/")
+        if not raw or any(part in {"", ".", ".."} for part in raw_parts):
+            raise InvalidBackup(f"unsafe archive member: {filename}")
+
+        path = PurePosixPath(filename)
+        if path.is_absolute() or ".." in path.parts:
+            raise InvalidBackup(f"unsafe archive member: {filename}")
+
+        normalized_parts: list[str] = []
+        for part in path.parts:
+            normalized = unicodedata.normalize("NFC", part)
+            if normalized != normalized.rstrip(" ."):
+                raise InvalidBackup(f"non-portable archive member: {filename}")
+            if any(ord(char) < 32 or char in cls._WINDOWS_INVALID_CHARS for char in normalized):
+                raise InvalidBackup(f"non-portable archive member: {filename}")
+            device_name = normalized.split(".", 1)[0].casefold()
+            if device_name in cls._WINDOWS_RESERVED_NAMES:
+                raise InvalidBackup(f"non-portable archive member: {filename}")
+            normalized_parts.append(normalized.casefold())
+        return "/".join(normalized_parts)
+
+    @classmethod
+    def _validate_portable_member_names(cls, member_names: list[str]) -> None:
+        seen: dict[str, str] = {}
+        for filename in member_names:
+            key = cls._portable_member_key(filename)
+            previous = seen.get(key)
+            if previous is not None:
+                if previous == filename:
+                    raise InvalidBackup(f"duplicate archive member: {filename}")
+                raise InvalidBackup(
+                    "archive members collide on a portable filesystem: "
+                    f"{previous!r} and {filename!r}"
+                )
+            seen[key] = filename
+
+    @classmethod
     def _validate_members(cls, archive: zipfile.ZipFile) -> None:
         members = archive.infolist()
         if len(members) > cls.MAX_ARCHIVE_MEMBERS:
             raise InvalidBackup("backup archive contains too many members")
 
         total_size = 0
-        seen_names: set[str] = set()
+        cls._validate_portable_member_names([info.filename for info in members])
         manifest_count = 0
         for info in members:
-            if info.filename in seen_names:
-                raise InvalidBackup(f"duplicate archive member: {info.filename}")
-            seen_names.add(info.filename)
-            if "\\" in info.filename or "\x00" in info.filename:
-                raise InvalidBackup(f"unsafe archive member: {info.filename}")
-
             path = PurePosixPath(info.filename)
-            if path.is_absolute() or ".." in path.parts:
-                raise InvalidBackup(f"unsafe archive member: {info.filename}")
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             if unix_mode and stat.S_ISLNK(unix_mode):
                 raise InvalidBackup(f"symlink archive member is not allowed: {info.filename}")

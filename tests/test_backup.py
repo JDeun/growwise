@@ -284,3 +284,63 @@ def test_restore_rolls_back_records_assets_and_conversations_on_projection_failu
     reopened_conversations = SQLiteConversationStore(target_conversations_path)
     assert reopened_conversations.get(target_session.id) is not None
     assert reopened_conversations.get(source_session.id) is None
+
+
+
+@pytest.mark.parametrize(
+    "members",
+    [
+        ("assets/Photo.jpg", "assets/photo.jpg"),
+        ("assets/caf\u00e9.jpg", "assets/cafe\u0301.jpg"),
+    ],
+)
+def test_backup_rejects_portable_filesystem_name_collisions(
+    tmp_path: Path,
+    members: tuple[str, str],
+) -> None:
+    archive = tmp_path / "collision.zip"
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("manifest.json", json.dumps(_manifest()))
+        output.writestr(members[0], b"first")
+        output.writestr(members[1], b"second")
+
+    with pytest.raises(InvalidBackup, match="collide on a portable filesystem"):
+        BackupService().restore(
+            archive_path=archive,
+            records_root=tmp_path / "records",
+            assets_root=tmp_path / "assets",
+            index_path=tmp_path / "index.sqlite3",
+        )
+
+
+@pytest.mark.parametrize(
+    "member",
+    [
+        "assets/CON.jpg",
+        "assets/trailing-space . ",
+        "assets/bad:name.jpg",
+    ],
+)
+def test_backup_rejects_nonportable_member_names(tmp_path: Path, member: str) -> None:
+    archive = tmp_path / "nonportable.zip"
+    with zipfile.ZipFile(archive, "w") as output:
+        output.writestr("manifest.json", json.dumps(_manifest()))
+        output.writestr(member, b"payload")
+
+    with pytest.raises(InvalidBackup, match="non-portable archive member"):
+        BackupService().restore(
+            archive_path=archive,
+            records_root=tmp_path / "records",
+            assets_root=tmp_path / "assets",
+            index_path=tmp_path / "index.sqlite3",
+        )
+
+
+def test_backup_create_preflight_rejects_nonportable_archive_names() -> None:
+    with pytest.raises(InvalidBackup, match="non-portable archive member"):
+        BackupService._validate_create_inputs(
+            files=[],
+            state_files=[],
+            member_names=["manifest.json", "assets/CON.jpg"],
+            manifest_size=16,
+        )
