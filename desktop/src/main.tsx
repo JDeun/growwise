@@ -13,8 +13,8 @@ import {
   PhotoActivityWorkspace,
 } from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
-import "./styles.css";
 import "./tokens.css";
+import "./styles.css";
 import "./brand.css";
 import "./activity-provenance.css";
 import "./print.css";
