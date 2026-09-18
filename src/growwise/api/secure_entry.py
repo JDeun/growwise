@@ -3,10 +3,6 @@ from __future__ import annotations
 import os
 
 import uvicorn
-from fastapi import Request
-from pydantic import ValidationError
-from starlette.responses import JSONResponse
-
 from growwise.api.background_ai import start_background_ai_runner
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
@@ -25,11 +21,6 @@ def _session_token() -> str:
 
 
 install_desktop_security(app, session_token=_session_token())
-
-
-@app.exception_handler(ValidationError)
-async def domain_validation_error(_request: Request, exc: ValidationError) -> JSONResponse:
-    return JSONResponse(status_code=422, content={"detail": exc.errors(include_url=False)})
 
 
 def run() -> None:
