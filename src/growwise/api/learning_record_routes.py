@@ -100,13 +100,16 @@ def create_learning_record(
         store=store,
     )
 
-    idempotency_store = get_learning_record_idempotency_store()
+    idempotency_store = (
+        get_learning_record_idempotency_store() if idempotency_key is not None else None
+    )
     request_hash = request_fingerprint(
         {"child_id": str(child_id), **request.model_dump(mode="json")}
     )
     reserved_log_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -175,6 +178,7 @@ def create_learning_record(
                 raise HTTPException(status_code=422, detail=str(exc)) from exc
         queue_learning_log_enrichment(log=log, store=store)
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
