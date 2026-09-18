@@ -10,6 +10,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.config import Settings
 from growwise.idempotency import SQLiteIdempotencyStore
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.model import ModelProvider, create_model_provider
 from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider
 from growwise.services import ChildContextService, SQLiteConversationStore
