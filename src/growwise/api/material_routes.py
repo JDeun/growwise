@@ -255,14 +255,15 @@ def revise_material(
 
     store.save(revised)
     review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
-    _material_review_graph().invoke(
-        {
-            "material_id": str(revised.id),
-            "child_id": str(child.id),
-            "title": revised.title,
-        },
-        config=review_config,
-    )
+    with store.mutation_window():
+        _material_review_graph().invoke(
+            {
+                "material_id": str(revised.id),
+                "child_id": str(child.id),
+                "title": revised.title,
+            },
+            config=review_config,
+        )
     return revised
 
 
