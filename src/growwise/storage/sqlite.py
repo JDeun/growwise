@@ -161,6 +161,24 @@ class SQLiteProjection:
                 source_ids.add(str(payload["source_id"]))
         return source_ids
 
+    @staticmethod
+    def _replace_temp_ids(
+        connection: sqlite3.Connection,
+        *,
+        table: str,
+        values: set[str] | tuple[str, ...],
+    ) -> None:
+        if table not in {"visible_entity_ids"}:
+            raise ValueError("unsupported temporary id table")
+        connection.execute(
+            f"CREATE TEMP TABLE IF NOT EXISTS {table} (id TEXT PRIMARY KEY)"
+        )
+        connection.execute(f"DELETE FROM {table}")
+        connection.executemany(
+            f"INSERT OR IGNORE INTO {table} (id) VALUES (?)",
+            ((value,) for value in values),
+        )
+
     def list_entities(
         self,
         *,
@@ -198,11 +216,15 @@ class SQLiteProjection:
                 assert entity_type is not None
                 linked_ids = self._child_scope_source_ids(connection, child_id=child_id)
                 if linked_ids:
-                    placeholders = ",".join("?" for _ in linked_ids)
+                    self._replace_temp_ids(
+                        connection,
+                        table="visible_entity_ids",
+                        values=linked_ids,
+                    )
                     linked_rows = connection.execute(
-                        f"SELECT payload_json FROM entities WHERE entity_type = ? "
-                        f"AND id IN ({placeholders})",
-                        [entity_type, *sorted(linked_ids)],
+                        "SELECT payload_json FROM entities WHERE entity_type = ? "
+                        "AND id IN (SELECT id FROM visible_entity_ids)",
+                        (entity_type,),
                     ).fetchall()
                     by_id = {str(payload["id"]): payload for payload in payloads}
                     for row in linked_rows:
@@ -250,9 +272,12 @@ class SQLiteProjection:
             linked_ids = self._child_scope_source_ids(connection, child_id=child_id)
             scope_params: list[str | int] = [child_id]
             if linked_ids:
-                linked_placeholders = ",".join("?" for _ in linked_ids)
-                scope_clause = f"(child_id = ? OR id IN ({linked_placeholders}))"
-                scope_params.extend(sorted(linked_ids))
+                self._replace_temp_ids(
+                    connection,
+                    table="visible_entity_ids",
+                    values=linked_ids,
+                )
+                scope_clause = "(child_id = ? OR id IN (SELECT id FROM visible_entity_ids))"
             else:
                 scope_clause = "child_id = ?"
 
