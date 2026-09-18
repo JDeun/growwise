@@ -21,6 +21,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngestor
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
@@ -71,8 +72,9 @@ def get_resource_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
-@lru_cache
-def get_resource_rag_index() -> HybridRagIndex:
+@lru_cache(maxsize=4)
+def _get_resource_rag_index(generation: int) -> HybridRagIndex:
+    del generation
     settings = get_resource_settings()
     embedding = None
     if settings.embedding_features_enabled:
@@ -87,9 +89,28 @@ def get_resource_rag_index() -> HybridRagIndex:
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
 
-@lru_cache
-def get_resource_idempotency_store() -> SQLiteIdempotencyStore:
+def get_resource_rag_index() -> HybridRagIndex:
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_resource_rag_index(generation)
+
+
+@lru_cache(maxsize=4)
+def _get_resource_idempotency_store(generation: int) -> SQLiteIdempotencyStore:
+    del generation
     return SQLiteIdempotencyStore(get_resource_settings().idempotency_path)
+
+
+def get_resource_idempotency_store() -> SQLiteIdempotencyStore:
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_resource_idempotency_store(generation)
+
+
+get_resource_rag_index.cache_clear = _get_resource_rag_index.cache_clear  # type: ignore[attr-defined]
+get_resource_idempotency_store.cache_clear = (  # type: ignore[attr-defined]
+    _get_resource_idempotency_store.cache_clear
+)
 
 
 def _resource(store: EntityStore, resource_id: UUID) -> ResourceRecord:
