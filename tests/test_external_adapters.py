@@ -176,3 +176,43 @@ def test_offline_cache_miss_is_explicit(tmp_path) -> None:
     )
     with pytest.raises(ExternalUnavailable):
         adapter.nearby_places(latitude=37.5, longitude=127.0, offline=True)
+
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("payload_json", "{not-json"),
+        ("payload_json", "[]"),
+        ("fetched_at", "not-a-timestamp"),
+        ("expires_at", "not-a-timestamp"),
+    ],
+)
+def test_external_cache_corruption_degrades_to_miss_and_self_heals(
+    tmp_path: Path,
+    column: str,
+    value: str,
+) -> None:
+    cache_path = tmp_path / "external.sqlite3"
+    cache = SQLiteExternalCache(cache_path)
+    cache.put(
+        cache_key="corrupt",
+        payload={"records": [{"id": 1}]},
+        source="test",
+        attribution="test attribution",
+        license_note="test license",
+        ttl_seconds=60,
+    )
+    with sqlite3.connect(cache_path) as connection:
+        connection.execute(
+            f"UPDATE external_cache SET {column} = ? WHERE cache_key = ?",
+            (value, "corrupt"),
+        )
+
+    assert cache.get("corrupt", allow_stale=True) is None
+    with sqlite3.connect(cache_path) as connection:
+        count = connection.execute(
+            "SELECT COUNT(*) FROM external_cache WHERE cache_key = ?",
+            ("corrupt",),
+        ).fetchone()
+    assert count is not None and count[0] == 0
