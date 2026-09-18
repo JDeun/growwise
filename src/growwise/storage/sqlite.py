@@ -290,18 +290,18 @@ class SQLiteProjection:
         with self._connection() as connection:
             for id_chunk in self._chunks(ordered):
                 placeholders = ",".join("?" for _ in id_chunk)
-                rows = connection.execute(
-                    "SELECT entities.id, entities.payload_json, entities.source_path "
-                    "FROM entity_links_index AS links "
-                    "JOIN entities ON entities.id = links.link_id "
-                    f"WHERE links.source_id IN ({placeholders}) "
-                    f"OR links.target_id IN ({placeholders})",
-                    [*id_chunk, *id_chunk],
-                ).fetchall()
-                for row in rows:
-                    payload = self._decode_projection_row(connection, row)
-                    if payload is not None:
-                        by_id.setdefault(str(payload["id"]), payload)
+                for column in ("source_id", "target_id"):
+                    rows = connection.execute(
+                        "SELECT entities.id, entities.payload_json, entities.source_path "
+                        "FROM entity_links_index AS links "
+                        "JOIN entities ON entities.id = links.link_id "
+                        f"WHERE links.{column} IN ({placeholders})",
+                        list(id_chunk),
+                    ).fetchall()
+                    for row in rows:
+                        payload = self._decode_projection_row(connection, row)
+                        if payload is not None:
+                            by_id.setdefault(str(payload["id"]), payload)
         return list(by_id.values())
 
     def list_entities(
