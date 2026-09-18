@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import asyncio
+import json
 from pathlib import Path
 
 import pytest
+from pydantic import BaseModel, ValidationError
 
 from growwise.api import entry, main
 
@@ -60,3 +63,19 @@ def test_main_module_runner_cannot_bypass_loopback_guard(
 
     with pytest.raises(RuntimeError, match="local-only"):
         main.run()
+
+
+
+def test_shared_app_handles_domain_validation_as_422() -> None:
+    class InvalidDomain(BaseModel):
+        value: int
+
+    with pytest.raises(ValidationError) as captured:
+        InvalidDomain(value="not-an-int")
+
+    handler = main.app.exception_handlers[ValidationError]
+    response = asyncio.run(handler(None, captured.value))  # type: ignore[arg-type]
+
+    assert response.status_code == 422
+    payload = json.loads(response.body)
+    assert payload["detail"][0]["type"] == "int_parsing"
