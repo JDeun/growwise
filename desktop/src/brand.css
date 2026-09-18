@@ -1,5 +1,5 @@
 .brand-mark {
-  background: url("/growwise-symbol.svg") center / 34px 34px no-repeat, #e3f1ea;
+  background: url("/growwise-symbol.svg") center / 34px 34px no-repeat, var(--primary-soft);
 }
 
 .brand-mark .leaf,
