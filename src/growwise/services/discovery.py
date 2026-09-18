@@ -164,6 +164,7 @@ class EducationDiscoveryService:
             provenance[f"source_{key}"] = value[:4_000]
 
         resource = ResourceRecord(
+            id=uuid5(child.id, f"growwise:discovery:{suggestion.candidate_id}"),
             child_id=child.id,
             kind=suggestion.resource_kind,
             title=suggestion.title,
