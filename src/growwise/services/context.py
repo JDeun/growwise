@@ -10,7 +10,6 @@ from growwise.storage import SQLiteProjection
 
 from .graph_context import GraphContextExpander
 
-
 _AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
 _SourceId = Annotated[str, Field(min_length=1, max_length=500)]
 
