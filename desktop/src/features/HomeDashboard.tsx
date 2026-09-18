@@ -342,7 +342,6 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           </article>
         </section>
       </div>
-      </div>
     </section>
   );
 }
