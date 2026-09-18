@@ -38,6 +38,8 @@ class EntityStore:
     """
 
     _projection_lock: ClassVar[threading.RLock] = threading.RLock()
+    _dirty_lock: ClassVar[threading.RLock] = threading.RLock()
+    _dirty_counts: ClassVar[dict[str, int]] = {}
 
     def __init__(self, records_root: Path, index_path: Path) -> None:
         self.markdown = MarkdownRepository(records_root)
@@ -48,27 +50,51 @@ class EntityStore:
         self._data_generation = DATA_MAINTENANCE.generation
         self._recover_projection_if_dirty()
 
+    def _dirty_key(self) -> str:
+        return str(self._projection_dirty_path.expanduser().resolve())
+
     def _mark_projection_dirty(self) -> None:
-        self._projection_dirty_path.parent.mkdir(parents=True, exist_ok=True)
-        with self._projection_dirty_path.open("wb") as handle:
-            handle.write(b"dirty\n")
-            handle.flush()
-            os.fsync(handle.fileno())
-        _fsync_directory(self._projection_dirty_path.parent)
+        key = self._dirty_key()
+        with self._dirty_lock:
+            count = self._dirty_counts.get(key, 0)
+            if count == 0:
+                self._projection_dirty_path.parent.mkdir(parents=True, exist_ok=True)
+                with self._projection_dirty_path.open("wb") as handle:
+                    handle.write(b"dirty\n")
+                    handle.flush()
+                    os.fsync(handle.fileno())
+                _fsync_directory(self._projection_dirty_path.parent)
+            self._dirty_counts[key] = count + 1
 
     def _clear_projection_dirty(self) -> None:
-        try:
-            self._projection_dirty_path.unlink()
-        except FileNotFoundError:
-            return
-        _fsync_directory(self._projection_dirty_path.parent)
+        key = self._dirty_key()
+        with self._dirty_lock:
+            count = self._dirty_counts.get(key, 0)
+            if count > 1:
+                self._dirty_counts[key] = count - 1
+                return
+            self._dirty_counts.pop(key, None)
+            try:
+                self._projection_dirty_path.unlink()
+            except FileNotFoundError:
+                return
+            _fsync_directory(self._projection_dirty_path.parent)
 
     def _recover_projection_if_dirty(self) -> None:
         if not self._projection_dirty_path.exists():
             return
-        with self._projection_lock:
-            self.index.rebuild(self.markdown.root)
-            self._clear_projection_dirty()
+        key = self._dirty_key()
+        with self._dirty_lock:
+            if self._dirty_counts.get(key, 0) > 0:
+                return
+            with self._projection_lock:
+                self.index.rebuild(self.markdown.root)
+                try:
+                    self._projection_dirty_path.unlink()
+                except FileNotFoundError:
+                    pass
+                else:
+                    _fsync_directory(self._projection_dirty_path.parent)
 
     @contextmanager
     def mutation_window(self) -> Iterator[None]:
