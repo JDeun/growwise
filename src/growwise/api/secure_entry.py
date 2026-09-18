@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 
 import uvicorn
+
 from growwise.api.background_ai import start_background_ai_runner
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
