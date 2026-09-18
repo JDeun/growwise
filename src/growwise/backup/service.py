@@ -62,7 +62,7 @@ class BackupService:
         # A backup that GrowWise creates must also satisfy the semantic rules enforced during
         # restore. Validate the authoritative tree before publication instead of creating an
         # archive that will only be rejected later when the user needs it most.
-        actual_record_count = self._validate_records(records_root)
+        actual_record_count = self._validate_records(records_root, strict_extras=False)
         records = sorted(path for path in records_root.rglob("*.md") if path.is_file())
         if actual_record_count != len(records):
             raise InvalidBackup(
@@ -326,9 +326,9 @@ class BackupService:
             raise InvalidBackup("backup archive must contain exactly one manifest.json")
 
     @staticmethod
-    def _validate_records(records_root: Path) -> int:
+    def _validate_records(records_root: Path, *, strict_extras: bool = True) -> int:
         try:
-            return validate_record_tree(records_root)
+            return validate_record_tree(records_root, strict_extras=strict_extras)
         except InvalidRecordTree as exc:
             raise InvalidBackup(str(exc)) from exc
 
