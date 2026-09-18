@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sqlite3
 import stat
 import zipfile
 from datetime import UTC, datetime
@@ -48,6 +49,96 @@ def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> Non
     assert payload["nickname"] == "샘플아이"
 
 
+
+
+def _write_state_value(path: Path, value: str) -> None:
+    with sqlite3.connect(path) as connection:
+        connection.execute("CREATE TABLE IF NOT EXISTS state_value (value TEXT NOT NULL)")
+        connection.execute("DELETE FROM state_value")
+        connection.execute("INSERT INTO state_value (value) VALUES (?)", (value,))
+
+
+def _read_state_value(path: Path) -> str:
+    with sqlite3.connect(path) as connection:
+        row = connection.execute("SELECT value FROM state_value").fetchone()
+    assert row is not None
+    return str(row[0])
+
+
+def test_backup_v2_roundtrips_portable_sqlite_state(tmp_path: Path) -> None:
+    records = tmp_path / "records"
+    store = EntityStore(records, tmp_path / "index.sqlite3")
+    store.save(ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9))
+
+    source_state = tmp_path / "source-conversations.sqlite3"
+    target_state = tmp_path / "target-conversations.sqlite3"
+    _write_state_value(source_state, "backup-state")
+    _write_state_value(target_state, "newer-live-state")
+
+    archive = tmp_path / "portable-v2.zip"
+    service = BackupService()
+    manifest = service.create(
+        records_root=records,
+        destination=archive,
+        sqlite_state={"conversations.sqlite3": source_state},
+    )
+
+    assert manifest.format_version == 2
+    assert manifest.state_files == ("conversations.sqlite3",)
+
+    service.restore(
+        archive_path=archive,
+        records_root=tmp_path / "restored-records",
+        index_path=tmp_path / "restored-index.sqlite3",
+        sqlite_state={"conversations.sqlite3": target_state},
+    )
+
+    assert _read_state_value(target_state) == "backup-state"
+
+
+def test_backup_v2_rolls_back_portable_state_when_late_restore_step_fails(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    records = tmp_path / "records"
+    store = EntityStore(records, tmp_path / "index.sqlite3")
+    store.save(ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9))
+
+    source_state = tmp_path / "source-conversations.sqlite3"
+    target_state = tmp_path / "target-conversations.sqlite3"
+    _write_state_value(source_state, "backup-state")
+    _write_state_value(target_state, "pre-restore-live-state")
+
+    archive = tmp_path / "portable-v2.zip"
+    service = BackupService()
+    service.create(
+        records_root=records,
+        destination=archive,
+        sqlite_state={"conversations.sqlite3": source_state},
+    )
+
+    from growwise.backup import service as backup_service_module
+
+    original_rebuild = backup_service_module.SQLiteProjection.rebuild
+    calls = 0
+
+    def fail_first_rebuild(self, records_root):  # noqa: ANN001, ANN202
+        nonlocal calls
+        calls += 1
+        if calls == 1:
+            raise RuntimeError("simulated projection rebuild failure")
+        return original_rebuild(self, records_root)
+
+    monkeypatch.setattr(backup_service_module.SQLiteProjection, "rebuild", fail_first_rebuild)
+
+    with pytest.raises(RuntimeError, match="simulated projection rebuild failure"):
+        service.restore(
+            archive_path=archive,
+            records_root=tmp_path / "restored-records",
+            index_path=tmp_path / "restored-index.sqlite3",
+            sqlite_state={"conversations.sqlite3": target_state},
+        )
+
+    assert _read_state_value(target_state) == "pre-restore-live-state"
 
 def test_backup_create_rejects_semantically_invalid_record_tree(tmp_path: Path) -> None:
     records = tmp_path / "records"
