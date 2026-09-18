@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager, suppress
@@ -11,6 +12,21 @@ from growwise.maintenance import DATA_MAINTENANCE
 
 from .markdown import MarkdownRepository
 from .sqlite import SQLiteProjection
+
+
+def _fsync_directory(path: Path) -> None:
+    if not hasattr(os, "O_DIRECTORY"):
+        return
+    try:
+        descriptor = os.open(path, os.O_DIRECTORY)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
 
 
 class EntityStore:
@@ -26,9 +42,33 @@ class EntityStore:
     def __init__(self, records_root: Path, index_path: Path) -> None:
         self.markdown = MarkdownRepository(records_root)
         self.index = SQLiteProjection(index_path)
+        self._projection_dirty_path = index_path.with_name(f"{index_path.name}.dirty")
         # A long-running worker may retain this store across a restore. Such a worker must never
         # write its pre-restore view into the newly restored source set.
         self._data_generation = DATA_MAINTENANCE.generation
+        self._recover_projection_if_dirty()
+
+    def _mark_projection_dirty(self) -> None:
+        self._projection_dirty_path.parent.mkdir(parents=True, exist_ok=True)
+        with self._projection_dirty_path.open("wb") as handle:
+            handle.write(b"dirty\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        _fsync_directory(self._projection_dirty_path.parent)
+
+    def _clear_projection_dirty(self) -> None:
+        try:
+            self._projection_dirty_path.unlink()
+        except FileNotFoundError:
+            return
+        _fsync_directory(self._projection_dirty_path.parent)
+
+    def _recover_projection_if_dirty(self) -> None:
+        if not self._projection_dirty_path.exists():
+            return
+        with self._projection_lock:
+            self.index.rebuild(self.markdown.root)
+            self._clear_projection_dirty()
 
     @contextmanager
     def mutation_window(self) -> Iterator[None]:
@@ -37,67 +77,66 @@ class EntityStore:
             yield
 
     def save(self, entity: EntityBase, body: str = "") -> Path:
-        # Pydantic does not validate arbitrary post-init assignment by default. Revalidate the
-        # concrete domain type at the persistence boundary so an invalid transient mutation can
-        # never become authoritative Markdown.
         entity = type(entity).model_validate(entity.model_dump(mode="python"))
-        # Register the whole source+projection mutation with the maintenance coordinator. Backup and
-        # restore can then establish a clean quiescent point without serializing ordinary writes.
         with self.mutation_window():
-            # Hold the per-path write lock across source commit and projection sync. Projection
-            # changes additionally share one process-wide lock so an emergency rebuild cannot race
-            # an unrelated upsert and erase a row committed while rebuild was scanning Markdown.
+            self._mark_projection_dirty()
             path = self.markdown.path_for(entity)
-            with self.markdown.lock_for(path):
-                self.markdown._write_locked(path, self.markdown.render(entity, body=body))
-                with self._projection_lock:
-                    try:
-                        self.index.upsert(entity, path)
-                    except Exception:
-                        # Source has already committed and remains authoritative. A rebuild either
-                        # repairs the projection or raises, leaving durable Markdown intact for a
-                        # later recovery rather than creating source/index split-brain deliberately.
-                        self.index.rebuild(self.markdown.root)
+            try:
+                with self.markdown.lock_for(path):
+                    self.markdown._write_locked(path, self.markdown.render(entity, body=body))
+                    with self._projection_lock:
+                        try:
+                            self.index.upsert(entity, path)
+                        except Exception:
+                            self.index.rebuild(self.markdown.root)
+            except Exception:
+                raise
+            else:
+                self._clear_projection_dirty()
             return path
 
     def delete(self, entity: EntityBase) -> bool:
-        """Delete one authoritative record and its disposable projection entry.
-
-        The same per-path lock used by ``save`` prevents a concurrent update from interleaving with
-        deletion. Projection operations share the rebuild lock so recovery cannot resurrect a row
-        from a source file while that file is being deleted.
-        """
+        """Delete one authoritative record and its disposable projection entry."""
         with self.mutation_window():
+            self._mark_projection_dirty()
             path = self.markdown.path_for(entity)
             backup = self.markdown.backup_path(path)
-            with self.markdown.lock_for(path):
-                if not path.exists():
-                    # Markdown is authoritative. If it is already gone, remove any stale disposable
-                    # projection entry rather than preserving a ghost record in list/search results.
-                    with self._projection_lock:
-                        self.index.delete_entity(str(entity.id), entity_type=entity.entity_type)
-                    return False
-                with self._projection_lock:
-                    deleted_from_index = self.index.delete_entity(
-                        str(entity.id), entity_type=entity.entity_type
-                    )
-                    try:
-                        path.unlink()
-                    except Exception:
-                        if deleted_from_index:
-                            self.index.upsert(entity, path)
-                        raise
-                # A stale previous-generation backup is not authoritative and rebuild ignores
-                # *.md.bak. Best-effort cleanup avoids turning an already-successful delete into
-                # data ambiguity.
-                with suppress(OSError):
-                    backup.unlink(missing_ok=True)
-            return True
+            try:
+                with self.markdown.lock_for(path):
+                    if not path.exists():
+                        with self._projection_lock:
+                            self.index.delete_entity(str(entity.id), entity_type=entity.entity_type)
+                        deleted = False
+                    else:
+                        with self._projection_lock:
+                            deleted_from_index = self.index.delete_entity(
+                                str(entity.id), entity_type=entity.entity_type
+                            )
+                            try:
+                                path.unlink()
+                            except Exception:
+                                if deleted_from_index:
+                                    self.index.upsert(entity, path)
+                                raise
+                        with suppress(OSError):
+                            backup.unlink(missing_ok=True)
+                        deleted = True
+            except Exception:
+                raise
+            else:
+                self._clear_projection_dirty()
+                return deleted
 
     def purge_child(self, child_id: str) -> int:
         """Permanently remove one child's Markdown records and rebuild the disposable index."""
         with self.mutation_window():
-            with self._projection_lock:
-                deleted_files = self.markdown.purge_child(child_id)
-                self.index.rebuild(self.markdown.root)
-            return deleted_files
+            self._mark_projection_dirty()
+            try:
+                with self._projection_lock:
+                    deleted_files = self.markdown.purge_child(child_id)
+                    self.index.rebuild(self.markdown.root)
+            except Exception:
+                raise
+            else:
+                self._clear_projection_dirty()
+                return deleted_files
