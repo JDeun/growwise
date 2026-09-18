@@ -1,3 +1,4 @@
+import sqlite3
 from pathlib import Path
 
 import pytest
@@ -11,8 +12,10 @@ from growwise.backup.cli import (
 )
 from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.jobs import JobStatus, SQLiteJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
+from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
@@ -42,8 +45,15 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     store.save(baseline_resource)
     ResourceIngestor(HybridRagIndex(settings.rag_index_path)).ingest(baseline_resource)
 
+    conversation_store = SQLiteConversationStore(settings.conversations_path)
+    baseline_conversation = ConversationSession(child_id=str(child.id), title="백업 시점 대화")
+    baseline_conversation.turns.append(ConversationTurn(role="user", content="백업 질문"))
+    conversation_store.save(baseline_conversation)
+
     created = create_backup(settings, "baseline.zip")
     assert created["archive"] == "baseline.zip"
+    assert created["manifest"]["format_version"] == 2
+    assert created["manifest"]["state_files"] == ["conversations.sqlite3"]
     assert (settings.backups_dir / "baseline.zip").is_file()
     assert [item["archive"] for item in list_backups(settings)] == ["baseline.zip"]
 
@@ -76,23 +86,56 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     assert running_claim is not None
     unrelated_job = queue.enqueue("unrelated-maintenance-test", {"child_id": str(child.id)})
 
+    late_conversation = ConversationSession(child_id=str(child.id), title="복원 후 없어져야 할 대화")
+    late_conversation.turns.append(ConversationTurn(role="user", content="백업 이후 질문"))
+    conversation_store.save(late_conversation)
+
+    idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    idempotency.record(
+        key="post-backup-key",
+        request_hash=request_fingerprint({"value": "post-backup"}),
+        resource_type="test-resource",
+        resource_id="post-backup-resource",
+    )
+
+    with sqlite3.connect(settings.checkpoint_path) as checkpoint_connection:
+        checkpoint_connection.execute(
+            "CREATE TABLE IF NOT EXISTS checkpoints (thread_id TEXT PRIMARY KEY)"
+        )
+        checkpoint_connection.execute(
+            "INSERT INTO checkpoints (thread_id) VALUES (?)",
+            ("post-backup-thread",),
+        )
+
     with pytest.raises(ValueError):
         restore_backup(settings, "baseline.zip", confirmed=False)
 
     restored = restore_backup(settings, "baseline.zip", confirmed=True)
     assert restored["restored"] is True
     assert restored["cancelled_jobs"] == 2
+    assert restored["purged_jobs"] == 2
+    assert restored["checkpoint_rows_deleted"] == 1
+    assert restored["idempotency_records_deleted"] == 1
     assert int(restored["rag_chunk_count"]) > 0
 
     pending_after = queue.get(pending_job.id)
     running_after = queue.get(running_job.id)
     unrelated_after = queue.get(unrelated_job.id)
-    assert pending_after is not None
-    assert running_after is not None
+    assert pending_after is None
+    assert running_after is None
     assert unrelated_after is not None
-    assert pending_after.status is JobStatus.CANCELLED
-    assert running_after.status is JobStatus.CANCELLED
     assert unrelated_after.status is JobStatus.PENDING
+
+    restored_conversation = conversation_store.get(baseline_conversation.id)
+    assert restored_conversation is not None
+    assert [turn.content for turn in restored_conversation.turns] == ["백업 질문"]
+    assert conversation_store.get(late_conversation.id) is None
+    assert idempotency.get("post-backup-key") is None
+    with sqlite3.connect(settings.checkpoint_path) as checkpoint_connection:
+        checkpoint_count = checkpoint_connection.execute(
+            "SELECT COUNT(*) FROM checkpoints"
+        ).fetchone()
+    assert checkpoint_count == (0,)
 
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")
