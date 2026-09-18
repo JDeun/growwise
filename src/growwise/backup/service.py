@@ -54,6 +54,7 @@ class BackupService:
     MAX_SINGLE_FILE_BYTES = 16 * 1024 * 1024
     MAX_STATE_FILE_BYTES = 256 * 1024 * 1024
     MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
+    MAX_ARCHIVE_FILE_BYTES = 3 * 1024 * 1024 * 1024
     _WINDOWS_INVALID_CHARS = frozenset('<>:"|?*')
     _WINDOWS_RESERVED_NAMES = frozenset(
         {"con", "prn", "aux", "nul"}
@@ -185,6 +186,8 @@ class BackupService:
 
         if not archive_path.is_file():
             raise FileNotFoundError(archive_path)
+        if archive_path.stat().st_size > self.MAX_ARCHIVE_FILE_BYTES:
+            raise InvalidBackup("backup archive file is too large")
 
         with tempfile.TemporaryDirectory(prefix="growwise-backup-preflight-") as temp_dir:
             staging = Path(temp_dir)
@@ -243,6 +246,8 @@ class BackupService:
     ) -> BackupManifest:
         if not archive_path.is_file():
             raise FileNotFoundError(archive_path)
+        if archive_path.stat().st_size > self.MAX_ARCHIVE_FILE_BYTES:
+            raise InvalidBackup("backup archive file is too large")
 
         records_staging_parent = records_root.parent
         records_staging_parent.mkdir(parents=True, exist_ok=True)
