@@ -82,9 +82,22 @@ export function ProfileWorkspaceHub({
               </label>
             )}
 
-            <button className="quiet-button profile-edit-button" type="button" onClick={() => setManaging(true)}>
-              프로필 관리
-            </button>
+            <div className="profile-summary-actions">
+              <button
+                className="primary-button profile-edit-button"
+                type="button"
+                onClick={() => onNavigate("settings")}
+              >
+                프로필 편집
+              </button>
+              <button
+                className="profile-manage-link"
+                type="button"
+                onClick={() => setManaging(true)}
+              >
+                아이 추가 · 사진 관리
+              </button>
+            </div>
 
             <div className="profile-summary-section">
               <span>좋아하는 것</span>
