@@ -48,7 +48,8 @@ createRoot(document.getElementById("root")!).render(
                 renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
               />
             ) : (
-              activeView !== "photos"
+              activeView !== "home"
+              && activeView !== "photos"
               && activeView !== "discovery"
               && activeView !== "learning"
               && activeView !== "help"
