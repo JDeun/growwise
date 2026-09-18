@@ -10,6 +10,7 @@ export { MaterialsWorkspaceHub } from "./MaterialsWorkspaceHub";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
 export { ObservationTimelineSection } from "./ObservationTimelineSection";
 export { PhotoActivityWorkspace } from "./PhotoActivityWorkspace";
+export { ProfileWorkspaceHub } from "./ProfileWorkspaceHub";
 export { ResourceLibrarySection } from "./ResourceLibrarySection";
 export { SearchConversationSection } from "./SearchConversationSection";
 export { SystemStatusSection } from "./SystemStatusSection";
