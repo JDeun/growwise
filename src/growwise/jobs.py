@@ -439,6 +439,19 @@ class SQLiteJobQueue:
                 ),
             )
 
+    def delete_types(self, job_types: tuple[str, ...]) -> int:
+        """Delete durable history for snapshot-invalidated job types."""
+
+        if not job_types:
+            return 0
+        placeholders = ",".join("?" for _ in job_types)
+        with self._connect() as connection:
+            cursor = connection.execute(
+                f"DELETE FROM jobs WHERE job_type IN ({placeholders})",
+                job_types,
+            )
+        return cursor.rowcount
+
     def delete_for_child(self, child_id: str) -> int:
         """Remove jobs explicitly owned by one child without matching arbitrary payload text."""
         with self._connect() as connection:
