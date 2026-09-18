@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { useActiveChild } from "../active-child-context";
 import {
@@ -358,15 +358,14 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
   const hasBackgroundWork = records.some(isBackgroundRecord);
   const shareCandidates = children.filter((child) => child.id !== childId);
-  const visibleRecords = useMemo(() => {
-    if (photoFilter === "committed") return records.filter((record) => record.status === "committed");
-    if (photoFilter === "attention") {
-      return records.filter((record) =>
-        ["queued", "processing", "draft", "failed"].includes(record.status),
-      );
-    }
-    return records.filter((record) => record.status !== "discarded");
-  }, [photoFilter, records]);
+  const visibleRecords =
+    photoFilter === "committed"
+      ? records.filter((record) => record.status === "committed")
+      : photoFilter === "attention"
+        ? records.filter((record) =>
+            ["queued", "processing", "draft", "failed"].includes(record.status),
+          )
+        : records.filter((record) => record.status !== "discarded");
   const selectedRecord =
     records.find((record) => record.id === selectedRecordId) ?? null;
 
