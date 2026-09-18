@@ -19,6 +19,9 @@ def utc_now_iso(now: datetime | None = None) -> str:
     return value.astimezone(UTC).isoformat()
 
 
+_SQLITE_IN_CHUNK = 400
+
+
 class JobStatus(StrEnum):
     PENDING = "pending"
     RUNNING = "running"
@@ -456,12 +459,16 @@ class SQLiteJobQueue:
 
             if not owned_job_ids:
                 return 0
-            placeholders = ",".join("?" for _ in owned_job_ids)
-            cursor = connection.execute(
-                f"DELETE FROM jobs WHERE id IN ({placeholders})",
-                tuple(owned_job_ids),
-            )
-        return cursor.rowcount
+            deleted = 0
+            for offset in range(0, len(owned_job_ids), _SQLITE_IN_CHUNK):
+                id_chunk = owned_job_ids[offset : offset + _SQLITE_IN_CHUNK]
+                placeholders = ",".join("?" for _ in id_chunk)
+                cursor = connection.execute(
+                    f"DELETE FROM jobs WHERE id IN ({placeholders})",
+                    id_chunk,
+                )
+                deleted += cursor.rowcount
+        return deleted
 
 
     def reset(self) -> int:
