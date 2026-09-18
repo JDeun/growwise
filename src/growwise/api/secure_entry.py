@@ -4,6 +4,7 @@ import os
 
 import uvicorn
 
+from growwise.backup.cli import recover_startup_state
 from growwise.api.background_ai import start_background_ai_runner
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
@@ -29,6 +30,7 @@ def run() -> None:
     if settings.api_host not in {"127.0.0.1", "localhost", "::1"}:
         raise RuntimeError("desktop Core must bind to a loopback address")
     with DataDirectoryLock(settings.data_dir):
+        recover_startup_state(settings)
         # Durable background workers reclaim interrupted jobs before the UI begins issuing requests.
         # They remain idle when their queues are empty, and AI failure never blocks Core startup.
         if settings.llm_features_enabled:
