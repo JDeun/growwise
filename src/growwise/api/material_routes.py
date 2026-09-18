@@ -295,7 +295,11 @@ def edit_material(
     store.save(edited)
     with store.mutation_window():
         _material_review_graph().invoke(
-            {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
+            {
+                "material_id": str(edited.id),
+                "child_id": str(edited.child_id),
+                "title": edited.title,
+            },
             config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
         )
     return edited
