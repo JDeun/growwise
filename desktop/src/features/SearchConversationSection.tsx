@@ -27,14 +27,14 @@ interface SearchConversationSectionProps {
   onSearch: (event: FormEvent<HTMLFormElement>) => void;
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
-  backups: BackupItem[];
-  backupBusy: boolean;
-  backupError: string | null;
-  backupNotice: string | null;
-  onBackupCreate: () => void;
-  onBackupImport: () => void;
-  onBackupExport: (archiveName: string) => void;
-  onBackupRestore: (archiveName: string) => void;
+  backups?: BackupItem[];
+  backupBusy?: boolean;
+  backupError?: string | null;
+  backupNotice?: string | null;
+  onBackupCreate?: () => void;
+  onBackupImport?: () => void;
+  onBackupExport?: (archiveName: string) => void;
+  onBackupRestore?: (archiveName: string) => void;
 }
 
 export function conversationSessionLabel(session: ConversationSession): string {
@@ -108,14 +108,14 @@ export function SearchConversationSection({
   onSearch,
   onConversationQuestionChange,
   onConversation,
-  backups,
-  backupBusy,
-  backupError,
-  backupNotice,
-  onBackupCreate,
-  onBackupImport,
-  onBackupExport,
-  onBackupRestore,
+  backups = [],
+  backupBusy = false,
+  backupError = null,
+  backupNotice = null,
+  onBackupCreate = () => undefined,
+  onBackupImport = () => undefined,
+  onBackupExport = () => undefined,
+  onBackupRestore = () => undefined,
 }: SearchConversationSectionProps) {
   const [conversationHistory, setConversationHistory] = useState<ConversationSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
