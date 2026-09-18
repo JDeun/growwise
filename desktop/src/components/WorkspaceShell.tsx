@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import { useOptionalActiveChild } from "../active-child-context";
 import { ChildAvatar } from "./ChildAvatar";
@@ -28,6 +28,20 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
     setActiveView(view);
     if (typeof window !== "undefined") writeWorkspaceView(window.localStorage, view);
   }
+
+  useEffect(() => {
+    function handleShortcut(event: KeyboardEvent) {
+      if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "k") return;
+      event.preventDefault();
+      handleChange("search");
+      window.requestAnimationFrame(() => {
+        document.querySelector<HTMLInputElement>(".search-section .search-form input")?.focus();
+      });
+    }
+
+    window.addEventListener("keydown", handleShortcut);
+    return () => window.removeEventListener("keydown", handleShortcut);
+  }, []);
 
   return (
     <div className="workspace-shell-root">
