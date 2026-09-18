@@ -155,6 +155,18 @@
   color: #5f8fc3 !important;
 }
 
+.home-metric-icon svg {
+  display: block;
+  width: 17px;
+  height: 17px;
+}
+
+.home-recent-icon svg {
+  display: block;
+  width: 13px;
+  height: 13px;
+}
+
 .home-metric-icon--violet {
   background: #f0effb;
   color: #7776c8 !important;
