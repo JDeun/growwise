@@ -28,8 +28,8 @@ from growwise.api.conversation_routes import (
     delete_conversation,
     get_conversation,
     list_conversations,
-    router as conversation_router,
 )
+from growwise.api.conversation_routes import router as conversation_router
 from growwise.api.dependencies import (
     build_child_context_service,
     get_conversation_store,
@@ -49,9 +49,9 @@ from growwise.api.material_routes import (
     material_source_evidence,
     review_material,
     revise_material,
-    router as material_router,
     validate_material_source_refs,
 )
+from growwise.api.material_routes import router as material_router
 from growwise.api.study_routes import router as study_router
 from growwise.domain import (
     ActivityPlan,
