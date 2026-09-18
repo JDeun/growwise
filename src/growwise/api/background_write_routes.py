@@ -174,16 +174,17 @@ def _source_evidence(
     return evidence
 
 
-def _init_review(material: GeneratedMaterial) -> None:
+def _init_review(material: GeneratedMaterial, *, store: EntityStore) -> None:
     try:
-        get_background_material_review_graph().invoke(
-            {
-                "material_id": str(material.id),
-                "child_id": str(material.child_id),
-                "title": material.title,
-            },
-            config={"configurable": {"thread_id": f"material-review:{material.id}"}},
-        )
+        with store.mutation_window():
+            get_background_material_review_graph().invoke(
+                {
+                    "material_id": str(material.id),
+                    "child_id": str(material.child_id),
+                    "title": material.title,
+                },
+                config={"configurable": {"thread_id": f"material-review:{material.id}"}},
+            )
     except Exception:
         # Review checkpoints are rebuildable workflow projections. The material Markdown record is
         # authoritative and must not look failed after it has already been committed.
@@ -350,7 +351,7 @@ def generate_material_background(
             )
         raise
 
-    _init_review(material)
+    _init_review(material, store=store)
     queue_material_enhancement(material=material, store=store)
     return material
 
@@ -401,6 +402,6 @@ def revise_material_background(
 
     revised.parent_guide_markdown = feedback.with_parent_guide(revised.parent_guide_markdown)
     store.save(revised)
-    _init_review(revised)
+    _init_review(revised, store=store)
     queue_material_enhancement(material=revised, store=store)
     return revised
