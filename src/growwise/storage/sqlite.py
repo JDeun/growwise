@@ -141,16 +141,13 @@ class SQLiteProjection:
         return cursor.rowcount > 0
 
     def get_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
-        sql = "SELECT payload_json FROM entities WHERE id = ?"
+        sql = "SELECT id, payload_json, source_path FROM entities WHERE id = ?"
         params: list[str] = [entity_id]
         if entity_type is not None:
             sql += " AND entity_type = ?"
             params.append(entity_type)
         with self._connection() as connection:
-            row = connection.execute(
-                sql.replace("SELECT payload_json", "SELECT id, payload_json, source_path"),
-                params,
-            ).fetchone()
+            row = connection.execute(sql, params).fetchone()
             if row is None:
                 return None
             return self._decode_projection_row(connection, row)
@@ -190,7 +187,11 @@ class SQLiteProjection:
         source_ids: set[str] = set()
         for row in rows:
             payload = self._decode_projection_row(connection, row)
-            if payload is not None and payload.get("relation") == "child_scope" and payload.get("source_id"):
+            if (
+                payload is not None
+                and payload.get("relation") == "child_scope"
+                and payload.get("source_id")
+            ):
                 source_ids.add(str(payload["source_id"]))
         return source_ids
 
@@ -239,7 +240,8 @@ class SQLiteProjection:
                     for id_chunk in self._chunks(linked_ids):
                         placeholders = ",".join("?" for _ in id_chunk)
                         linked_rows = connection.execute(
-                            f"SELECT id, payload_json, source_path FROM entities WHERE entity_type = ? "
+                            "SELECT id, payload_json, source_path FROM entities "
+                            "WHERE entity_type = ? "
                             f"AND id IN ({placeholders})",
                             [entity_type, *id_chunk],
                         ).fetchall()
