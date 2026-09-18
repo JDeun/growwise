@@ -92,6 +92,9 @@ LLM이 장기 기록을 요약할 때는 다음을 지킨다.
 - 실제 데이터 경로(`data/`, `storage/`, `learning_logs/`, `generated/`, `*.db` 등)는
   `.gitignore`로 제외한다.
 - 비밀정보는 저장소에 올리지 않는다. 공유 설정은 값 없는 example만 제공한다.
+- 저장소 감사 테스트는 전화번호·주민등록번호 형태를 항상 검사한다. 프로젝트 고유 실명 등은
+  GitHub Actions secret `GROWWISE_PII_DENYLIST`에 쉼표 구분으로 넣어 CI에만 주입한다.
+  값 자체를 workflow·fixture·문서에 커밋하지 않는다.
 
 ## 커밋 전 체크리스트
 
