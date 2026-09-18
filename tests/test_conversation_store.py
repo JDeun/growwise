@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
@@ -56,3 +58,55 @@ def test_pre_restore_conversation_store_is_generation_fenced(tmp_path) -> None:
     fresh_session = ConversationSession(child_id="child-a", title="복원 후")
     fresh_store.save(fresh_session)
     assert fresh_store.get(fresh_session.id) is not None
+
+
+
+def test_delete_for_child_uses_fk_cascade_without_variable_expansion(tmp_path) -> None:
+    class LowVariableConversationStore(SQLiteConversationStore):
+        def _connect(self) -> sqlite3.Connection:
+            connection = super()._connect()
+            connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 512)
+            return connection
+
+    store = LowVariableConversationStore(tmp_path / "conversations.sqlite3")
+    with store._connection() as connection:
+        sessions = [
+            (
+                f"session-{index}",
+                "target-child",
+                "{}",
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:00:00+00:00",
+            )
+            for index in range(600)
+        ]
+        connection.executemany(
+            """
+            INSERT INTO conversation_sessions (id, child_id, payload_json, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            sessions,
+        )
+        connection.executemany(
+            """
+            INSERT INTO conversation_turns (
+                session_id, turn_key, role, content, source_ids_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    f"session-{index}",
+                    f"turn-{index}",
+                    "user",
+                    "질문",
+                    "[]",
+                    "2026-01-01T00:00:00+00:00",
+                )
+                for index in range(600)
+            ],
+        )
+
+    assert store.delete_for_child("target-child") == 600
+    with store._connection() as connection:
+        assert connection.execute("SELECT COUNT(*) FROM conversation_sessions").fetchone()[0] == 0
+        assert connection.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0] == 0
