@@ -82,3 +82,52 @@ def test_search_entities_caps_query_term_expansion(tmp_path):
     )
 
     assert results == []
+
+
+
+def test_child_scope_queries_scale_beyond_sqlite_variable_limit(tmp_path):
+    from growwise.storage.sqlite import SQLiteProjection
+
+    index = SQLiteProjection(tmp_path / "index.sqlite3")
+    viewer = "viewer-child"
+    owner = "owner-child"
+    count = 1_200
+
+    for position in range(count):
+        resource_id = f"resource-{position}"
+        index._upsert_payload(
+            {
+                "schema_version": 1,
+                "id": resource_id,
+                "entity_type": "resource",
+                "child_id": owner,
+                "created_at": "2026-09-18T00:00:00+00:00",
+                "updated_at": f"2026-09-18T00:00:{position % 60:02d}+00:00",
+                "title": f"needle shared resource {position}",
+            },
+            tmp_path / f"resource-{position}.md",
+        )
+        index._upsert_payload(
+            {
+                "schema_version": 1,
+                "id": f"link-{position}",
+                "entity_type": "entity_link",
+                "child_id": viewer,
+                "created_at": "2026-09-18T00:00:00+00:00",
+                "updated_at": "2026-09-18T00:00:00+00:00",
+                "relation": "child_scope",
+                "source_id": resource_id,
+            },
+            tmp_path / f"link-{position}.md",
+        )
+
+    listed = index.list_entities(entity_type="resource", child_id=viewer)
+    searched = index.search_entities(
+        child_id=viewer,
+        query_text="needle",
+        entity_types=("resource",),
+        limit=20,
+    )
+
+    assert len(listed) == count
+    assert len(searched) == 20
