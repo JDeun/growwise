@@ -1,9 +1,3 @@
-:root {
-  /* WCAG AA: white text on primary and primary text on white both exceed 4.5:1. */
-  --primary: #247356;
-  --primary-strong: #1c5b43;
-}
-
 .skip-link {
   position: fixed;
   top: 10px;
@@ -22,7 +16,7 @@
 
 .skip-link:focus {
   transform: translateY(0);
-  outline: 3px solid rgba(36, 115, 86, 0.3);
+  outline: 3px solid var(--focus-outline);
   outline-offset: 2px;
 }
 
