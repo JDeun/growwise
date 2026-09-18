@@ -11,7 +11,7 @@ import pytest
 from growwise.backup import BackupService, InvalidBackup
 from growwise.domain import ChildProfile, Stage
 from growwise.services import ConversationSession, SQLiteConversationStore
-from growwise.storage import EntityStore
+from growwise.storage import EntityStore, SQLiteProjection
 
 
 def _manifest(*, record_count: int = 0) -> dict[str, object]:
@@ -206,3 +206,81 @@ def test_v1_restore_clears_post_backup_conversation_state(tmp_path: Path) -> Non
 
     reopened = SQLiteConversationStore(conversations_path)
     assert reopened.get(stale.id) is None
+
+
+
+def test_restore_rolls_back_records_assets_and_conversations_on_projection_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = BackupService()
+
+    source_records = tmp_path / "source" / "records"
+    source_assets = tmp_path / "source" / "assets"
+    source_assets.mkdir(parents=True)
+    (source_assets / "photo.jpg").write_bytes(b"new-photo")
+    source_store = EntityStore(source_records, tmp_path / "source" / "index.sqlite3")
+    source_child = ChildProfile(nickname="복원본", stage=Stage.INFANT_0_2, age_months=8)
+    source_store.save(source_child)
+    source_conversations_path = tmp_path / "source" / "conversations.sqlite3"
+    source_conversations = SQLiteConversationStore(source_conversations_path)
+    source_session = ConversationSession(child_id=str(source_child.id), title="복원 대화")
+    source_conversations.save(source_session)
+
+    archive = tmp_path / "backup.zip"
+    service.create(
+        records_root=source_records,
+        assets_root=source_assets,
+        conversations_path=source_conversations_path,
+        destination=archive,
+    )
+
+    target_records = tmp_path / "target" / "records"
+    target_assets = tmp_path / "target" / "assets"
+    target_assets.mkdir(parents=True)
+    (target_assets / "photo.jpg").write_bytes(b"old-photo")
+    target_index = tmp_path / "target" / "index.sqlite3"
+    target_store = EntityStore(target_records, target_index)
+    target_child = ChildProfile(nickname="이전본", stage=Stage.INFANT_0_2, age_months=7)
+    target_store.save(target_child)
+    target_conversations_path = tmp_path / "target" / "conversations.sqlite3"
+    target_conversations = SQLiteConversationStore(target_conversations_path)
+    target_session = ConversationSession(child_id=str(target_child.id), title="이전 대화")
+    target_conversations.save(target_session)
+
+    original_rebuild = SQLiteProjection.rebuild
+    rebuild_calls = 0
+
+    def fail_first_rebuild(self: SQLiteProjection, records_root: Path) -> int:
+        nonlocal rebuild_calls
+        rebuild_calls += 1
+        if rebuild_calls == 1:
+            raise RuntimeError("simulated projection rebuild failure")
+        return original_rebuild(self, records_root)
+
+    monkeypatch.setattr(SQLiteProjection, "rebuild", fail_first_rebuild)
+
+    with pytest.raises(RuntimeError, match="simulated projection rebuild failure"):
+        service.restore(
+            archive_path=archive,
+            records_root=target_records,
+            assets_root=target_assets,
+            conversations_path=target_conversations_path,
+            index_path=target_index,
+        )
+
+    assert rebuild_calls == 2
+    restored_target = EntityStore(target_records, target_index)
+    assert (
+        restored_target.index.get_entity(str(target_child.id), entity_type="child_profile")
+        is not None
+    )
+    assert (
+        restored_target.index.get_entity(str(source_child.id), entity_type="child_profile")
+        is None
+    )
+    assert (target_assets / "photo.jpg").read_bytes() == b"old-photo"
+
+    reopened_conversations = SQLiteConversationStore(target_conversations_path)
+    assert reopened_conversations.get(target_session.id) is not None
+    assert reopened_conversations.get(source_session.id) is None
