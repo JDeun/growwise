@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 import json
 import sqlite3
 from collections.abc import Iterator
@@ -10,7 +11,7 @@ from pathlib import Path
 
 from .conversation import ConversationSession, ConversationTurn
 
-CURRENT_CONVERSATION_SCHEMA_VERSION = 1
+CURRENT_CONVERSATION_SCHEMA_VERSION = 2
 
 
 class UnsupportedConversationSchema(ValueError):
@@ -107,15 +108,41 @@ class SQLiteConversationStore:
                     role TEXT NOT NULL,
                     content TEXT NOT NULL,
                     source_ids_json TEXT NOT NULL,
+                    operation_key TEXT,
+                    operation_hash TEXT,
+                    insufficient_evidence INTEGER,
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (session_id, turn_key),
                     FOREIGN KEY (session_id) REFERENCES conversation_sessions(id) ON DELETE CASCADE
                 )
                 """
             )
+            turn_columns = {
+                str(row["name"])
+                for row in connection.execute(
+                    "PRAGMA table_info(conversation_turns)"
+                ).fetchall()
+            }
+            if "operation_key" not in turn_columns:
+                connection.execute(
+                    "ALTER TABLE conversation_turns ADD COLUMN operation_key TEXT"
+                )
+            if "operation_hash" not in turn_columns:
+                connection.execute(
+                    "ALTER TABLE conversation_turns ADD COLUMN operation_hash TEXT"
+                )
+            if "insufficient_evidence" not in turn_columns:
+                connection.execute(
+                    "ALTER TABLE conversation_turns ADD COLUMN insufficient_evidence INTEGER"
+                )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_conversation_turn_order "
                 "ON conversation_turns(session_id, created_at)"
+            )
+            connection.execute(
+                "CREATE UNIQUE INDEX IF NOT EXISTS idx_conversation_turn_operation_role "
+                "ON conversation_turns(session_id, operation_key, role) "
+                "WHERE operation_key IS NOT NULL"
             )
             if version == 0:
                 self._migrate_legacy_turns(connection)
@@ -145,8 +172,9 @@ class SQLiteConversationStore:
             connection.execute(
                 """
                 INSERT OR IGNORE INTO conversation_turns (
-                    session_id, turn_key, role, content, source_ids_json, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?)
+                    session_id, turn_key, role, content, source_ids_json,
+                    operation_key, operation_hash, insufficient_evidence, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -154,6 +182,13 @@ class SQLiteConversationStore:
                     turn.role,
                     turn.content,
                     json.dumps(turn.source_ids, ensure_ascii=False),
+                    turn.operation_key,
+                    turn.operation_hash,
+                    (
+                        None
+                        if turn.insufficient_evidence is None
+                        else int(turn.insufficient_evidence)
+                    ),
                     turn.created_at.isoformat(),
                 ),
             )
@@ -207,7 +242,8 @@ class SQLiteConversationStore:
     ) -> list[ConversationTurn]:
         rows = connection.execute(
             """
-            SELECT role, content, source_ids_json, created_at
+            SELECT role, content, source_ids_json, operation_key, operation_hash,
+                   insufficient_evidence, created_at
             FROM conversation_turns
             WHERE session_id = ?
             ORDER BY created_at ASC, rowid ASC
@@ -219,6 +255,13 @@ class SQLiteConversationStore:
                 role=row["role"],
                 content=row["content"],
                 source_ids=json.loads(row["source_ids_json"]),
+                operation_key=row["operation_key"],
+                operation_hash=row["operation_hash"],
+                insufficient_evidence=(
+                    None
+                    if row["insufficient_evidence"] is None
+                    else bool(row["insufficient_evidence"])
+                ),
                 created_at=row["created_at"],
             )
             for row in rows
@@ -305,13 +348,21 @@ class SQLiteConversationStore:
         """Write one transactionally consistent portable SQLite snapshot."""
 
         destination.parent.mkdir(parents=True, exist_ok=True)
-        destination.unlink(missing_ok=True)
+        # Preserve a caller-created mkstemp inode so its restrictive mode is not lost to the
+        # process umask. Truncate in place before SQLite initializes the snapshot.
+        if destination.exists():
+            if not destination.is_file() or destination.is_symlink():
+                raise ValueError("conversation snapshot destination must be a regular file")
+            with destination.open("wb"):
+                pass
         with self._connection() as source:
             target = sqlite3.connect(destination)
             try:
                 source.backup(target)
             finally:
                 target.close()
+        if os.name != "nt":
+            os.chmod(destination, 0o600)
         return self.validate_snapshot(destination)
 
     @classmethod
