@@ -4,11 +4,11 @@ import os
 
 import uvicorn
 
-from growwise.backup.cli import recover_startup_state
 from growwise.api.background_ai import start_background_ai_runner
 from growwise.api.desktop_security import install_desktop_security
 from growwise.api.main import app
 from growwise.api.photo_routes import start_photo_job_runner
+from growwise.backup.cli import recover_startup_state
 from growwise.config import Settings
 from growwise.runtime_lock import DataDirectoryLock
 
