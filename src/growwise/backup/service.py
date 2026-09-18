@@ -34,6 +34,21 @@ def _fsync_directory(path: Path) -> None:
         os.close(descriptor)
 
 
+def _make_private_file(path: Path) -> None:
+    if os.name != "nt" and path.exists():
+        os.chmod(path, 0o600)
+
+
+def _make_private_tree(root: Path) -> None:
+    if os.name == "nt" or not root.exists():
+        return
+    os.chmod(root, 0o700)
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise InvalidBackup("restored private tree unexpectedly contains a symlink")
+        os.chmod(path, 0o700 if path.is_dir() else 0o600)
+
+
 class BackupManifest(BaseModel):
     # v2 adds portable conversation state. v1 archives remain readable and are restored with an
     # empty conversation store so post-backup conversations cannot leak across the time boundary.
@@ -105,7 +120,6 @@ class BackupService:
             )
             os.close(state_fd)
             conversation_snapshot = Path(state_name)
-            conversation_snapshot.unlink(missing_ok=True)
             try:
                 if conversations_path.exists():
                     conversation_count = SQLiteConversationStore(conversations_path).snapshot_to(
@@ -114,6 +128,7 @@ class BackupService:
                 else:
                     empty_store = SQLiteConversationStore(conversation_snapshot)
                     conversation_count = empty_store.validate_snapshot(conversation_snapshot)
+                _make_private_file(conversation_snapshot)
             except Exception:
                 conversation_snapshot.unlink(missing_ok=True)
                 raise
@@ -159,7 +174,6 @@ class BackupService:
             dir=destination.parent,
         )
         os.close(fd)
-        Path(tmp_name).unlink(missing_ok=True)
         try:
             with zipfile.ZipFile(tmp_name, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                 archive.writestr(self.MANIFEST_NAME, manifest_bytes)
@@ -172,9 +186,11 @@ class BackupService:
                         archive.write(path, f"assets/{relative}")
                 if conversation_snapshot is not None:
                     archive.write(conversation_snapshot, self.CONVERSATIONS_STATE_NAME)
+            _make_private_file(Path(tmp_name))
             with Path(tmp_name).open("r+b") as handle:
                 os.fsync(handle.fileno())
             Path(tmp_name).replace(destination)
+            _make_private_file(destination)
             _fsync_directory(destination.parent)
         finally:
             Path(tmp_name).unlink(missing_ok=True)
@@ -333,6 +349,7 @@ class BackupService:
                 shutil.copytree(staged_records, records_ready)
             else:
                 records_ready.mkdir(parents=True)
+            _make_private_tree(records_ready)
 
             conversations_ready: Path | None = None
             previous_conversations: Path | None = None
@@ -366,6 +383,7 @@ class BackupService:
                         "prepared conversation count does not match manifest: "
                         f"expected {manifest.conversation_count}, got {ready_count}"
                     )
+                _make_private_file(conversations_ready)
 
             assets_ready: Path | None = None
             previous_assets: Path | None = None
@@ -379,6 +397,7 @@ class BackupService:
                     shutil.copytree(staged_assets, assets_ready)
                 else:
                     assets_ready.mkdir(parents=True)
+                _make_private_tree(assets_ready)
 
             # Each rollback directory lives on the same filesystem as the state it protects. This
             # keeps Path.replace() atomic even when records and managed assets live on different
