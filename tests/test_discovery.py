@@ -7,9 +7,8 @@ import pytest
 from growwise.adapters import AdapterResult
 from growwise.config import Settings
 from growwise.domain import ActivityPlan, ChildProfile, LearningLog, ResourceKind, Stage
-from growwise.services.discovery import DiscoverySuggestion
 from growwise.rag import HybridRagIndex, ResourceIngestor
-from growwise.services.discovery import EducationDiscoveryService
+from growwise.services.discovery import DiscoverySuggestion, EducationDiscoveryService
 from growwise.services.public_query import generalize_public_terms
 from growwise.storage import EntityStore
 
@@ -120,7 +119,7 @@ def test_discovery_retry_reconciles_missing_rag_projection(
 
     monkeypatch.setattr(service.ingestor, "ingest", original_ingest)
     recovered = service.save(child=child, suggestion=suggestion)
-    assert recovered.id == authoritative[0]["id"]
+    assert str(recovered.id) == authoritative[0]["id"]
 
     hits = HybridRagIndex(tmp_path / "rag.sqlite3").search(
         query="공룡 화석",
