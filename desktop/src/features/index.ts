@@ -6,6 +6,7 @@ export { HomeDashboard } from "./HomeDashboard";
 export { HelpWorkspace } from "./HelpWorkspace";
 export { InfantGuidanceSection } from "./InfantGuidanceSection";
 export { LearningRecordWorkspace } from "./LearningRecordWorkspace";
+export { LearningWorkspaceHub } from "./LearningWorkspaceHub";
 export { MaterialsWorkspaceHub } from "./MaterialsWorkspaceHub";
 export { ObservationGrowthSection } from "./ObservationGrowthSection";
 export { ObservationTimelineSection } from "./ObservationTimelineSection";
