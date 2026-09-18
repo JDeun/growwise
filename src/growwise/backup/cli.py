@@ -4,13 +4,17 @@ import argparse
 import json
 import logging
 import re
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
+
+from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
 from growwise.config import Settings
 from growwise.domain import ResourceRecord
+from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.runtime_lock import DataDirectoryLock
@@ -45,12 +49,13 @@ def managed_archive_path(settings: Settings, name: str) -> Path:
 def create_backup(settings: Settings, name: str | None = None) -> dict[str, object]:
     archive = managed_archive_path(settings, name or default_archive_name())
     # A backup must observe one coherent authoritative snapshot. This waits for source mutations
-    # that already started and rejects new ones until the archive has closed. Read-only maintenance
+    # that already started and blocks new ones until the archive has closed. Read-only maintenance
     # does not advance the data generation because the active source set is unchanged.
     with DATA_MAINTENANCE.maintenance():
         manifest = BackupService().create(
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
+            conversations_path=settings.conversations_path,
             destination=archive,
         )
     return {
@@ -76,6 +81,44 @@ def list_backups(settings: Settings) -> list[dict[str, object]]:
     return results
 
 
+def reset_checkpoint_projection(path: Path) -> int:
+    """Delete every LangGraph thread from the pre-restore data generation."""
+
+    if not path.exists():
+        return 0
+    connection = sqlite3.connect(path, check_same_thread=False)
+    try:
+        saver = SqliteSaver(connection)
+        saver.setup()
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        thread_ids: set[str] = set()
+        for table in ("checkpoints", "checkpoint_writes", "checkpoint_blobs"):
+            if table not in tables:
+                continue
+            columns = {
+                str(row[1])
+                for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if "thread_id" not in columns:
+                continue
+            thread_ids.update(
+                str(row[0])
+                for row in connection.execute(
+                    f"SELECT DISTINCT thread_id FROM {table} WHERE thread_id IS NOT NULL"
+                ).fetchall()
+            )
+        for thread_id in sorted(thread_ids):
+            saver.delete_thread(thread_id)
+        return len(thread_ids)
+    finally:
+        connection.close()
+
+
 def rebuild_rag_projection(settings: Settings) -> int:
     """Rebuild the lexical RAG projection from restored ResourceRecord source documents."""
     store = EntityStore(settings.records_dir, settings.index_path)
@@ -98,13 +141,22 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     # record set. The generation advances on exit, so even a worker still returning from inference
     # cannot persist through an old EntityStore or a generation-bound worker thread.
     with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
-        cancelled_jobs = MaintenanceAwareJobQueue(settings.jobs_path).cancel_active(
-            job_types=_AI_JOB_TYPES
-        )
+        queue = MaintenanceAwareJobQueue(settings.jobs_path)
+        cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
+
+        # Clear disposable execution state before replacing authoritative data. If any reset fails,
+        # restore aborts while the current records/assets/conversations are still untouched. Losing
+        # these projections is safe; reporting restore failure after source data already changed is
+        # not.
+        cleared_jobs = queue.reset()
+        cleared_idempotency = SQLiteIdempotencyStore(settings.idempotency_path).reset()
+        cleared_checkpoint_threads = reset_checkpoint_projection(settings.checkpoint_path)
+
         manifest = BackupService().restore(
             archive_path=archive,
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
+            conversations_path=settings.conversations_path,
             index_path=settings.index_path,
         )
         try:
@@ -122,6 +174,9 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         "archive": archive.name,
         "restored": True,
         "cancelled_jobs": cancelled_jobs,
+        "cleared_jobs": cleared_jobs,
+        "cleared_idempotency": cleared_idempotency,
+        "cleared_checkpoint_threads": cleared_checkpoint_threads,
         "rag_chunk_count": rag_chunk_count,
         "rag_status": rag_status,
         "manifest": manifest.model_dump(mode="json"),

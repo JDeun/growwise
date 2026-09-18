@@ -3,6 +3,8 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
@@ -19,8 +21,11 @@ class SQLiteConversationStore:
     """
 
     def __init__(self, path: Path) -> None:
+        from growwise.maintenance import DATA_MAINTENANCE
+
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._data_generation = DATA_MAINTENANCE.generation
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -29,6 +34,17 @@ class SQLiteConversationStore:
         connection.execute("PRAGMA busy_timeout=30000")
         connection.execute("PRAGMA foreign_keys=ON")
         return connection
+
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        # sqlite3.Connection.__exit__ commits/rolls back but does not close the handle. That is
+        # observable on Windows, where an open handle prevents backup snapshot unlink/replace.
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
 
     @staticmethod
     def _turn_key(turn: ConversationTurn) -> str:
@@ -41,7 +57,7 @@ class SQLiteConversationStore:
         return hashlib.sha256(canonical).hexdigest()
 
     def _ensure_schema(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS conversation_sessions (
@@ -118,7 +134,11 @@ class SQLiteConversationStore:
         return json.dumps(payload, ensure_ascii=False)
 
     def save(self, session: ConversationSession) -> None:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
@@ -186,7 +206,11 @@ class SQLiteConversationStore:
         return session
 
     def get(self, session_id: str) -> ConversationSession | None:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connection() as connection:
             row = connection.execute(
                 "SELECT payload_json, updated_at FROM conversation_sessions WHERE id = ?",
                 (session_id,),
@@ -196,7 +220,11 @@ class SQLiteConversationStore:
             return self._session_from_row(connection, row)
 
     def list_for_child(self, child_id: str, *, limit: int = 50) -> list[ConversationSession]:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connection() as connection:
             rows = connection.execute(
                 """
                 SELECT payload_json, updated_at FROM conversation_sessions
@@ -209,7 +237,11 @@ class SQLiteConversationStore:
             return [self._session_from_row(connection, row) for row in rows]
 
     def delete(self, session_id: str) -> bool:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
             cursor = connection.execute(
@@ -221,7 +253,11 @@ class SQLiteConversationStore:
 
     def delete_for_child(self, child_id: str) -> int:
         """Delete all sessions and turns for one child and return the session count."""
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
                 "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
@@ -236,3 +272,62 @@ class SQLiteConversationStore:
             connection.execute("DELETE FROM conversation_sessions WHERE child_id = ?", (child_id,))
             connection.commit()
         return len(session_ids)
+
+    def snapshot_to(self, destination: Path) -> int:
+        """Write one transactionally consistent portable SQLite snapshot."""
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.unlink(missing_ok=True)
+        with self._connection() as source:
+            target = sqlite3.connect(destination)
+            try:
+                source.backup(target)
+            finally:
+                target.close()
+        return self.validate_snapshot(destination)
+
+    @classmethod
+    def validate_snapshot(cls, path: Path) -> int:
+        """Validate a conversation SQLite snapshot without mutating it."""
+
+        if not path.is_file():
+            raise ValueError("conversation snapshot is missing")
+        uri = f"file:{path.absolute().as_posix()}?mode=ro"
+        connection = sqlite3.connect(uri, uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            integrity = connection.execute("PRAGMA integrity_check").fetchone()
+            if integrity is None or str(integrity[0]).lower() != "ok":
+                raise ValueError("conversation snapshot failed SQLite integrity check")
+            tables = {
+                str(row["name"])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            required = {"conversation_sessions", "conversation_turns"}
+            if not required.issubset(tables):
+                raise ValueError("conversation snapshot schema is incomplete")
+            orphan = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM conversation_turns AS turns
+                LEFT JOIN conversation_sessions AS sessions
+                  ON sessions.id = turns.session_id
+                WHERE sessions.id IS NULL
+                """
+            ).fetchone()
+            if orphan is not None and int(orphan[0]) != 0:
+                raise ValueError("conversation snapshot contains orphan turns")
+            rows = connection.execute(
+                "SELECT id, child_id, payload_json, updated_at FROM conversation_sessions"
+            ).fetchall()
+            for row in rows:
+                session = cls._session_from_row(connection, row)
+                if session.id != row["id"] or session.child_id != row["child_id"]:
+                    raise ValueError("conversation snapshot identity mismatch")
+            return len(rows)
+        except sqlite3.DatabaseError as exc:
+            raise ValueError("conversation snapshot is not a valid SQLite database") from exc
+        finally:
+            connection.close()

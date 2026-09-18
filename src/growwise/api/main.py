@@ -389,10 +389,11 @@ def create_observation(
 
     try:
         graph = get_observation_graph()
-        state = graph.invoke(
-            {"child_id": str(request.child_id), "observation": request.observation},
-            config={"configurable": {"thread_id": workflow.thread_id}},
-        )
+        with store.mutation_window():
+            state = graph.invoke(
+                {"child_id": str(request.child_id), "observation": request.observation},
+                config={"configurable": {"thread_id": workflow.thread_id}},
+            )
         if state.get("safety_flags"):
             workflow.status = WorkflowStatus.FAILED
             workflow.last_error_code = "observation_validation_failed"

@@ -4,13 +4,14 @@ import hashlib
 import json
 import secrets
 import sqlite3
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
+from functools import wraps
 from pathlib import Path
-from typing import Any
+from typing import Any, Concatenate, Protocol
 
 
 class IdempotencyConflict(ValueError):
@@ -23,6 +24,25 @@ class IdempotencyStatus(StrEnum):
 
 
 DEFAULT_LEASE_SECONDS = 120
+
+
+class _GenerationBound(Protocol):
+    _data_generation: int
+
+
+def _generation_fenced[S: _GenerationBound, **P, R](
+    method: Callable[Concatenate[S, P], R],
+) -> Callable[Concatenate[S, P], R]:
+    """Fence one registry operation to the data generation that created its store."""
+
+    @wraps(method)
+    def wrapped(self: S, *args: P.args, **kwargs: P.kwargs) -> R:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+            return method(self, *args, **kwargs)
+
+    return wrapped
 
 
 @dataclass(frozen=True, slots=True)
@@ -96,9 +116,12 @@ class SQLiteIdempotencyStore:
     """
 
     def __init__(self, path: Path) -> None:
+        from growwise.maintenance import DATA_MAINTENANCE
+
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._context_path = str(self.path.absolute())
+        self._data_generation = DATA_MAINTENANCE.generation
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -183,6 +206,7 @@ class SQLiteIdempotencyStore:
             (key,),
         ).fetchone()
 
+    @_generation_fenced
     def get(self, key: str) -> IdempotencyRecord | None:
         connection = self._connect()
         try:
@@ -193,6 +217,7 @@ class SQLiteIdempotencyStore:
             return None
         return self._row_to_record(row)
 
+    @_generation_fenced
     def claim(
         self,
         *,
@@ -300,6 +325,7 @@ class SQLiteIdempotencyStore:
         self._set_claim_context(key, token=claim_token)
         return IdempotencyClaim(record=record, acquired=True)
 
+    @_generation_fenced
     def complete(
         self,
         *,
@@ -381,6 +407,7 @@ class SQLiteIdempotencyStore:
             claim_token=None,
         )
 
+    @_generation_fenced
     def release(
         self,
         *,
@@ -422,6 +449,7 @@ class SQLiteIdempotencyStore:
             connection.close()
             self._clear_claim_context(key)
 
+    @_generation_fenced
     def delete_resources(self, resource_ids: set[str]) -> int:
         """Remove idempotency metadata for resources that were deliberately purged."""
         if not resource_ids:
@@ -438,6 +466,7 @@ class SQLiteIdempotencyStore:
         finally:
             connection.close()
 
+    @_generation_fenced
     def record(
         self,
         *,
@@ -461,3 +490,14 @@ class SQLiteIdempotencyStore:
             resource_id=claim.record.resource_id,
             claim_token=claim.record.claim_token,
         )
+
+    def reset(self) -> int:
+        """Delete retry metadata that belongs to the pre-restore data generation."""
+
+        connection = self._connect()
+        try:
+            cursor = connection.execute("DELETE FROM idempotency_records")
+            connection.commit()
+            return cursor.rowcount
+        finally:
+            connection.close()

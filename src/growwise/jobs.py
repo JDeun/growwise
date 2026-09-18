@@ -462,3 +462,11 @@ class SQLiteJobQueue:
                 tuple(owned_job_ids),
             )
         return cursor.rowcount
+
+
+    def reset(self) -> int:
+        """Delete all operational jobs after a destructive data-generation restore."""
+
+        with self._connect() as connection:
+            cursor = connection.execute("DELETE FROM jobs")
+        return cursor.rowcount

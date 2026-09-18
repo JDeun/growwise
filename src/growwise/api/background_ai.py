@@ -6,7 +6,7 @@ from functools import lru_cache
 from growwise.config import Settings
 from growwise.domain import AiEnhancementStatus, GeneratedMaterial, LearningLog
 from growwise.jobs import Job
-from growwise.maintenance import MaintenanceAwareJobQueue
+from growwise.maintenance import MaintenanceAwareJobQueue, StaleDataGeneration
 from growwise.model import ModelProvider, create_model_provider
 from growwise.services.background_ai import BackgroundAiJobRunner
 from growwise.storage import EntityStore
@@ -81,12 +81,15 @@ def queue_learning_log_enrichment(*, log: LearningLog, store: EntityStore) -> Jo
         _save_optional_status(log, store=store, label=f"learning_log:{log.id}")
 
     try:
-        runner.start()
-        return runner.submit_observation(
-            child_id=str(log.child_id),
-            log_id=str(log.id),
-            on_enqueued=mark_queued,
-        )
+        with store.mutation_window():
+            runner.start()
+            return runner.submit_observation(
+                child_id=str(log.child_id),
+                log_id=str(log.id),
+                on_enqueued=mark_queued,
+            )
+    except StaleDataGeneration:
+        raise
     except Exception:
         logger.exception("failed to queue optional observation enhancement for %s", log.id)
         log.ai_status = AiEnhancementStatus.FAILED
@@ -107,12 +110,15 @@ def queue_material_enhancement(*, material: GeneratedMaterial, store: EntityStor
         _save_optional_status(material, store=store, label=f"generated_material:{material.id}")
 
     try:
-        runner.start()
-        return runner.submit_material(
-            child_id=str(material.child_id),
-            material_id=str(material.id),
-            on_enqueued=mark_queued,
-        )
+        with store.mutation_window():
+            runner.start()
+            return runner.submit_material(
+                child_id=str(material.child_id),
+                material_id=str(material.id),
+                on_enqueued=mark_queued,
+            )
+    except StaleDataGeneration:
+        raise
     except Exception:
         logger.exception("failed to queue optional material enhancement for %s", material.id)
         material.ai_status = AiEnhancementStatus.FAILED

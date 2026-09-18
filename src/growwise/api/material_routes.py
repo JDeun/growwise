@@ -140,14 +140,15 @@ def generate_material(
     material.request_goal = request.goal
     store.save(material)
     review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
-    _material_review_graph().invoke(
-        {
-            "material_id": str(material.id),
-            "child_id": str(child.id),
-            "title": material.title,
-        },
-        config=review_config,
-    )
+    with store.mutation_window():
+        _material_review_graph().invoke(
+            {
+                "material_id": str(material.id),
+                "child_id": str(child.id),
+                "title": material.title,
+            },
+            config=review_config,
+        )
     return material
 
 
@@ -183,15 +184,16 @@ def review_material(
     if material.status is MaterialStatus.REVIEW_PENDING:
         config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
         try:
-            review_state = _material_review_graph().invoke(
-                Command(
-                    resume={
-                        "status": request.status.value,
-                        "note": request.note,
-                    }
-                ),
-                config=config,
-            )
+            with store.mutation_window():
+                review_state = _material_review_graph().invoke(
+                    Command(
+                        resume={
+                            "status": request.status.value,
+                            "note": request.note,
+                        }
+                    ),
+                    config=config,
+                )
             if review_state.get("decision_status") != request.status.value:
                 raise HTTPException(status_code=409, detail="review_decision_mismatch")
         except HTTPException:
@@ -253,14 +255,15 @@ def revise_material(
 
     store.save(revised)
     review_config = {"configurable": {"thread_id": f"material-review:{revised.id}"}}
-    _material_review_graph().invoke(
-        {
-            "material_id": str(revised.id),
-            "child_id": str(child.id),
-            "title": revised.title,
-        },
-        config=review_config,
-    )
+    with store.mutation_window():
+        _material_review_graph().invoke(
+            {
+                "material_id": str(revised.id),
+                "child_id": str(child.id),
+                "title": revised.title,
+            },
+            config=review_config,
+        )
     return revised
 
 
@@ -290,8 +293,13 @@ def edit_material(
     except MaterialEditError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     store.save(edited)
-    _material_review_graph().invoke(
-        {"material_id": str(edited.id), "child_id": str(edited.child_id), "title": edited.title},
-        config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
-    )
+    with store.mutation_window():
+        _material_review_graph().invoke(
+            {
+                "material_id": str(edited.id),
+                "child_id": str(edited.child_id),
+                "title": edited.title,
+            },
+            config={"configurable": {"thread_id": f"material-review:{edited.id}"}},
+        )
     return edited

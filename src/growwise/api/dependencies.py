@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sqlite3
 from functools import lru_cache
+from pathlib import Path
 from typing import Annotated
 
 from fastapi import Depends
@@ -10,6 +11,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.config import Settings
 from growwise.idempotency import SQLiteIdempotencyStore
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.model import ModelProvider, create_model_provider
 from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider
 from growwise.services import ChildContextService, SQLiteConversationStore
@@ -56,14 +58,43 @@ def get_rag_index() -> HybridRagIndex:
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
 
-@lru_cache
+@lru_cache(maxsize=4)
+def _get_conversation_store(path: str, generation: int) -> SQLiteConversationStore:
+    del generation
+    return SQLiteConversationStore(Path(path))
+
+
 def get_conversation_store() -> SQLiteConversationStore:
-    return SQLiteConversationStore(get_settings().conversations_path)
+    settings = get_settings()
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_conversation_store(
+            str(settings.conversations_path.absolute()),
+            generation,
+        )
 
 
-@lru_cache
+@lru_cache(maxsize=4)
+def _get_idempotency_store(path: str, generation: int) -> SQLiteIdempotencyStore:
+    del generation
+    return SQLiteIdempotencyStore(Path(path))
+
+
 def get_idempotency_store() -> SQLiteIdempotencyStore:
-    return SQLiteIdempotencyStore(get_settings().idempotency_path)
+    settings = get_settings()
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_idempotency_store(
+            str(settings.idempotency_path.absolute()),
+            generation,
+        )
+
+
+# Preserve the historical test/downstream cache-reset seam while keying the actual cached object by
+# data generation. A destructive restore therefore obtains fresh generation-bound stores without
+# forcing every caller to know about the coordinator.
+get_conversation_store.cache_clear = _get_conversation_store.cache_clear  # type: ignore[attr-defined]
+get_idempotency_store.cache_clear = _get_idempotency_store.cache_clear  # type: ignore[attr-defined]
 
 
 @lru_cache

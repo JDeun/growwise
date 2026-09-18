@@ -38,6 +38,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.material_versions import serialize_material_successor
 from growwise.services.material_feedback import MaterialFeedbackService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
@@ -78,9 +79,9 @@ def get_background_write_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
-@lru_cache
 def get_background_idempotency_store() -> SQLiteIdempotencyStore:
-    return SQLiteIdempotencyStore(get_background_write_settings().idempotency_path)
+    with DATA_MAINTENANCE.mutation():
+        return SQLiteIdempotencyStore(get_background_write_settings().idempotency_path)
 
 
 @lru_cache
@@ -350,7 +351,8 @@ def generate_material_background(
             )
         raise
 
-    _init_review(material)
+    with store.mutation_window():
+        _init_review(material)
     queue_material_enhancement(material=material, store=store)
     return material
 
@@ -401,6 +403,7 @@ def revise_material_background(
 
     revised.parent_guide_markdown = feedback.with_parent_guide(revised.parent_guide_markdown)
     store.save(revised)
-    _init_review(revised)
+    with store.mutation_window():
+        _init_review(revised)
     queue_material_enhancement(material=revised, store=store)
     return revised

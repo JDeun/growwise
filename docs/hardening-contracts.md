@@ -29,8 +29,12 @@
 - Markdown write는 temp file + fsync + atomic replace로 수행한다.
 - 기존 generation은 `.md.bak` 한 세대를 남겨 명시적 복구가 가능해야 한다.
 - SQLite rebuild 중 hard failure가 발생하면 이전 projection을 보존한다.
-- restore는 현재 상태를 safety snapshot으로 보호한 뒤 수행한다.
-- restore 성공 후 archive에 존재하지 않는 이전 live record/RAG projection을 남기지 않는다.
+- restore는 같은 filesystem의 임시 rollback state로 현재 live 상태를 보호한 뒤 swap한다.
+- managed backup format v2는 Markdown record, managed asset, conversation SQLite snapshot을 함께 보존한다.
+- v1 archive restore는 해당 시점에 conversation state가 없던 것으로 취급해 현재 conversation을 비운다.
+- restore 전 pre-restore jobs/idempotency/checkpoint projection을 제거해 이전 generation 실행 상태를 남기지 않는다.
+- restore 성공 후 archive에 존재하지 않는 이전 live record/conversation/RAG projection을 남기지 않는다.
+- RAG rebuild 실패는 정본 restore를 되돌리지 않고 명시적 degraded 상태로 보고한다.
 
 ## 3. Idempotency와 crash recovery
 

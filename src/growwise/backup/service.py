@@ -13,6 +13,7 @@ from pathlib import Path, PurePosixPath
 from pydantic import BaseModel
 
 from growwise.backup.record_validation import InvalidRecordTree, validate_record_tree
+from growwise.services.conversation_store import SQLiteConversationStore
 from growwise.storage.schema import CURRENT_SCHEMA_VERSION, validate_schema_version
 from growwise.storage.sqlite import SQLiteProjection
 
@@ -32,22 +33,25 @@ def _fsync_directory(path: Path) -> None:
 
 
 class BackupManifest(BaseModel):
-    # format_version remains 1 because assets/ is a backwards-readable extension to the archive
-    # layout. Old archives omit asset_count and continue to validate with the default of zero.
+    # v2 adds portable conversation state. v1 archives remain readable and are restored with an
+    # empty conversation store so post-backup conversations cannot leak across the time boundary.
     format_version: int = 1
     schema_version: int = CURRENT_SCHEMA_VERSION
     created_at: datetime
     record_count: int
     asset_count: int = 0
+    conversation_count: int = 0
 
 
 class BackupService:
-    """Portable backup/restore for authoritative Markdown and managed local assets."""
+    """Portable backup/restore for Markdown, managed assets, and durable conversation state."""
 
     MANIFEST_NAME = "manifest.json"
+    CONVERSATIONS_STATE_NAME = "state/conversations.sqlite3"
     MAX_ARCHIVE_MEMBERS = 100_001
     MAX_MANIFEST_BYTES = 256 * 1024
     MAX_SINGLE_FILE_BYTES = 16 * 1024 * 1024
+    MAX_STATE_FILE_BYTES = 256 * 1024 * 1024
     MAX_TOTAL_UNCOMPRESSED_BYTES = 2 * 1024 * 1024 * 1024
 
     def create(
@@ -56,6 +60,7 @@ class BackupService:
         records_root: Path,
         destination: Path,
         assets_root: Path | None = None,
+        conversations_path: Path | None = None,
     ) -> BackupManifest:
         destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -81,20 +86,51 @@ class BackupService:
             if assets_root is not None and assets_root.exists()
             else []
         )
+        conversation_snapshot: Path | None = None
+        conversation_count = 0
+        if conversations_path is not None:
+            state_fd, state_name = tempfile.mkstemp(
+                prefix=".growwise-conversations-",
+                suffix=".sqlite3",
+                dir=destination.parent,
+            )
+            os.close(state_fd)
+            conversation_snapshot = Path(state_name)
+            conversation_snapshot.unlink(missing_ok=True)
+            try:
+                if conversations_path.exists():
+                    conversation_count = SQLiteConversationStore(conversations_path).snapshot_to(
+                        conversation_snapshot
+                    )
+                else:
+                    empty_store = SQLiteConversationStore(conversation_snapshot)
+                    conversation_count = empty_store.validate_snapshot(conversation_snapshot)
+            except Exception:
+                conversation_snapshot.unlink(missing_ok=True)
+                raise
+
         manifest = BackupManifest(
+            format_version=2 if conversations_path is not None else 1,
             created_at=datetime.now(UTC),
             record_count=len(records),
             asset_count=len(assets),
+            conversation_count=conversation_count,
         )
         manifest_bytes = json.dumps(
             manifest.model_dump(mode="json"),
             ensure_ascii=False,
             indent=2,
         ).encode("utf-8")
-        self._validate_create_inputs(
-            files=[*records, *assets],
-            manifest_size=len(manifest_bytes),
-        )
+        try:
+            self._validate_create_inputs(
+                files=[*records, *assets],
+                state_files=[conversation_snapshot] if conversation_snapshot is not None else [],
+                manifest_size=len(manifest_bytes),
+            )
+        except Exception:
+            if conversation_snapshot is not None:
+                conversation_snapshot.unlink(missing_ok=True)
+            raise
 
         fd, tmp_name = tempfile.mkstemp(
             prefix=f".{destination.name}.",
@@ -113,12 +149,16 @@ class BackupService:
                     for path in assets:
                         relative = path.relative_to(assets_root).as_posix()
                         archive.write(path, f"assets/{relative}")
+                if conversation_snapshot is not None:
+                    archive.write(conversation_snapshot, self.CONVERSATIONS_STATE_NAME)
             with Path(tmp_name).open("r+b") as handle:
                 os.fsync(handle.fileno())
             Path(tmp_name).replace(destination)
             _fsync_directory(destination.parent)
         finally:
             Path(tmp_name).unlink(missing_ok=True)
+            if conversation_snapshot is not None:
+                conversation_snapshot.unlink(missing_ok=True)
         return manifest
 
     def restore(
@@ -128,6 +168,7 @@ class BackupService:
         records_root: Path,
         index_path: Path,
         assets_root: Path | None = None,
+        conversations_path: Path | None = None,
     ) -> BackupManifest:
         if not archive_path.is_file():
             raise FileNotFoundError(archive_path)
@@ -136,6 +177,8 @@ class BackupService:
         records_staging_parent.mkdir(parents=True, exist_ok=True)
         if assets_root is not None:
             assets_root.parent.mkdir(parents=True, exist_ok=True)
+        if conversations_path is not None:
+            conversations_path.parent.mkdir(parents=True, exist_ok=True)
 
         with ExitStack() as stack:
             records_temp_dir = stack.enter_context(
@@ -173,6 +216,29 @@ class BackupService:
                     f"expected {manifest.record_count}, got {actual_count}"
                 )
 
+            staged_conversations = staging / self.CONVERSATIONS_STATE_NAME
+            if manifest.format_version == 2:
+                if not staged_conversations.is_file():
+                    raise InvalidBackup("backup v2 is missing conversation state")
+                try:
+                    actual_conversation_count = SQLiteConversationStore.validate_snapshot(
+                        staged_conversations
+                    )
+                except ValueError as exc:
+                    raise InvalidBackup(str(exc)) from exc
+                if actual_conversation_count != manifest.conversation_count:
+                    raise InvalidBackup(
+                        "manifest conversation count does not match archive contents: "
+                        f"expected {manifest.conversation_count}, got {actual_conversation_count}"
+                    )
+                if conversations_path is None:
+                    raise InvalidBackup(
+                        "backup contains conversation state but no conversation "
+                        "destination was provided"
+                    )
+            elif staged_conversations.exists():
+                raise InvalidBackup("backup v1 must not contain conversation state")
+
             staged_assets = staging / "assets"
             actual_asset_count = self._validate_assets(staged_assets)
             if actual_asset_count != manifest.asset_count:
@@ -190,6 +256,35 @@ class BackupService:
                 shutil.copytree(staged_records, records_ready)
             else:
                 records_ready.mkdir(parents=True)
+
+            conversations_ready: Path | None = None
+            previous_conversations: Path | None = None
+            conversations_transaction: Path | None = None
+            if conversations_path is not None:
+                conversations_temp_dir = stack.enter_context(
+                    tempfile.TemporaryDirectory(
+                        prefix="growwise-conversations-restore-",
+                        dir=conversations_path.parent,
+                    )
+                )
+                conversations_transaction = Path(conversations_temp_dir)
+                conversations_ready = conversations_transaction / "conversations-ready.sqlite3"
+                previous_conversations = (
+                    conversations_transaction / "previous-conversations.sqlite3"
+                )
+                if manifest.format_version == 2:
+                    shutil.copy2(staged_conversations, conversations_ready)
+                else:
+                    SQLiteConversationStore(conversations_ready)
+                try:
+                    ready_count = SQLiteConversationStore.validate_snapshot(conversations_ready)
+                except ValueError as exc:
+                    raise InvalidBackup(str(exc)) from exc
+                if ready_count != manifest.conversation_count:
+                    raise InvalidBackup(
+                        "prepared conversation count does not match manifest: "
+                        f"expected {manifest.conversation_count}, got {ready_count}"
+                    )
 
             assets_ready: Path | None = None
             previous_assets: Path | None = None
@@ -210,6 +305,7 @@ class BackupService:
             previous_records = staging / "previous-records"
             moved_records = False
             moved_assets = False
+            moved_conversations = False
             try:
                 if records_root.exists():
                     records_root.replace(previous_records)
@@ -224,6 +320,14 @@ class BackupService:
                         moved_assets = True
                     assets_ready.replace(assets_root)
 
+                if conversations_path is not None:
+                    assert conversations_ready is not None
+                    assert previous_conversations is not None
+                    if conversations_path.exists():
+                        conversations_path.replace(previous_conversations)
+                        moved_conversations = True
+                    conversations_ready.replace(conversations_path)
+
                 SQLiteProjection(index_path).rebuild(records_root)
             except Exception:
                 if records_root.exists():
@@ -237,6 +341,12 @@ class BackupService:
                         shutil.rmtree(assets_root, ignore_errors=True)
                     if moved_assets and previous_assets.exists():
                         previous_assets.replace(assets_root)
+
+                if conversations_path is not None:
+                    assert previous_conversations is not None
+                    conversations_path.unlink(missing_ok=True)
+                    if moved_conversations and previous_conversations.exists():
+                        previous_conversations.replace(conversations_path)
 
                 SQLiteProjection(index_path).rebuild(records_root)
                 raise
@@ -255,7 +365,7 @@ class BackupService:
         except (KeyError, json.JSONDecodeError, UnicodeDecodeError) as exc:
             raise InvalidBackup("missing or invalid backup manifest") from exc
         manifest = BackupManifest.model_validate(payload)
-        if manifest.format_version != 1:
+        if manifest.format_version not in {1, 2}:
             raise InvalidBackup(f"unsupported format_version={manifest.format_version}")
         validate_schema_version({"schema_version": manifest.schema_version})
         return manifest
@@ -265,11 +375,12 @@ class BackupService:
         cls,
         *,
         files: list[Path],
+        state_files: list[Path],
         manifest_size: int,
     ) -> None:
         """Apply restore-time archive limits before publishing a GrowWise backup."""
 
-        member_count = 1 + len(files)
+        member_count = 1 + len(files) + len(state_files)
         if member_count > cls.MAX_ARCHIVE_MEMBERS:
             raise InvalidBackup("backup source contains too many members")
         if manifest_size > cls.MAX_MANIFEST_BYTES:
@@ -282,6 +393,13 @@ class BackupService:
             size = path.stat().st_size
             if size > cls.MAX_SINGLE_FILE_BYTES:
                 raise InvalidBackup(f"backup source file is too large: {path.name}")
+            total_size += size
+            if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
+                raise InvalidBackup("backup source expands beyond the allowed size")
+        for path in state_files:
+            size = path.stat().st_size
+            if size > cls.MAX_STATE_FILE_BYTES:
+                raise InvalidBackup(f"backup state file is too large: {path.name}")
             total_size += size
             if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
                 raise InvalidBackup("backup source expands beyond the allowed size")
@@ -308,7 +426,12 @@ class BackupService:
             unix_mode = (info.external_attr >> 16) & 0xFFFF
             if unix_mode and stat.S_ISLNK(unix_mode):
                 raise InvalidBackup(f"symlink archive member is not allowed: {info.filename}")
-            if info.file_size > cls.MAX_SINGLE_FILE_BYTES:
+            size_limit = (
+                cls.MAX_STATE_FILE_BYTES
+                if info.filename == cls.CONVERSATIONS_STATE_NAME
+                else cls.MAX_SINGLE_FILE_BYTES
+            )
+            if info.file_size > size_limit:
                 raise InvalidBackup(f"backup member is too large: {info.filename}")
             total_size += info.file_size
             if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
@@ -318,6 +441,8 @@ class BackupService:
                 manifest_count += 1
                 if info.file_size > cls.MAX_MANIFEST_BYTES:
                     raise InvalidBackup("backup manifest is too large")
+                continue
+            if info.filename == cls.CONVERSATIONS_STATE_NAME:
                 continue
             if not path.parts or path.parts[0] not in {"records", "assets"}:
                 raise InvalidBackup(f"unexpected archive member: {info.filename}")

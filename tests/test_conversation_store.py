@@ -1,3 +1,6 @@
+import pytest
+
+from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 
 
@@ -32,3 +35,24 @@ def test_conversation_store_updates_and_deletes(tmp_path) -> None:
     assert len(loaded.turns) == 1
     assert store.delete(session.id) is True
     assert store.get(session.id) is None
+
+
+def test_pre_restore_conversation_store_is_generation_fenced(tmp_path) -> None:
+    path = tmp_path / "conversations.sqlite3"
+    old_store = SQLiteConversationStore(path)
+    session = ConversationSession(child_id="child-a", title="복원 전")
+    old_store.save(session)
+
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        pass
+
+    with pytest.raises(StaleDataGeneration):
+        old_store.get(session.id)
+    with pytest.raises(StaleDataGeneration):
+        old_store.save(session)
+
+    fresh_store = SQLiteConversationStore(path)
+    assert fresh_store.get(session.id) is not None
+    fresh_session = ConversationSession(child_id="child-a", title="복원 후")
+    fresh_store.save(fresh_session)
+    assert fresh_store.get(fresh_session.id) is not None
