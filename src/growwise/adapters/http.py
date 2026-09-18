@@ -36,7 +36,11 @@ class _SameOriginHttpsRedirectHandler(urllib.request.HTTPRedirectHandler):
         newurl: str,
     ) -> urllib.request.Request | None:
         resolved = urllib.parse.urljoin(req.full_url, newurl)
-        if _https_origin(resolved) != _https_origin(req.full_url):
+        try:
+            target_origin = _https_origin(resolved)
+        except ExternalAdapterError as exc:
+            raise ExternalAdapterError("external redirect left the HTTPS trust boundary") from exc
+        if target_origin != _https_origin(req.full_url):
             raise ExternalAdapterError("external redirect changed HTTPS origin")
         return super().redirect_request(req, fp, code, msg, headers, resolved)
 
