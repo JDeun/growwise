@@ -23,6 +23,12 @@ describe("workspaceStorage", () => {
     expect(setItem).toHaveBeenCalledWith(LAST_WORKSPACE_KEY, "conversation");
   });
 
+  it("does not restore a hidden legacy route from the current storage key", () => {
+    expect(readWorkspaceView({
+      getItem: (key) => key === LAST_WORKSPACE_KEY ? "observations" : null,
+    })).toBe("home");
+  });
+
   it("migrates the previous sidebar IA without exposing legacy routes", () => {
     const legacy = (value: string) => readWorkspaceView({
       getItem: (key) => key === LEGACY_LAST_WORKSPACE_KEY ? value : null,
