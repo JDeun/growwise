@@ -10,6 +10,41 @@ from typing import Any
 from .base import ExternalAdapterError
 
 
+def _https_origin(url: str) -> tuple[str, int]:
+    try:
+        parsed = urllib.parse.urlsplit(url)
+        port = parsed.port or 443
+    except ValueError as exc:
+        raise ExternalAdapterError("external endpoint URL is invalid") from exc
+    if parsed.scheme.casefold() != "https":
+        raise ExternalAdapterError("external endpoint must use HTTPS")
+    if not parsed.hostname:
+        raise ExternalAdapterError("external endpoint must include a hostname")
+    if parsed.username is not None or parsed.password is not None:
+        raise ExternalAdapterError("external endpoint must not embed credentials")
+    return parsed.hostname.casefold(), port
+
+
+class _SameOriginHttpsRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        resolved = urllib.parse.urljoin(req.full_url, newurl)
+        try:
+            target_origin = _https_origin(resolved)
+        except ExternalAdapterError as exc:
+            raise ExternalAdapterError("external redirect left the HTTPS trust boundary") from exc
+        if target_origin != _https_origin(req.full_url):
+            raise ExternalAdapterError("external redirect changed HTTPS origin")
+        return super().redirect_request(req, fp, code, msg, headers, resolved)
+
+
 class JsonHttpClient:
     """Minimal bounded HTTP client for public-data adapters.
 
@@ -31,11 +66,17 @@ class JsonHttpClient:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
         self.user_agent = user_agent
+        self._opener = urllib.request.build_opener(_SameOriginHttpsRedirectHandler())
 
     def get_json(self, url: str, *, params: Mapping[str, str | int | float]) -> dict[str, Any]:
-        query = urllib.parse.urlencode(params)
-        separator = "&" if "?" in url else "?"
-        return self._request_json(f"{url}{separator}{query}")
+        _https_origin(url)
+        parsed = urllib.parse.urlsplit(url)
+        encoded = urllib.parse.urlencode(params)
+        query = "&".join(part for part in (parsed.query, encoded) if part)
+        request_url = urllib.parse.urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
+        )
+        return self._request_json(request_url)
 
     def post_form_json(
         self,
@@ -43,6 +84,7 @@ class JsonHttpClient:
         *,
         form: Mapping[str, str],
     ) -> dict[str, Any]:
+        _https_origin(url)
         body = urllib.parse.urlencode(form).encode("utf-8")
         request = urllib.request.Request(
             url,
@@ -66,7 +108,7 @@ class JsonHttpClient:
 
     def _open_json(self, request: urllib.request.Request) -> dict[str, Any]:
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+            with self._opener.open(request, timeout=self.timeout_seconds) as response:
                 length = response.headers.get("Content-Length")
                 if length is not None and int(length) > self.max_response_bytes:
                     raise ExternalAdapterError("external response exceeds configured size limit")
