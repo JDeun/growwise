@@ -198,25 +198,41 @@ export function ChildProfileSection({
       )}
 
       {children.length > 0 && (
-        <div className="child-switcher">
-          <label>
-            <span>아이 선택</span>
-            <select
-              value={activeChild?.id ?? ""}
-              onChange={(event) => onSelectChild(event.target.value)}
-            >
-              {children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.nickname} · {stageLabel(child.stage)} · {child.age_months ?? "-"}개월
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="muted">마지막 선택을 기억하고, 아이를 바꾸면 해당 아이의 최신 기록을 다시 불러옵니다.</p>
-        </div>
+        <section className="child-roster" aria-labelledby="child-roster-title">
+          <div className="child-roster__heading">
+            <div>
+              <p className="card-label">아이 목록</p>
+              <h3 id="child-roster-title">프로필을 선택해 기록 맥락을 바꿉니다.</h3>
+            </div>
+            <span>{children.length}명</span>
+          </div>
+          <div className="child-roster__grid">
+            {children.map((child) => {
+              const selected = child.id === activeChild?.id;
+              return (
+                <button
+                  key={child.id}
+                  type="button"
+                  className={`child-roster-card ${selected ? "is-active" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => onSelectChild(child.id)}
+                >
+                  <ChildAvatar child={child} size="md" />
+                  <span className="child-roster-card__copy">
+                    <strong>{child.nickname}</strong>
+                    <small>{stageLabel(child.stage)} · {child.age_months ?? "—"}개월</small>
+                  </span>
+                  <span className="child-roster-card__status" aria-hidden="true">
+                    {selected ? "✓" : "›"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      <div className="skeleton-grid">
+      <div className="skeleton-grid child-profile-layout">
         <form className="profile-form" onSubmit={onSubmit}>
           <p className="card-label">{firstRun ? "첫 프로필" : "새 아이 추가"}</p>
           <label>
