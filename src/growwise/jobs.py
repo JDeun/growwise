@@ -456,13 +456,18 @@ class SQLiteJobQueue:
 
             if not owned_job_ids:
                 return 0
-            placeholders = ",".join("?" for _ in owned_job_ids)
+            connection.execute(
+                "CREATE TEMP TABLE IF NOT EXISTS purge_job_ids (id TEXT PRIMARY KEY)"
+            )
+            connection.execute("DELETE FROM purge_job_ids")
+            connection.executemany(
+                "INSERT OR IGNORE INTO purge_job_ids (id) VALUES (?)",
+                ((job_id,) for job_id in owned_job_ids),
+            )
             cursor = connection.execute(
-                f"DELETE FROM jobs WHERE id IN ({placeholders})",
-                tuple(owned_job_ids),
+                "DELETE FROM jobs WHERE id IN (SELECT id FROM purge_job_ids)"
             )
         return cursor.rowcount
-
 
     def reset(self) -> int:
         """Delete all operational jobs after a destructive data-generation restore."""
