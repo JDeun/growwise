@@ -22,7 +22,7 @@ function collectTsxSource(directory: string): string {
 const renderedSource = collectTsxSource(sourceRoot);
 
 const projectedSurfaces = {
-  home: ["skeleton-grid"],
+  profile: ["child-profile-section"],
   observations: ["observation-panel", "timeline-section"],
   growth: ["observation-panel"],
   activities: ["infant-guidance-section", "activity-section", "quest-section"],
@@ -48,7 +48,7 @@ describe("legacy workspace projection contract", () => {
   it("keeps inactive legacy surfaces hidden before selectively projecting them", () => {
     for (const className of [
       "status-grid",
-      "skeleton-grid",
+      "child-profile-section",
       "observation-panel",
       "search-section",
       "conversation-section",
