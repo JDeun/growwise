@@ -5,6 +5,7 @@ import os
 import shutil
 import tempfile
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel
 
@@ -31,6 +32,7 @@ def _fsync_directory(path: Path) -> None:
 
 class RestoreJournal(BaseModel):
     version: int = 1
+    phase: Literal["prepared", "committed"] = "prepared"
     records_root: str
     index_path: str
     records_transaction: str
@@ -96,6 +98,9 @@ class RestoreJournalManager:
                 self.conversations_path.exists() if self.conversations_path is not None else False
             ),
         )
+        self._write(journal)
+
+    def _write(self, journal: RestoreJournal) -> None:
         self.path.parent.mkdir(parents=True, exist_ok=True)
         encoded = journal.model_dump_json(indent=2).encode("utf-8")
         fd, tmp_name = tempfile.mkstemp(
@@ -113,8 +118,25 @@ class RestoreJournalManager:
         finally:
             Path(tmp_name).unlink(missing_ok=True)
 
-    def commit(self) -> None:
-        self.path.unlink(missing_ok=True)
+    def mark_committed(self) -> None:
+        journal = self._read()
+        self._validate_targets(journal)
+        self._write(journal.model_copy(update={"phase": "committed"}))
+
+    def finalize(self) -> None:
+        if not self.path.exists():
+            return
+        journal = self._read()
+        self._validate_targets(journal)
+        if journal.phase != "committed":
+            raise RuntimeError("cannot finalize an uncommitted restore journal")
+        self._cleanup_transactions(journal)
+        try:
+            self.path.unlink()
+        except OSError:
+            # The committed journal is safe to retry on next startup; never turn an already
+            # committed authoritative restore into an ambiguous API failure because cleanup failed.
+            return
         _fsync_directory(self.path.parent)
 
     def recover_if_needed(self) -> bool:
@@ -122,7 +144,15 @@ class RestoreJournalManager:
             return False
         journal = self._read()
         self._validate_targets(journal)
-        self._rollback(journal)
+        if journal.phase == "committed":
+            self._cleanup_transactions(journal)
+            try:
+                self.path.unlink()
+            except OSError:
+                return True
+            _fsync_directory(self.path.parent)
+        else:
+            self._rollback(journal)
         return True
 
     def rollback(self) -> None:
@@ -130,6 +160,9 @@ class RestoreJournalManager:
             return
         journal = self._read()
         self._validate_targets(journal)
+        if journal.phase == "committed":
+            self.finalize()
+            return
         self._rollback(journal)
 
     def _read(self) -> RestoreJournal:
@@ -242,6 +275,34 @@ class RestoreJournalManager:
         elif not ready.exists() and live.exists():
             cls._unlink_sqlite_family(live)
 
+    def _cleanup_transactions(self, journal: RestoreJournal) -> None:
+        transactions = [
+            self._validated_transaction(
+                journal.records_transaction,
+                parent=self.records_root.parent,
+                prefix="growwise-restore-",
+            )
+        ]
+        if self.assets_root is not None:
+            transactions.append(
+                self._validated_transaction(
+                    journal.assets_transaction,
+                    parent=self.assets_root.parent,
+                    prefix="growwise-assets-restore-",
+                )
+            )
+        if self.conversations_path is not None:
+            transactions.append(
+                self._validated_transaction(
+                    journal.conversations_transaction,
+                    parent=self.conversations_path.parent,
+                    prefix="growwise-conversations-restore-",
+                )
+            )
+        for transaction in transactions:
+            if transaction is not None:
+                shutil.rmtree(transaction, ignore_errors=True)
+
     def _rollback(self, journal: RestoreJournal) -> None:
         records_transaction = self._validated_transaction(
             journal.records_transaction,
@@ -294,4 +355,8 @@ class RestoreJournalManager:
 
         for transaction in transactions:
             shutil.rmtree(transaction, ignore_errors=True)
-        self.commit()
+        try:
+            self.path.unlink()
+        except FileNotFoundError:
+            return
+        _fsync_directory(self.path.parent)
