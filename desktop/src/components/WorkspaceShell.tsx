@@ -52,10 +52,6 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
       <WorkspaceNav activeView={activeView} onChange={handleChange} />
       <main className="workspace-main">
         <header className="workspace-topbar">
-          <div className="workspace-topbar-title">
-            <small>GrowWise</small>
-            <h1>{WORKSPACE_LABELS[activeView]}</h1>
-          </div>
           <div className="workspace-topbar-actions">
             <button
               type="button"
