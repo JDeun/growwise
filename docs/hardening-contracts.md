@@ -32,7 +32,11 @@
 - restore는 같은 filesystem의 임시 rollback state로 현재 live 상태를 보호한 뒤 swap한다.
 - managed backup format v2는 Markdown record, managed asset, conversation SQLite snapshot을 함께 보존한다.
 - v1 archive restore는 해당 시점에 conversation state가 없던 것으로 취급해 현재 conversation을 비운다.
+- archive member는 Windows/macOS/Linux에서 동일하게 해석되도록 Unicode NFC/case-fold 충돌,
+  Windows reserved name, trailing dot/space, traversal/symlink, duplicate member를 거부한다.
+- GrowWise가 만드는 backup도 같은 portable-path 규칙을 통과해야 publish할 수 있다.
 - restore는 선택한 ZIP을 immutable 임시 snapshot으로 복사하고 전체 preflight를 통과한 뒤에만 destructive cleanup을 시작한다.
+- preflight와 실제 restore는 같은 immutable snapshot을 사용해 archive 교체 TOCTOU를 허용하지 않는다.
 - restore 전 pre-restore jobs/idempotency/checkpoint projection을 제거해 이전 generation 실행 상태를 남기지 않는다.
 - restore 성공 후 archive에 존재하지 않는 이전 live record/conversation/RAG projection을 남기지 않는다.
 - RAG rebuild 실패는 정본 restore를 되돌리지 않고 명시적 degraded 상태로 보고한다.
@@ -104,6 +108,11 @@ Desktop UX는 삭제할 child를 선택하고 해당 nickname을 다시 입력�
 3. current month → current year → archive → unknown timestamp 순서로 limit을 채운다.
 4. 최근이지만 관련 없는 chunk는 후보에 들어오지 않으므로 recency가 relevance를 제조하지 않는다.
 5. embedding 실패/timeout/circuit-open 시 lexical search로 즉시 강등한다.
+6. restore 후 embedding 기능이 켜져 있으면 vector embedding을 재수화하고, runtime 실패 시 lexical projection은 유지한다.
+7. lexical query expansion은 term 수/term 길이를 제한하며 shared-resource ID 조회는 SQLite host-parameter
+   한도 아래로 chunk한다.
+8. RAG/외부 cache/SQLite projection은 disposable state이므로 손상 row 또는 malformed DB를
+   정본/재조회 가능한 상태에서 self-heal한다.
 
 ## 7. Model provider failure policy
 
@@ -116,6 +125,8 @@ AI는 optional dependency다.
 - cooldown 뒤 첫 요청은 half-open probe처럼 동작한다.
 - 성공하면 failure count와 open state를 reset한다.
 - caller는 provider exception을 데이터 손실로 연결하지 않고 deterministic/template/lexical fallback을 사용한다.
+- 사진 text/vision 모델은 loopback endpoint를 기본 경계로 사용하고, 원격 endpoint는 각각 명시적
+  opt-in 설정이 없으면 생성하지 않는다.
 
 관련 설정:
 
@@ -131,7 +142,11 @@ AI는 optional dependency다.
 - 사용자 텍스트에는 목적별 최대 길이를 둔다.
 - list/dict field에는 최대 원소 수를 둔다.
 - tag/source ref/language/provenance key/value 길이를 제한한다.
-- invalid domain payload는 desktop secure API에서도 422로 수렴시킨다.
+- API request뿐 아니라 durable conversation state와 LLM structured output schema에도 길이/cardinality
+  상한을 둔다.
+- background write 전용 DTO도 foreground API와 같은 persistence contract를 적용한다.
+- invalid domain payload는 standalone Core와 desktop secure API 모두 422로 수렴시킨다.
+- public-data HTTP adapter는 HTTPS endpoint만 허용하고 redirect가 동일 HTTPS origin을 벗어나면 거부한다.
 - 오류 응답을 UI에 전달할 때 무제한 body를 그대로 포함하지 않는다.
 
 목표는 메모리/디스크 폭주, pathological prompt, 거대한 local IPC payload가 장기 데이터베이스에 들어가는 것을 입구에서 차단하는 것이다.
@@ -144,7 +159,10 @@ AI는 optional dependency다.
 - Rust advisory scan: `cargo-audit 0.22.2` pin.
 - GitHub Actions: third-party action은 mutable major tag가 아니라 검증한 commit SHA로 pin하고 주석에 major version을 기록한다.
 - secret scan은 full history를 검사한다.
-- sidecar packaging은 build 후 authenticated runtime smoke를 통과해야 한다.
+- repository privacy audit은 전화번호/주민등록번호 형태를 항상 검사하고, 프로젝트 고유 식별자는
+  Actions secret `GROWWISE_PII_DENYLIST`로만 CI에 주입한다.
+- CodeQL은 security-extended query를 실행한다.
+- packaging workflow는 SBOM을 생성하고 build 후 authenticated runtime smoke를 통과해야 한다.
 
 ## 10. Definition of Done
 
@@ -166,6 +184,9 @@ AI는 optional dependency다.
 - Windows NSIS validation package
 - macOS arm64 DMG validation package
 - macOS x64 DMG validation package
+- SBOM generation
+- CodeQL
 - secret scan
+- repository privacy/PII audit
 
 실제 stable 배포의 code signing/notarization/updater trust-root 검증은 운영자 credential이 필요한 별도 operator evidence다.
