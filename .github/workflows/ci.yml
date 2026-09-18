@@ -42,6 +42,8 @@ jobs:
           --check-untyped-defs
       - name: Test
         run: uv run pytest
+        env:
+          GROWWISE_PII_DENYLIST: ${{ secrets.GROWWISE_PII_DENYLIST }}
 
   python-coverage:
     runs-on: ubuntu-latest
