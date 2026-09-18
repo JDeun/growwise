@@ -40,6 +40,7 @@ class EntityStore:
     _projection_lock: ClassVar[threading.RLock] = threading.RLock()
     _dirty_lock: ClassVar[threading.RLock] = threading.RLock()
     _dirty_counts: ClassVar[dict[str, int]] = {}
+    _recovery_required: ClassVar[set[str]] = set()
 
     def __init__(self, records_root: Path, index_path: Path) -> None:
         self.markdown = MarkdownRepository(records_root)
@@ -74,11 +75,25 @@ class EntityStore:
                 self._dirty_counts[key] = count - 1
                 return
             self._dirty_counts.pop(key, None)
+            if key in self._recovery_required:
+                return
             try:
                 self._projection_dirty_path.unlink()
             except FileNotFoundError:
                 return
             _fsync_directory(self._projection_dirty_path.parent)
+
+    def _abandon_projection_dirty(self) -> None:
+        """Release this process-local mutation lease but preserve restart recovery state."""
+
+        key = self._dirty_key()
+        with self._dirty_lock:
+            self._recovery_required.add(key)
+            count = self._dirty_counts.get(key, 0)
+            if count > 1:
+                self._dirty_counts[key] = count - 1
+            else:
+                self._dirty_counts.pop(key, None)
 
     def _recover_projection_if_dirty(self) -> None:
         if not self._projection_dirty_path.exists():
@@ -89,6 +104,7 @@ class EntityStore:
                 return
             with self._projection_lock:
                 self.index.rebuild(self.markdown.root)
+                self._recovery_required.discard(key)
                 try:
                     self._projection_dirty_path.unlink()
                 except FileNotFoundError:
@@ -99,6 +115,7 @@ class EntityStore:
     @contextmanager
     def mutation_window(self) -> Iterator[None]:
         """Hold one maintenance mutation lease across a multi-step domain operation."""
+        self._recover_projection_if_dirty()
         with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
             yield
 
@@ -116,6 +133,7 @@ class EntityStore:
                         except Exception:
                             self.index.rebuild(self.markdown.root)
             except Exception:
+                self._abandon_projection_dirty()
                 raise
             else:
                 self._clear_projection_dirty()
@@ -148,6 +166,7 @@ class EntityStore:
                             backup.unlink(missing_ok=True)
                         deleted = True
             except Exception:
+                self._abandon_projection_dirty()
                 raise
             else:
                 self._clear_projection_dirty()
@@ -162,6 +181,7 @@ class EntityStore:
                     deleted_files = self.markdown.purge_child(child_id)
                     self.index.rebuild(self.markdown.root)
             except Exception:
+                self._abandon_projection_dirty()
                 raise
             else:
                 self._clear_projection_dirty()
