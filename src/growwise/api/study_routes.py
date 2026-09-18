@@ -127,6 +127,11 @@ def _idempotent_study_create(
     idempotency_key: str | None,
 ) -> TStudyEntity:
     reserved_id: UUID = uuid7()
+    if idempotency_key is None:
+        entity = build(reserved_id)
+        store.save(entity)
+        return entity
+
     claim = None
     idempotency_store = SQLiteIdempotencyStore(get_study_settings().idempotency_path)
     request_hash = request_fingerprint(
