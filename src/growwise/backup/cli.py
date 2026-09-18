@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import re
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,6 +17,8 @@ from growwise.runtime_lock import DataDirectoryLock
 from growwise.services.background_ai import MATERIAL_ENHANCEMENT_JOB, OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
+
+logger = logging.getLogger(__name__)
 
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.zip$")
 _AI_JOB_TYPES = (OBSERVATION_ENRICHMENT_JOB, MATERIAL_ENHANCEMENT_JOB, PHOTO_ANALYSIS_JOB)
@@ -104,13 +107,23 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
             assets_root=settings.assets_dir,
             index_path=settings.index_path,
         )
-        rag_chunk_count = rebuild_rag_projection(settings)
+        try:
+            rag_chunk_count = rebuild_rag_projection(settings)
+            rag_status = "ready"
+        except Exception:
+            # Markdown/assets/index have already been restored successfully. RAG is disposable and
+            # must not turn that authoritative success into an ambiguous destructive-operation
+            # failure. Surface explicit degradation so the UI can retry/rebuild later.
+            logger.exception("RAG projection rebuild failed after authoritative restore")
+            rag_chunk_count = 0
+            rag_status = "degraded"
 
     return {
         "archive": archive.name,
         "restored": True,
         "cancelled_jobs": cancelled_jobs,
         "rag_chunk_count": rag_chunk_count,
+        "rag_status": rag_status,
         "manifest": manifest.model_dump(mode="json"),
     }
 
