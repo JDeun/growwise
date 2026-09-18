@@ -27,6 +27,7 @@ interface SearchConversationSectionProps {
   onSearch: (event: FormEvent<HTMLFormElement>) => void;
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
+  onNewConversation?: () => void;
   backups?: BackupItem[];
   backupBusy?: boolean;
   backupError?: string | null;
@@ -108,6 +109,7 @@ export function SearchConversationSection({
   onSearch,
   onConversationQuestionChange,
   onConversation,
+  onNewConversation = () => undefined,
   backups = [],
   backupBusy = false,
   backupError = null,
@@ -121,6 +123,7 @@ export function SearchConversationSection({
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
+  const [newConversationMode, setNewConversationMode] = useState(false);
   const historyChildId = activeConversationChildId(conversation);
 
   useEffect(() => {
@@ -140,6 +143,7 @@ export function SearchConversationSection({
         if (cancelled) return;
         setConversationHistory(sessions);
         setSelectedHistoryId((current) => {
+          if (newConversationMode) return null;
           if (current && sessions.some((session) => session.id === current)) return current;
           if (conversation && sessions.some((session) => session.id === conversation.id)) {
             return conversation.id;
@@ -157,7 +161,19 @@ export function SearchConversationSection({
       });
 
     return () => { cancelled = true; };
-  }, [conversation, conversationAnswers.length, historyChildId]);
+  }, [conversation, conversationAnswers.length, historyChildId, newConversationMode]);
+
+  useEffect(() => {
+    if (!conversation) return;
+    setNewConversationMode(false);
+    setSelectedHistoryId(conversation.id);
+  }, [conversation]);
+
+  function handleNewConversation() {
+    setNewConversationMode(true);
+    setSelectedHistoryId(null);
+    onNewConversation();
+  }
 
   const selectedHistory = useMemo(
     () => conversationHistory.find((session) => session.id === selectedHistoryId) ?? null,
@@ -190,6 +206,16 @@ export function SearchConversationSection({
           <span>{conversationHistory.length}</span>
         </div>
 
+        <button
+          type="button"
+          className="conversation-new-button"
+          onClick={handleNewConversation}
+          disabled={conversationBusy}
+        >
+          <span aria-hidden="true">＋</span>
+          새 대화
+        </button>
+
         {historyLoading && (
           <ViewStateNotice kind="loading" title="대화 기록을 불러오는 중입니다." description="현재 아이의 저장된 대화를 확인합니다." />
         )}
@@ -210,7 +236,10 @@ export function SearchConversationSection({
                   className={`conversation-session-button${selectedHistoryId === session.id ? " is-selected" : ""}`}
                   type="button"
                   key={session.id}
-                  onClick={() => setSelectedHistoryId(session.id)}
+                  onClick={() => {
+                    setNewConversationMode(false);
+                    setSelectedHistoryId(session.id);
+                  }}
                 >
                   <span>
                     <strong>{conversationSessionLabel(session)}</strong>
