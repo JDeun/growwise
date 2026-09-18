@@ -22,7 +22,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
-from growwise.jobs import SQLiteJobQueue
+from growwise.jobs import Job, SQLiteJobQueue
 from growwise.model.factory import create_model_provider
 from growwise.model.ollama import OllamaProvider
 from growwise.model.provider import ModelProvider
@@ -266,7 +266,7 @@ def _photo_create_fingerprint(
     )
 
 
-def _photo_job_payload(job: object | None) -> dict[str, object] | None:
+def _photo_job_payload(job: Job | None) -> dict[str, object] | None:
     if job is None:
         return None
     return {
