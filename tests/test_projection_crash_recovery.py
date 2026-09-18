@@ -8,7 +8,6 @@ from pathlib import Path
 from growwise.domain import ChildProfile, Stage
 from growwise.storage import EntityStore
 
-
 _CHILD_ID = "11111111-2222-4333-8444-555555555555"
 
 
