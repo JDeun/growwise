@@ -316,3 +316,40 @@
     white-space: nowrap;
   }
 }
+
+
+.profile-summary-actions {
+  display: grid;
+  gap: 6px;
+  width: 100%;
+}
+
+.profile-summary-actions .profile-edit-button {
+  width: 100%;
+  min-height: 34px;
+  padding: 7px 10px;
+  border-radius: 9px;
+  font-size: 9px;
+}
+
+.profile-manage-link {
+  padding: 3px 0;
+  border: 0;
+  background: transparent;
+  color: #718079;
+  cursor: pointer;
+  font-size: 8px;
+  font-weight: 680;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.profile-manage-link:hover {
+  color: #2f7358;
+}
+
+@media (max-width: 900px) {
+  .profile-summary-actions {
+    grid-column: 1 / -1;
+  }
+}
