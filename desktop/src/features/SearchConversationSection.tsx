@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { ViewStateNotice } from "../components";
 import {
   listConversations,
+  type BackupItem,
   type ConversationAnswer,
   type ConversationSession,
   type SearchResponse,
@@ -26,6 +27,14 @@ interface SearchConversationSectionProps {
   onSearch: (event: FormEvent<HTMLFormElement>) => void;
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
+  backups: BackupItem[];
+  backupBusy: boolean;
+  backupError: string | null;
+  backupNotice: string | null;
+  onBackupCreate: () => void;
+  onBackupImport: () => void;
+  onBackupExport: (archiveName: string) => void;
+  onBackupRestore: (archiveName: string) => void;
 }
 
 export function conversationSessionLabel(session: ConversationSession): string {
@@ -99,6 +108,14 @@ export function SearchConversationSection({
   onSearch,
   onConversationQuestionChange,
   onConversation,
+  backups,
+  backupBusy,
+  backupError,
+  backupNotice,
+  onBackupCreate,
+  onBackupImport,
+  onBackupExport,
+  onBackupRestore,
 }: SearchConversationSectionProps) {
   const [conversationHistory, setConversationHistory] = useState<ConversationSession[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -146,9 +163,17 @@ export function SearchConversationSection({
     () => conversationHistory.find((session) => session.id === selectedHistoryId) ?? null,
     [conversationHistory, selectedHistoryId],
   );
+  const latestBackup = useMemo(
+    () =>
+      [...backups].sort(
+        (left, right) => Date.parse(right.modified_at) - Date.parse(left.modified_at),
+      )[0] ?? null,
+    [backups],
+  );
 
   return (
-    <>
+    <div className="conversation-workspace-grid">
+      <div className="conversation-workspace-main">
       <section className="search-section">
         <p className="card-label">기록 검색</p>
         <h3>기억나는 말로 기록을 찾아보세요.</h3>
@@ -269,6 +294,79 @@ export function SearchConversationSection({
           </div>
         )}
       </section>
-    </>
+      </div>
+
+      <aside className="conversation-utility-panel" aria-label="대화와 데이터 관리">
+        <section className="conversation-utility-card conversation-utility-card--backup">
+          <div className="conversation-utility-heading">
+            <span className="conversation-utility-icon" aria-hidden="true">↺</span>
+            <div>
+              <p className="card-label">Backup</p>
+              <h3>대화와 기록 백업</h3>
+              <p>기록·사진·대화 상태를 하나의 로컬 백업으로 보관합니다.</p>
+            </div>
+          </div>
+
+          <div className="conversation-backup-status">
+            <span>최근 백업</span>
+            <strong>
+              {latestBackup
+                ? new Date(latestBackup.modified_at).toLocaleString("ko-KR", {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })
+                : "아직 없음"}
+            </strong>
+            {latestBackup && (
+              <small>{Math.max(1, Math.round(latestBackup.size_bytes / 1024))} KB</small>
+            )}
+          </div>
+
+          {backupError && <p className="form-error" role="alert">{backupError}</p>}
+          {backupNotice && <p className="conversation-backup-notice" role="status">{backupNotice}</p>}
+
+          <div className="conversation-backup-actions">
+            <button type="button" className="primary-button" disabled={backupBusy} onClick={onBackupCreate}>
+              {backupBusy ? "처리 중…" : "지금 백업"}
+            </button>
+            <button type="button" className="quiet-button" disabled={backupBusy} onClick={onBackupImport}>
+              백업 가져오기
+            </button>
+          </div>
+
+          {latestBackup && (
+            <div className="conversation-backup-secondary">
+              <button
+                type="button"
+                disabled={backupBusy}
+                onClick={() => onBackupExport(latestBackup.archive)}
+              >
+                파일로 내보내기
+              </button>
+              <button
+                type="button"
+                disabled={backupBusy}
+                onClick={() => onBackupRestore(latestBackup.archive)}
+              >
+                이 백업 복원
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="conversation-utility-card">
+          <p className="card-label">Grounding policy</p>
+          <h3>답변은 저장된 원본을 다시 확인합니다.</h3>
+          <p>
+            이전 AI 답변을 다음 답변의 근거로 재사용하지 않고, 기록과 참고 자료에서 매번 다시 찾습니다.
+          </p>
+          <div className="conversation-policy-badges">
+            <span>Local-first</span>
+            <span>근거 표시</span>
+            <span>부족한 근거 경고</span>
+          </div>
+        </section>
+      </aside>
+    </div>
   );
 }
