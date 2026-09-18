@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -94,8 +96,19 @@ class SQLiteJobQueue:
         connection.execute("PRAGMA busy_timeout=30000")
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        """Commit/rollback one operation and always release the SQLite file handle."""
+
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _ensure_schema(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS jobs (
@@ -158,7 +171,7 @@ class SQLiteJobQueue:
             created_at=now,
             updated_at=now,
         )
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO jobs (
@@ -179,7 +192,7 @@ class SQLiteJobQueue:
         return job
 
     def get(self, job_id: UUID | str) -> Job | None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM jobs WHERE id = ?",
                 (str(job_id),),
@@ -237,7 +250,7 @@ class SQLiteJobQueue:
         lease_expires_at = (current + timedelta(seconds=lease_seconds)).isoformat()
         claim_token = str(uuid7())
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute("BEGIN IMMEDIATE")
             self._requeue_expired(
                 connection,
@@ -305,7 +318,7 @@ class SQLiteJobQueue:
             clauses.append("job_type = ?")
             params.append(job_type)
         where = " AND ".join(clauses)
-        with self._connect() as connection:
+        with self._connection() as connection:
             failed = connection.execute(
                 f"""
                 UPDATE jobs
@@ -341,7 +354,7 @@ class SQLiteJobQueue:
         if current.tzinfo is None:
             current = current.replace(tzinfo=UTC)
         current = current.astimezone(UTC)
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE jobs SET updated_at = ?, lease_expires_at = ?
@@ -359,7 +372,7 @@ class SQLiteJobQueue:
 
     def complete(self, job_id: UUID, claim_token: str) -> bool:
         now = utc_now_iso()
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE jobs
@@ -380,7 +393,7 @@ class SQLiteJobQueue:
 
     def retry(self, job_id: UUID, claim_token: str, error: str) -> bool:
         now = utc_now_iso()
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE jobs
@@ -401,7 +414,7 @@ class SQLiteJobQueue:
 
     def fail(self, job_id: UUID, claim_token: str, error: str) -> bool:
         now = utc_now_iso()
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 """
                 UPDATE jobs
@@ -423,7 +436,7 @@ class SQLiteJobQueue:
 
     def cancel(self, job_id: UUID) -> None:
         now = utc_now_iso()
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 UPDATE jobs
@@ -443,7 +456,7 @@ class SQLiteJobQueue:
 
     def delete_for_child(self, child_id: str) -> int:
         """Remove jobs explicitly owned by one child without matching arbitrary payload text."""
-        with self._connect() as connection:
+        with self._connection() as connection:
             rows = connection.execute("SELECT id, payload_json FROM jobs").fetchall()
             owned_job_ids: list[str] = []
             for row in rows:
@@ -473,6 +486,6 @@ class SQLiteJobQueue:
     def reset(self) -> int:
         """Delete all operational jobs after a destructive data-generation restore."""
 
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute("DELETE FROM jobs")
         return cursor.rowcount
