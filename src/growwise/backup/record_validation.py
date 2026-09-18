@@ -49,7 +49,7 @@ class InvalidRecordTree(ValueError):
     pass
 
 
-def validate_record_tree(records_root: Path) -> int:
+def validate_record_tree(records_root: Path, *, strict_extras: bool = True) -> int:
     """Validate the canonical Markdown tree before any restore swaps authoritative state.
 
     GrowWise stores exactly one record at ``<entity_type>/<id>.md``. This validator rejects path /
@@ -64,11 +64,15 @@ def validate_record_tree(records_root: Path) -> int:
     count = 0
     for path in sorted(records_root.rglob("*")):
         if path.is_symlink():
-            raise InvalidRecordTree(f"symlink record is not allowed: {path.name}")
+            if strict_extras or path.suffix == ".md":
+                raise InvalidRecordTree(f"symlink record is not allowed: {path.name}")
+            continue
         if not path.is_file():
             continue
         if path.suffix != ".md":
-            raise InvalidRecordTree(f"unexpected record file: {path.name}")
+            if strict_extras:
+                raise InvalidRecordTree(f"unexpected record file: {path.name}")
+            continue
 
         try:
             relative = path.relative_to(records_root)
