@@ -1,21 +1,21 @@
 .photo-workspace { display: grid; gap: 18px; }
 .photo-workspace-card, .photo-history { margin-top: 24px; }
-.photo-privacy-note { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: #f7faf8; }
+.photo-privacy-note { margin: 18px 0; padding: 14px 16px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-muted); }
 .photo-privacy-note strong { font-size: 13px; }
 .photo-privacy-note p { margin: 6px 0 0; color: var(--ink-soft); font-size: 13px; line-height: 1.6; }
 .photo-field { display: grid; gap: 8px; margin-top: 16px; }
 .photo-field > span { color: var(--ink-soft); font-size: 12px; font-weight: 700; }
-.photo-field select, .photo-field input[type="file"], .photo-field textarea { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: #fff; color: var(--ink); padding: 11px 12px; }
+.photo-field select, .photo-field input[type="file"], .photo-field textarea { width: 100%; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--ink); padding: 11px 12px; }
 .photo-field textarea { min-height: 112px; resize: vertical; line-height: 1.6; }
 .photo-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
 .photo-preview-grid figure { margin: 0; min-width: 0; }
-.photo-preview-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); background: #f4f2ed; }
+.photo-preview-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); background: var(--surface-neutral); }
 .photo-preview-grid figcaption { margin-top: 6px; color: var(--ink-soft); font-size: 11px; overflow-wrap: anywhere; }
 .photo-workspace-card > .primary-button { margin-top: 18px; }
 .photo-notice { margin-top: 14px; }
-.photo-draft { margin-top: 22px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: #fff; }
+.photo-draft { margin-top: 22px; padding: 20px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface); }
 .photo-draft h3 { margin: 0 0 8px; font-size: 22px; letter-spacing: -.025em; }
-.photo-caption-details { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: #f8f7f4; }
+.photo-caption-details { margin-top: 16px; padding: 12px 14px; border: 1px solid var(--border); border-radius: 12px; background: var(--surface-soft); }
 .photo-caption-details summary { cursor: pointer; font-weight: 700; }
 .photo-caption-item { margin-top: 12px; }
 .photo-caption-item strong { font-size: 12px; }
