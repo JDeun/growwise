@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import re
 import shutil
 import sqlite3
@@ -14,6 +15,7 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
+from growwise.backup.restore_journal import RestoreJournalManager
 from growwise.config import Settings
 from growwise.domain import ResourceRecord
 from growwise.idempotency import SQLiteIdempotencyStore
@@ -28,6 +30,71 @@ logger = logging.getLogger(__name__)
 
 _SAFE_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}\.zip$")
 _AI_JOB_TYPES = (OBSERVATION_ENRICHMENT_JOB, MATERIAL_ENHANCEMENT_JOB, PHOTO_ANALYSIS_JOB)
+_RAG_REBUILD_MARKER = ".growwise-rag-rebuild-required"
+
+
+def _fsync_directory(path: Path) -> None:
+    if not hasattr(os, "O_DIRECTORY"):
+        return
+    try:
+        descriptor = os.open(path, os.O_DIRECTORY)
+    except OSError:
+        return
+    try:
+        os.fsync(descriptor)
+    except OSError:
+        pass
+    finally:
+        os.close(descriptor)
+
+
+def _rag_rebuild_marker(settings: Settings) -> Path:
+    return settings.data_dir / _RAG_REBUILD_MARKER
+
+
+def mark_rag_rebuild_required(settings: Settings) -> None:
+    marker = _rag_rebuild_marker(settings)
+    marker.parent.mkdir(parents=True, exist_ok=True)
+    with marker.open("wb") as handle:
+        handle.write(b"rebuild\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+    _fsync_directory(marker.parent)
+
+
+def clear_rag_rebuild_required(settings: Settings) -> None:
+    marker = _rag_rebuild_marker(settings)
+    marker.unlink(missing_ok=True)
+    _fsync_directory(marker.parent)
+
+
+def recover_startup_state(settings: Settings) -> dict[str, object]:
+    """Recover an interrupted restore before workers or API traffic can observe mixed state."""
+
+    restore_recovered = RestoreJournalManager(
+        records_root=settings.records_dir,
+        index_path=settings.index_path,
+        assets_root=settings.assets_dir,
+        conversations_path=settings.conversations_path,
+    ).recover_if_needed()
+
+    rag_rebuilt = False
+    rag_degraded = False
+    if _rag_rebuild_marker(settings).exists():
+        try:
+            rebuild_rag_projection(settings)
+        except Exception:
+            rag_degraded = True
+            logger.exception("RAG rebuild retry failed during startup recovery")
+        else:
+            clear_rag_rebuild_required(settings)
+            rag_rebuilt = True
+
+    return {
+        "restore_recovered": restore_recovered,
+        "rag_rebuilt": rag_rebuilt,
+        "rag_degraded": rag_degraded,
+    }
 
 
 def validate_archive_name(name: str) -> str:
@@ -173,6 +240,10 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         # are then cancelled before files are replaced, fencing model work started from the old
         # record set. The generation advances on exit, so a stale worker cannot persist afterward.
         with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+            # RAG is disposable but must never silently remain on the pre-restore generation if the
+            # process dies after authoritative swap and before rebuild completes.
+            mark_rag_rebuild_required(settings)
+
             queue = MaintenanceAwareJobQueue(settings.jobs_path)
             cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
 
@@ -191,10 +262,12 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
             )
             try:
                 rag_chunk_count = rebuild_rag_projection(settings)
+                clear_rag_rebuild_required(settings)
                 rag_status = "ready"
             except Exception:
                 # Markdown/assets/index have already been restored successfully. RAG is disposable
                 # and must not turn that authoritative success into an ambiguous restore failure.
+                # Keep the durable marker so the next Core startup retries automatically.
                 logger.exception("RAG projection rebuild failed after authoritative restore")
                 rag_chunk_count = 0
                 rag_status = "degraded"
@@ -240,11 +313,13 @@ def main() -> None:
         # The standalone CLI is a separate process from Core. Reuse the same OS ownership lock so
         # a shell backup cannot bypass the in-process maintenance barrier of a running application.
         with DataDirectoryLock(settings.data_dir):
+            recover_startup_state(settings)
             result = create_backup(settings, args.name)
     elif args.command == "list":
         result = list_backups(settings)
     elif args.command == "restore":
         with DataDirectoryLock(settings.data_dir):
+            recover_startup_state(settings)
             result = restore_backup(settings, args.name, confirmed=args.yes)
     else:  # pragma: no cover - argparse prevents this branch
         raise SystemExit(2)

@@ -79,3 +79,28 @@ def test_shared_app_handles_domain_validation_as_422() -> None:
     assert response.status_code == 422
     payload = json.loads(response.body)
     assert payload["detail"][0]["type"] == "int_parsing"
+
+
+
+def test_standalone_entry_recovers_before_server_start(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    events: list[str] = []
+
+    def fake_recover(_settings) -> dict[str, object]:
+        events.append("recover")
+        return {}
+
+    def fake_run(_app: str, *, host: str, port: int, reload: bool) -> None:
+        del host, port, reload
+        events.append("serve")
+
+    monkeypatch.setenv("GROWWISE_DATA_DIR", str(tmp_path))
+    monkeypatch.setenv("GROWWISE_API_HOST", "127.0.0.1")
+    monkeypatch.setattr(entry, "recover_startup_state", fake_recover)
+    monkeypatch.setattr(entry.uvicorn, "run", fake_run)
+
+    entry.run()
+
+    assert events == ["recover", "serve"]

@@ -1,10 +1,12 @@
 import sqlite3
+import sys
 from pathlib import Path
 
 import pytest
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.backup import BackupService
+from growwise.backup import cli as backup_cli
 from growwise.backup.cli import (
     create_backup,
     list_backups,
@@ -379,3 +381,38 @@ def test_restore_uses_same_immutable_archive_after_preflight(
     rebuilt = EntityStore(settings.records_dir, settings.index_path)
     children = rebuilt.index.list_entities(entity_type="child_profile")
     assert [item["nickname"] for item in children] == ["백업시점"]
+
+
+
+@pytest.mark.parametrize("command", ["create", "restore"])
+def test_mutating_backup_cli_recovers_before_operation(
+    command: str,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    events: list[str] = []
+    monkeypatch.setenv("GROWWISE_DATA_DIR", str(tmp_path))
+    monkeypatch.setattr(
+        backup_cli,
+        "recover_startup_state",
+        lambda _settings: events.append("recover") or {},
+    )
+    monkeypatch.setattr(
+        backup_cli,
+        "create_backup",
+        lambda _settings, _name=None: events.append("create") or {},
+    )
+    monkeypatch.setattr(
+        backup_cli,
+        "restore_backup",
+        lambda _settings, _name, *, confirmed: events.append("restore") or {},
+    )
+
+    if command == "create":
+        monkeypatch.setattr(sys, "argv", ["growwise-backup", "create", "--name", "test.zip"])
+    else:
+        monkeypatch.setattr(sys, "argv", ["growwise-backup", "restore", "test.zip", "--yes"])
+
+    backup_cli.main()
+
+    assert events == ["recover", command]
