@@ -12,7 +12,7 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from uuid6 import uuid7
 
@@ -193,6 +193,7 @@ class PhotoAssetStore:
         child_id: str,
         upload: PhotoUpload,
         namespace: str = "photos",
+        asset_id: UUID | None = None,
     ) -> tuple[PhotoAsset, bool]:
         if not upload.data:
             raise PhotoValidationError("empty_image")
@@ -232,6 +233,7 @@ class PhotoAssetStore:
 
         return (
             PhotoAsset(
+                id=asset_id or uuid7(),
                 child_id=UUID(child_id),
                 original_filename=original_name[:255],
                 mime_type=detected_mime,
@@ -315,6 +317,7 @@ LearningLog."""
         child_id: str,
         uploads: list[PhotoUpload],
         user_context: str | None,
+        record_id: UUID | None = None,
     ) -> tuple[PhotoActivityRecord, list[PhotoAsset]]:
         """Persist upload bytes quickly without waiting for local model inference."""
         if not uploads or len(uploads) > self.max_images:
@@ -322,12 +325,20 @@ LearningLog."""
 
         with child_operation_lock(child_id):
             self._require_child(child_id)
+            draft_id = record_id or uuid7()
             assets: list[PhotoAsset] = []
             newly_created: list[Path] = []
             saved_assets: list[PhotoAsset] = []
             try:
-                for upload in uploads:
-                    asset, created = self.asset_store.store(child_id=child_id, upload=upload)
+                for index, upload in enumerate(uploads):
+                    # Stable per-draft metadata IDs let a crashed create retry overwrite/reconcile
+                    # the same photo_asset records instead of leaking duplicates. The binary itself
+                    # is already content-addressed by SHA-256.
+                    asset, created = self.asset_store.store(
+                        child_id=child_id,
+                        upload=upload,
+                        asset_id=uuid5(draft_id, f"photo-asset:{index}"),
+                    )
                     if created:
                         newly_created.append(self.asset_store.assets_root / asset.relative_path)
                     self.store.save(asset)
@@ -340,6 +351,7 @@ LearningLog."""
                     else None
                 )
                 record = PhotoActivityRecord(
+                    id=draft_id,
                     child_id=UUID(child_id),
                     photo_asset_ids=[asset.id for asset in assets],
                     user_context=clean_context,
