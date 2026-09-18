@@ -1,4 +1,5 @@
 export { CapabilityBanner } from "./CapabilityBanner";
+export { ChildAvatar } from "./ChildAvatar";
 export { ConfirmDialog } from "./ConfirmDialog";
 export { EmptyState } from "./EmptyState";
 export { EntityLinkPanel } from "./EntityLinkPanel";
