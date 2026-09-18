@@ -240,10 +240,28 @@ class SQLiteConversationStore:
         connection: sqlite3.Connection,
         session_id: str,
     ) -> list[ConversationTurn]:
+        columns = {
+            str(row["name"])
+            for row in connection.execute("PRAGMA table_info(conversation_turns)").fetchall()
+        }
+        has_operation_key = "operation_key" in columns
+        has_operation_hash = "operation_hash" in columns
+        has_insufficient_evidence = "insufficient_evidence" in columns
+        optional_columns = [
+            name
+            for name, present in (
+                ("operation_key", has_operation_key),
+                ("operation_hash", has_operation_hash),
+                ("insufficient_evidence", has_insufficient_evidence),
+            )
+            if present
+        ]
+        select_columns = ", ".join(
+            ["role", "content", "source_ids_json", *optional_columns, "created_at"]
+        )
         rows = connection.execute(
-            """
-            SELECT role, content, source_ids_json, operation_key, operation_hash,
-                   insufficient_evidence, created_at
+            f"""
+            SELECT {select_columns}
             FROM conversation_turns
             WHERE session_id = ?
             ORDER BY created_at ASC, rowid ASC
@@ -255,11 +273,11 @@ class SQLiteConversationStore:
                 role=row["role"],
                 content=row["content"],
                 source_ids=json.loads(row["source_ids_json"]),
-                operation_key=row["operation_key"],
-                operation_hash=row["operation_hash"],
+                operation_key=row["operation_key"] if has_operation_key else None,
+                operation_hash=row["operation_hash"] if has_operation_hash else None,
                 insufficient_evidence=(
                     None
-                    if row["insufficient_evidence"] is None
+                    if not has_insufficient_evidence or row["insufficient_evidence"] is None
                     else bool(row["insufficient_evidence"])
                 ),
                 created_at=row["created_at"],
