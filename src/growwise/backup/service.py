@@ -161,6 +161,58 @@ class BackupService:
                 conversation_snapshot.unlink(missing_ok=True)
         return manifest
 
+    def validate_archive(self, archive_path: Path) -> BackupManifest:
+        """Fully validate an archive without mutating active application state."""
+
+        if not archive_path.is_file():
+            raise FileNotFoundError(archive_path)
+
+        with tempfile.TemporaryDirectory(prefix="growwise-backup-preflight-") as temp_dir:
+            staging = Path(temp_dir)
+            try:
+                with zipfile.ZipFile(archive_path, "r") as archive:
+                    self._validate_members(archive)
+                    manifest = self._read_manifest(archive)
+                    archive.extractall(staging)
+            except zipfile.BadZipFile as exc:
+                raise InvalidBackup("backup archive is not a valid ZIP file") from exc
+
+            staged_records = staging / "records"
+            actual_record_count = self._validate_records(staged_records)
+            if actual_record_count != manifest.record_count:
+                raise InvalidBackup(
+                    "manifest record count does not match archive contents: "
+                    f"expected {manifest.record_count}, got {actual_record_count}"
+                )
+
+            staged_assets = staging / "assets"
+            actual_asset_count = self._validate_assets(staged_assets)
+            if actual_asset_count != manifest.asset_count:
+                raise InvalidBackup(
+                    "manifest asset count does not match archive contents: "
+                    f"expected {manifest.asset_count}, got {actual_asset_count}"
+                )
+
+            staged_conversations = staging / self.CONVERSATIONS_STATE_NAME
+            if manifest.format_version == 2:
+                if not staged_conversations.is_file():
+                    raise InvalidBackup("backup v2 is missing conversation state")
+                try:
+                    actual_conversation_count = SQLiteConversationStore.validate_snapshot(
+                        staged_conversations
+                    )
+                except ValueError as exc:
+                    raise InvalidBackup(str(exc)) from exc
+                if actual_conversation_count != manifest.conversation_count:
+                    raise InvalidBackup(
+                        "manifest conversation count does not match archive contents: "
+                        f"expected {manifest.conversation_count}, got {actual_conversation_count}"
+                    )
+            elif staged_conversations.exists():
+                raise InvalidBackup("backup v1 must not contain conversation state")
+
+            return manifest
+
     def restore(
         self,
         *,
