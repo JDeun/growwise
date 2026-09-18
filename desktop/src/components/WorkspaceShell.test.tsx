@@ -11,7 +11,7 @@ describe("WorkspaceShell", () => {
     expect(html).toContain('data-active-workspace="materials"');
     expect(html).toContain('id="workspace-panel"');
     expect(html).toContain('role="region"');
-    expect(html).toContain('aria-label="학습 자료 작업공간"');
+    expect(html).toContain('aria-label="자료실 작업공간"');
     expect(html).toContain('href="#workspace-panel"');
     expect(html).toContain("작업공간 본문으로 바로가기");
     expect(html).toContain("materials workspace");
