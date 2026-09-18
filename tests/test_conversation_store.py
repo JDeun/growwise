@@ -1,3 +1,4 @@
+import json
 import sqlite3
 
 import pytest
@@ -238,7 +239,7 @@ def test_conversation_store_validates_v1_snapshot_without_mutating_it(tmp_path) 
             (
                 session.id,
                 session.child_id,
-                __import__("json").dumps(payload, ensure_ascii=False, default=str),
+                json.dumps(payload, ensure_ascii=False, default=str),
                 session.created_at.isoformat(),
                 session.updated_at.isoformat(),
             ),
