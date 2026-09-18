@@ -24,6 +24,7 @@ class IdempotencyStatus(StrEnum):
 
 
 DEFAULT_LEASE_SECONDS = 120
+_SQLITE_IN_CHUNK = 400
 
 
 class _GenerationBound(Protocol):
@@ -454,15 +455,24 @@ class SQLiteIdempotencyStore:
         """Remove idempotency metadata for resources that were deliberately purged."""
         if not resource_ids:
             return 0
-        placeholders = ",".join("?" for _ in resource_ids)
+        ordered_ids = sorted(resource_ids)
+        deleted = 0
         connection = self._connect()
         try:
-            cursor = connection.execute(
-                f"DELETE FROM idempotency_records WHERE resource_id IN ({placeholders})",
-                tuple(sorted(resource_ids)),
-            )
+            connection.execute("BEGIN IMMEDIATE")
+            for offset in range(0, len(ordered_ids), _SQLITE_IN_CHUNK):
+                id_chunk = ordered_ids[offset : offset + _SQLITE_IN_CHUNK]
+                placeholders = ",".join("?" for _ in id_chunk)
+                cursor = connection.execute(
+                    f"DELETE FROM idempotency_records WHERE resource_id IN ({placeholders})",
+                    id_chunk,
+                )
+                deleted += cursor.rowcount
             connection.commit()
-            return cursor.rowcount
+            return deleted
+        except Exception:
+            connection.rollback()
+            raise
         finally:
             connection.close()
 
