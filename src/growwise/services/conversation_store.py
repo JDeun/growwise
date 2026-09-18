@@ -118,7 +118,9 @@ class SQLiteConversationStore:
         return json.dumps(payload, ensure_ascii=False)
 
     def save(self, session: ConversationSession) -> None:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
@@ -209,7 +211,9 @@ class SQLiteConversationStore:
             return [self._session_from_row(connection, row) for row in rows]
 
     def delete(self, session_id: str) -> bool:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
             cursor = connection.execute(
@@ -221,7 +225,9 @@ class SQLiteConversationStore:
 
     def delete_for_child(self, child_id: str) -> int:
         """Delete all sessions and turns for one child and return the session count."""
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
                 "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
@@ -236,3 +242,63 @@ class SQLiteConversationStore:
             connection.execute("DELETE FROM conversation_sessions WHERE child_id = ?", (child_id,))
             connection.commit()
         return len(session_ids)
+
+
+    def snapshot_to(self, destination: Path) -> int:
+        """Write one transactionally consistent portable SQLite snapshot."""
+
+        destination.parent.mkdir(parents=True, exist_ok=True)
+        destination.unlink(missing_ok=True)
+        with self._connect() as source:
+            target = sqlite3.connect(destination)
+            try:
+                source.backup(target)
+            finally:
+                target.close()
+        return self.validate_snapshot(destination)
+
+    @classmethod
+    def validate_snapshot(cls, path: Path) -> int:
+        """Validate a conversation SQLite snapshot without mutating it."""
+
+        if not path.is_file():
+            raise ValueError("conversation snapshot is missing")
+        uri = f"file:{path.absolute().as_posix()}?mode=ro"
+        connection = sqlite3.connect(uri, uri=True)
+        connection.row_factory = sqlite3.Row
+        try:
+            integrity = connection.execute("PRAGMA integrity_check").fetchone()
+            if integrity is None or str(integrity[0]).lower() != "ok":
+                raise ValueError("conversation snapshot failed SQLite integrity check")
+            tables = {
+                str(row["name"])
+                for row in connection.execute(
+                    "SELECT name FROM sqlite_master WHERE type = 'table'"
+                ).fetchall()
+            }
+            required = {"conversation_sessions", "conversation_turns"}
+            if not required.issubset(tables):
+                raise ValueError("conversation snapshot schema is incomplete")
+            orphan = connection.execute(
+                """
+                SELECT COUNT(*)
+                FROM conversation_turns AS turns
+                LEFT JOIN conversation_sessions AS sessions
+                  ON sessions.id = turns.session_id
+                WHERE sessions.id IS NULL
+                """
+            ).fetchone()
+            if orphan is not None and int(orphan[0]) != 0:
+                raise ValueError("conversation snapshot contains orphan turns")
+            rows = connection.execute(
+                "SELECT id, child_id, payload_json, updated_at FROM conversation_sessions"
+            ).fetchall()
+            for row in rows:
+                session = cls._session_from_row(connection, row)
+                if session.id != row["id"] or session.child_id != row["child_id"]:
+                    raise ValueError("conversation snapshot identity mismatch")
+            return len(rows)
+        except sqlite3.DatabaseError as exc:
+            raise ValueError("conversation snapshot is not a valid SQLite database") from exc
+        finally:
+            connection.close()
