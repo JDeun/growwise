@@ -16,6 +16,16 @@ _MAX_QUERY_TERM_CHARS = 128
 _SQLITE_IN_CHUNK = 400
 
 
+def _decode_tags(value: object) -> list[str]:
+    try:
+        payload = json.loads(value) if isinstance(value, str) else value
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [str(item) for item in payload if isinstance(item, (str, int, float))]
+
+
 def _normalize_query_terms(query: str) -> list[str]:
     terms: list[str] = []
     seen: set[str] = set()
@@ -426,7 +436,8 @@ class HybridRagIndex:
 
         ranked: list[tuple[float, dict]] = []
         for row in rows:
-            haystack = f"{row['title']} {row['text']} {row['tags_json']}".casefold()
+            tags = _decode_tags(row["tags_json"])
+            haystack = " ".join((str(row["title"]), str(row["text"]), *tags)).casefold()
             lexical = float(sum(haystack.count(term) for term in query_terms))
             vector_score = 0.0
             if query_vector is not None and row["embedding_json"]:
@@ -447,7 +458,7 @@ class HybridRagIndex:
                 "text": row["text"],
                 "source_url": row["source_url"],
                 "source_name": row["source_name"],
-                "tags": json.loads(row["tags_json"]),
+                "tags": tags,
                 "recorded_at": row["recorded_at"],
                 "temporal_tier": temporal_tier(
                     row["recorded_at"], reference_date=reference_date
