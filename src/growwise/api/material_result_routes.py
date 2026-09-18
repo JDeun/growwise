@@ -5,8 +5,9 @@ from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain.links import EntityLinkRelation
@@ -21,6 +22,12 @@ from growwise.domain.models import (
     TagText,
 )
 from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
+from growwise.idempotency import (
+    IdempotencyConflict,
+    IdempotencyStatus,
+    SQLiteIdempotencyStore,
+    request_fingerprint,
+)
 from growwise.services.activity import ActivityPlanService, InvalidActivityTransition
 from growwise.services.child_lock import child_operation_lock
 from growwise.services.entity_links import EntityLinkService
@@ -71,6 +78,10 @@ def get_material_result_store(
     settings: Annotated[Settings, Depends(get_material_result_settings)],
 ) -> EntityStore:
     return EntityStore(settings.records_dir, settings.index_path)
+
+
+def get_material_result_idempotency_store() -> SQLiteIdempotencyStore:
+    return SQLiteIdempotencyStore(get_material_result_settings().idempotency_path)
 
 
 def _approved_material(store: EntityStore, material_id: UUID) -> GeneratedMaterial:
@@ -208,6 +219,75 @@ def _photo_records_for_result(
     return photos
 
 
+def _ensure_material_result_links(
+    *,
+    store: EntityStore,
+    material: GeneratedMaterial,
+    activity: ActivityPlan,
+    log: LearningLog,
+    photos: list[PhotoActivityRecord],
+) -> None:
+    """Converge all secondary links for a material result after a retry or crash.
+
+    EntityLinkService.create() is idempotent on (source, target, relation), so this helper can be
+    replayed whenever the authoritative LearningLog already exists.
+    """
+    links = EntityLinkService(store)
+    links.create(
+        source_id=material.id,
+        target_id=activity.id,
+        relation=EntityLinkRelation.SUPPORTS,
+        label="이 생성 자료로 수행한 활동",
+    )
+    links.create(
+        source_id=log.id,
+        target_id=activity.id,
+        relation=EntityLinkRelation.DOCUMENTS,
+        label="활동 결과 기록",
+    )
+    links.create(
+        source_id=log.id,
+        target_id=material.id,
+        relation=EntityLinkRelation.DERIVED_FROM,
+        label="이 생성 자료를 사용한 결과",
+    )
+    for photo in photos:
+        links.create(
+            source_id=photo.id,
+            target_id=log.id,
+            relation=EntityLinkRelation.DOCUMENTS,
+            label="활동 결과 사진 기록",
+        )
+
+
+def _existing_material_result(
+    *,
+    store: EntityStore,
+    material: GeneratedMaterial,
+    log: LearningLog,
+    photos: list[PhotoActivityRecord],
+) -> MaterialResultResponse:
+    if (
+        log.child_id != material.child_id
+        or log.record_kind is not LearningRecordKind.MATERIAL_USE
+        or log.activity_plan_id is None
+    ):
+        raise HTTPException(status_code=409, detail="idempotency_resource_mismatch")
+    activity = _load_activity_for_material(
+        store=store,
+        material=material,
+        activity_plan_id=log.activity_plan_id,
+    )
+    _ensure_material_result_links(
+        store=store,
+        material=material,
+        activity=activity,
+        log=log,
+        photos=photos,
+    )
+    return MaterialResultResponse(activity=activity, learning_log=log)
+
+
 @router.post(
     "/materials/{material_id}/results",
     response_model=MaterialResultResponse,
@@ -216,8 +296,15 @@ def record_material_result(
     material_id: UUID,
     request: MaterialResultRequest,
     store: Annotated[EntityStore, Depends(get_material_result_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> MaterialResultResponse:
     material = _approved_material(store, material_id)
+    idempotency_store = get_material_result_idempotency_store()
+    request_hash = request_fingerprint(
+        {"material_id": str(material_id), **request.model_dump(mode="json")}
+    )
+    reserved_log_id: UUID = uuid7()
+    claim = None
 
     with child_operation_lock(str(material.child_id)):
         if store.index.get_entity(str(material.child_id), entity_type="child_profile") is None:
@@ -228,54 +315,107 @@ def record_material_result(
             child_id=material.child_id,
             photo_record_ids=request.photo_record_ids,
         )
-        activity = _activity_for_result(store=store, material=material, request=request)
 
-        tags = list(dict.fromkeys(["material-use", material.kind.value, *request.tags]))
-        log = LearningLog(
-            child_id=material.child_id,
-            activity_plan_id=activity.id,
-            record_kind=LearningRecordKind.MATERIAL_USE,
-            title=material.title,
-            parent_observation=request.observation,
-            learner_work=request.learner_work,
-            process=request.process,
-            child_question=request.child_question,
-            interest=request.interest,
-            difficulty_note=request.difficulty_note,
-            next_activity=request.next_activity,
-            tags=tags,
-            experience_axes=list(request.experience_axes),
-        )
-        store.save(log)
+        if idempotency_key is not None:
+            try:
+                claim = idempotency_store.claim(
+                    key=idempotency_key,
+                    request_hash=request_hash,
+                    resource_type="material_result",
+                    resource_id=str(reserved_log_id),
+                )
+            except IdempotencyConflict as exc:
+                raise HTTPException(status_code=409, detail=str(exc)) from exc
 
-        links = EntityLinkService(store)
-        links.create(
-            source_id=material.id,
-            target_id=activity.id,
-            relation=EntityLinkRelation.SUPPORTS,
-            label="이 생성 자료로 수행한 활동",
-        )
-        links.create(
-            source_id=log.id,
-            target_id=activity.id,
-            relation=EntityLinkRelation.DOCUMENTS,
-            label="활동 결과 기록",
-        )
-        links.create(
-            source_id=log.id,
-            target_id=material.id,
-            relation=EntityLinkRelation.DERIVED_FROM,
-            label="이 생성 자료를 사용한 결과",
-        )
-        for photo in photos:
-            links.create(
-                source_id=photo.id,
-                target_id=log.id,
-                relation=EntityLinkRelation.DOCUMENTS,
-                label="활동 결과 사진 기록",
+            reserved_log_id = UUID(claim.record.resource_id)
+            if not claim.acquired:
+                existing_payload = store.index.get_entity(
+                    claim.record.resource_id,
+                    entity_type="learning_log",
+                )
+                if existing_payload is not None:
+                    if claim.record.status is IdempotencyStatus.PENDING:
+                        idempotency_store.complete(
+                            key=claim.record.key,
+                            request_hash=claim.record.request_hash,
+                            resource_id=claim.record.resource_id,
+                        )
+                    return _existing_material_result(
+                        store=store,
+                        material=material,
+                        log=LearningLog.model_validate(existing_payload),
+                        photos=photos,
+                    )
+                if claim.record.status is IdempotencyStatus.COMPLETED:
+                    raise HTTPException(status_code=409, detail="idempotency_resource_missing")
+                raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
+        try:
+            activity = _activity_for_result(store=store, material=material, request=request)
+            tags = list(dict.fromkeys(["material-use", material.kind.value, *request.tags]))
+            log = LearningLog(
+                id=reserved_log_id,
+                child_id=material.child_id,
+                activity_plan_id=activity.id,
+                record_kind=LearningRecordKind.MATERIAL_USE,
+                title=material.title,
+                parent_observation=request.observation,
+                learner_work=request.learner_work,
+                process=request.process,
+                child_question=request.child_question,
+                interest=request.interest,
+                difficulty_note=request.difficulty_note,
+                next_activity=request.next_activity,
+                tags=tags,
+                experience_axes=list(request.experience_axes),
             )
+            self_existing = store.index.get_entity(str(log.id), entity_type="learning_log")
+            if self_existing is None:
+                store.save(log)
+            else:
+                log = LearningLog.model_validate(self_existing)
+                if (
+                    log.child_id != material.child_id
+                    or log.record_kind is not LearningRecordKind.MATERIAL_USE
+                    or log.activity_plan_id != activity.id
+                ):
+                    raise HTTPException(status_code=409, detail="idempotency_resource_mismatch")
 
-    return MaterialResultResponse(activity=activity, learning_log=log)
+            _ensure_material_result_links(
+                store=store,
+                material=material,
+                activity=activity,
+                log=log,
+                photos=photos,
+            )
+            if claim is not None and claim.acquired:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            return MaterialResultResponse(activity=activity, learning_log=log)
+        except Exception:
+            if claim is not None and claim.acquired:
+                existing_payload = store.index.get_entity(
+                    claim.record.resource_id,
+                    entity_type="learning_log",
+                )
+                if existing_payload is None:
+                    idempotency_store.release(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                else:
+                    # The authoritative result exists. Mark the claim complete so a retry can
+                    # reconcile any missing secondary links instead of creating another log.
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+            raise
 
 
 @router.get(
