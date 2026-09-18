@@ -354,14 +354,13 @@ async fn search_child_context(
 }
 #[tauri::command]
 async fn create_conversation(child_id: String) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!(
-            "{CORE_BASE_URL}/v1/children/{child_id}/conversations"
-        ))
-        .json(&serde_json::json!({"title": null}))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({"title": null});
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children/{child_id}/conversations"),
+        &body,
+        "conversation-create",
+    )
+    .await?;
     ensure_success(response, "대화 세션 생성 실패")
         .await?
         .json::<serde_json::Value>()
@@ -389,14 +388,13 @@ async fn append_conversation_turn(
     session_id: String,
     question: String,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!(
-            "{CORE_BASE_URL}/v1/conversations/{session_id}/turns"
-        ))
-        .json(&serde_json::json!({"question": question, "limit": 8}))
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::json!({"question": question, "limit": 8});
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/conversations/{session_id}/turns"),
+        &body,
+        "conversation-turn",
+    )
+    .await?;
     ensure_success(response, "후속 질문 처리 실패")
         .await?
         .json::<serde_json::Value>()
