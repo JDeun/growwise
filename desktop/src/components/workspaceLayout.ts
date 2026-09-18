@@ -2,6 +2,7 @@ import type { WorkspaceView } from "./workspaceTypes";
 
 export type WorkspaceLayoutKey =
   | "child-context"
+  | "profile"
   | "observations"
   | "photos"
   | "learning-records"
@@ -15,6 +16,7 @@ export type WorkspaceLayoutKey =
 
 export const WORKSPACE_LAYOUT: Record<WorkspaceView, readonly WorkspaceLayoutKey[]> = {
   home: ["child-context"],
+  profile: ["profile"],
   observations: ["observations"],
   photos: ["photos"],
   learning: ["learning-records"],

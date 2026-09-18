@@ -119,3 +119,260 @@
     justify-self: start;
   }
 }
+
+
+.child-profile-section {
+  display: grid;
+  gap: 18px;
+}
+
+.child-profile-card {
+  align-content: start;
+  min-height: 250px;
+  padding: 22px;
+  background:
+    radial-gradient(circle at 92% 8%, rgba(218, 239, 229, .75), transparent 34%),
+    #fff;
+}
+
+.child-profile-card__identity {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+
+.child-profile-card__identity h3 {
+  margin: 2px 0 5px;
+  font-size: 23px;
+  letter-spacing: -.035em;
+}
+
+.child-profile-card__avatar {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 7px;
+}
+
+.child-avatar-edit {
+  position: relative;
+  display: inline-flex;
+}
+
+.child-avatar-edit input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.child-avatar-edit span,
+.child-avatar-remove {
+  border: 0;
+  background: transparent;
+  color: var(--primary-strong);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.child-avatar-edit:focus-within span {
+  outline: 3px solid rgba(47,143,107,.22);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+.child-avatar-remove {
+  margin-top: 8px;
+  padding: 0;
+  color: #8c7770;
+  font-weight: 650;
+}
+
+.child-avatar-remove:disabled,
+.child-avatar-edit:has(input:disabled) span {
+  cursor: default;
+  opacity: .55;
+}
+
+.child-profile-card .verification-list {
+  margin-top: 24px;
+}
+
+@media (max-width: 600px) {
+  .child-profile-card__identity {
+    align-items: flex-start;
+  }
+}
+
+
+.child-roster {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid rgba(42, 73, 60, .09);
+  border-radius: 20px;
+  background: rgba(255,255,255,.96);
+  box-shadow: 0 9px 26px rgba(47, 66, 58, .04);
+}
+
+.child-roster__heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.child-roster__heading h3 {
+  margin: 3px 0 0;
+  color: #2d3933;
+  font-size: 15px;
+  letter-spacing: -.025em;
+}
+
+.child-roster__heading > span {
+  color: #8a9690;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.child-roster__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 9px;
+}
+
+.child-roster-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+  min-height: 72px;
+  padding: 11px 12px;
+  border: 1px solid rgba(42, 73, 60, .09);
+  border-radius: 15px;
+  background: #fbfcfb;
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: transform 120ms ease, border-color 120ms ease, background 120ms ease, box-shadow 120ms ease;
+}
+
+.child-roster-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 143, 107, .24);
+  box-shadow: 0 7px 18px rgba(47, 84, 67, .06);
+}
+
+.child-roster-card.is-active {
+  border-color: rgba(47, 143, 107, .4);
+  background: #f1f8f4;
+  box-shadow: inset 0 0 0 1px rgba(47,143,107,.08);
+}
+
+.child-roster-card__copy {
+  display: grid;
+  min-width: 0;
+  gap: 3px;
+}
+
+.child-roster-card__copy strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.child-roster-card__copy small {
+  color: #87918c;
+  font-size: 9px;
+}
+
+.child-roster-card__status {
+  color: #6d7b74;
+  font-size: 14px;
+  font-weight: 800;
+}
+
+.child-roster-card.is-active .child-roster-card__status {
+  display: grid;
+  place-items: center;
+  width: 21px;
+  height: 21px;
+  border-radius: 50%;
+  background: #2f8f6b;
+  color: #fff;
+  font-size: 10px;
+}
+
+.child-profile-layout {
+  grid-template-columns: minmax(280px, .82fr) minmax(360px, 1.18fr);
+  align-items: stretch;
+}
+
+.child-profile-layout > .profile-form,
+.child-profile-layout > .child-profile-card {
+  border-color: rgba(42, 73, 60, .09);
+  border-radius: 20px;
+  box-shadow: 0 9px 26px rgba(47, 66, 58, .04);
+}
+
+.child-profile-layout > .profile-form {
+  padding: 20px;
+  background: #fff;
+}
+
+.child-profile-card {
+  min-height: 100%;
+}
+
+.child-profile-card__identity {
+  padding-bottom: 18px;
+  border-bottom: 1px solid rgba(42, 73, 60, .08);
+}
+
+.child-profile-card .verification-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.child-profile-card .verification-list > div {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: 1px solid rgba(42, 73, 60, .07);
+  border-radius: 12px;
+  background: rgba(249,251,250,.9);
+}
+
+.child-profile-card .verification-list dt {
+  color: #8d9792;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.child-profile-card .verification-list dd {
+  margin: 0;
+  color: #2d3933;
+  font-size: 15px;
+  font-weight: 760;
+}
+
+@media (max-width: 880px) {
+  .child-profile-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .child-roster__grid,
+  .child-profile-card .verification-list {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

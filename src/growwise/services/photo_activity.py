@@ -185,7 +185,13 @@ class PhotoAssetStore:
         self.assets_root = assets_root
         self.max_file_bytes = max_file_bytes
 
-    def store(self, *, child_id: str, upload: PhotoUpload) -> tuple[PhotoAsset, bool]:
+    def store(
+        self,
+        *,
+        child_id: str,
+        upload: PhotoUpload,
+        namespace: str = "photos",
+    ) -> tuple[PhotoAsset, bool]:
         if not upload.data:
             raise PhotoValidationError("empty_image")
         if len(upload.data) > self.max_file_bytes:
@@ -195,9 +201,11 @@ class PhotoAssetStore:
             raise PhotoValidationError("image_mime_mismatch")
         _validate_container(upload.data, detected_mime)
 
+        if namespace not in {"photos", "avatars"}:
+            raise PhotoValidationError("unsupported_photo_namespace")
         digest = hashlib.sha256(upload.data).hexdigest()
         extension = _MIME_EXTENSION[detected_mime]
-        relative = Path("photos") / child_id / f"{digest}{extension}"
+        relative = Path(namespace) / child_id / f"{digest}{extension}"
         target = self.assets_root / relative
         target.parent.mkdir(parents=True, exist_ok=True)
         created = not target.exists()
@@ -246,12 +254,25 @@ class PhotoAssetStore:
             raise PhotoValidationError("photo_integrity_mismatch")
         return data
 
+    def delete_asset(self, asset: PhotoAsset) -> bool:
+        path = (self.assets_root / asset.relative_path).resolve()
+        root = self.assets_root.resolve()
+        if path != root and root not in path.parents:
+            raise PhotoValidationError("unsafe_photo_path")
+        try:
+            path.unlink()
+        except FileNotFoundError:
+            return False
+        return True
+
     def delete_child(self, child_id: str) -> int:
-        directory = self.assets_root / "photos" / child_id
-        if not directory.exists():
-            return 0
-        count = sum(1 for path in directory.rglob("*") if path.is_file())
-        shutil.rmtree(directory)
+        count = 0
+        for namespace in ("photos", "avatars"):
+            directory = self.assets_root / namespace / child_id
+            if not directory.exists():
+                continue
+            count += sum(1 for path in directory.rglob("*") if path.is_file())
+            shutil.rmtree(directory)
         return count
 
 

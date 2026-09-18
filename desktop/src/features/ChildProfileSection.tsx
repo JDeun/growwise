@@ -1,8 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import type { ChildContextLoadState } from "../child-context-state";
-import { ViewStateNotice } from "../components";
-import { getHealth, type ChildProfile, type GrowthMap, type Stage } from "../api";
+import { ChildAvatar, ViewStateNotice } from "../components";
+import {
+  deleteChildAvatar,
+  getHealth,
+  setChildAvatar,
+  type ChildProfile,
+  type GrowthMap,
+  type Stage,
+} from "../api";
 import { stageLabel } from "../presentation";
 import "./ChildProfileSection.css";
 
@@ -29,6 +36,7 @@ interface ChildProfileSectionProps {
   onAgeMonthsChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectChild: (childId: string) => void;
+  onAvatarUpdated?: (child: ChildProfile) => void;
 }
 
 export function ChildProfileSection({
@@ -48,9 +56,63 @@ export function ChildProfileSection({
   onAgeMonthsChange,
   onSubmit,
   onSelectChild,
+  onAvatarUpdated,
 }: ChildProfileSectionProps) {
   const firstRun = children.length === 0;
   const [modelOnboarding, setModelOnboarding] = useState<ModelOnboardingState>({ kind: "idle" });
+  const [avatarBusy, setAvatarBusy] = useState(false);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
+
+  async function handleAvatarFile(file: File | null) {
+    if (!activeChild || !file) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      setAvatarError("JPG, PNG, WebP 이미지만 사용할 수 있습니다.");
+      return;
+    }
+    if (file.size > 15 * 1024 * 1024) {
+      setAvatarError("프로필 사진은 15MB 이하로 선택해 주세요.");
+      return;
+    }
+
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      const dataBase64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error ?? new Error("프로필 사진을 읽지 못했습니다."));
+        reader.onload = () => {
+          const value = typeof reader.result === "string" ? reader.result : "";
+          const comma = value.indexOf(",");
+          if (comma < 0) reject(new Error("프로필 사진을 읽지 못했습니다."));
+          else resolve(value.slice(comma + 1));
+        };
+        reader.readAsDataURL(file);
+      });
+      const updated = await setChildAvatar(activeChild.id, {
+        filename: file.name || "avatar",
+        mime_type: file.type,
+        data_base64: dataBase64,
+      });
+      onAvatarUpdated?.(updated);
+    } catch (cause) {
+      setAvatarError(cause instanceof Error ? cause.message : "프로필 사진 저장에 실패했습니다.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
+
+  async function handleAvatarDelete() {
+    if (!activeChild || !activeChild.avatar_asset_id) return;
+    setAvatarBusy(true);
+    setAvatarError(null);
+    try {
+      onAvatarUpdated?.(await deleteChildAvatar(activeChild.id));
+    } catch (cause) {
+      setAvatarError(cause instanceof Error ? cause.message : "프로필 사진 삭제에 실패했습니다.");
+    } finally {
+      setAvatarBusy(false);
+    }
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -79,11 +141,11 @@ export function ChildProfileSection({
   }, [connected, firstRun]);
 
   return (
-    <>
+    <section className="child-profile-section" aria-labelledby="child-profile-title">
       <div className="section-heading">
         <div>
           <p className="eyebrow">아이 프로필</p>
-          <h2>{firstRun ? "처음 설정을 마치면 바로 기록을 시작할 수 있습니다." : "기존 기록을 이어서 사용합니다."}</h2>
+          <h2 id="child-profile-title">{firstRun ? "처음 설정을 마치면 바로 기록을 시작할 수 있습니다." : "아이의 기본 정보와 성장 맥락을 관리합니다."}</h2>
         </div>
         {firstRun && <span className="badge">처음 설정</span>}
       </div>
@@ -136,25 +198,41 @@ export function ChildProfileSection({
       )}
 
       {children.length > 0 && (
-        <div className="child-switcher">
-          <label>
-            <span>아이 선택</span>
-            <select
-              value={activeChild?.id ?? ""}
-              onChange={(event) => onSelectChild(event.target.value)}
-            >
-              {children.map((child) => (
-                <option key={child.id} value={child.id}>
-                  {child.nickname} · {stageLabel(child.stage)} · {child.age_months ?? "-"}개월
-                </option>
-              ))}
-            </select>
-          </label>
-          <p className="muted">마지막 선택을 기억하고, 아이를 바꾸면 해당 아이의 최신 기록을 다시 불러옵니다.</p>
-        </div>
+        <section className="child-roster" aria-labelledby="child-roster-title">
+          <div className="child-roster__heading">
+            <div>
+              <p className="card-label">아이 목록</p>
+              <h3 id="child-roster-title">프로필을 선택해 기록 맥락을 바꿉니다.</h3>
+            </div>
+            <span>{children.length}명</span>
+          </div>
+          <div className="child-roster__grid">
+            {children.map((child) => {
+              const selected = child.id === activeChild?.id;
+              return (
+                <button
+                  key={child.id}
+                  type="button"
+                  className={`child-roster-card ${selected ? "is-active" : ""}`}
+                  aria-pressed={selected}
+                  onClick={() => onSelectChild(child.id)}
+                >
+                  <ChildAvatar child={child} size="md" />
+                  <span className="child-roster-card__copy">
+                    <strong>{child.nickname}</strong>
+                    <small>{stageLabel(child.stage)} · {child.age_months ?? "—"}개월</small>
+                  </span>
+                  <span className="child-roster-card__status" aria-hidden="true">
+                    {selected ? "✓" : "›"}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
       )}
 
-      <div className="skeleton-grid">
+      <div className="skeleton-grid child-profile-layout">
         <form className="profile-form" onSubmit={onSubmit}>
           <p className="card-label">{firstRun ? "첫 프로필" : "새 아이 추가"}</p>
           <label>
@@ -181,12 +259,43 @@ export function ChildProfileSection({
           {error && <p className="form-error" role="alert">{error}</p>}
         </form>
 
-        <article className="verification-card">
+        <article className="verification-card child-profile-card">
           {activeChild ? (
             <>
-              <p className="card-label">현재 아이</p>
-              <h3>{activeChild.nickname}</h3>
-              <p className="muted">아이를 바꾸면 각 기록 영역도 선택한 아이에 맞춰 새로 불러옵니다.</p>
+              <div className="child-profile-card__identity">
+                <div className="child-profile-card__avatar">
+                  <ChildAvatar child={activeChild} size="lg" />
+                  <label className="child-avatar-edit">
+                    <input
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp"
+                      disabled={avatarBusy}
+                      onChange={(event) => {
+                        const file = event.currentTarget.files?.[0] ?? null;
+                        void handleAvatarFile(file);
+                        event.currentTarget.value = "";
+                      }}
+                    />
+                    <span>{avatarBusy ? "처리 중…" : activeChild.avatar_asset_id ? "사진 변경" : "사진 추가"}</span>
+                  </label>
+                </div>
+                <div>
+                  <p className="card-label">현재 아이</p>
+                  <h3>{activeChild.nickname}</h3>
+                  <p className="muted">{stageLabel(activeChild.stage)} · {activeChild.age_months ?? "—"}개월</p>
+                  {activeChild.avatar_asset_id && (
+                    <button
+                      type="button"
+                      className="child-avatar-remove"
+                      disabled={avatarBusy}
+                      onClick={() => void handleAvatarDelete()}
+                    >
+                      사진 삭제
+                    </button>
+                  )}
+                </div>
+              </div>
+              {avatarError && <p className="form-error" role="alert">{avatarError}</p>}
               <dl className="verification-list">
                 <div><dt>월령</dt><dd>{activeChild.age_months ?? "-"}개월</dd></div>
                 <div><dt>최근 기록</dt><dd>{childContext.growth.kind === "ready" && growthMap ? growthMap.total_logs_in_period : "—"}</dd></div>
@@ -212,6 +321,6 @@ export function ChildProfileSection({
           />
         </section>
       )}
-    </>
+    </section>
   );
 }

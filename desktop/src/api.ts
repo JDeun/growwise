@@ -94,6 +94,12 @@ export interface ChildProfile {
   additional_languages?: string[];
   learning_goals?: string[];
   notes?: string | null;
+  avatar_asset_id?: string | null;
+}
+export interface ChildAvatarInput {
+  filename: string;
+  mime_type: string;
+  data_base64: string;
 }
 export interface ChildPurgeResult {
   child_id: string;
@@ -428,6 +434,10 @@ export const createChild = (request: ChildCreateInput) =>
   call<ChildProfile>("create_child", { request });
 export const updateChild = (childId: string, request: ChildUpdateInput) =>
   call<ChildProfile>("update_child", { childId, request });
+export const setChildAvatar = (childId: string, request: ChildAvatarInput) =>
+  call<ChildProfile>("set_child_avatar", { childId, request });
+export const deleteChildAvatar = (childId: string) =>
+  call<ChildProfile>("delete_child_avatar", { childId });
 export const listChildren = () => call<ChildProfile[]>("list_children");
 export const deleteChild = (childId: string) =>
   call<ChildPurgeResult>("delete_child", { childId });

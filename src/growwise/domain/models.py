@@ -153,6 +153,7 @@ class ChildProfile(EntityBase):
     preferences: dict[str, list[str]] = Field(default_factory=dict, max_length=100)
     learning_goals: list[ShortText] = Field(default_factory=list, max_length=100)
     notes: str | None = Field(default=None, max_length=10_000)
+    avatar_asset_id: UUID | None = None
 
     @model_validator(mode="before")
     @classmethod

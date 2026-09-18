@@ -19,7 +19,9 @@ use background_write_commands::{
     create_observation_background, generate_material_background, revise_material_background,
 };
 use backup_commands::{create_backup, export_backup, import_backup, list_backups, restore_backup};
-use child_commands::{create_child, delete_child, list_children, update_child};
+use child_commands::{
+    create_child, delete_child, delete_child_avatar, list_children, set_child_avatar, update_child,
+};
 use core_process::CoreProcessManager;
 use discovery_commands::{discover_education_resources, save_discovered_resource};
 use learning_record_commands::{create_learning_record, list_learning_records};
@@ -648,6 +650,8 @@ pub fn run() {
             core_runtime_status,
             create_child,
             update_child,
+            set_child_avatar,
+            delete_child_avatar,
             list_children,
             delete_child,
             create_observation,

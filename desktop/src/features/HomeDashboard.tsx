@@ -4,16 +4,19 @@ import { useActiveChild } from "../active-child-context";
 import {
   getGrowthMap,
   listActivities,
+  listBackups,
   listMaterials,
   listObservations,
   listResources,
   type ActivityPlan,
+  type BackupItem,
   type ChildProfile,
   type GeneratedMaterial,
   type GrowthMap,
   type LearningLog,
   type ResourceRecord,
 } from "../api";
+import { ChildAvatar } from "../components";
 import type { WorkspaceView } from "../components/workspaceTypes";
 import "./HomeDashboard.css";
 
@@ -24,6 +27,7 @@ type DashboardData = {
   activities: ActivityPlan[];
   materials: GeneratedMaterial[];
   resources: ResourceRecord[];
+  backups: BackupItem[];
   failedDomains: number;
 };
 
@@ -46,7 +50,7 @@ function newestFirst(left: LearningLog, right: LearningLog): number {
 }
 
 export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
-  const { activeChild, syncRememberedChild } = useActiveChild();
+  const { activeChild, children, syncRememberedChild } = useActiveChild();
   const [state, setState] = useState<DashboardState>({ kind: "idle" });
   const requestId = useRef(0);
 
@@ -66,10 +70,18 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         listActivities(child.id),
         listMaterials(child.id),
         listResources(child.id),
+        listBackups(),
       ]);
       if (currentRequest !== requestId.current) return;
 
-      const [growthResult, observationsResult, activitiesResult, materialsResult, resourcesResult] = results;
+      const [
+        growthResult,
+        observationsResult,
+        activitiesResult,
+        materialsResult,
+        resourcesResult,
+        backupsResult,
+      ] = results;
       setState({
         kind: "ready",
         data: {
@@ -82,6 +94,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           activities: activitiesResult.status === "fulfilled" ? activitiesResult.value : [],
           materials: materialsResult.status === "fulfilled" ? materialsResult.value : [],
           resources: resourcesResult.status === "fulfilled" ? resourcesResult.value : [],
+          backups: backupsResult.status === "fulfilled" ? backupsResult.value : [],
           failedDomains: results.filter((result) => result.status === "rejected").length,
         },
       });
@@ -173,18 +186,35 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
   );
   const recentObservations = data.observations.slice(0, 3);
   const recentCount = data.growthMap?.total_logs_in_period ?? data.observations.length;
+  const latestBackup = [...data.backups].sort(
+    (left, right) => Date.parse(right.modified_at) - Date.parse(left.modified_at),
+  )[0] ?? null;
+  const backupLabel = latestBackup
+    ? new Date(latestBackup.modified_at).toLocaleDateString("ko-KR", {
+        month: "short",
+        day: "numeric",
+      })
+    : "없음";
 
   return (
     <section className="home-dashboard" aria-labelledby="home-dashboard-title">
-      <div className="home-dashboard-heading">
-        <div>
-          <p className="eyebrow">오늘 · {data.child.nickname}</p>
-          <h2 id="home-dashboard-title">다음에 할 일을 바로 이어가세요.</h2>
-          <p>최근 기록을 기준으로 자주 쓰는 작업만 앞에 둡니다.</p>
+      <div className="home-dashboard-heading home-dashboard-heading--product">
+        <div className="home-dashboard-greeting">
+          <ChildAvatar child={data.child} size="lg" />
+          <div>
+            <p className="eyebrow">오늘 · {data.child.nickname}</p>
+            <h2 id="home-dashboard-title">{data.child.nickname}의 배움을 이어볼까요?</h2>
+            <p>최근 기록과 검토할 자료, 다음 행동을 한 화면에서 확인합니다.</p>
+          </div>
         </div>
-        <button className="quiet-button" type="button" onClick={() => void load()}>
-          요약 새로고침
-        </button>
+        <div className="home-dashboard-heading-actions">
+          <button className="quiet-button" type="button" onClick={() => void load()}>
+            새로고침
+          </button>
+          <button className="primary-button" type="button" onClick={() => onNavigate("observations")}>
+            ＋ 새 기록
+          </button>
+        </div>
       </div>
 
       {data.failedDomains > 0 && (
@@ -194,17 +224,29 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       )}
 
       <div className="home-metrics" aria-label="현재 요약">
-        <article><span>최근 관찰</span><strong>{recentCount}</strong><small>최근 {data.growthMap?.period_days ?? 30}일</small></article>
-        <article><span>진행 중 활동</span><strong>{activeActivities.length}</strong><small>이어갈 수 있는 활동</small></article>
-        <article><span>검토할 자료</span><strong>{pendingMaterials.length}</strong><small>초안·검토·수정 요청</small></article>
-        <article><span>참고 자료</span><strong>{data.resources.length}</strong><small>저장된 자료</small></article>
+        <article className="home-metric-card">
+          <span className="home-metric-icon" aria-hidden="true">◎</span>
+          <div><span>등록된 아이</span><strong>{children.length}</strong><small>현재 {data.child.nickname} 선택됨</small></div>
+        </article>
+        <article className="home-metric-card">
+          <span className="home-metric-icon" aria-hidden="true">✎</span>
+          <div><span>최근 기록</span><strong>{recentCount}</strong><small>최근 {data.growthMap?.period_days ?? 30}일</small></div>
+        </article>
+        <article className="home-metric-card">
+          <span className="home-metric-icon" aria-hidden="true">✦</span>
+          <div><span>검토할 AI 자료</span><strong>{pendingMaterials.length}</strong><small>초안·검토·수정 요청</small></div>
+        </article>
+        <article className="home-metric-card home-metric-card--backup">
+          <span className="home-metric-icon" aria-hidden="true">↺</span>
+          <div><span>마지막 백업</span><strong>{backupLabel}</strong><small>{latestBackup ? "복원 가능한 로컬 백업" : "백업을 만들어 주세요"}</small></div>
+        </article>
       </div>
 
       <div className="home-dashboard-grid">
         <section className="home-next-actions" aria-labelledby="home-next-actions-title">
           <div className="home-section-heading">
-            <h3 id="home-next-actions-title">다음 행동</h3>
-            <span>추천이 아니라 빠른 진입점입니다.</span>
+            <h3 id="home-next-actions-title">오늘의 제안</h3>
+            <span>현재 기록을 기준으로 바로 이어갈 수 있는 작업입니다.</span>
           </div>
           <div className="home-action-list">
             <button type="button" onClick={() => onNavigate("observations")}>
@@ -222,10 +264,10 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
               <strong>{pendingMaterials.length > 0 ? `검토할 자료 ${pendingMaterials.length}건 확인` : "새 학습 자료 만들기"}</strong>
               <small>만든 자료는 부모가 내용을 확인한 뒤 사용합니다.</small>
             </button>
-            <button type="button" onClick={() => onNavigate("library")}>
-              <span>참고 자료</span>
-              <strong>{data.resources.length > 0 ? `자료 ${data.resources.length}건 찾아보기` : "첫 참고 자료 저장하기"}</strong>
-              <small>책, 메모, 교육과정, 웹 자료를 연결합니다.</small>
+            <button type="button" onClick={() => onNavigate("settings")}>
+              <span>백업</span>
+              <strong>{latestBackup ? `${backupLabel} 백업 상태 확인` : "첫 백업 만들기"}</strong>
+              <small>기록과 사진, 대화 상태를 안전하게 보관합니다.</small>
             </button>
           </div>
         </section>

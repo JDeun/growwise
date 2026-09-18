@@ -447,6 +447,12 @@ function App() {
     }
   }
 
+  function handleAvatarUpdated(child: ChildProfile) {
+    upsertSharedChild(child, { select: true });
+    setChildren((current) => current.map((item) => (item.id === child.id ? child : item)));
+    if (activeChildIdRef.current === child.id) setActiveChild(child);
+  }
+
   async function handleSelectChild(childId: string) {
     const child = children.find((item) => item.id === childId);
     if (!child) return;
@@ -633,6 +639,7 @@ function App() {
           onAgeMonthsChange={setAgeMonths}
           onSubmit={handleCreateChild}
           onSelectChild={(childId) => void handleSelectChild(childId)}
+          onAvatarUpdated={handleAvatarUpdated}
         />
 
         {activeChild && (

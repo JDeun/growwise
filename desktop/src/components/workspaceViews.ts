@@ -2,6 +2,7 @@ import type { WorkspaceView } from "./workspaceTypes";
 
 export const WORKSPACE_VIEWS: readonly WorkspaceView[] = [
   "home",
+  "profile",
   "observations",
   "photos",
   "learning",
