@@ -12,19 +12,24 @@ export type WorkspaceLayoutKey =
   | "discovery"
   | "library"
   | "materials"
-  | "settings";
+  | "backup"
+  | "settings"
+  | "help";
 
 export const WORKSPACE_LAYOUT: Record<WorkspaceView, readonly WorkspaceLayoutKey[]> = {
   home: ["child-context"],
-  profile: ["profile"],
-  observations: ["observations"],
+  profile: ["profile", "growth"],
+  learning: ["learning-records", "observations"],
+  materials: ["materials", "library", "discovery", "activities"],
   photos: ["photos"],
-  learning: ["learning-records"],
+  conversation: ["search"],
+  backup: ["backup"],
+  settings: ["settings"],
+  help: ["help"],
+  observations: ["observations"],
   growth: ["growth"],
   activities: ["activities"],
   search: ["search"],
   discovery: ["discovery"],
   library: ["library"],
-  materials: ["materials"],
-  settings: ["settings"],
 };
