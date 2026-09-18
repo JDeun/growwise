@@ -57,6 +57,7 @@ describe("SearchConversationSection", () => {
 
     expect(markup).toContain("AI와 대화하기");
     expect(markup).toContain("대화 목록");
+    expect(markup).toContain("새 대화");
     expect(markup).toContain("연결된 원본 근거");
     expect(markup).toContain("기록 1");
     expect(markup).toContain("참고 자료 2");
