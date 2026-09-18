@@ -48,6 +48,45 @@ function newestFirst(left: LearningLog, right: LearningLog): number {
   return rightTime - leftTime;
 }
 
+function DashboardMetricIcon({
+  kind,
+}: {
+  kind: "children" | "records" | "activities" | "backup";
+}) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (kind === "children") {
+    return <svg {...common}><circle cx="12" cy="8" r="3.2"/><path d="M5.5 20c.7-3.8 3-5.8 6.5-5.8s5.8 2 6.5 5.8"/></svg>;
+  }
+  if (kind === "records") {
+    return <svg {...common}><path d="M5 4.5h11.5A2.5 2.5 0 0 1 19 7v13H7.5A2.5 2.5 0 0 1 5 17.5z"/><path d="M8.5 8h7M8.5 12h7M8.5 16h4"/></svg>;
+  }
+  if (kind === "activities") {
+    return <svg {...common}><path d="m12 3 1.5 4.2L18 9l-4.5 1.8L12 15l-1.5-4.2L6 9l4.5-1.8z"/><path d="m18.5 15 .8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z"/></svg>;
+  }
+  return <svg {...common}><path d="M5 5h14v16H5z"/><path d="M8 3v4M16 3v4M8 11h8M8 15h5"/></svg>;
+}
+
+function RecentActivityIcon({ index }: { index: number }) {
+  const common = {
+    viewBox: "0 0 24 24",
+    fill: "none",
+    stroke: "currentColor",
+    strokeWidth: 1.8,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+  };
+  if (index === 0) return <svg {...common}><path d="m12 4 1.4 4 4.1 1.5-4.1 1.5-1.4 4-1.4-4-4.1-1.5 4.1-1.5z"/></svg>;
+  if (index === 1) return <svg {...common}><circle cx="12" cy="12" r="5"/></svg>;
+  return <svg {...common}><rect x="7" y="7" width="10" height="10" rx="2"/></svg>;
+}
+
 export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
   const { activeChild, children, syncRememberedChild } = useActiveChild();
   const [state, setState] = useState<DashboardState>({ kind: "idle" });
@@ -256,7 +295,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
 
       <div className="home-metrics" aria-label="현재 요약">
         <article className="home-metric-card">
-          <span className="home-metric-icon" aria-hidden="true">◎</span>
+          <span className="home-metric-icon" aria-hidden="true"><DashboardMetricIcon kind="children" /></span>
           <div>
             <span>등록된 아이</span>
             <strong>{children.length}명</strong>
@@ -264,7 +303,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           </div>
         </article>
         <article className="home-metric-card">
-          <span className="home-metric-icon home-metric-icon--blue" aria-hidden="true">▣</span>
+          <span className="home-metric-icon home-metric-icon--blue" aria-hidden="true"><DashboardMetricIcon kind="records" /></span>
           <div>
             <span>최근 학습 기록</span>
             <strong>{recentCount}건</strong>
@@ -272,7 +311,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           </div>
         </article>
         <article className="home-metric-card">
-          <span className="home-metric-icon home-metric-icon--violet" aria-hidden="true">✦</span>
+          <span className="home-metric-icon home-metric-icon--violet" aria-hidden="true"><DashboardMetricIcon kind="activities" /></span>
           <div>
             <span>AI 추천 활동</span>
             <strong>{activeActivities.length}개</strong>
@@ -280,7 +319,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           </div>
         </article>
         <article className="home-metric-card home-metric-card--backup">
-          <span className="home-metric-icon" aria-hidden="true">◆</span>
+          <span className="home-metric-icon" aria-hidden="true"><DashboardMetricIcon kind="backup" /></span>
           <div>
             <span>백업 상태</span>
             <strong>{latestBackup ? "정상" : "확인 필요"}</strong>
@@ -301,7 +340,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
             <div className="home-recent-list">
               {recentObservations.map((log, index) => (
                 <article key={log.id}>
-                  <span className="home-recent-icon" aria-hidden="true">{index === 0 ? "✦" : index === 1 ? "●" : "■"}</span>
+                  <span className="home-recent-icon" aria-hidden="true"><RecentActivityIcon index={index} /></span>
                   <div>
                     <p>{log.parent_observation}</p>
                     <small>
