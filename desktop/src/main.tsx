@@ -11,6 +11,7 @@ import {
   HomeDashboard,
   HelpWorkspace,
   LearningRecordWorkspace,
+  MaterialsWorkspaceHub,
   PhotoActivityWorkspace,
 } from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
@@ -30,8 +31,17 @@ createRoot(document.getElementById("root")!).render(
         renderWorkspace={(activeView, navigate) => (
           <>
             <CapabilityStatus />
-            {activeView !== "photos" && activeView !== "discovery" && activeView !== "learning" && (
-              <App activeView={activeView} />
+            {activeView === "materials" ? (
+              <MaterialsWorkspaceHub
+                app={<App activeView={activeView} />}
+                renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
+              />
+            ) : (
+              activeView !== "photos"
+              && activeView !== "discovery"
+              && activeView !== "learning"
+              && activeView !== "help"
+              && <App activeView={activeView} />
             )}
             <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
             <PhotoActivityWorkspace active={activeView === "photos"} />
