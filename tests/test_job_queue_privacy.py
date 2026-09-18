@@ -1,5 +1,7 @@
 import json
 import sqlite3
+
+import pytest
 from uuid import uuid4
 
 from growwise.jobs import SQLiteJobQueue
@@ -144,3 +146,20 @@ def test_existing_job_table_backfills_indexed_child_owner(tmp_path) -> None:
     assert child_id == target_child_id
     assert "idx_jobs_child_id" in indexes
     assert queue.delete_for_child(target_child_id) == 1
+
+
+
+def test_job_owner_backfill_is_not_repeated_for_global_jobs(
+    tmp_path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    path = tmp_path / "jobs.sqlite3"
+    queue = SQLiteJobQueue(path)
+    queue.enqueue("global-job", {"resource_id": "resource-1"})
+
+    def forbid_payload_parse(_value: str) -> object:
+        raise AssertionError("existing child_id column must skip legacy payload backfill")
+
+    monkeypatch.setattr("growwise.jobs.json.loads", forbid_payload_parse)
+
+    SQLiteJobQueue(path)
