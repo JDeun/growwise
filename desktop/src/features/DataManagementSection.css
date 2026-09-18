@@ -173,3 +173,72 @@
     width: 100%;
   }
 }
+
+
+.settings-product-workspace {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.settings-product-heading {
+  padding: 2px 4px 0;
+}
+
+.settings-product-heading h1,
+.settings-product-heading p {
+  margin: 0;
+}
+
+.settings-product-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.settings-product-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.settings-product-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+}
+
+.settings-product-workspace > .status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-product-workspace > .status-grid .status-card {
+  min-height: 130px;
+  padding: 16px;
+  border-radius: 15px;
+  box-shadow: 0 7px 20px rgba(47, 66, 58, .035);
+}
+
+.settings-product-workspace > .status-grid .status-title {
+  margin: 14px 0 6px;
+  font-size: 17px;
+}
+
+.settings-product-workspace > .data-management-section--settings {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 18px;
+  border-radius: 17px;
+  box-shadow: 0 8px 24px rgba(47, 66, 58, .035);
+}
+
+.settings-product-workspace .profile-management-zone {
+  padding-top: 0;
+}
+
+@media (max-width: 900px) {
+  .settings-product-workspace > .status-grid {
+    grid-template-columns: 1fr;
+  }
+}
