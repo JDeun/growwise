@@ -192,6 +192,10 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
   padding: 0;
 }
 
+.workspace-shell > .app-shell > .topbar {
+  display: none;
+}
+
 .workspace-shell > .app-shell > .workspace {
   margin-top: 0;
   padding: 0;
