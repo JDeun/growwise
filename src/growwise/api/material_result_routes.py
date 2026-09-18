@@ -391,8 +391,7 @@ def record_material_result(
                 log=log,
                 photos=photos,
             )
-            if claim is not None and claim.acquired:
-                assert idempotency_store is not None
+            if claim is not None and claim.acquired and idempotency_store is not None:
                 idempotency_store.complete(
                     key=claim.record.key,
                     request_hash=claim.record.request_hash,
@@ -400,7 +399,7 @@ def record_material_result(
                 )
             return MaterialResultResponse(activity=activity, learning_log=log)
         except Exception:
-            if claim is not None and claim.acquired:
+            if claim is not None and claim.acquired and idempotency_store is not None:
                 existing_payload = store.index.get_entity(
                     claim.record.resource_id,
                     entity_type="learning_log",
