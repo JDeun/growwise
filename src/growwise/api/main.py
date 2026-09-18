@@ -5,7 +5,9 @@ from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, Header, HTTPException, Query
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from pydantic import ValidationError
+from starlette.responses import JSONResponse
 from uuid6 import uuid7
 
 from growwise.api.backup_routes import router as backup_router
@@ -110,6 +112,14 @@ __all__ = [
 ]
 
 app = FastAPI(title="GrowWise Core", version="0.1.0a0")
+
+
+@app.exception_handler(ValidationError)
+async def domain_validation_error(_request: Request, exc: ValidationError) -> JSONResponse:
+    """Expose domain-model validation failures as client errors in every API entry mode."""
+
+    return JSONResponse(status_code=422, content={"detail": exc.errors(include_url=False)})
+
 app.include_router(backup_router)
 app.include_router(conversation_router)
 app.include_router(material_router)
