@@ -1,4 +1,4 @@
-import { ChangeEvent, useCallback, useEffect, useRef, useState } from "react";
+import { ChangeEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveChild } from "../active-child-context";
 import {
@@ -54,6 +54,8 @@ function isBackgroundRecord(record: PhotoActivityRecord): boolean {
   return record.status === "queued" || record.status === "processing";
 }
 
+type PhotoFilter = "all" | "committed" | "attention";
+
 type Props = { active: boolean };
 
 export function PhotoActivityWorkspace({ active }: Props) {
@@ -81,6 +83,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("all");
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
   const refreshRecords = useCallback(async (targetChildId: string) => {
     const requestId = ++recordsRequestId.current;
@@ -118,6 +122,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setPendingRecordId(null);
     setError(null);
     setNotice(null);
+    setPhotoFilter("all");
+    setSelectedRecordId(null);
     void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
   }, [active, childId, refreshRecords]);
 
@@ -352,6 +358,17 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
   const hasBackgroundWork = records.some(isBackgroundRecord);
   const shareCandidates = children.filter((child) => child.id !== childId);
+  const visibleRecords = useMemo(() => {
+    if (photoFilter === "committed") return records.filter((record) => record.status === "committed");
+    if (photoFilter === "attention") {
+      return records.filter((record) =>
+        ["queued", "processing", "draft", "failed"].includes(record.status),
+      );
+    }
+    return records.filter((record) => record.status !== "discarded");
+  }, [photoFilter, records]);
+  const selectedRecord =
+    records.find((record) => record.id === selectedRecordId) ?? null;
 
   return (
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
@@ -562,18 +579,36 @@ export function PhotoActivityWorkspace({ active }: Props) {
       </details>
 
       <section className="workspace photo-history">
-        <div className="activity-heading">
+        <div className="photo-history-heading">
           <div>
             <p className="card-label">사진 기록 내역</p>
             <h2>사진 일기와 초안</h2>
+          </div>
+          <div className="photo-history-filters" role="group" aria-label="사진 기록 필터">
+            {([
+              ["all", "전체"],
+              ["committed", "기록 완료"],
+              ["attention", "검토 필요"],
+            ] as const).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={photoFilter === value ? "is-active" : ""}
+                aria-pressed={photoFilter === value}
+                onClick={() => setPhotoFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
           </div>
         </div>
         {records.length === 0 ? (
           <p className="muted">아직 사진으로 만든 기록이 없습니다.</p>
         ) : (
-          <div className="photo-gallery" aria-label="사진 기록 목록">
-            {records.map((record) => (
-              <article className="photo-gallery-card" key={record.id}>
+          <div className="photo-gallery-layout">
+            <div className="photo-gallery" aria-label="사진 기록 목록">
+            {visibleRecords.map((record) => (
+              <article className={`photo-gallery-card${selectedRecordId === record.id ? " is-selected" : ""}`} key={record.id}>
                 <div className="photo-gallery-thumb">
                   {recordPreviews[record.id] ? (
                     <img src={recordPreviews[record.id]} alt="" />
@@ -597,19 +632,87 @@ export function PhotoActivityWorkspace({ active }: Props) {
                   {record.generation_mode === "manual_photo_diary" && (
                     <span className="photo-gallery-mode">직접 기록</span>
                   )}
-                  {record.status === "draft" && (
+                  <div className="photo-gallery-actions">
                     <button
                       className="quiet-button"
                       type="button"
-                      onClick={() => void reopenDraft(record)}
-                      disabled={busy}
+                      onClick={() => setSelectedRecordId(record.id)}
                     >
-                      초안 검토
+                      상세 보기
                     </button>
-                  )}
+                    {record.status === "draft" && (
+                      <button
+                        className="quiet-button"
+                        type="button"
+                        onClick={() => void reopenDraft(record)}
+                        disabled={busy}
+                      >
+                        초안 검토
+                      </button>
+                    )}
+                  </div>
                 </div>
               </article>
             ))}
+            {visibleRecords.length === 0 && (
+              <p className="photo-gallery-empty">이 필터에 해당하는 사진 기록이 없습니다.</p>
+            )}
+            </div>
+
+            {selectedRecord && (
+              <aside className="photo-record-detail" aria-label="선택한 사진 기록 상세">
+                <div className="photo-record-detail-heading">
+                  <div>
+                    <p className="card-label">기록 상세</p>
+                    <h3>{STATUS_LABEL[selectedRecord.status]}</h3>
+                  </div>
+                  <button type="button" onClick={() => setSelectedRecordId(null)} aria-label="사진 기록 상세 닫기">×</button>
+                </div>
+                <div className="photo-record-detail-media">
+                  {recordPreviews[selectedRecord.id] ? (
+                    <img src={recordPreviews[selectedRecord.id]} alt="" />
+                  ) : (
+                    <span aria-hidden="true">사진 {selectedRecord.photo_asset_ids.length}장</span>
+                  )}
+                </div>
+                <dl className="photo-record-detail-meta">
+                  <div>
+                    <dt>날짜</dt>
+                    <dd>{selectedRecord.created_at ? new Date(selectedRecord.created_at).toLocaleString("ko-KR") : "날짜 없음"}</dd>
+                  </div>
+                  <div><dt>사진</dt><dd>{selectedRecord.photo_asset_ids.length}장</dd></div>
+                  <div>
+                    <dt>작성 방식</dt>
+                    <dd>{selectedRecord.generation_mode === "manual_photo_diary" ? "직접 기록" : "AI 보조"}</dd>
+                  </div>
+                </dl>
+                <div className="photo-record-detail-copy">
+                  <span>관찰 기록</span>
+                  <p>{selectedRecord.generated_observation || "아직 작성된 관찰 기록이 없습니다."}</p>
+                </div>
+                {selectedRecord.suggested_tags.length > 0 && (
+                  <div className="photo-record-detail-tags">
+                    {selectedRecord.suggested_tags.map((tag) => <span key={tag}>#{tag}</span>)}
+                  </div>
+                )}
+                {selectedRecord.suggested_next_activity && (
+                  <div className="photo-record-detail-copy">
+                    <span>다음 활동</span>
+                    <p>{selectedRecord.suggested_next_activity}</p>
+                  </div>
+                )}
+                {selectedRecord.status === "draft" && (
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={() => void reopenDraft(selectedRecord)}
+                    disabled={busy}
+                  >
+                    초안 검토하기
+                  </button>
+                )}
+              </aside>
+            )}
           </div>
         )}
       </section>
