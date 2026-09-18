@@ -313,11 +313,13 @@ def main() -> None:
         # The standalone CLI is a separate process from Core. Reuse the same OS ownership lock so
         # a shell backup cannot bypass the in-process maintenance barrier of a running application.
         with DataDirectoryLock(settings.data_dir):
+            recover_startup_state(settings)
             result = create_backup(settings, args.name)
     elif args.command == "list":
         result = list_backups(settings)
     elif args.command == "restore":
         with DataDirectoryLock(settings.data_dir):
+            recover_startup_state(settings)
             result = restore_backup(settings, args.name, confirmed=args.yes)
     else:  # pragma: no cover - argparse prevents this branch
         raise SystemExit(2)
