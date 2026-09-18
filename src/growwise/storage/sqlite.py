@@ -147,23 +147,50 @@ class SQLiteProjection:
             sql += " AND entity_type = ?"
             params.append(entity_type)
         with self._connection() as connection:
-            row = connection.execute(sql, params).fetchone()
-        return json.loads(row["payload_json"]) if row else None
+            row = connection.execute(
+                sql.replace("SELECT payload_json", "SELECT id, payload_json, source_path"),
+                params,
+            ).fetchone()
+            if row is None:
+                return None
+            return self._decode_projection_row(connection, row)
 
-    @staticmethod
+    def _decode_projection_row(
+        self,
+        connection: sqlite3.Connection,
+        row: sqlite3.Row,
+    ) -> dict | None:
+        try:
+            payload = json.loads(row["payload_json"])
+            if not isinstance(payload, dict):
+                raise ValueError("projection payload must be an object")
+            return payload
+        except (TypeError, ValueError, json.JSONDecodeError):
+            # SQLite is disposable. Recover one malformed row from its authoritative Markdown
+            # source instead of turning a local index defect into an application-wide read failure.
+            source_path = Path(str(row["source_path"]))
+            payload = self._read_record(source_path)
+            if payload is None:
+                connection.execute("DELETE FROM entities WHERE id = ?", (str(row["id"]),))
+                return None
+            self._upsert_on(connection, payload, source_path)
+            return payload
+
     def _child_scope_source_ids(
+        self,
         connection: sqlite3.Connection,
         *,
         child_id: str,
     ) -> set[str]:
         rows = connection.execute(
-            "SELECT payload_json FROM entities WHERE entity_type = 'entity_link' AND child_id = ?",
+            "SELECT id, payload_json, source_path FROM entities "
+            "WHERE entity_type = 'entity_link' AND child_id = ?",
             (child_id,),
         ).fetchall()
         source_ids: set[str] = set()
         for row in rows:
-            payload = json.loads(row["payload_json"])
-            if payload.get("relation") == "child_scope" and payload.get("source_id"):
+            payload = self._decode_projection_row(connection, row)
+            if payload is not None and payload.get("relation") == "child_scope" and payload.get("source_id"):
                 source_ids.add(str(payload["source_id"]))
         return source_ids
 
@@ -188,7 +215,7 @@ class SQLiteProjection:
             and entity_type is not None
             and entity_type != "entity_link"
         )
-        sql = "SELECT payload_json FROM entities"
+        sql = "SELECT id, payload_json, source_path FROM entities"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY updated_at DESC"
@@ -198,7 +225,11 @@ class SQLiteProjection:
 
         with self._connection() as connection:
             rows = connection.execute(sql, params).fetchall()
-            payloads = [json.loads(row["payload_json"]) for row in rows]
+            payloads = [
+                payload
+                for row in rows
+                if (payload := self._decode_projection_row(connection, row)) is not None
+            ]
             if augment_child_scope:
                 assert child_id is not None
                 assert entity_type is not None
@@ -208,13 +239,14 @@ class SQLiteProjection:
                     for id_chunk in self._chunks(linked_ids):
                         placeholders = ",".join("?" for _ in id_chunk)
                         linked_rows = connection.execute(
-                            f"SELECT payload_json FROM entities WHERE entity_type = ? "
+                            f"SELECT id, payload_json, source_path FROM entities WHERE entity_type = ? "
                             f"AND id IN ({placeholders})",
                             [entity_type, *id_chunk],
                         ).fetchall()
                         for row in linked_rows:
-                            payload = json.loads(row["payload_json"])
-                            by_id.setdefault(str(payload["id"]), payload)
+                            payload = self._decode_projection_row(connection, row)
+                            if payload is not None:
+                                by_id.setdefault(str(payload["id"]), payload)
                     payloads = sorted(
                         by_id.values(),
                         key=lambda payload: str(payload.get("updated_at") or ""),
@@ -272,14 +304,14 @@ class SQLiteProjection:
                     for _ in terms
                 )
                 sql = (
-                    f"SELECT id, payload_json, updated_at, ({score_sql}) AS match_score "
+                    f"SELECT id, payload_json, source_path, updated_at, ({score_sql}) AS match_score "
                     f"FROM entities WHERE {' AND '.join(clauses)} "
                     "ORDER BY match_score DESC, updated_at DESC LIMIT ?"
                 )
                 params: list[str | int] = [*patterns, *where_params, limit]
             else:
                 sql = (
-                    "SELECT id, payload_json, updated_at, 0 AS match_score FROM entities "
+                    "SELECT id, payload_json, source_path, updated_at, 0 AS match_score FROM entities "
                     f"WHERE {' AND '.join(clauses)} "
                     "ORDER BY updated_at DESC LIMIT ?"
                 )
@@ -321,7 +353,15 @@ class SQLiteProjection:
             key=lambda row: (int(row["match_score"]), str(row["updated_at"])),
             reverse=True,
         )
-        return [json.loads(row["payload_json"]) for row in ranked[:limit]]
+        payloads: list[dict] = []
+        with self._connection() as connection:
+            for row in ranked:
+                payload = self._decode_projection_row(connection, row)
+                if payload is not None:
+                    payloads.append(payload)
+                if len(payloads) >= limit:
+                    break
+        return payloads
 
     def rebuild(self, records_root: Path) -> int:
         # Atomic: clear + repopulate in ONE transaction, so a hard error mid-rebuild
