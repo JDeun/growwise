@@ -51,6 +51,7 @@ def create_backup(settings: Settings, name: str | None = None) -> dict[str, obje
         manifest = BackupService().create(
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
+            conversations_path=settings.conversations_path,
             destination=archive,
         )
     return {
@@ -105,6 +106,7 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
             archive_path=archive,
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
+            conversations_path=settings.conversations_path,
             index_path=settings.index_path,
         )
         try:
