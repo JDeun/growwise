@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from growwise.services.context import _entity_text
+import pytest
+from pydantic import ValidationError
+
+from growwise.services.context import ContextAnswer, _entity_text
 
 
 def test_entity_text_keeps_parent_summary_and_learner_work() -> None:
@@ -19,3 +22,13 @@ def test_entity_text_keeps_parent_summary_and_learner_work() -> None:
     assert "부모 기록: 책을 읽고 책임에 대해 이야기했다." in text
     assert "아이 글·결과물: 장미를 떠나온 것이 가장 슬펐다." in text
     assert "흥미: 등장인물의 선택" in text
+
+
+
+def test_context_answer_bounds_generated_text_and_source_ids() -> None:
+    with pytest.raises(ValidationError):
+        ContextAnswer(answer="x" * 20_001)
+    with pytest.raises(ValidationError):
+        ContextAnswer(answer="ok", source_ids=["record:x"] * 101)
+    with pytest.raises(ValidationError):
+        ContextAnswer(answer="ok", source_ids=["x" * 501])
