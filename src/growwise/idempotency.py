@@ -422,6 +422,17 @@ class SQLiteIdempotencyStore:
             connection.close()
             self._clear_claim_context(key)
 
+    def clear(self) -> int:
+        """Drop all retry metadata after a destructive snapshot restore."""
+
+        connection = self._connect()
+        try:
+            cursor = connection.execute("DELETE FROM idempotency_records")
+            connection.commit()
+            return cursor.rowcount
+        finally:
+            connection.close()
+
     def delete_resources(self, resource_ids: set[str]) -> int:
         """Remove idempotency metadata for resources that were deliberately purged."""
         if not resource_ids:
