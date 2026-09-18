@@ -677,6 +677,7 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               onSearch={handleSearch}
               onConversationQuestionChange={setConversationQuestion}
               onConversation={handleConversation}
+              onNewConversation={resetSearchConversation}
               backups={backups}
               backupBusy={backupBusy}
               backupError={backupError}
