@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from enum import StrEnum
 from functools import wraps
 from pathlib import Path
-from typing import Any, Concatenate, ParamSpec, Protocol, TypeVar
+from typing import Any, Concatenate, Protocol
 
 
 class IdempotencyConflict(ValueError):
@@ -25,22 +25,17 @@ class IdempotencyStatus(StrEnum):
 
 DEFAULT_LEASE_SECONDS = 120
 
-_P = ParamSpec("_P")
-_R = TypeVar("_R")
-_S = TypeVar("_S", bound="_GenerationBound")
-
-
 class _GenerationBound(Protocol):
     _data_generation: int
 
 
-def _generation_fenced(
-    method: Callable[Concatenate[_S, _P], _R],
-) -> Callable[Concatenate[_S, _P], _R]:
+def _generation_fenced[S: _GenerationBound, **P, R](
+    method: Callable[Concatenate[S, P], R],
+) -> Callable[Concatenate[S, P], R]:
     """Fence one registry operation to the data generation that created its store."""
 
     @wraps(method)
-    def wrapped(self: _S, *args: _P.args, **kwargs: _P.kwargs) -> _R:
+    def wrapped(self: S, *args: P.args, **kwargs: P.kwargs) -> R:
         from growwise.maintenance import DATA_MAINTENANCE
 
         with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
