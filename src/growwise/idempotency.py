@@ -461,3 +461,15 @@ class SQLiteIdempotencyStore:
             resource_id=claim.record.resource_id,
             claim_token=claim.record.claim_token,
         )
+
+
+    def reset(self) -> int:
+        """Delete retry metadata that belongs to the pre-restore data generation."""
+
+        connection = self._connect()
+        try:
+            cursor = connection.execute("DELETE FROM idempotency_records")
+            connection.commit()
+            return cursor.rowcount
+        finally:
+            connection.close()
