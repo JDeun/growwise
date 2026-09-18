@@ -9,7 +9,6 @@ from growwise.model import ModelProvider
 
 from .index import HybridRagIndex
 
-
 _AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
 _SourceChunkId = Annotated[str, Field(min_length=1, max_length=500)]
 
