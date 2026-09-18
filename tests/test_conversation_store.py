@@ -1,3 +1,5 @@
+import sqlite3
+
 import pytest
 
 from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
@@ -56,3 +58,65 @@ def test_pre_restore_conversation_store_is_generation_fenced(tmp_path) -> None:
     fresh_session = ConversationSession(child_id="child-a", title="복원 후")
     fresh_store.save(fresh_session)
     assert fresh_store.get(fresh_session.id) is not None
+
+
+
+def test_delete_for_child_uses_fk_cascade_without_session_id_expansion(tmp_path) -> None:
+    class LowVariableConversationStore(SQLiteConversationStore):
+        def _connect(self) -> sqlite3.Connection:
+            connection = super()._connect()
+            connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 128)
+            return connection
+
+    path = tmp_path / "conversations.sqlite3"
+    store = LowVariableConversationStore(path)
+    child_id = "child-bulk"
+    sessions = [
+        (
+            f"session-{index}",
+            child_id,
+            "{}",
+            "2026-01-01T00:00:00+00:00",
+            "2026-01-01T00:00:00+00:00",
+        )
+        for index in range(600)
+    ]
+    turns = [
+        (
+            session_id,
+            f"turn-{index}",
+            "user",
+            "질문",
+            "[]",
+            "2026-01-01T00:00:00+00:00",
+        )
+        for index, (session_id, *_rest) in enumerate(sessions)
+    ]
+    with sqlite3.connect(path) as connection:
+        connection.execute("PRAGMA foreign_keys=ON")
+        connection.executemany(
+            """
+            INSERT INTO conversation_sessions (
+                id, child_id, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            sessions,
+        )
+        connection.executemany(
+            """
+            INSERT INTO conversation_turns (
+                session_id, turn_key, role, content, source_ids_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?)
+            """,
+            turns,
+        )
+
+    assert store.delete_for_child(child_id) == 600
+    with sqlite3.connect(path) as connection:
+        session_count = connection.execute(
+            "SELECT COUNT(*) FROM conversation_sessions WHERE child_id = ?",
+            (child_id,),
+        ).fetchone()
+        turn_count = connection.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()
+    assert session_count is not None and session_count[0] == 0
+    assert turn_count is not None and turn_count[0] == 0
