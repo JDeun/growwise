@@ -13,6 +13,17 @@ from .temporal import hierarchical_temporal_order, temporal_tier
 
 _MAX_QUERY_TERMS = 32
 _MAX_QUERY_TERM_CHARS = 128
+_SQLITE_IN_CHUNK = 400
+
+
+def _decode_tags(value: object) -> list[str]:
+    try:
+        payload = json.loads(value) if isinstance(value, str) else value
+    except (TypeError, ValueError, json.JSONDecodeError):
+        return []
+    if not isinstance(payload, list):
+        return []
+    return [str(item) for item in payload if isinstance(item, (str, int, float))]
 
 
 def _normalize_query_terms(query: str) -> list[str]:
@@ -282,6 +293,11 @@ class HybridRagIndex:
     def _normalized_shared_ids(shared_resource_ids: Iterable[str] | None) -> tuple[str, ...]:
         return tuple(dict.fromkeys(str(resource_id) for resource_id in shared_resource_ids or ()))
 
+    @staticmethod
+    def _id_chunks(values: tuple[str, ...]) -> Iterable[tuple[str, ...]]:
+        for offset in range(0, len(values), _SQLITE_IN_CHUNK):
+            yield values[offset : offset + _SQLITE_IN_CHUNK]
+
     @classmethod
     def _scoped_rows(
         cls,
@@ -290,18 +306,25 @@ class HybridRagIndex:
         child_id: str | None,
         shared_resource_ids: Iterable[str] | None,
     ) -> list[sqlite3.Row]:
-        shared_ids = cls._normalized_shared_ids(shared_resource_ids)
-        if shared_ids:
-            placeholders = ",".join("?" for _ in shared_ids)
-            return connection.execute(
-                f"SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ? "
-                f"OR resource_id IN ({placeholders})",
-                (child_id, *shared_ids),
-            ).fetchall()
-        return connection.execute(
+        # Keep every explicitly shared resource visible without constructing one unbounded IN
+        # clause. SQLite's host-parameter ceiling varies by build/platform.
+        rows = connection.execute(
             "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
             (child_id,),
         ).fetchall()
+        seen = {str(row["chunk_id"]) for row in rows}
+        shared_ids = cls._normalized_shared_ids(shared_resource_ids)
+        for id_chunk in cls._id_chunks(shared_ids):
+            placeholders = ",".join("?" for _ in id_chunk)
+            for row in connection.execute(
+                f"SELECT * FROM rag_chunks WHERE resource_id IN ({placeholders})",
+                id_chunk,
+            ).fetchall():
+                chunk_id = str(row["chunk_id"])
+                if chunk_id not in seen:
+                    seen.add(chunk_id)
+                    rows.append(row)
+        return rows
 
     def _lexical_candidates(
         self,
@@ -321,28 +344,38 @@ class HybridRagIndex:
 
         shared_ids = self._normalized_shared_ids(shared_resource_ids)
         candidate_limit = max(200, limit * 20)
-        if shared_ids:
-            placeholders = ",".join("?" for _ in shared_ids)
-            scope_sql = (
-                "(c.child_id IS NULL OR c.child_id = ? "
-                f"OR c.resource_id IN ({placeholders}))"
-            )
-            scope_params: tuple[object, ...] = (child_id, *shared_ids)
-        else:
-            scope_sql = "(c.child_id IS NULL OR c.child_id = ?)"
-            scope_params = (child_id,)
 
         try:
             rows = connection.execute(
-                f"""
+                """
                 SELECT c.*
                 FROM rag_chunks AS c
                 JOIN rag_chunks_fts AS f ON f.chunk_id = c.chunk_id
-                WHERE rag_chunks_fts MATCH ? AND {scope_sql}
+                WHERE rag_chunks_fts MATCH ?
+                  AND (c.child_id IS NULL OR c.child_id = ?)
                 LIMIT ?
                 """,
-                (_fts_query(query_terms), *scope_params, candidate_limit),
+                (_fts_query(query_terms), child_id, candidate_limit),
             ).fetchall()
+            seen = {str(row["chunk_id"]) for row in rows}
+            for id_chunk in self._id_chunks(shared_ids):
+                placeholders = ",".join("?" for _ in id_chunk)
+                shared_rows = connection.execute(
+                    f"""
+                    SELECT c.*
+                    FROM rag_chunks AS c
+                    JOIN rag_chunks_fts AS f ON f.chunk_id = c.chunk_id
+                    WHERE rag_chunks_fts MATCH ?
+                      AND c.resource_id IN ({placeholders})
+                    LIMIT ?
+                    """,
+                    (_fts_query(query_terms), *id_chunk, candidate_limit),
+                ).fetchall()
+                for row in shared_rows:
+                    chunk_id = str(row["chunk_id"])
+                    if chunk_id not in seen:
+                        seen.add(chunk_id)
+                        rows.append(row)
             if rows:
                 return rows
             # Token boundaries differ across languages/builds. Preserve the original substring
@@ -403,7 +436,8 @@ class HybridRagIndex:
 
         ranked: list[tuple[float, dict]] = []
         for row in rows:
-            haystack = f"{row['title']} {row['text']} {row['tags_json']}".casefold()
+            tags = _decode_tags(row["tags_json"])
+            haystack = " ".join((str(row["title"]), str(row["text"]), *tags)).casefold()
             lexical = float(sum(haystack.count(term) for term in query_terms))
             vector_score = 0.0
             if query_vector is not None and row["embedding_json"]:
@@ -424,7 +458,7 @@ class HybridRagIndex:
                 "text": row["text"],
                 "source_url": row["source_url"],
                 "source_name": row["source_name"],
-                "tags": json.loads(row["tags_json"]),
+                "tags": tags,
                 "recorded_at": row["recorded_at"],
                 "temporal_tier": temporal_tier(
                     row["recorded_at"], reference_date=reference_date

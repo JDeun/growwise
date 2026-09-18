@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -36,8 +38,35 @@ class SQLiteExternalCache:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _setup(self) -> None:
-        with self._connect() as connection:
+        try:
+            self._create_schema()
+        except sqlite3.OperationalError:
+            # Locking, readonly filesystems, and disk failures are environmental conditions. Do not
+            # destroy the cache file in response to them.
+            raise
+        except sqlite3.DatabaseError:
+            # Public enrichment cache is disposable. A malformed SQLite file must not make the
+            # optional discovery feature permanently unusable.
+            for candidate in (
+                self.path,
+                self.path.with_name(f"{self.path.name}-wal"),
+                self.path.with_name(f"{self.path.name}-shm"),
+            ):
+                candidate.unlink(missing_ok=True)
+            self._create_schema()
+
+    def _create_schema(self) -> None:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS external_cache (
@@ -68,7 +97,7 @@ class SQLiteExternalCache:
         fetched_at = self._normalize_time(now or datetime.now(UTC))
         expires_at = fetched_at + timedelta(seconds=ttl_seconds)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO external_cache (
@@ -116,34 +145,44 @@ class SQLiteExternalCache:
         now: datetime | None = None,
     ) -> CachedPayload | None:
         reference = self._normalize_time(now or datetime.now(UTC))
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM external_cache WHERE cache_key = ?",
                 (cache_key,),
             ).fetchone()
-        if row is None:
-            return None
-        fetched_at = self._parse_time(row["fetched_at"])
-        expires_at = self._parse_time(row["expires_at"])
-        stale = expires_at <= reference
-        if stale and not allow_stale:
-            return None
-        payload = json.loads(row["payload_json"])
-        if not isinstance(payload, dict):
-            return None
-        return CachedPayload(
-            payload=payload,
-            source=row["source"],
-            attribution=row["attribution"],
-            license_note=row["license_note"],
-            fetched_at=fetched_at,
-            expires_at=expires_at,
-            stale=stale,
-        )
+            if row is None:
+                return None
+            try:
+                fetched_at = self._parse_time(row["fetched_at"])
+                expires_at = self._parse_time(row["expires_at"])
+                payload = json.loads(row["payload_json"])
+                if not isinstance(payload, dict):
+                    raise ValueError("cached payload must be an object")
+            except (TypeError, ValueError):
+                # One malformed row is not authoritative data. Delete it so the next online request
+                # can repopulate the cache instead of repeatedly crashing on the same corruption.
+                connection.execute(
+                    "DELETE FROM external_cache WHERE cache_key = ?",
+                    (cache_key,),
+                )
+                return None
+
+            stale = expires_at <= reference
+            if stale and not allow_stale:
+                return None
+            return CachedPayload(
+                payload=payload,
+                source=row["source"],
+                attribution=row["attribution"],
+                license_note=row["license_note"],
+                fetched_at=fetched_at,
+                expires_at=expires_at,
+                stale=stale,
+            )
 
     def delete_expired(self, *, now: datetime | None = None) -> int:
         reference = self._normalize_time(now or datetime.now(UTC))
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 "DELETE FROM external_cache WHERE expires_at <= ?",
                 (reference.isoformat(),),
