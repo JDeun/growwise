@@ -78,7 +78,6 @@ def get_background_write_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
-@lru_cache
 def get_background_idempotency_store() -> SQLiteIdempotencyStore:
     return SQLiteIdempotencyStore(get_background_write_settings().idempotency_path)
 
