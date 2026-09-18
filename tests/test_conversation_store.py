@@ -1,6 +1,7 @@
 import sqlite3
 
 import pytest
+from pydantic import ValidationError
 
 from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
@@ -110,3 +111,25 @@ def test_delete_for_child_uses_fk_cascade_without_variable_expansion(tmp_path) -
     with store._connection() as connection:
         assert connection.execute("SELECT COUNT(*) FROM conversation_sessions").fetchone()[0] == 0
         assert connection.execute("SELECT COUNT(*) FROM conversation_turns").fetchone()[0] == 0
+
+
+
+def test_conversation_persistence_models_reject_oversized_payloads() -> None:
+    with pytest.raises(ValidationError):
+        ConversationTurn(role="user", content="x" * 20_001)
+    with pytest.raises(ValidationError):
+        ConversationTurn(
+            role="assistant",
+            content="답변",
+            source_ids=["source"] * 101,
+        )
+    with pytest.raises(ValidationError):
+        ConversationTurn(
+            role="assistant",
+            content="답변",
+            source_ids=["x" * 501],
+        )
+    with pytest.raises(ValidationError):
+        ConversationSession(child_id="child", title="x" * 201)
+    with pytest.raises(ValidationError):
+        ConversationSession(child_id="x" * 121)
