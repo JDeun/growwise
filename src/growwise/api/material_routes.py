@@ -184,15 +184,14 @@ def generate_material(
         material.request_topic = request.topic
         material.request_goal = request.goal
         store.save(material)
-        if claim is not None and claim.acquired:
-            assert idempotency_store is not None
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
                 resource_id=claim.record.resource_id,
             )
     except Exception:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             existing = store.index.get_entity(
                 claim.record.resource_id,
                 entity_type="generated_material",
