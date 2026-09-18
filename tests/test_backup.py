@@ -48,6 +48,37 @@ def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> Non
     assert payload["nickname"] == "샘플아이"
 
 
+
+def test_backup_create_rejects_semantically_invalid_record_tree(tmp_path: Path) -> None:
+    records = tmp_path / "records"
+    records.mkdir()
+    (records / "orphan.md").write_text(
+        "---\nschema_version: 1\nid: not-a-uuid\nentity_type: child_profile\n---\n",
+        encoding="utf-8",
+    )
+    archive = tmp_path / "invalid-source.zip"
+
+    with pytest.raises(InvalidBackup):
+        BackupService().create(records_root=records, destination=archive)
+
+    assert not archive.exists()
+
+
+def test_backup_create_enforces_restore_size_limit_before_publish(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    records = tmp_path / "records"
+    index = tmp_path / "index.sqlite3"
+    store = EntityStore(records, index)
+    store.save(ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9))
+    archive = tmp_path / "oversized-source.zip"
+
+    monkeypatch.setattr(BackupService, "MAX_TOTAL_UNCOMPRESSED_BYTES", 32)
+    with pytest.raises(InvalidBackup, match="backup source expands beyond the allowed size"):
+        BackupService().create(records_root=records, destination=archive)
+
+    assert not archive.exists()
+
 def test_backup_rejects_path_traversal(tmp_path: Path) -> None:
     archive = tmp_path / "malicious.zip"
     with zipfile.ZipFile(archive, "w") as output:
