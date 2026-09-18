@@ -37,6 +37,10 @@ class EntityStore:
             yield
 
     def save(self, entity: EntityBase, body: str = "") -> Path:
+        # Pydantic does not validate arbitrary post-init assignment by default. Revalidate the
+        # concrete domain type at the persistence boundary so an invalid transient mutation can
+        # never become authoritative Markdown.
+        entity = type(entity).model_validate(entity.model_dump(mode="python"))
         # Register the whole source+projection mutation with the maintenance coordinator. Backup and
         # restore can then establish a clean quiescent point without serializing ordinary writes.
         with self.mutation_window():
