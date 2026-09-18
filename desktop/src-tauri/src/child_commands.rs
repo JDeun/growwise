@@ -11,6 +11,13 @@ pub(crate) struct ChildCreateInput {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub(crate) struct ChildAvatarInput {
+    filename: String,
+    mime_type: String,
+    data_base64: String,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct ChildUpdateInput {
     nickname: String,
     stage: String,
@@ -37,6 +44,8 @@ pub(crate) struct ChildProfileDto {
     learning_goals: Vec<String>,
     #[serde(default)]
     notes: Option<String>,
+    #[serde(default)]
+    avatar_asset_id: Option<String>,
 }
 
 #[tauri::command]
@@ -66,6 +75,38 @@ pub(crate) async fn update_child(
         .await
         .map_err(|error| error.to_string())?;
     ensure_success(response, "아이 프로필 수정 실패")
+        .await?
+        .json::<ChildProfileDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn set_child_avatar(
+    child_id: String,
+    request: ChildAvatarInput,
+) -> Result<ChildProfileDto, String> {
+    let response = client()?
+        .put(format!("{CORE_BASE_URL}/v1/children/{child_id}/avatar"))
+        .json(&request)
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 프로필 사진 저장 실패")
+        .await?
+        .json::<ChildProfileDto>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn delete_child_avatar(child_id: String) -> Result<ChildProfileDto, String> {
+    let response = client()?
+        .delete(format!("{CORE_BASE_URL}/v1/children/{child_id}/avatar"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "아이 프로필 사진 삭제 실패")
         .await?
         .json::<ChildProfileDto>()
         .await
