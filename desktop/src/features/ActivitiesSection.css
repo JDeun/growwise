@@ -12,7 +12,7 @@
   padding: 12px 14px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--surface);
 }
 
 .activity-lifecycle > article > div {
@@ -70,7 +70,7 @@
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
 }
 
 .activity-lifecycle-card-heading {
