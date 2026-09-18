@@ -4,8 +4,8 @@ import hashlib
 import json
 import secrets
 import sqlite3
-from contextlib import AbstractContextManager
 from collections.abc import Mapping
+from contextlib import AbstractContextManager
 from contextvars import ContextVar
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -275,8 +275,9 @@ class SQLiteIdempotencyStore:
 
                 connection.execute(
                     "INSERT INTO idempotency_records "
-                    "(key, request_hash, resource_type, resource_id, created_at, status, updated_at, "
-                    "lease_expires_at, claim_token) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    "(key, request_hash, resource_type, resource_id, created_at, status, "
+                    "updated_at, lease_expires_at, claim_token) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
                     (
                         key,
                         request_hash,
@@ -338,7 +339,8 @@ class SQLiteIdempotencyStore:
                 if owner_token is not None:
                     cursor = connection.execute(
                         "UPDATE idempotency_records "
-                        "SET status = ?, updated_at = ?, lease_expires_at = NULL, claim_token = NULL "
+                        "SET status = ?, updated_at = ?, lease_expires_at = NULL, "
+                        "claim_token = NULL "
                         "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ? "
                         "AND claim_token = ?",
                         (
@@ -360,7 +362,8 @@ class SQLiteIdempotencyStore:
                 elif context.can_reconcile:
                     connection.execute(
                         "UPDATE idempotency_records "
-                        "SET status = ?, updated_at = ?, lease_expires_at = NULL, claim_token = NULL "
+                        "SET status = ?, updated_at = ?, lease_expires_at = NULL, "
+                        "claim_token = NULL "
                         "WHERE key = ? AND request_hash = ? AND resource_id = ? AND status = ?",
                         (
                             IdempotencyStatus.COMPLETED,
@@ -372,7 +375,9 @@ class SQLiteIdempotencyStore:
                         ),
                     )
                 else:
-                    raise IdempotencyConflict("idempotency completion requires the current claim token")
+                    raise IdempotencyConflict(
+                        "idempotency completion requires the current claim token"
+                    )
                 connection.commit()
             except Exception:
                 connection.rollback()
