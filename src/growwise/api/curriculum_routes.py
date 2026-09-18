@@ -19,6 +19,7 @@ from growwise.idempotency import (
     SQLiteIdempotencyStore,
     request_fingerprint,
 )
+from growwise.maintenance import DATA_MAINTENANCE
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.storage import EntityStore
 
@@ -44,9 +45,19 @@ def get_curriculum_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
-@lru_cache
-def get_curriculum_rag_index() -> HybridRagIndex:
+@lru_cache(maxsize=4)
+def _get_curriculum_rag_index(generation: int) -> HybridRagIndex:
+    del generation
     return HybridRagIndex(get_curriculum_settings().rag_index_path)
+
+
+def get_curriculum_rag_index() -> HybridRagIndex:
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_curriculum_rag_index(generation)
+
+
+get_curriculum_rag_index.cache_clear = _get_curriculum_rag_index.cache_clear  # type: ignore[attr-defined]
 
 
 @router.post(
