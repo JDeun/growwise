@@ -6,6 +6,8 @@ import sqlite3
 from datetime import datetime
 from pathlib import Path
 
+from growwise.maintenance import DATA_MAINTENANCE
+
 from .conversation import ConversationSession, ConversationTurn
 
 
@@ -118,6 +120,10 @@ class SQLiteConversationStore:
         return json.dumps(payload, ensure_ascii=False)
 
     def save(self, session: ConversationSession) -> None:
+        with DATA_MAINTENANCE.mutation():
+            self._save_uncoordinated(session)
+
+    def _save_uncoordinated(self, session: ConversationSession) -> None:
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
@@ -209,30 +215,50 @@ class SQLiteConversationStore:
             return [self._session_from_row(connection, row) for row in rows]
 
     def delete(self, session_id: str) -> bool:
-        with self._connect() as connection:
-            connection.execute("BEGIN IMMEDIATE")
-            connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
-            cursor = connection.execute(
-                "DELETE FROM conversation_sessions WHERE id = ?",
-                (session_id,),
-            )
-            connection.commit()
-        return cursor.rowcount > 0
+        with DATA_MAINTENANCE.mutation():
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute(
+                    "DELETE FROM conversation_turns WHERE session_id = ?",
+                    (session_id,),
+                )
+                cursor = connection.execute(
+                    "DELETE FROM conversation_sessions WHERE id = ?",
+                    (session_id,),
+                )
+                connection.commit()
+            return cursor.rowcount > 0
 
     def delete_for_child(self, child_id: str) -> int:
         """Delete all sessions and turns for one child and return the session count."""
+        with DATA_MAINTENANCE.mutation():
+            with self._connect() as connection:
+                connection.execute("BEGIN IMMEDIATE")
+                rows = connection.execute(
+                    "SELECT id FROM conversation_sessions WHERE child_id = ?",
+                    (child_id,),
+                ).fetchall()
+                session_ids = [row["id"] for row in rows]
+                if session_ids:
+                    placeholders = ",".join("?" for _ in session_ids)
+                    connection.execute(
+                        f"DELETE FROM conversation_turns WHERE session_id IN ({placeholders})",
+                        session_ids,
+                    )
+                connection.execute(
+                    "DELETE FROM conversation_sessions WHERE child_id = ?",
+                    (child_id,),
+                )
+                connection.commit()
+            return len(session_ids)
+
+    def reset_for_restore(self) -> int:
+        """Clear snapshot-scoped conversation state while caller owns maintenance."""
+
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            rows = connection.execute(
-                "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
-            ).fetchall()
-            session_ids = [row["id"] for row in rows]
-            if session_ids:
-                placeholders = ",".join("?" for _ in session_ids)
-                connection.execute(
-                    f"DELETE FROM conversation_turns WHERE session_id IN ({placeholders})",
-                    session_ids,
-                )
-            connection.execute("DELETE FROM conversation_sessions WHERE child_id = ?", (child_id,))
+            count = int(connection.execute("SELECT COUNT(*) FROM conversation_sessions").fetchone()[0])
+            connection.execute("DELETE FROM conversation_turns")
+            connection.execute("DELETE FROM conversation_sessions")
             connection.commit()
-        return len(session_ids)
+        return count
