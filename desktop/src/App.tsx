@@ -674,6 +674,14 @@ function App() {
               onSearch={handleSearch}
               onConversationQuestionChange={setConversationQuestion}
               onConversation={handleConversation}
+              backups={backups}
+              backupBusy={backupBusy}
+              backupError={backupError}
+              backupNotice={backupNotice}
+              onBackupCreate={handleCreateBackup}
+              onBackupImport={handleImportBackup}
+              onBackupExport={handleExportBackup}
+              onBackupRestore={handleRestoreBackup}
             />
 
             <ResourceLibrarySection
