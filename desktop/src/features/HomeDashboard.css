@@ -36,14 +36,14 @@
   padding: 14px 16px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.88);
+  background: var(--surface);
 }
 
 .home-dashboard-error {
   display: grid;
   gap: 8px;
-  border-color: rgba(168, 77, 67, 0.28);
-  background: #fffafa;
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
 }
 
 .home-dashboard-error .quiet-button {
@@ -69,7 +69,7 @@
   padding: 16px;
   border: 1px solid var(--border);
   border-radius: 16px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
 }
 
 .home-metrics span,
@@ -105,7 +105,7 @@
   padding: 18px;
   border: 1px solid var(--border);
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.92);
+  background: var(--surface);
 }
 
 .home-section-heading {
@@ -151,7 +151,7 @@
 
 .home-action-list button:focus-visible,
 .home-section-heading button:focus-visible {
-  outline: 3px solid rgba(36, 115, 86, 0.3);
+  outline: 3px solid var(--focus-outline);
   outline-offset: 2px;
 }
 
