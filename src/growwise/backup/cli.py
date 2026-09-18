@@ -49,7 +49,7 @@ def managed_archive_path(settings: Settings, name: str) -> Path:
 def create_backup(settings: Settings, name: str | None = None) -> dict[str, object]:
     archive = managed_archive_path(settings, name or default_archive_name())
     # A backup must observe one coherent authoritative snapshot. This waits for source mutations
-    # that already started and rejects new ones until the archive has closed. Read-only maintenance
+    # that already started and blocks new ones until the archive has closed. Read-only maintenance
     # does not advance the data generation because the active source set is unchanged.
     with DATA_MAINTENANCE.maintenance():
         manifest = BackupService().create(
