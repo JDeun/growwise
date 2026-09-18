@@ -205,6 +205,11 @@ class RestoreJournalManager:
         expected_assets = str(self.assets_root) if self.assets_root is not None else None
         if journal.assets_root != expected_assets:
             raise RuntimeError("restore recovery assets target does not match current settings")
+        if self.assets_root is None:
+            if journal.assets_transaction is not None or journal.had_assets:
+                raise RuntimeError("restore recovery journal has unexpected asset state")
+        elif journal.assets_transaction is None:
+            raise RuntimeError("restore recovery journal is missing its asset transaction")
 
         expected_conversations = (
             str(self.conversations_path) if self.conversations_path is not None else None
@@ -213,6 +218,11 @@ class RestoreJournalManager:
             raise RuntimeError(
                 "restore recovery conversation target does not match current settings"
             )
+        if self.conversations_path is None:
+            if journal.conversations_transaction is not None or journal.had_conversations:
+                raise RuntimeError("restore recovery journal has unexpected conversation state")
+        elif journal.conversations_transaction is None:
+            raise RuntimeError("restore recovery journal is missing its conversation transaction")
 
         self._validated_transaction(
             journal.records_transaction,
