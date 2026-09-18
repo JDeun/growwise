@@ -140,7 +140,12 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     # then cancelled before files are replaced, fencing model work that was started from the old
     # record set. The generation advances on exit, so even a worker still returning from inference
     # cannot persist through an old EntityStore or a generation-bound worker thread.
+    backup_service = BackupService()
     with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        # Reject a corrupt or semantically invalid archive before cancelling or deleting any
+        # pre-restore operational state. restore() validates again immediately before source swap.
+        backup_service.validate_archive(archive)
+
         queue = MaintenanceAwareJobQueue(settings.jobs_path)
         cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
 
@@ -152,7 +157,7 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         cleared_idempotency = SQLiteIdempotencyStore(settings.idempotency_path).reset()
         cleared_checkpoint_threads = reset_checkpoint_projection(settings.checkpoint_path)
 
-        manifest = BackupService().restore(
+        manifest = backup_service.restore(
             archive_path=archive,
             records_root=settings.records_dir,
             assets_root=settings.assets_dir,
