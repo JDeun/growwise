@@ -4,7 +4,7 @@ import html
 import re
 from typing import Annotated
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, ValidationError
 
 from growwise.curriculum import curriculum_targets_for
 from growwise.domain import (
@@ -204,6 +204,9 @@ requested schema."""
                 else:
                     draft = candidate
                     generator_mode = "llm_enhanced"
+            except ValidationError:
+                draft = fallback
+                generator_mode = "template_malformed_fallback"
             except Exception:
                 draft = fallback
                 generator_mode = "template_fallback"
