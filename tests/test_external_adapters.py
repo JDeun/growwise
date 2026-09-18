@@ -15,6 +15,7 @@ from growwise.adapters import (
     OverpassAdapter,
     SQLiteExternalCache,
 )
+from growwise.adapters.http import validate_public_endpoint
 
 FIXTURES = Path(__file__).parent / "fixtures" / "external"
 
@@ -216,3 +217,47 @@ def test_external_cache_corruption_degrades_to_miss_and_self_heals(
             ("corrupt",),
         ).fetchone()
     assert count is not None and count[0] == 0
+
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "http://example.com/api",
+        "ftp://example.com/data",
+        "file:///etc/passwd",
+        "https://user:password@example.com/api",
+        "relative/path",
+    ],
+)
+def test_external_endpoint_rejects_unsafe_transport_or_credentials(url: str) -> None:
+    with pytest.raises(ValueError):
+        validate_public_endpoint(url)
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://example.com/api",
+        "http://127.0.0.1:8080/api",
+        "http://localhost:8080/api",
+        "http://[::1]:8080/api",
+    ],
+)
+def test_external_endpoint_accepts_https_and_loopback_http(url: str) -> None:
+    assert validate_public_endpoint(url) == url
+
+
+def test_adapter_constructor_rejects_plain_http_remote_endpoint(tmp_path: Path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "external.sqlite3")
+    with pytest.raises(ValueError, match="HTTPS"):
+        Data4LibraryAdapter(
+            auth_key="secret",
+            cache=cache,
+            endpoint="http://example.com/api",
+        )
+    with pytest.raises(ValueError, match="HTTPS"):
+        OverpassAdapter(
+            cache=cache,
+            endpoint="http://example.com/api",
+        )
