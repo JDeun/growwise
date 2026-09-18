@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import base64
-import shutil
 from pathlib import Path
 
 from growwise.api.child_profile_routes import (
