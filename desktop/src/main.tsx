@@ -51,7 +51,6 @@ createRoot(document.getElementById("root")!).render(
               activeView !== "home"
               && activeView !== "photos"
               && activeView !== "discovery"
-              && activeView !== "learning"
               && activeView !== "help"
               && <App activeView={activeView} />
             )}
