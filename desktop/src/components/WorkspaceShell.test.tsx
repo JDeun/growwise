@@ -6,7 +6,7 @@ import { WorkspaceShell } from "./WorkspaceShell";
 describe("WorkspaceShell", () => {
   it("renders a labelled workspace region and a keyboard skip link without nesting main landmarks", () => {
     const html = renderToStaticMarkup(
-      <WorkspaceShell initialView="materials" renderWorkspace={(view) => <main>{view} workspace</main>} />,
+      <WorkspaceShell initialView="materials" renderWorkspace={(view) => <section>{view} workspace</section>} />,
     );
     expect(html).toContain('data-active-workspace="materials"');
     expect(html).toContain('id="workspace-panel"');
