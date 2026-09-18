@@ -4,11 +4,13 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from functools import lru_cache
-from typing import Annotated
+from collections.abc import Callable
+from typing import Annotated, TypeVar
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 from growwise.api.background_write_routes import router as background_write_router
 from growwise.api.child_profile_routes import router as child_profile_router
@@ -21,7 +23,7 @@ from growwise.api.photo_routes import router as photo_router
 from growwise.api.privacy_routes import router as privacy_router
 from growwise.api.resource_routes import router as resource_router
 from growwise.config import Settings
-from growwise.domain.models import ChildProfile, SourceRef, Stage
+from growwise.domain.models import ChildProfile, EntityBase, SourceRef, Stage
 from growwise.domain.study import (
     MistakeRecord,
     MistakeType,
@@ -32,6 +34,12 @@ from growwise.domain.study import (
     StudyProgressState,
     StudyReflection,
     StudyUnitProgress,
+)
+from growwise.idempotency import (
+    IdempotencyConflict,
+    IdempotencyStatus,
+    SQLiteIdempotencyStore,
+    request_fingerprint,
 )
 from growwise.services.study import StudyTrackingService
 from growwise.storage import EntityStore
@@ -105,16 +113,96 @@ def _study_child(store: EntityStore, child_id: UUID) -> ChildProfile:
     return child
 
 
+TStudyEntity = TypeVar("TStudyEntity", bound=EntityBase)
+
+
+def _idempotent_study_create(
+    *,
+    child_id: UUID,
+    request_payload: dict[str, object],
+    resource_type: str,
+    build: Callable[[UUID], TStudyEntity],
+    store: EntityStore,
+    idempotency_key: str | None,
+) -> TStudyEntity:
+    reserved_id: UUID = uuid7()
+    claim = None
+    idempotency_store = SQLiteIdempotencyStore(get_study_settings().idempotency_path)
+    request_hash = request_fingerprint(
+        {"child_id": str(child_id), "resource_type": resource_type, **request_payload}
+    )
+    if idempotency_key is not None:
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type=resource_type,
+                resource_id=str(reserved_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        reserved_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing = store.index.get_entity(claim.record.resource_id, entity_type=resource_type)
+            if existing is not None:
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return build(reserved_id).__class__.model_validate(existing)
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
+    entity = build(reserved_id)
+    try:
+        store.save(entity)
+        if claim is not None and claim.acquired:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+        return entity
+    except Exception:
+        if claim is not None and claim.acquired:
+            existing = store.index.get_entity(claim.record.resource_id, entity_type=resource_type)
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+        raise
+
+
 @router.post("/children/{child_id}/study/progress", response_model=StudyUnitProgress)
 def record_progress(
     child_id: UUID,
     request: StudyProgressRequest,
     store: Annotated[EntityStore, Depends(get_study_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> StudyUnitProgress:
     _study_child(store, child_id)
-    record = StudyUnitProgress(child_id=child_id, **request.model_dump())
-    store.save(record)
-    return record
+    payload = request.model_dump(mode="json")
+    return _idempotent_study_create(
+        child_id=child_id,
+        request_payload=payload,
+        resource_type="study_unit_progress",
+        build=lambda entity_id: StudyUnitProgress(
+            id=entity_id, child_id=child_id, **request.model_dump()
+        ),
+        store=store,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/children/{child_id}/study/progress")
@@ -131,11 +219,20 @@ def record_mistake(
     child_id: UUID,
     request: MistakeRequest,
     store: Annotated[EntityStore, Depends(get_study_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> MistakeRecord:
     _study_child(store, child_id)
-    record = MistakeRecord(child_id=child_id, **request.model_dump())
-    store.save(record)
-    return record
+    payload = request.model_dump(mode="json")
+    return _idempotent_study_create(
+        child_id=child_id,
+        request_payload=payload,
+        resource_type="mistake_record",
+        build=lambda entity_id: MistakeRecord(
+            id=entity_id, child_id=child_id, **request.model_dump()
+        ),
+        store=store,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/children/{child_id}/study/mistakes")
@@ -152,11 +249,20 @@ def record_reflection(
     child_id: UUID,
     request: ReflectionRequest,
     store: Annotated[EntityStore, Depends(get_study_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> StudyReflection:
     _study_child(store, child_id)
-    record = StudyReflection(child_id=child_id, **request.model_dump())
-    store.save(record)
-    return record
+    payload = request.model_dump(mode="json")
+    return _idempotent_study_create(
+        child_id=child_id,
+        request_payload=payload,
+        resource_type="study_reflection",
+        build=lambda entity_id: StudyReflection(
+            id=entity_id, child_id=child_id, **request.model_dump()
+        ),
+        store=store,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/children/{child_id}/study/reflections")
@@ -176,11 +282,20 @@ def record_self_explanation(
     child_id: UUID,
     request: SelfExplanationRequest,
     store: Annotated[EntityStore, Depends(get_study_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> SelfExplanationLog:
     _study_child(store, child_id)
-    record = SelfExplanationLog(child_id=child_id, **request.model_dump())
-    store.save(record)
-    return record
+    payload = request.model_dump(mode="json")
+    return _idempotent_study_create(
+        child_id=child_id,
+        request_payload=payload,
+        resource_type="self_explanation_log",
+        build=lambda entity_id: SelfExplanationLog(
+            id=entity_id, child_id=child_id, **request.model_dump()
+        ),
+        store=store,
+        idempotency_key=idempotency_key,
+    )
 
 
 @router.get("/children/{child_id}/study/self-explanations")
@@ -228,6 +343,7 @@ def create_study_plan(
     child_id: UUID,
     request: StudyPlanRequest,
     store: Annotated[EntityStore, Depends(get_study_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> StudyPlan:
     _study_child(store, child_id)
     weak_map = StudyTrackingService(store.index).weak_map(
@@ -246,15 +362,22 @@ def create_study_plan(
         )
         for entry in weak_map.entries
     ]
-    plan = StudyPlan(
+    payload = request.model_dump(mode="json")
+    return _idempotent_study_create(
         child_id=child_id,
-        title=request.title,
-        target_date=request.target_date,
-        items=items,
-        parent_note=request.parent_note,
+        request_payload=payload,
+        resource_type="study_plan",
+        build=lambda entity_id: StudyPlan(
+            id=entity_id,
+            child_id=child_id,
+            title=request.title,
+            target_date=request.target_date,
+            items=items,
+            parent_note=request.parent_note,
+        ),
+        store=store,
+        idempotency_key=idempotency_key,
     )
-    store.save(plan)
-    return plan
 
 
 @router.post(
