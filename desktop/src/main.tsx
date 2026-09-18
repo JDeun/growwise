@@ -4,7 +4,6 @@ import { createRoot } from "react-dom/client";
 import App from "./App";
 import { ActiveChildProvider } from "./active-child-context";
 import PrintApprovedMaterials from "./PrintApprovedMaterials";
-import { CapabilityStatus } from "./components/CapabilityStatus";
 import { WorkspaceShell } from "./components";
 import {
   DiscoveryWorkspace,
@@ -32,7 +31,6 @@ createRoot(document.getElementById("root")!).render(
       <WorkspaceShell
         renderWorkspace={(activeView, navigate) => (
           <>
-            <CapabilityStatus />
             {activeView === "learning" ? (
               <LearningWorkspaceHub
                 renderRecords={(active) => <LearningRecordWorkspace active={active} embedded />}
