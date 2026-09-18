@@ -3,6 +3,7 @@ import type { WorkspaceView } from "./workspaceTypes";
 
 export const WORKSPACE_MIGRATION: Record<WorkspaceLayoutKey, WorkspaceView> = {
   "child-context": "home",
+  profile: "profile",
   observations: "observations",
   photos: "photos",
   "learning-records": "learning",
