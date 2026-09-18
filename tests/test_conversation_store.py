@@ -223,3 +223,40 @@ def test_conversation_snapshot_rejects_future_schema(tmp_path) -> None:
 
     with pytest.raises(UnsupportedConversationSchema, match="newer than this GrowWise build"):
         SQLiteConversationStore.validate_snapshot(path)
+
+
+
+def test_conversation_store_fails_closed_on_corrupt_legacy_row(tmp_path) -> None:
+    path = tmp_path / "corrupt-legacy.sqlite3"
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            """
+            CREATE TABLE conversation_sessions (
+                id TEXT PRIMARY KEY,
+                child_id TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            INSERT INTO conversation_sessions (
+                id, child_id, payload_json, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?)
+            """,
+            (
+                "broken-session",
+                "child-a",
+                "{not-json",
+                "2026-01-01T00:00:00+00:00",
+                "2026-01-01T00:00:00+00:00",
+            ),
+        )
+
+    with pytest.raises(ValueError, match="cannot be migrated"):
+        SQLiteConversationStore(path)
+
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("PRAGMA user_version").fetchone()[0] == 0
