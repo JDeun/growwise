@@ -455,6 +455,16 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
     if (activeChildIdRef.current === child.id) setActiveChild(child);
   }
 
+  async function handleManagedProfileUpdated(child: ChildProfile) {
+    upsertSharedChild(child, { select: activeChildIdRef.current === child.id });
+    setChildren((current) =>
+      current.map((item) => (item.id === child.id ? child : item)),
+    );
+    if (activeChildIdRef.current === child.id) {
+      await loadChildContext(child);
+    }
+  }
+
   async function handleSelectChild(childId: string) {
     const child = children.find((item) => item.id === childId);
     if (!child) return;
@@ -838,6 +848,7 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
             onCreate={() => void handleCreateBackup()}
             onExport={(archiveName) => void handleExportBackup(archiveName)}
             onRestore={handleRestoreBackup}
+            onProfileUpdated={handleManagedProfileUpdated}
           />
         </section>
       )}
