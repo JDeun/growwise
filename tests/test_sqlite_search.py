@@ -1,5 +1,11 @@
-from growwise.domain import ChildProfile, LearningLog, Stage
-from growwise.storage import EntityStore
+import sqlite3
+from pathlib import Path
+
+from uuid6 import uuid7
+
+from growwise.domain import ChildProfile, LearningLog, ResourceKind, ResourceRecord, Stage
+from growwise.domain.links import EntityLink, EntityLinkRelation
+from growwise.storage import EntityStore, SQLiteProjection
 
 
 def test_search_entities_is_child_scoped_and_ranks_keyword_hits(tmp_path):
@@ -82,3 +88,59 @@ def test_search_entities_caps_query_term_expansion(tmp_path):
     )
 
     assert results == []
+
+
+
+def test_shared_projection_queries_survive_sqlite_variable_ceiling(tmp_path: Path) -> None:
+    class LowVariableProjection(SQLiteProjection):
+        def _connect(self) -> sqlite3.Connection:
+            connection = super()._connect()
+            connection.setlimit(sqlite3.SQLITE_LIMIT_VARIABLE_NUMBER, 512)
+            return connection
+
+    projection = LowVariableProjection(tmp_path / "index.sqlite3")
+    viewer_id = uuid7()
+    owner_id = uuid7()
+    target_resource_id = None
+
+    with projection._connection() as connection:
+        for index in range(600):
+            resource = ResourceRecord(
+                child_id=owner_id,
+                kind=ResourceKind.NOTE,
+                title=f"공유 자료 {index}",
+                content="needle shared content" if index == 599 else "ordinary shared content",
+            )
+            link = EntityLink(
+                child_id=viewer_id,
+                source_id=resource.id,
+                target_id=viewer_id,
+                relation=EntityLinkRelation.CHILD_SCOPE,
+            )
+            projection._upsert_on(
+                connection,
+                resource.model_dump(mode="json"),
+                tmp_path / f"resource-{index}.md",
+            )
+            projection._upsert_on(
+                connection,
+                link.model_dump(mode="json"),
+                tmp_path / f"link-{index}.md",
+            )
+            if index == 599:
+                target_resource_id = str(resource.id)
+
+    listed = projection.list_entities(
+        entity_type="resource",
+        child_id=str(viewer_id),
+    )
+    assert len(listed) == 600
+
+    results = projection.search_entities(
+        child_id=str(viewer_id),
+        query_text="needle",
+        entity_types=("resource",),
+        limit=10,
+    )
+    assert target_resource_id is not None
+    assert [item["id"] for item in results] == [target_resource_id]
