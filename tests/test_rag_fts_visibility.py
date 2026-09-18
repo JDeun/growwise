@@ -76,3 +76,68 @@ def test_corrupt_rag_projection_is_recreated_from_disposable_state(tmp_path) -> 
 
     hits = index.search(query="고양이", child_id=None, limit=10)
     assert [item["resource_id"] for item in hits] == [str(resource.id)]
+
+
+
+def test_rag_shared_scope_scales_beyond_sqlite_variable_limit(tmp_path) -> None:
+    index = HybridRagIndex(tmp_path / "rag.sqlite3")
+    shared_ids = tuple(f"resource-{position}" for position in range(1_200))
+
+    connection = index._connect()
+    try:
+        rows = [
+            (
+                f"chunk-{position}",
+                resource_id,
+                "owner-child",
+                f"공유 자료 {position}",
+                "needle evidence",
+                None,
+                None,
+                "[]",
+                None,
+                None,
+            )
+            for position, resource_id in enumerate(shared_ids)
+        ]
+        connection.executemany(
+            """
+            INSERT INTO rag_chunks (
+                chunk_id, resource_id, child_id, title, text,
+                source_url, source_name, tags_json, embedding_json, recorded_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            rows,
+        )
+        if index._fts_available:
+            connection.executemany(
+                """
+                INSERT INTO rag_chunks_fts (
+                    chunk_id, resource_id, child_id, title, text, tags
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                [
+                    (
+                        f"chunk-{position}",
+                        resource_id,
+                        "owner-child",
+                        f"공유 자료 {position}",
+                        "needle evidence",
+                        "[]",
+                    )
+                    for position, resource_id in enumerate(shared_ids)
+                ],
+            )
+        connection.commit()
+    finally:
+        connection.close()
+
+    hits = index.search(
+        query="needle",
+        child_id="viewer-child",
+        shared_resource_ids=shared_ids,
+        limit=20,
+    )
+
+    assert len(hits) == 20
+    assert all(hit["resource_id"] in shared_ids for hit in hits)
