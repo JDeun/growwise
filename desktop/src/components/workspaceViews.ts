@@ -29,3 +29,7 @@ export const WORKSPACE_VIEWS: readonly WorkspaceView[] = [
 export function isWorkspaceView(value: string): value is WorkspaceView {
   return WORKSPACE_VIEWS.includes(value as WorkspaceView);
 }
+
+export function isProductWorkspaceView(value: string): value is WorkspaceView {
+  return PRODUCT_WORKSPACE_VIEWS.includes(value as WorkspaceView);
+}
