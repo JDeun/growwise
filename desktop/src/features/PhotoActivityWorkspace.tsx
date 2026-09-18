@@ -54,7 +54,22 @@ function isBackgroundRecord(record: PhotoActivityRecord): boolean {
   return record.status === "queued" || record.status === "processing";
 }
 
-type PhotoFilter = "all" | "committed" | "attention";
+export type PhotoFilter = "all" | "committed" | "attention";
+
+export function filterPhotoRecords(
+  records: PhotoActivityRecord[],
+  filter: PhotoFilter,
+): PhotoActivityRecord[] {
+  if (filter === "committed") {
+    return records.filter((record) => record.status === "committed");
+  }
+  if (filter === "attention") {
+    return records.filter((record) =>
+      ["queued", "processing", "draft", "failed"].includes(record.status),
+    );
+  }
+  return records.filter((record) => record.status !== "discarded");
+}
 
 type Props = { active: boolean };
 
@@ -358,16 +373,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
   const hasBackgroundWork = records.some(isBackgroundRecord);
   const shareCandidates = children.filter((child) => child.id !== childId);
-  const visibleRecords =
-    photoFilter === "committed"
-      ? records.filter((record) => record.status === "committed")
-      : photoFilter === "attention"
-        ? records.filter((record) =>
-            ["queued", "processing", "draft", "failed"].includes(record.status),
-          )
-        : records.filter((record) => record.status !== "discarded");
+  const visibleRecords = filterPhotoRecords(records, photoFilter);
   const selectedRecord =
-    records.find((record) => record.id === selectedRecordId) ?? null;
+    visibleRecords.find((record) => record.id === selectedRecordId) ?? null;
 
   return (
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
