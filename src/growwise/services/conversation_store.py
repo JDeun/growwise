@@ -218,7 +218,9 @@ class SQLiteConversationStore:
     def delete(self, session_id: str) -> bool:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
             cursor = connection.execute(
@@ -232,7 +234,9 @@ class SQLiteConversationStore:
         """Delete all sessions and turns for one child and return the session count."""
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             rows = connection.execute(
                 "SELECT id FROM conversation_sessions WHERE child_id = ?", (child_id,)
