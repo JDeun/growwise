@@ -255,3 +255,38 @@ def test_existing_v1_table_is_migrated_without_losing_completed_record(tmp_path)
     assert record.status is IdempotencyStatus.COMPLETED
     assert record.lease_expires_at is None
     assert record.claim_token is None
+
+
+
+def test_delete_resources_scales_beyond_sqlite_variable_limit(tmp_path):
+    path = tmp_path / "idempotency.sqlite3"
+    store = SQLiteIdempotencyStore(path)
+    resource_ids = {f"resource-{index}" for index in range(1_200)}
+
+    with sqlite3.connect(path) as connection:
+        connection.executemany(
+            """
+            INSERT INTO idempotency_records (
+                key, request_hash, resource_type, resource_id, created_at,
+                status, updated_at, lease_expires_at, claim_token
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            [
+                (
+                    f"key-{index}",
+                    f"hash-{index}",
+                    "resource",
+                    resource_id,
+                    "2026-09-18T00:00:00+00:00",
+                    "completed",
+                    "2026-09-18T00:00:00+00:00",
+                    None,
+                    None,
+                )
+                for index, resource_id in enumerate(sorted(resource_ids))
+            ],
+        )
+
+    assert store.delete_resources(resource_ids) == 1_200
+    with sqlite3.connect(path) as connection:
+        assert connection.execute("SELECT COUNT(*) FROM idempotency_records").fetchone()[0] == 0
