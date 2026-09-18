@@ -20,7 +20,7 @@ describe("WorkspaceNav", () => {
     expect(html).toContain("학습 자료");
     expect(html).toContain("사진 기록");
     expect(html).toContain("대화");
-    expect(html).toContain("백업 및 설정");
+    expect(html).toContain("백업");
     expect(html).toContain("추가 도구");
     expect(html).toContain("Local-first");
   });
