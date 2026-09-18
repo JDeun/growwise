@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from typing import Literal
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
@@ -11,17 +11,21 @@ from growwise.model import ModelProvider
 from .context import ChildContextService, ContextAnswer
 
 
+_ConversationContent = Annotated[str, Field(min_length=1, max_length=20_000)]
+_ConversationSourceId = Annotated[str, Field(min_length=1, max_length=500)]
+
+
 class ConversationTurn(BaseModel):
     role: Literal["user", "assistant"]
-    content: str
-    source_ids: list[str] = Field(default_factory=list)
+    content: _ConversationContent
+    source_ids: list[_ConversationSourceId] = Field(default_factory=list, max_length=100)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
 class ConversationSession(BaseModel):
-    id: str = Field(default_factory=lambda: str(uuid7()))
-    child_id: str
-    title: str | None = None
+    id: str = Field(default_factory=lambda: str(uuid7()), min_length=1, max_length=120)
+    child_id: str = Field(min_length=1, max_length=120)
+    title: str | None = Field(default=None, max_length=200)
     turns: list[ConversationTurn] = Field(default_factory=list)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
