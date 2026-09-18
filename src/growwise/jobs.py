@@ -11,6 +11,8 @@ from uuid import UUID
 
 from uuid6 import uuid7
 
+_SQLITE_IN_CHUNK = 400
+
 
 def utc_now_iso(now: datetime | None = None) -> str:
     value = now or datetime.now(UTC)
@@ -456,12 +458,16 @@ class SQLiteJobQueue:
 
             if not owned_job_ids:
                 return 0
-            placeholders = ",".join("?" for _ in owned_job_ids)
-            cursor = connection.execute(
-                f"DELETE FROM jobs WHERE id IN ({placeholders})",
-                tuple(owned_job_ids),
-            )
-        return cursor.rowcount
+            deleted = 0
+            for offset in range(0, len(owned_job_ids), _SQLITE_IN_CHUNK):
+                chunk = owned_job_ids[offset : offset + _SQLITE_IN_CHUNK]
+                placeholders = ",".join("?" for _ in chunk)
+                cursor = connection.execute(
+                    f"DELETE FROM jobs WHERE id IN ({placeholders})",
+                    tuple(chunk),
+                )
+                deleted += cursor.rowcount
+        return deleted
 
 
     def reset(self) -> int:
