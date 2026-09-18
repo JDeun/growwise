@@ -176,3 +176,62 @@ def test_offline_cache_miss_is_explicit(tmp_path) -> None:
     )
     with pytest.raises(ExternalUnavailable):
         adapter.nearby_places(latitude=37.5, longitude=127.0, offline=True)
+
+
+
+@pytest.mark.parametrize(
+    ("column", "value"),
+    [
+        ("payload_json", "{not-json"),
+        ("payload_json", "[]"),
+        ("expires_at", "not-a-timestamp"),
+    ],
+)
+def test_external_cache_corrupt_row_is_deleted(
+    tmp_path: Path,
+    column: str,
+    value: str,
+) -> None:
+    path = tmp_path / "external.sqlite3"
+    cache = SQLiteExternalCache(path)
+    cache.put(
+        cache_key="corrupt",
+        payload={"records": [{"id": 1}]},
+        source="test",
+        attribution="test attribution",
+        license_note="test license",
+        ttl_seconds=60,
+    )
+
+    with sqlite3.connect(path) as connection:
+        connection.execute(
+            f"UPDATE external_cache SET {column} = ? WHERE cache_key = ?",
+            (value, "corrupt"),
+        )
+
+    assert cache.get("corrupt", allow_stale=True) is None
+    with sqlite3.connect(path) as connection:
+        remaining = connection.execute(
+            "SELECT COUNT(*) FROM external_cache WHERE cache_key = ?",
+            ("corrupt",),
+        ).fetchone()
+    assert remaining is not None
+    assert remaining[0] == 0
+
+
+def test_external_cache_recreates_malformed_disposable_database(tmp_path: Path) -> None:
+    path = tmp_path / "external.sqlite3"
+    path.write_bytes(b"not-a-sqlite-database")
+
+    cache = SQLiteExternalCache(path)
+    cached = cache.put(
+        cache_key="recovered",
+        payload={"records": [{"id": 1}]},
+        source="test",
+        attribution="test attribution",
+        license_note="test license",
+        ttl_seconds=60,
+    )
+
+    assert cached.payload == {"records": [{"id": 1}]}
+    assert cache.get("recovered") is not None
