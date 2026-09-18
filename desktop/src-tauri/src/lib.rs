@@ -26,7 +26,8 @@ use learning_record_commands::{create_learning_record, list_learning_records};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
 use material_result_commands::{list_material_results, record_material_result};
 use photo_commands::{
-    commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
+    commit_photo_record, create_photo_record, delete_child_avatar, get_photo_asset,
+    list_photo_records, upload_child_avatar,
 };
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
@@ -697,6 +698,8 @@ pub fn run() {
             list_photo_records,
             commit_photo_record,
             get_photo_asset,
+            upload_child_avatar,
+            delete_child_avatar,
             discover_education_resources,
             save_discovered_resource,
             share_entity_with_child,
