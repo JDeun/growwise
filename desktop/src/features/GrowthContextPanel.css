@@ -48,7 +48,7 @@
   padding: 14px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.84);
+  background: var(--surface);
 }
 
 .growth-summary span,
@@ -120,7 +120,7 @@
   overflow: hidden;
   height: 10px;
   border-radius: 999px;
-  background: rgba(36, 115, 86, 0.1);
+  background: var(--primary-soft);
 }
 
 .growth-axis-track > span {
@@ -154,7 +154,7 @@
 .growth-explainability {
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.74);
+  background: var(--surface-translucent);
 }
 
 .growth-explainability summary {
