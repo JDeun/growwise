@@ -47,9 +47,11 @@ def test_ordinary_mutation_waits_for_non_destructive_maintenance() -> None:
 def test_maintenance_owner_can_mutate_inside_exclusive_window() -> None:
     coordinator = DataMaintenanceCoordinator()
 
-    with coordinator.maintenance(invalidate_generation=True):
-        with coordinator.mutation(expected_generation=0):
-            assert coordinator.active is True
+    with (
+        coordinator.maintenance(invalidate_generation=True),
+        coordinator.mutation(expected_generation=0),
+    ):
+        assert coordinator.active is True
 
     assert coordinator.generation == 1
 
