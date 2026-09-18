@@ -5,9 +5,8 @@ from pathlib import Path
 import pytest
 
 from growwise.config import Settings
-from growwise.domain import ChildProfile, Stage
+from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
-from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.maintenance import (
     DATA_MAINTENANCE,
     DataMaintenanceCoordinator,
@@ -15,8 +14,8 @@ from growwise.maintenance import (
     MaintenanceInProgress,
     StaleDataGeneration,
 )
+from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, SQLiteConversationStore
-from growwise.domain import ResourceKind, ResourceRecord
 from growwise.storage import EntityStore
 
 
