@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from growwise.api.background_ai import queue_learning_log_enrichment
 from growwise.config import Settings
 from growwise.domain import ExperienceAxis, LearningLog, LearningRecordKind
+from growwise.domain.models import TagText
 from growwise.services.entity_links import EntityLinkError, EntityLinkService
 from growwise.storage import EntityStore
 
@@ -38,7 +39,7 @@ class LearningRecordRequest(BaseModel):
     interest: str | None = Field(default=None, max_length=2_000)
     difficulty_note: str | None = Field(default=None, max_length=4_000)
     next_activity: str | None = Field(default=None, max_length=4_000)
-    tags: list[str] = Field(default_factory=list, max_length=100)
+    tags: list[TagText] = Field(default_factory=list, max_length=100)
     experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
     shared_child_ids: list[UUID] = Field(default_factory=list, max_length=20)
 
