@@ -276,6 +276,8 @@ class BackupService:
             raise InvalidBackup("backup manifest is too large")
 
         total_size = manifest_size
+        if total_size > cls.MAX_TOTAL_UNCOMPRESSED_BYTES:
+            raise InvalidBackup("backup source expands beyond the allowed size")
         for path in files:
             size = path.stat().st_size
             if size > cls.MAX_SINGLE_FILE_BYTES:
