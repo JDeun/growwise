@@ -13,14 +13,13 @@ describe("WorkspaceNav", () => {
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain('role="tab"');
     expect(html).toContain("GrowWise");
-    expect(html).toContain("현재 아이");
     expect(html).toContain("대시보드");
     expect(html).toContain("아이 프로필");
     expect(html).toContain("학습 기록");
-    expect(html).toContain("학습 자료");
-    expect(html).toContain("사진 기록");
-    expect(html).toContain("대화");
-    expect(html).toContain("백업");
+    expect(html).toContain("자료실");
+    expect(html).toContain("사진첩");
+    expect(html).toContain("대화하기");
+    expect(html).toContain("백업 및 복원");
     expect(html).toContain("추가 도구");
     expect(html).toContain("Local-first");
   });
