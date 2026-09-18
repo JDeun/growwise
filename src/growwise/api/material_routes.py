@@ -39,13 +39,13 @@ def _model_provider():
     # integration tests and downstream callers monkeypatch that accessor explicitly.
     from growwise.api import main as api_main
 
-    return api_main._model_provider()
+    return api_main.get_model_provider()
 
 
 def _material_review_graph():
     from growwise.api import main as api_main
 
-    return api_main._material_review_graph()
+    return api_main.get_material_review_graph()
 
 
 def validate_material_source_refs(
