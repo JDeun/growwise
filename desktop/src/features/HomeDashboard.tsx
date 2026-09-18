@@ -169,7 +169,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           <button
             className="primary-button"
             type="button"
-            onClick={() => document.querySelector<HTMLInputElement>(".profile-form input")?.focus()}
+            onClick={() => onNavigate("profile")}
           >
             프로필 입력으로 이동
           </button>
@@ -202,7 +202,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
     description: string;
   } = activeActivities.length > 0
     ? {
-        view: "activities",
+        view: "materials",
         category: "이어가기",
         title: `진행 중 활동 ${activeActivities.length}건을 이어가 보세요`,
         description: "아이의 반응을 살피며 다음 단계까지 자연스럽게 연결할 수 있습니다.",
@@ -216,13 +216,13 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         }
       : recentCount === 0
         ? {
-            view: "observations",
+            view: "learning",
             category: "첫 기록",
             title: "오늘의 작은 발견을 첫 관찰로 남겨보세요",
             description: "짧은 한 문장만 남겨도 이후 활동과 성장 맥락을 연결하는 시작점이 됩니다.",
           }
         : {
-            view: "activities",
+            view: "materials",
             category: "추천 활동",
             title: "최근 기록에서 이어갈 활동을 살펴보세요",
             description: "관심사와 최근 기록을 바탕으로 집에서 바로 이어갈 수 있는 활동을 확인합니다.",
@@ -293,7 +293,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         <section className="home-recent" aria-labelledby="home-recent-title">
           <div className="home-section-heading">
             <h3 id="home-recent-title">최근 활동</h3>
-            <button type="button" onClick={() => onNavigate("observations")}>더보기 ›</button>
+            <button type="button" onClick={() => onNavigate("learning")}>더보기 ›</button>
           </div>
           {recentObservations.length === 0 ? (
             <p className="home-recent-empty">아직 기록이 없습니다. 오늘의 작은 발견부터 남겨보세요.</p>
@@ -319,7 +319,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         <section className="home-next-actions" aria-labelledby="home-next-actions-title">
           <div className="home-section-heading">
             <h3 id="home-next-actions-title">오늘의 추천 활동</h3>
-            <button type="button" onClick={() => onNavigate("activities")}>모두 보기 ›</button>
+            <button type="button" onClick={() => onNavigate("materials")}>모두 보기 ›</button>
           </div>
           <article className="home-recommendation-card">
             <div className="home-recommendation-visual" aria-hidden="true">
