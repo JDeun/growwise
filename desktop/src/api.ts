@@ -94,6 +94,7 @@ export interface ChildProfile {
   additional_languages?: string[];
   learning_goals?: string[];
   notes?: string | null;
+  avatar_asset_id?: string | null;
 }
 export interface ChildPurgeResult {
   child_id: string;
@@ -431,6 +432,20 @@ export const updateChild = (childId: string, request: ChildUpdateInput) =>
 export const listChildren = () => call<ChildProfile[]>("list_children");
 export const deleteChild = (childId: string) =>
   call<ChildPurgeResult>("delete_child", { childId });
+export const uploadChildAvatar = (
+  childId: string,
+  filename: string,
+  mimeType: string,
+  dataBase64: string,
+) =>
+  call<ChildProfile>("upload_child_avatar", {
+    childId,
+    filename,
+    mimeType,
+    dataBase64,
+  });
+export const deleteChildAvatar = (childId: string) =>
+  call<ChildProfile>("delete_child_avatar", { childId });
 export const createObservation = (request: ObservationCreateInput) =>
   call<LearningLog>("create_observation_background", { request });
 export const listObservations = (childId: string) =>
