@@ -1,0 +1,80 @@
+.child-avatar {
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+
+.child-avatar__media {
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  border-radius: 50%;
+  background:
+    linear-gradient(145deg, rgba(214, 236, 226, 0.94), rgba(232, 239, 250, 0.96));
+  color: var(--primary-strong);
+  box-shadow:
+    0 0 0 1px rgba(34, 67, 54, 0.08),
+    0 10px 28px rgba(44, 79, 65, 0.12);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+}
+
+.child-avatar__media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.child-avatar--sm .child-avatar__media { width: 36px; height: 36px; font-size: 12px; }
+.child-avatar--md .child-avatar__media { width: 52px; height: 52px; font-size: 15px; }
+.child-avatar--lg .child-avatar__media { width: 72px; height: 72px; font-size: 20px; }
+.child-avatar--xl .child-avatar__media { width: 108px; height: 108px; font-size: 28px; }
+
+.child-avatar__actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+}
+
+.child-avatar__input {
+  display: none;
+}
+
+.child-avatar__edit,
+.child-avatar__remove {
+  min-height: 32px;
+  border-radius: 9px;
+  padding: 0 10px;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.child-avatar__edit {
+  border: 1px solid var(--border-strong, #d8ddd9);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.child-avatar__remove {
+  border: 0;
+  background: transparent;
+  color: var(--danger);
+}
+
+.child-avatar__edit:hover:not(:disabled) {
+  border-color: var(--primary);
+  color: var(--primary-strong);
+}
+
+.child-avatar__error {
+  max-width: 220px;
+  margin: 0;
+  color: var(--danger);
+  font-size: 11px;
+  line-height: 1.45;
+  text-align: center;
+}
