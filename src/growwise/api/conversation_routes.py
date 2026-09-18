@@ -36,13 +36,14 @@ def create_conversation(
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
     conversation_store = get_conversation_store()
-    idempotency_store = get_idempotency_store()
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     request_hash = request_fingerprint(
         {"child_id": str(child_id), **request.model_dump(mode="json")}
     )
     reserved_session_id = str(uuid7())
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -75,6 +76,7 @@ def create_conversation(
     try:
         conversation_store.save(session)
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -157,12 +159,13 @@ def append_conversation_turn(
     if store.index.get_entity(session.child_id, entity_type="child_profile") is None:
         raise HTTPException(status_code=409, detail="conversation_child_not_found")
 
-    idempotency_store = get_idempotency_store()
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     request_hash = request_fingerprint(
         {"session_id": session_id, **request.model_dump(mode="json")}
     )
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -204,6 +207,7 @@ def append_conversation_turn(
         )
         conversation_store.save(session)
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
