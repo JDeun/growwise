@@ -224,7 +224,8 @@ class BackupService:
                     )
                 if conversations_path is None:
                     raise InvalidBackup(
-                        "backup contains conversation state but no conversation destination was provided"
+                        "backup contains conversation state but no conversation "
+                        "destination was provided"
                     )
             elif staged_conversations.exists():
                 raise InvalidBackup("backup v1 must not contain conversation state")
