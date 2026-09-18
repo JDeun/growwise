@@ -459,6 +459,8 @@ class BackupService:
             key = cls._portable_member_key(filename)
             previous = seen.get(key)
             if previous is not None:
+                if previous == filename:
+                    raise InvalidBackup(f"duplicate archive member: {filename}")
                 raise InvalidBackup(
                     "archive members collide on a portable filesystem: "
                     f"{previous!r} and {filename!r}"
