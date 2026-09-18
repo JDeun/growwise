@@ -121,6 +121,7 @@ def _idempotent_study_create(
     child_id: UUID,
     request_payload: dict[str, object],
     resource_type: str,
+    model: type[TStudyEntity],
     build: Callable[[UUID], TStudyEntity],
     store: EntityStore,
     idempotency_key: str | None,
@@ -151,7 +152,7 @@ def _idempotent_study_create(
                         request_hash=claim.record.request_hash,
                         resource_id=claim.record.resource_id,
                     )
-                return build(reserved_id).__class__.model_validate(existing)
+                return model.model_validate(existing)
             if claim.record.status is IdempotencyStatus.COMPLETED:
                 raise HTTPException(status_code=409, detail="idempotency_resource_missing")
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
@@ -197,6 +198,7 @@ def record_progress(
         child_id=child_id,
         request_payload=payload,
         resource_type="study_unit_progress",
+        model=StudyUnitProgress,
         build=lambda entity_id: StudyUnitProgress(
             id=entity_id, child_id=child_id, **request.model_dump()
         ),
@@ -227,6 +229,7 @@ def record_mistake(
         child_id=child_id,
         request_payload=payload,
         resource_type="mistake_record",
+        model=MistakeRecord,
         build=lambda entity_id: MistakeRecord(
             id=entity_id, child_id=child_id, **request.model_dump()
         ),
@@ -257,6 +260,7 @@ def record_reflection(
         child_id=child_id,
         request_payload=payload,
         resource_type="study_reflection",
+        model=StudyReflection,
         build=lambda entity_id: StudyReflection(
             id=entity_id, child_id=child_id, **request.model_dump()
         ),
@@ -290,6 +294,7 @@ def record_self_explanation(
         child_id=child_id,
         request_payload=payload,
         resource_type="self_explanation_log",
+        model=SelfExplanationLog,
         build=lambda entity_id: SelfExplanationLog(
             id=entity_id, child_id=child_id, **request.model_dump()
         ),
@@ -367,6 +372,7 @@ def create_study_plan(
         child_id=child_id,
         request_payload=payload,
         resource_type="study_plan",
+        model=StudyPlan,
         build=lambda entity_id: StudyPlan(
             id=entity_id,
             child_id=child_id,
