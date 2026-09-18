@@ -7,8 +7,8 @@ import pytest
 from growwise.adapters.base import ExternalAdapterError
 from growwise.adapters.http import (
     JsonHttpClient,
-    _SameOriginHttpsRedirectHandler,
     _https_origin,
+    _SameOriginHttpsRedirectHandler,
 )
 
 
