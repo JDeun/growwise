@@ -130,8 +130,8 @@ class SQLiteExternalCache:
                 if not isinstance(payload, dict):
                     raise ValueError("cached payload root is not an object")
             except (TypeError, ValueError, json.JSONDecodeError):
-                # External enrichment is optional and this SQLite DB is disposable. A malformed row
-                # must degrade to a cache miss instead of making every future discovery request fail.
+                # External enrichment is optional and this SQLite DB is disposable. A malformed
+                # row must degrade to a cache miss instead of failing future discovery requests.
                 connection.execute(
                     "DELETE FROM external_cache WHERE cache_key = ?",
                     (cache_key,),
