@@ -193,7 +193,11 @@ class SQLiteConversationStore:
         return session
 
     def get(self, session_id: str) -> ConversationSession | None:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connect() as connection:
             row = connection.execute(
                 "SELECT payload_json, updated_at FROM conversation_sessions WHERE id = ?",
                 (session_id,),
@@ -203,7 +207,11 @@ class SQLiteConversationStore:
             return self._session_from_row(connection, row)
 
     def list_for_child(self, child_id: str, *, limit: int = 50) -> list[ConversationSession]:
-        with self._connect() as connection:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connect() as connection:
             rows = connection.execute(
                 """
                 SELECT payload_json, updated_at FROM conversation_sessions
