@@ -4,13 +4,17 @@ import argparse
 import json
 import logging
 import re
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 
 from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
 from growwise.config import Settings
+from langgraph.checkpoint.sqlite import SqliteSaver
+
 from growwise.domain import ResourceRecord
+from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.runtime_lock import DataDirectoryLock
@@ -77,6 +81,44 @@ def list_backups(settings: Settings) -> list[dict[str, object]]:
     return results
 
 
+def reset_checkpoint_projection(path: Path) -> int:
+    """Delete every LangGraph thread from the pre-restore data generation."""
+
+    if not path.exists():
+        return 0
+    connection = sqlite3.connect(path, check_same_thread=False)
+    try:
+        saver = SqliteSaver(connection)
+        saver.setup()
+        tables = {
+            str(row[0])
+            for row in connection.execute(
+                "SELECT name FROM sqlite_master WHERE type = 'table'"
+            ).fetchall()
+        }
+        thread_ids: set[str] = set()
+        for table in ("checkpoints", "writes"):
+            if table not in tables:
+                continue
+            columns = {
+                str(row[1])
+                for row in connection.execute(f"PRAGMA table_info({table})").fetchall()
+            }
+            if "thread_id" not in columns:
+                continue
+            thread_ids.update(
+                str(row[0])
+                for row in connection.execute(
+                    f"SELECT DISTINCT thread_id FROM {table} WHERE thread_id IS NOT NULL"
+                ).fetchall()
+            )
+        for thread_id in sorted(thread_ids):
+            saver.delete_thread(thread_id)
+        return len(thread_ids)
+    finally:
+        connection.close()
+
+
 def rebuild_rag_projection(settings: Settings) -> int:
     """Rebuild the lexical RAG projection from restored ResourceRecord source documents."""
     store = EntityStore(settings.records_dir, settings.index_path)
@@ -99,9 +141,8 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
     # record set. The generation advances on exit, so even a worker still returning from inference
     # cannot persist through an old EntityStore or a generation-bound worker thread.
     with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
-        cancelled_jobs = MaintenanceAwareJobQueue(settings.jobs_path).cancel_active(
-            job_types=_AI_JOB_TYPES
-        )
+        queue = MaintenanceAwareJobQueue(settings.jobs_path)
+        cancelled_jobs = queue.cancel_active(job_types=_AI_JOB_TYPES)
         manifest = BackupService().restore(
             archive_path=archive,
             records_root=settings.records_dir,
@@ -109,6 +150,9 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
             conversations_path=settings.conversations_path,
             index_path=settings.index_path,
         )
+        cleared_jobs = queue.reset()
+        cleared_idempotency = SQLiteIdempotencyStore(settings.idempotency_path).reset()
+        cleared_checkpoint_threads = reset_checkpoint_projection(settings.checkpoint_path)
         try:
             rag_chunk_count = rebuild_rag_projection(settings)
             rag_status = "ready"
@@ -124,6 +168,9 @@ def restore_backup(settings: Settings, name: str, *, confirmed: bool) -> dict[st
         "archive": archive.name,
         "restored": True,
         "cancelled_jobs": cancelled_jobs,
+        "cleared_jobs": cleared_jobs,
+        "cleared_idempotency": cleared_idempotency,
+        "cleared_checkpoint_threads": cleared_checkpoint_threads,
         "rag_chunk_count": rag_chunk_count,
         "rag_status": rag_status,
         "manifest": manifest.model_dump(mode="json"),
