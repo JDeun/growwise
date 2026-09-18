@@ -9,9 +9,8 @@
   padding: 10px;
   border: 1px solid var(--border);
   border-radius: 14px;
-  background: rgba(255, 255, 255, 0.94);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(10px);
+  background: var(--surface-translucent);
+  box-shadow: var(--shadow-soft);
 }
 
 .print-toolbar span {
