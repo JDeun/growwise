@@ -257,7 +257,8 @@ class SQLiteConversationStore:
 
         with self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
-            count = int(connection.execute("SELECT COUNT(*) FROM conversation_sessions").fetchone()[0])
+            row = connection.execute("SELECT COUNT(*) FROM conversation_sessions").fetchone()
+            count = int(row[0]) if row is not None else 0
             connection.execute("DELETE FROM conversation_turns")
             connection.execute("DELETE FROM conversation_sessions")
             connection.commit()
