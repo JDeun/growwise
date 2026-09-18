@@ -32,6 +32,7 @@
 - restore는 같은 filesystem의 임시 rollback state로 현재 live 상태를 보호한 뒤 swap한다.
 - managed backup format v2는 Markdown record, managed asset, conversation SQLite snapshot을 함께 보존한다.
 - v1 archive restore는 해당 시점에 conversation state가 없던 것으로 취급해 현재 conversation을 비운다.
+- restore는 선택한 ZIP을 immutable 임시 snapshot으로 복사하고 전체 preflight를 통과한 뒤에만 destructive cleanup을 시작한다.
 - restore 전 pre-restore jobs/idempotency/checkpoint projection을 제거해 이전 generation 실행 상태를 남기지 않는다.
 - restore 성공 후 archive에 존재하지 않는 이전 live record/conversation/RAG projection을 남기지 않는다.
 - RAG rebuild 실패는 정본 restore를 되돌리지 않고 명시적 degraded 상태로 보고한다.

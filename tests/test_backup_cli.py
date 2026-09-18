@@ -4,6 +4,7 @@ from pathlib import Path
 import pytest
 from langgraph.checkpoint.sqlite import SqliteSaver
 
+from growwise.backup import BackupService
 from growwise.backup.cli import (
     create_backup,
     list_backups,
@@ -284,3 +285,97 @@ def test_restore_rag_keeps_lexical_projection_when_embedding_runtime_fails(
     restored = HybridRagIndex(settings.rag_index_path)
     hits = restored.search(query="공룡", child_id=None)
     assert [item["resource_id"] for item in hits] == [str(resource.id)]
+
+
+
+def test_invalid_restore_preflight_preserves_operational_state(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(nickname="보존아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+
+    create_backup(settings, "corrupt.zip")
+
+    queue = SQLiteJobQueue(settings.jobs_path)
+    job = queue.enqueue(
+        OBSERVATION_ENRICHMENT_JOB,
+        {"child_id": str(child.id), "log_id": "keep-log"},
+    )
+
+    idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    idempotency.record(
+        key="keep-key",
+        request_hash="keep-hash",
+        resource_type="resource",
+        resource_id="keep-resource",
+    )
+
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path, check_same_thread=False)
+    checkpoint_saver = SqliteSaver(checkpoint_connection)
+    checkpoint_saver.setup()
+    checkpoint_graph = build_material_review_graph(checkpointer=checkpoint_saver)
+    checkpoint_graph.invoke(
+        {"material_id": "keep-material", "child_id": str(child.id), "title": "보존 상태"},
+        config={"configurable": {"thread_id": "keep-review-thread"}},
+    )
+    checkpoint_connection.close()
+
+    (settings.backups_dir / "corrupt.zip").write_bytes(b"not-a-valid-zip")
+
+    with pytest.raises(ValueError, match="valid ZIP"):
+        restore_backup(settings, "corrupt.zip", confirmed=True)
+
+    fresh_store = EntityStore(settings.records_dir, settings.index_path)
+    assert fresh_store.index.get_entity(str(child.id), entity_type="child_profile") is not None
+
+    fresh_queue = SQLiteJobQueue(settings.jobs_path)
+    assert fresh_queue.get(job.id) is not None
+
+    fresh_idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    assert fresh_idempotency.get("keep-key") is not None
+
+    checkpoint_connection = sqlite3.connect(settings.checkpoint_path)
+    try:
+        checkpoint_count = checkpoint_connection.execute(
+            "SELECT COUNT(*) FROM checkpoints WHERE thread_id = ?",
+            ("keep-review-thread",),
+        ).fetchone()
+        assert checkpoint_count is not None
+        assert checkpoint_count[0] > 0
+    finally:
+        checkpoint_connection.close()
+
+
+
+def test_restore_uses_same_immutable_archive_after_preflight(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    baseline = ChildProfile(nickname="백업시점", stage=Stage.ELEMENTARY)
+    store.save(baseline)
+    create_backup(settings, "stable.zip")
+
+    later = ChildProfile(nickname="복원전추가", stage=Stage.ELEMENTARY)
+    store.save(later)
+
+    original_validate = BackupService.validate_archive
+    original_archive = settings.backups_dir / "stable.zip"
+
+    def validate_then_replace_source(
+        self: BackupService,
+        archive_path: Path,
+    ):
+        manifest = original_validate(self, archive_path)
+        original_archive.write_bytes(b"changed-after-snapshot")
+        return manifest
+
+    monkeypatch.setattr(BackupService, "validate_archive", validate_then_replace_source)
+
+    restored = restore_backup(settings, "stable.zip", confirmed=True)
+
+    assert restored["restored"] is True
+    rebuilt = EntityStore(settings.records_dir, settings.index_path)
+    children = rebuilt.index.list_entities(entity_type="child_profile")
+    assert [item["nickname"] for item in children] == ["백업시점"]
