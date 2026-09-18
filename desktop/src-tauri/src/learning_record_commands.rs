@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{client, ensure_success, CORE_BASE_URL};
+use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct LearningRecordRequest {
@@ -25,14 +25,13 @@ pub async fn create_learning_record(
     child_id: String,
     request: LearningRecordRequest,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!(
-            "{CORE_BASE_URL}/v1/children/{child_id}/learning-records"
-        ))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children/{child_id}/learning-records"),
+        &body,
+        "learning-record",
+    )
+    .await?;
     ensure_success(response, "학습 기록 저장 실패")
         .await?
         .json::<serde_json::Value>()
