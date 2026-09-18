@@ -1,6 +1,3 @@
-import { ChildAvatar } from "./ChildAvatar";
-import { useOptionalActiveChild } from "../active-child-context";
-import { stageLabel } from "../presentation";
 import "./WorkspaceNav.css";
 import { WORKSPACE_LABELS } from "./workspaceLabels";
 import type { WorkspaceView } from "./workspaceTypes";
@@ -68,23 +65,13 @@ function NavItem({
 }
 
 export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
-  const activeChild = useOptionalActiveChild()?.activeChild ?? null;
-
   return (
     <nav className="workspace-nav" aria-label="GrowWise 주요 메뉴">
       <button className="workspace-brand" type="button" onClick={() => onChange("home")} aria-label="GrowWise 대시보드로 이동">
-        <span className="workspace-brand-mark" aria-hidden="true">G</span>
-        <span><strong>GrowWise</strong><small>Learning companion</small></span>
-      </button>
-
-      <button className="workspace-child-card" type="button" onClick={() => onChange("profile")}>
-        <ChildAvatar child={activeChild} size="md" />
-        <span className="workspace-child-copy">
-          <small>현재 아이</small>
-          <strong>{activeChild?.nickname ?? "프로필을 만들어 주세요"}</strong>
-          <span>{activeChild ? stageLabel(activeChild.stage) : "아이 프로필"}</span>
+        <span className="workspace-brand-mark" aria-hidden="true">
+          <img src="/growwise-symbol.svg" alt="" />
         </span>
-        <span className="workspace-child-chevron" aria-hidden="true">›</span>
+        <strong>GrowWise</strong>
       </button>
 
       <div className="workspace-nav-primary">
