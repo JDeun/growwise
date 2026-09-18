@@ -85,12 +85,20 @@ export function useBackupManagement() {
         const result = await importBackup();
         setBackupConfirmation(null);
         if (!result) return false;
-        setBackupNotice("외부 백업을 가져왔습니다.");
+        setBackupNotice(
+          result.rag_status === "degraded"
+            ? "외부 백업의 기록은 복원했지만 검색 인덱스 재구성이 필요합니다."
+            : "외부 백업을 가져왔습니다.",
+        );
         return true;
       }
-      await restoreBackup(action.archiveName);
+      const result = await restoreBackup(action.archiveName);
       setBackupConfirmation(null);
-      setBackupNotice("백업을 복원했습니다.");
+      setBackupNotice(
+        result.rag_status === "degraded"
+          ? "백업 기록은 복원했지만 검색 인덱스 재구성이 필요합니다."
+          : "백업을 복원했습니다.",
+      );
       return true;
     } catch (error) {
       setBackupError(
