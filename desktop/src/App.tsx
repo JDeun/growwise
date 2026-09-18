@@ -628,20 +628,6 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
 
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
-          <div><strong>GrowWise</strong><span>아이의 배움 기록</span></div>
-        </div>
-        <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
-      </header>
-
-      <section className="hero">
-        <p className="eyebrow">기록 · 연결 · 활용</p>
-        <h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
-        <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
-      </section>
-
       {showChildWorkspace && (
         <section className="workspace">
           {showProfile && (
