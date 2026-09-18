@@ -20,14 +20,14 @@ type WorkspaceGroup = {
 const WORKSPACE_GROUPS: readonly WorkspaceGroup[] = [
   { key: "overview", views: ["home"] },
   {
-    key: "records",
-    label: "아이와 기록",
-    views: ["observations", "photos", "learning", "growth", "activities"],
+    key: "primary",
+    label: "Workspace",
+    views: ["observations", "learning", "materials", "photos", "search"],
   },
   {
-    key: "resources",
-    label: "지식과 자료",
-    views: ["search", "discovery", "library", "materials"],
+    key: "support",
+    label: "More",
+    views: ["library", "growth", "activities", "discovery"],
   },
   { key: "system", views: ["settings"], utility: true },
 ] as const;
