@@ -114,6 +114,7 @@ class SQLiteJobQueue:
                 CREATE TABLE IF NOT EXISTS jobs (
                     id TEXT PRIMARY KEY,
                     job_type TEXT NOT NULL,
+                    child_id TEXT,
                     payload_json TEXT NOT NULL,
                     status TEXT NOT NULL,
                     attempts INTEGER NOT NULL DEFAULT 0,
@@ -131,6 +132,8 @@ class SQLiteJobQueue:
                 str(row["name"])
                 for row in connection.execute("PRAGMA table_info(jobs)").fetchall()
             }
+            if "child_id" not in columns:
+                connection.execute("ALTER TABLE jobs ADD COLUMN child_id TEXT")
             if "lease_expires_at" not in columns:
                 connection.execute("ALTER TABLE jobs ADD COLUMN lease_expires_at TEXT")
             if "claim_token" not in columns:
@@ -140,9 +143,36 @@ class SQLiteJobQueue:
                 "ON jobs(status, created_at)"
             )
             connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_jobs_child_id ON jobs(child_id)"
+            )
+            connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_jobs_lease "
                 "ON jobs(status, lease_expires_at)"
             )
+            legacy_rows = connection.execute(
+                "SELECT id, payload_json FROM jobs WHERE child_id IS NULL"
+            ).fetchall()
+            for row in legacy_rows:
+                try:
+                    payload = json.loads(row["payload_json"])
+                except (TypeError, json.JSONDecodeError):
+                    continue
+                child_id = self._payload_child_id(payload)
+                if child_id is not None:
+                    connection.execute(
+                        "UPDATE jobs SET child_id = ? WHERE id = ?",
+                        (child_id, row["id"]),
+                    )
+
+    @staticmethod
+    def _payload_child_id(payload: object) -> str | None:
+        if not isinstance(payload, dict):
+            return None
+        value = payload.get("child_id")
+        if value is None:
+            return None
+        child_id = str(value).strip()
+        return child_id or None
 
     def _row_to_job(self, row: sqlite3.Row) -> Job:
         return Job(
@@ -175,13 +205,14 @@ class SQLiteJobQueue:
             connection.execute(
                 """
                 INSERT INTO jobs (
-                    id, job_type, payload_json, status, attempts, created_at, updated_at,
+                    id, job_type, child_id, payload_json, status, attempts, created_at, updated_at,
                     lease_expires_at, claim_token
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, NULL, NULL)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, NULL, NULL)
                 """,
                 (
                     str(job.id),
                     job.job_type,
+                    self._payload_child_id(payload),
                     json.dumps(payload, ensure_ascii=False, sort_keys=True),
                     job.status,
                     job.attempts,
@@ -455,32 +486,13 @@ class SQLiteJobQueue:
             )
 
     def delete_for_child(self, child_id: str) -> int:
-        """Remove jobs explicitly owned by one child without matching arbitrary payload text."""
+        """Remove jobs owned by one child using the indexed ownership column."""
         with self._connection() as connection:
-            rows = connection.execute("SELECT id, payload_json FROM jobs").fetchall()
-            owned_job_ids: list[str] = []
-            for row in rows:
-                try:
-                    payload = json.loads(row["payload_json"])
-                except (TypeError, json.JSONDecodeError):
-                    continue
-                if not isinstance(payload, dict):
-                    continue
-                if str(payload.get("child_id") or "") == child_id:
-                    owned_job_ids.append(str(row["id"]))
-
-            if not owned_job_ids:
-                return 0
-            deleted = 0
-            for offset in range(0, len(owned_job_ids), _SQLITE_IN_CHUNK):
-                chunk = owned_job_ids[offset : offset + _SQLITE_IN_CHUNK]
-                placeholders = ",".join("?" for _ in chunk)
-                cursor = connection.execute(
-                    f"DELETE FROM jobs WHERE id IN ({placeholders})",
-                    tuple(chunk),
-                )
-                deleted += cursor.rowcount
-        return deleted
+            cursor = connection.execute(
+                "DELETE FROM jobs WHERE child_id = ?",
+                (child_id,),
+            )
+        return cursor.rowcount
 
 
     def reset(self) -> int:
