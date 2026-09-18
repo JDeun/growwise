@@ -608,6 +608,14 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
     window.setTimeout(() => window.print(), 0);
   }
 
+  async function handleMaterialResultRecorded() {
+    await Promise.all([
+      reloadChildContextPart("activities"),
+      reloadChildContextPart("observations"),
+      reloadChildContextPart("growth"),
+    ]);
+  }
+
   function toggleAxis(axis: ExperienceAxis) {
     setSelectedAxes((current) =>
       current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
@@ -766,6 +774,7 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
                   setEditingMaterialId,
                   handleParentEdit,
                   handlePrintMaterial,
+                  handleMaterialResultRecorded,
                 }}
               />
             )
