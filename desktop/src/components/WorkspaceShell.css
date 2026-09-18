@@ -1,19 +1,149 @@
 .workspace-shell-root,
-.workspace-shell {
+.workspace-shell,
+.workspace-shell-main {
   min-width: 0;
 }
 
 .workspace-shell-root {
   display: grid;
-  grid-template-columns: minmax(220px, 252px) minmax(0, 1fr);
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at 86% 0%, rgba(202, 226, 215, 0.34), transparent 32rem),
+    #f6f8f7;
+}
+
+.workspace-shell-main {
+  padding: 0 34px 56px;
+}
+
+.workspace-shell-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 24px;
-  align-items: start;
-  width: min(1480px, calc(100% - 32px));
-  margin: 0 auto;
+  min-height: 104px;
+  border-bottom: 1px solid rgba(34, 58, 48, 0.08);
+}
+
+.workspace-shell-heading {
+  display: grid;
+  gap: 3px;
+}
+
+.workspace-shell-heading > span {
+  color: var(--primary);
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.workspace-shell-heading h1,
+.workspace-shell-heading p {
+  margin: 0;
+}
+
+.workspace-shell-heading h1 {
+  color: #1e2b25;
+  font-size: 24px;
+  line-height: 1.2;
+  letter-spacing: -0.035em;
+}
+
+.workspace-shell-heading p {
+  max-width: 620px;
+  color: #79827d;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.workspace-shell-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.workspace-global-search {
+  display: grid;
+  grid-template-columns: 18px minmax(120px, 210px) auto;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  border: 1px solid #dfe5e1;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #7b8580;
+  padding: 0 10px 0 13px;
+  cursor: pointer;
+  text-align: left;
+  box-shadow: 0 5px 16px rgba(31, 49, 41, 0.035);
+}
+
+.workspace-global-search:hover {
+  border-color: #c9d9d1;
+  background: #fff;
+}
+
+.workspace-global-search svg {
+  width: 17px;
+  height: 17px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-width: 1.8;
+}
+
+.workspace-global-search span {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.workspace-global-search kbd {
+  border: 1px solid #e1e6e3;
+  border-radius: 7px;
+  background: #f6f8f7;
+  color: #8a938e;
+  padding: 3px 6px;
+  font-family: var(--font-sans);
+  font-size: 9px;
+  box-shadow: inset 0 -1px 0 rgba(32, 56, 45, 0.05);
+}
+
+.workspace-local-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 34px;
+  border: 1px solid #deebe4;
+  border-radius: 999px;
+  background: #f3faf6;
+  color: #507160;
+  padding: 0 11px;
+  font-size: 10px;
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+.workspace-local-badge i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #54a77f;
+  box-shadow: 0 0 0 3px rgba(84, 167, 127, 0.11);
 }
 
 .workspace-shell {
-  min-height: 100vh;
+  padding-top: 28px;
+}
+
+.workspace-shell > .app-shell {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .workspace-frame {
@@ -36,11 +166,9 @@
   min-height: 240px;
 }
 
-/*
- * App.tsx deliberately remains mounted while the workspace changes. This keeps
- * active-child state, in-progress forms and Core-backed controller state intact
- * while the shell projects the existing sections into product-level workspaces.
- */
+/* Workspace projection: App stays mounted so forms/controllers keep state while the visual canvas
+ * exposes only the sections that belong to the selected product surface. */
+.workspace-shell[data-active-workspace] .app-shell > .topbar,
 .workspace-shell[data-active-workspace] .app-shell > .hero,
 .workspace-shell[data-active-workspace] .app-shell > .status-grid,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .section-heading,
@@ -58,21 +186,17 @@
   display: none;
 }
 
-/* Home prioritizes child context plus the dedicated action/recent-record dashboard. */
-.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .skeleton-grid {
-  display: grid;
+.workspace-shell[data-active-workspace="home"] .app-shell {
+  display: none;
 }
 
-.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
-  display: grid;
+.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .section-heading {
+  display: flex;
 }
 
+.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .skeleton-grid,
 .workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel {
   display: grid;
-}
-
-.workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .observation-panel > .observation-result {
-  display: none;
 }
 
 .workspace-shell[data-active-workspace="observations"] .app-shell > .workspace > .timeline-section {
@@ -99,34 +223,67 @@
   display: block;
 }
 
+.workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
+  display: grid;
+}
+
 .workspace-shell[data-active-workspace="settings"] .app-shell > .workspace {
   display: none;
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1120px) {
   .workspace-shell-root {
-    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: 220px minmax(0, 1fr);
+  }
+
+  .workspace-shell-main {
+    padding-inline: 24px;
+  }
+
+  .workspace-shell-heading p,
+  .workspace-local-badge {
+    display: none;
   }
 }
 
 @media (max-width: 900px) {
   .workspace-shell-root {
     grid-template-columns: minmax(0, 1fr);
-    width: min(100% - 24px, 1180px);
+  }
+
+  .workspace-shell-main {
+    padding: 0 16px 42px;
+  }
+
+  .workspace-shell-topbar {
+    min-height: 88px;
+  }
+
+  .workspace-global-search {
+    grid-template-columns: 18px auto;
+  }
+
+  .workspace-global-search span {
+    display: none;
   }
 
   .workspace-shell {
-    min-height: 0;
-  }
-
-  .workspace-shell > .app-shell {
-    width: 100%;
+    padding-top: 20px;
   }
 }
 
-@media (max-width: 700px) {
-  .workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel {
-    grid-template-columns: minmax(0, 1fr);
+@media (max-width: 600px) {
+  .workspace-shell-topbar {
+    align-items: flex-start;
+    min-height: 86px;
+    padding-top: 18px;
+  }
+
+  .workspace-shell-heading h1 {
+    font-size: 20px;
+  }
+
+  .workspace-global-search kbd {
+    display: none;
   }
 }
