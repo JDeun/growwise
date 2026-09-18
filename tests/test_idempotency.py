@@ -333,3 +333,19 @@ def test_delete_resources_chunks_below_sqlite_variable_ceiling(tmp_path) -> None
         assert connection.execute("SELECT COUNT(*) FROM idempotency_records").fetchone()[0] == 0
     finally:
         connection.close()
+
+
+
+def test_idempotency_resource_purge_index_is_present(tmp_path) -> None:
+    path = tmp_path / "idempotency.sqlite3"
+    SQLiteIdempotencyStore(path)
+
+    with sqlite3.connect(path) as connection:
+        indexes = {
+            row[1]
+            for row in connection.execute(
+                "PRAGMA index_list(idempotency_records)"
+            ).fetchall()
+        }
+
+    assert "idx_idempotency_resource_id" in indexes

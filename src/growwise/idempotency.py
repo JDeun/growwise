@@ -188,6 +188,10 @@ class SQLiteIdempotencyStore:
                 )
             if "claim_token" not in columns:
                 connection.execute("ALTER TABLE idempotency_records ADD COLUMN claim_token TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_idempotency_resource_id "
+                "ON idempotency_records(resource_id)"
+            )
             connection.commit()
         finally:
             connection.close()
