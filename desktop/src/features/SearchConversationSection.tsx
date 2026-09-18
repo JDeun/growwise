@@ -172,70 +172,23 @@ export function SearchConversationSection({
   );
 
   return (
-    <div className="conversation-workspace-grid">
-      <div className="conversation-workspace-main">
-      <section className="search-section">
-        <p className="card-label">기록 검색</p>
-        <h3>기억나는 말로 기록을 찾아보세요.</h3>
-        <p className="muted">AI 보조 기능이 없어도 저장한 기록과 참고 자료에서 검색할 수 있습니다.</p>
-        <form className="search-form" onSubmit={onSearch}>
-          <input value={searchQuery} onChange={(event) => onSearchQueryChange(event.target.value)} placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘" />
-          <button className="primary-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button>
-        </form>
-        {searchError && <p className="form-error" role="alert">{searchError}</p>}
-        {searchResult && (
-          <div className="search-results">
-            <p className="muted">검색어: {searchResult.plan.keywords.join(", ") || searchQuery} · 결과 {searchResult.results.length}건</p>
-            {searchResult.results.length === 0 ? (
-              <ViewStateNotice kind="empty" title="일치하는 기록이 없습니다." description="검색어를 조금 넓히거나 다른 표현으로 다시 찾아보세요." />
-            ) : (
-              searchResult.results.map((result, index) => (
-                <article className="search-result-card" key={String(result.id ?? index)}>
-                  <p>{resultText(result)}</p>
-                </article>
-              ))
-            )}
-          </div>
-        )}
-      </section>
-
-      <section className="conversation-section">
-        <p className="card-label">후속 질문</p>
-        <h3>찾은 맥락을 질문으로 더 좁혀보세요.</h3>
-        <p className="muted">이전 답변만 믿지 않고, 질문할 때마다 저장한 원본 기록과 참고 자료를 다시 확인합니다.</p>
-        <form className="search-form" onSubmit={onConversation}>
-          <input value={conversationQuestion} onChange={(event) => onConversationQuestionChange(event.target.value)} placeholder="예: 그중 고양이 관련 기록만 보여줘" />
-          <button className="primary-button" type="submit" disabled={conversationBusy}>
-            {conversationBusy ? "확인 중…" : conversation ? "후속 질문" : "첫 질문"}
-          </button>
-        </form>
-        {conversationError && <p className="form-error" role="alert">{conversationError}</p>}
-        {conversation && <p className="muted session-meta">현재 대화를 이어서 질문할 수 있습니다.</p>}
-
-        {conversationAnswers.length > 0 && (
-          <div className="conversation-live" aria-label="현재 대화 답변">
-            {conversationAnswers.map((item, index) => (
-              <article className="conversation-card" key={`${item.session_id}-${index}`}>
-                <p>{item.answer.answer}</p>
-                <EvidenceChips sourceIds={item.answer.source_ids} />
-                {item.answer.insufficient_evidence && (
-                  <small className="conversation-insufficient">충분한 원본 근거를 찾지 못한 답변입니다. 기록을 직접 확인해 주세요.</small>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-
-        <div className="conversation-history-heading">
-          <div>
-            <p className="card-label">이전 대화</p>
-            <h4>이 아이와 나눈 질문</h4>
-          </div>
-          <span className="muted">{conversationHistory.length}개</span>
+    <section className="conversation-workspace-grid" aria-labelledby="conversation-workspace-title">
+      <header className="conversation-product-heading">
+        <div>
+          <p className="eyebrow">GROUNDED CONVERSATION</p>
+          <h2 id="conversation-workspace-title">AI와 대화하기</h2>
+          <p>아이의 기록과 저장한 참고 자료를 다시 확인해 근거가 연결된 답변을 만듭니다.</p>
         </div>
-        <p className="conversation-evidence-policy muted">
-          이전 답변 자체는 새 답변의 근거로 사용하지 않습니다. 각 답변에 표시된 원본 근거를 다시 확인합니다.
-        </p>
+      </header>
+
+      <aside className="conversation-history-pane" aria-label="대화 목록">
+        <div className="conversation-pane-heading">
+          <div>
+            <p className="card-label">대화 목록</p>
+            <h3>이전 대화</h3>
+          </div>
+          <span>{conversationHistory.length}</span>
+        </div>
 
         {historyLoading && (
           <ViewStateNotice kind="loading" title="대화 기록을 불러오는 중입니다." description="현재 아이의 저장된 대화를 확인합니다." />
@@ -244,57 +197,119 @@ export function SearchConversationSection({
           <ViewStateNotice kind="error" title="대화 기록을 불러오지 못했습니다." description={historyError} />
         )}
         {!historyLoading && !historyError && conversationHistory.length === 0 && (
-          <ViewStateNotice kind="empty" title="저장된 대화가 아직 없습니다." description="첫 질문을 보내면 이 아이의 대화가 여기에 저장됩니다." />
+          <ViewStateNotice kind="empty" title="저장된 대화가 없습니다." description="중앙 입력창에서 첫 질문을 보내면 대화가 저장됩니다." />
         )}
 
         {conversationHistory.length > 0 && (
-          <div className="conversation-history-layout">
-            <div className="conversation-session-list" role="list" aria-label="저장된 대화">
-              {conversationHistory.map((session) => {
-                const time = conversationSessionTime(session);
-                const isCurrent = conversation?.id === session.id;
-                return (
-                  <button
-                    className={`conversation-session-button${selectedHistoryId === session.id ? " is-selected" : ""}`}
-                    type="button"
-                    key={session.id}
-                    onClick={() => setSelectedHistoryId(session.id)}
-                  >
-                    <span>
-                      <strong>{conversationSessionLabel(session)}</strong>
-                      {isCurrent && <em>현재 대화</em>}
-                    </span>
-                    <small>{Math.ceil(session.turns.length / 2)}개 질문{time ? ` · ${time}` : ""}</small>
-                  </button>
-                );
-              })}
-            </div>
-
-            {selectedHistory && (
-              <div className="conversation-transcript" aria-label="선택한 대화 내용">
-                <div className="conversation-transcript-heading">
-                  <div>
-                    <p className="card-label">대화 내용</p>
-                    <h4>{conversationSessionLabel(selectedHistory)}</h4>
-                  </div>
-                </div>
-                {selectedHistory.turns.length === 0 ? (
-                  <p className="muted">아직 질문이 없는 대화입니다.</p>
-                ) : (
-                  selectedHistory.turns.map((turn, index) => (
-                    <article className={`conversation-turn is-${turn.role}`} key={`${turn.created_at}-${index}`}>
-                      <span className="conversation-turn-role">{turn.role === "user" ? "질문" : "답변"}</span>
-                      <p>{turn.content}</p>
-                      {turn.role === "assistant" && <EvidenceChips sourceIds={turn.source_ids} />}
-                    </article>
-                  ))
-                )}
-              </div>
-            )}
+          <div className="conversation-session-list" role="list" aria-label="저장된 대화">
+            {conversationHistory.map((session) => {
+              const time = conversationSessionTime(session);
+              const isCurrent = conversation?.id === session.id;
+              return (
+                <button
+                  className={`conversation-session-button${selectedHistoryId === session.id ? " is-selected" : ""}`}
+                  type="button"
+                  key={session.id}
+                  onClick={() => setSelectedHistoryId(session.id)}
+                >
+                  <span>
+                    <strong>{conversationSessionLabel(session)}</strong>
+                    {isCurrent && <em>현재</em>}
+                  </span>
+                  <small>{Math.ceil(session.turns.length / 2)}개 질문{time ? ` · ${time}` : ""}</small>
+                </button>
+              );
+            })}
           </div>
         )}
+
+        <p className="conversation-evidence-policy muted">
+          이전 AI 답변을 다음 답변의 근거로 재사용하지 않고 원본 기록을 다시 확인합니다.
+        </p>
+      </aside>
+
+      <section className="conversation-chat-pane" aria-label="대화 내용">
+        <div className="conversation-pane-heading conversation-chat-heading">
+          <div>
+            <p className="card-label">대화</p>
+            <h3>{selectedHistory ? conversationSessionLabel(selectedHistory) : "무엇이든 물어보세요"}</h3>
+          </div>
+          {selectedHistory && <span>{Math.ceil(selectedHistory.turns.length / 2)}개 질문</span>}
+        </div>
+
+        <div className="conversation-chat-scroll">
+          {selectedHistory?.turns.length ? (
+            selectedHistory.turns.map((turn, index) => (
+              <article className={`conversation-turn is-${turn.role}`} key={`${turn.created_at}-${index}`}>
+                <span className="conversation-turn-role">{turn.role === "user" ? "나" : "GrowWise"}</span>
+                <p>{turn.content}</p>
+                {turn.role === "assistant" && <EvidenceChips sourceIds={turn.source_ids} />}
+              </article>
+            ))
+          ) : (
+            <div className="conversation-chat-empty">
+              <span aria-hidden="true">✦</span>
+              <strong>아이의 기록을 바탕으로 대화를 시작해 보세요.</strong>
+              <p>예: 최근 공룡에 관심을 보인 기록을 정리해줘.</p>
+            </div>
+          )}
+
+          {conversationAnswers.length > 0 && selectedHistory?.id !== conversation?.id && (
+            <div className="conversation-live" aria-label="현재 대화 답변">
+              {conversationAnswers.map((item, index) => (
+                <article className="conversation-turn is-assistant" key={`${item.session_id}-${index}`}>
+                  <span className="conversation-turn-role">GrowWise</span>
+                  <p>{item.answer.answer}</p>
+                  <EvidenceChips sourceIds={item.answer.source_ids} />
+                  {item.answer.insufficient_evidence && (
+                    <small className="conversation-insufficient">충분한 원본 근거를 찾지 못했습니다. 기록을 직접 확인해 주세요.</small>
+                  )}
+                </article>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {conversationError && <p className="form-error conversation-chat-error" role="alert">{conversationError}</p>}
+        <form className="conversation-composer" onSubmit={onConversation}>
+          <input
+            value={conversationQuestion}
+            onChange={(event) => onConversationQuestionChange(event.target.value)}
+            placeholder="아이의 기록에 대해 질문해 보세요..."
+          />
+          <button className="primary-button" type="submit" disabled={conversationBusy || !conversationQuestion.trim()}>
+            <span aria-hidden="true">↑</span>
+            <span className="sr-only">{conversationBusy ? "확인 중" : "질문 보내기"}</span>
+          </button>
+        </form>
+
+        <details className="conversation-search-tools">
+          <summary>기록을 직접 검색하기</summary>
+          <form className="search-form" onSubmit={onSearch}>
+            <input
+              value={searchQuery}
+              onChange={(event) => onSearchQueryChange(event.target.value)}
+              placeholder="예: 고양이 그림에 관심 보인 기록 찾아줘"
+            />
+            <button className="quiet-button" type="submit" disabled={searching}>{searching ? "검색 중…" : "검색"}</button>
+          </form>
+          {searchError && <p className="form-error" role="alert">{searchError}</p>}
+          {searchResult && (
+            <div className="search-results">
+              <p className="muted">검색 결과 {searchResult.results.length}건</p>
+              {searchResult.results.length === 0 ? (
+                <ViewStateNotice kind="empty" title="일치하는 기록이 없습니다." description="검색어나 표현을 바꿔 다시 찾아보세요." />
+              ) : (
+                searchResult.results.map((result, index) => (
+                  <article className="search-result-card" key={String(result.id ?? index)}>
+                    <p>{resultText(result)}</p>
+                  </article>
+                ))
+              )}
+            </div>
+          )}
+        </details>
       </section>
-      </div>
 
       <aside className="conversation-utility-panel" aria-label="대화와 데이터 관리">
         <section className="conversation-utility-card conversation-utility-card--backup">
@@ -317,9 +332,7 @@ export function SearchConversationSection({
                   })
                 : "아직 없음"}
             </strong>
-            {latestBackup && (
-              <small>{Math.max(1, Math.round(latestBackup.size_bytes / 1024))} KB</small>
-            )}
+            {latestBackup && <small>{Math.max(1, Math.round(latestBackup.size_bytes / 1024))} KB</small>}
           </div>
 
           {backupError && <p className="form-error" role="alert">{backupError}</p>}
@@ -336,18 +349,10 @@ export function SearchConversationSection({
 
           {latestBackup && (
             <div className="conversation-backup-secondary">
-              <button
-                type="button"
-                disabled={backupBusy}
-                onClick={() => onBackupExport(latestBackup.archive)}
-              >
+              <button type="button" disabled={backupBusy} onClick={() => onBackupExport(latestBackup.archive)}>
                 파일로 내보내기
               </button>
-              <button
-                type="button"
-                disabled={backupBusy}
-                onClick={() => onBackupRestore(latestBackup.archive)}
-              >
+              <button type="button" disabled={backupBusy} onClick={() => onBackupRestore(latestBackup.archive)}>
                 이 백업 복원
               </button>
             </div>
@@ -357,9 +362,7 @@ export function SearchConversationSection({
         <section className="conversation-utility-card">
           <p className="card-label">Grounding policy</p>
           <h3>답변은 저장된 원본을 다시 확인합니다.</h3>
-          <p>
-            이전 AI 답변을 다음 답변의 근거로 재사용하지 않고, 기록과 참고 자료에서 매번 다시 찾습니다.
-          </p>
+          <p>이전 AI 답변 대신 기록과 참고 자료를 매번 다시 찾아 근거를 표시합니다.</p>
           <div className="conversation-policy-badges">
             <span>Local-first</span>
             <span>근거 표시</span>
@@ -367,6 +370,5 @@ export function SearchConversationSection({
           </div>
         </section>
       </aside>
-    </div>
-  );
-}
+    </section>
+
