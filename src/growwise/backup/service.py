@@ -420,7 +420,8 @@ class BackupService:
                 journal.rollback()
                 raise
             else:
-                journal.commit()
+                journal.mark_committed()
+                journal.finalize()
 
         return manifest
 
