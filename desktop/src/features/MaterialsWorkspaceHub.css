@@ -130,3 +130,27 @@
     min-width: 0;
   }
 }
+
+
+/* Hub tabs own feature visibility instead of relying on WorkspaceShell projection rules. */
+.materials-hub .materials-hub-core .material-workspace,
+.materials-hub .materials-hub-core .resource-section,
+.materials-hub .materials-hub-core .infant-guidance-section,
+.materials-hub .materials-hub-core .activity-section,
+.materials-hub .materials-hub-core .quest-section {
+  display: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace {
+  display: block;
+}
+
+.materials-hub[data-material-tab="library"] .materials-hub-core .resource-section {
+  display: block;
+}
+
+.materials-hub[data-material-tab="activities"] .materials-hub-core .infant-guidance-section,
+.materials-hub[data-material-tab="activities"] .materials-hub-core .activity-section,
+.materials-hub[data-material-tab="activities"] .materials-hub-core .quest-section {
+  display: block;
+}
