@@ -12,11 +12,10 @@ describe("WorkspaceNav", () => {
     expect(html).toContain('id="workspace-nav-home"');
     expect(html).not.toContain('role="tablist"');
     expect(html).not.toContain('role="tab"');
-    expect(html).toContain("기록");
-    expect(html).toContain("성장과 활동");
-    expect(html).toContain("찾기와 자료");
-    expect(html).toContain("관찰 기록");
-    expect(html).toContain("학습 자료");
-    expect(html).toContain("설정");
+    expect(html).toContain("Workspace");
+    expect(html).toContain("More");
+    expect(html).toContain("아이 프로필");
+    expect(html).toContain("AI 학습자료");
+    expect(html).toContain("백업 및 설정");
   });
 });
