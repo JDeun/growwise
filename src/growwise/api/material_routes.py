@@ -135,13 +135,14 @@ def generate_material(
         store=store,
     )
 
-    idempotency_store = get_idempotency_store()
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
     request_hash = request_fingerprint(
         {"child_id": str(child_id), **request.model_dump(mode="json")}
     )
     reserved_material_id: UUID = uuid7()
     claim = None
     if idempotency_key is not None:
+        assert idempotency_store is not None
         try:
             claim = idempotency_store.claim(
                 key=idempotency_key,
@@ -184,6 +185,7 @@ def generate_material(
         material.request_goal = request.goal
         store.save(material)
         if claim is not None and claim.acquired:
+            assert idempotency_store is not None
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
