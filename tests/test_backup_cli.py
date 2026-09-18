@@ -110,3 +110,32 @@ def test_default_archive_names_do_not_collide_in_same_second() -> None:
     second = default_archive_name()
     assert first != second
     assert first.startswith("growwise-") and first.endswith(".zip")
+
+
+
+def test_restore_reports_rag_degraded_after_authoritative_success(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    settings = Settings(data_dir=tmp_path)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(nickname="백업아이", stage=Stage.INFANT_0_2, age_months=9)
+    store.save(child)
+    create_backup(settings, "baseline.zip")
+
+    replacement = ChildProfile(nickname="복원전아이", stage=Stage.INFANT_0_2, age_months=8)
+    store.save(replacement)
+
+    def fail_rag(_settings: Settings) -> int:
+        raise RuntimeError("simulated rag rebuild failure")
+
+    monkeypatch.setattr("growwise.backup.cli.rebuild_rag_projection", fail_rag)
+
+    restored = restore_backup(settings, "baseline.zip", confirmed=True)
+
+    assert restored["restored"] is True
+    assert restored["rag_status"] == "degraded"
+    assert restored["rag_chunk_count"] == 0
+
+    rebuilt = EntityStore(settings.records_dir, settings.index_path)
+    children = rebuilt.index.list_entities(entity_type="child_profile")
+    assert [item["nickname"] for item in children] == ["백업아이"]

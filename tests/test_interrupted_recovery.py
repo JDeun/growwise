@@ -16,6 +16,8 @@ from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
 
 from growwise.backup import BackupService
+from growwise.domain import ChildProfile, Stage
+from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph
 
 
@@ -53,8 +55,8 @@ def test_review_recovers_from_persisted_checkpoint_after_restart(tmp_path: Path)
 
 def test_backup_export_is_atomic_on_interruption(tmp_path: Path, monkeypatch) -> None:
     records_root = tmp_path / "records"
-    (records_root / "child-1").mkdir(parents=True)
-    (records_root / "child-1" / "note.md").write_text("# 기록\n내용", encoding="utf-8")
+    store = EntityStore(records_root, tmp_path / "index.sqlite3")
+    store.save(ChildProfile(nickname="샘플아이", stage=Stage.INFANT_0_2, age_months=9))
     destination = tmp_path / "out" / "backup.zip"
 
     # Interrupt the export midway (e.g. power loss while adding a record).

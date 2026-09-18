@@ -11,6 +11,23 @@ from .chunking import ResourceChunk
 from .embeddings import EmbeddingProvider
 from .temporal import hierarchical_temporal_order, temporal_tier
 
+_MAX_QUERY_TERMS = 32
+_MAX_QUERY_TERM_CHARS = 128
+
+
+def _normalize_query_terms(query: str) -> list[str]:
+    terms: list[str] = []
+    seen: set[str] = set()
+    for raw_term in query.split():
+        term = raw_term.strip().casefold()[:_MAX_QUERY_TERM_CHARS]
+        if len(term) < 2 or term in seen:
+            continue
+        seen.add(term)
+        terms.append(term)
+        if len(terms) >= _MAX_QUERY_TERMS:
+            break
+    return terms
+
 
 def cosine_similarity(left: list[float], right: list[float]) -> float:
     if not left or not right or len(left) != len(right):
@@ -56,6 +73,22 @@ class HybridRagIndex:
         return connection
 
     def _ensure_schema(self) -> None:
+        try:
+            self._create_schema()
+        except sqlite3.OperationalError:
+            # Locking, permissions, disk-full and other operational failures are not evidence of
+            # corruption. Never destroy a potentially healthy disposable projection for them.
+            raise
+        except sqlite3.DatabaseError:
+            # RAG is explicitly rebuildable. If the SQLite image itself is malformed, discard the
+            # projection (including WAL sidecars) and recreate an empty index that callers can
+            # repopulate from authoritative ResourceRecord Markdown.
+            for suffix in ("", "-wal", "-shm"):
+                Path(f"{self.path}{suffix}").unlink(missing_ok=True)
+            self._fts_available = False
+            self._create_schema()
+
+    def _create_schema(self) -> None:
         connection = self._connect()
         try:
             connection.execute("PRAGMA journal_mode=WAL")
@@ -337,7 +370,7 @@ class HybridRagIndex:
     ) -> list[dict]:
         if limit <= 0:
             return []
-        query_terms = [term.casefold() for term in query.split() if len(term.strip()) >= 2]
+        query_terms = _normalize_query_terms(query)
         query_vector: list[float] | None = None
         if self.embedding is not None:
             try:
