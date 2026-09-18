@@ -93,8 +93,8 @@ def get_idempotency_store() -> SQLiteIdempotencyStore:
 # Preserve the historical test/downstream cache-reset seam while keying the actual cached object by
 # data generation. A destructive restore therefore obtains fresh generation-bound stores without
 # forcing every caller to know about the coordinator.
-setattr(get_conversation_store, "cache_clear", _get_conversation_store.cache_clear)
-setattr(get_idempotency_store, "cache_clear", _get_idempotency_store.cache_clear)
+get_conversation_store.cache_clear = _get_conversation_store.cache_clear  # type: ignore[attr-defined]
+get_idempotency_store.cache_clear = _get_idempotency_store.cache_clear  # type: ignore[attr-defined]
 
 
 @lru_cache
