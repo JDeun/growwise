@@ -9,6 +9,7 @@ import { WorkspaceShell } from "./components";
 import {
   DiscoveryWorkspace,
   HomeDashboard,
+  HelpWorkspace,
   LearningRecordWorkspace,
   PhotoActivityWorkspace,
 } from "./features";
@@ -35,6 +36,7 @@ createRoot(document.getElementById("root")!).render(
             <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
             <PhotoActivityWorkspace active={activeView === "photos"} />
             <LearningRecordWorkspace active={activeView === "learning"} />
+            <HelpWorkspace active={activeView === "help"} />
             <DiscoveryWorkspace active={activeView === "discovery"} />
           </>
         )}
