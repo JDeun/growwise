@@ -7,7 +7,7 @@
   border: 1px solid var(--border);
   border-radius: 14px;
   background: var(--surface);
-  box-shadow: 0 8px 24px rgba(53, 48, 40, 0.05);
+  box-shadow: var(--shadow-subtle);
 }
 
 .capability-banner strong {
@@ -21,18 +21,18 @@
 }
 
 .capability-banner.enhanced {
-  border-color: rgba(47, 143, 107, 0.28);
+  border-color: var(--primary-border);
   background: var(--primary-soft);
 }
 
 .capability-banner.core-only {
-  border-color: rgba(121, 85, 30, 0.2);
+  border-color: var(--accent-border);
   background: var(--accent-soft);
 }
 
 .capability-banner.danger {
-  border-color: rgba(168, 77, 67, 0.25);
-  background: #f9ecea;
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
 }
 
 @media (max-width: 600px) {
