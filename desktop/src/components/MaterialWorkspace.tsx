@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import { MaterialEditPanel } from "../MaterialEditPanel";
 import type {
@@ -214,10 +214,6 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
   const focusedMaterial =
     materials.find((material) => material.id === focusedMaterialId) ?? defaultFocused;
 
-  useEffect(() => {
-    if (focusedMaterialId && materials.some((material) => material.id === focusedMaterialId)) return;
-    setFocusedMaterialId(defaultFocused?.id ?? null);
-  }, [defaultFocused?.id, focusedMaterialId, materials]);
 
   function printApprovedCard(material: GeneratedMaterial, card: Element | null) {
     if (!card) return;
