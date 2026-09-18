@@ -7,7 +7,6 @@ from pydantic import BaseModel, Field
 from growwise.domain import ExperienceAxis
 from growwise.model import ModelProvider
 
-
 _TagText = Annotated[str, Field(min_length=1, max_length=200)]
 
 
