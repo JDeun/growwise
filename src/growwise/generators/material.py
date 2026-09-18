@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -20,11 +21,14 @@ from .scaffold import ScaffoldGuard
 from .templates import select_body
 
 
+_DraftSourceRef = Annotated[str, Field(min_length=1, max_length=500)]
+
+
 class MaterialDraft(BaseModel):
-    title: str
-    content_markdown: str
-    parent_guide_markdown: str = ""
-    source_refs: list[str] = Field(default_factory=list)
+    title: str = Field(min_length=1, max_length=200)
+    content_markdown: str = Field(min_length=1, max_length=20_000)
+    parent_guide_markdown: str = Field(default="", max_length=12_000)
+    source_refs: list[_DraftSourceRef] = Field(default_factory=list, max_length=100)
 
 
 class MaterialSourceEvidence(BaseModel):
