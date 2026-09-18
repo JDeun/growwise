@@ -11,6 +11,7 @@ import {
   HomeDashboard,
   HelpWorkspace,
   LearningRecordWorkspace,
+  LearningWorkspaceHub,
   MaterialsWorkspaceHub,
   PhotoActivityWorkspace,
   ProfileWorkspaceHub,
@@ -32,7 +33,12 @@ createRoot(document.getElementById("root")!).render(
         renderWorkspace={(activeView, navigate) => (
           <>
             <CapabilityStatus />
-            {activeView === "profile" ? (
+            {activeView === "learning" ? (
+              <LearningWorkspaceHub
+                renderRecords={(active) => <LearningRecordWorkspace active={active} embedded />}
+                observationApp={<App activeView={activeView} />}
+              />
+            ) : activeView === "profile" ? (
               <ProfileWorkspaceHub
                 app={<App activeView={activeView} />}
                 renderLearning={(active) => <LearningRecordWorkspace active={active} embedded />}
@@ -52,7 +58,6 @@ createRoot(document.getElementById("root")!).render(
             )}
             <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
             <PhotoActivityWorkspace active={activeView === "photos"} />
-            <LearningRecordWorkspace active={activeView === "learning"} />
             <HelpWorkspace active={activeView === "help"} />
             <DiscoveryWorkspace active={activeView === "discovery"} />
           </>
