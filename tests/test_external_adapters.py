@@ -5,6 +5,7 @@ import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+from urllib import request
 
 import pytest
 
@@ -260,4 +261,21 @@ def test_adapter_constructor_rejects_plain_http_remote_endpoint(tmp_path: Path) 
         OverpassAdapter(
             cache=cache,
             endpoint="http://example.com/api",
+        )
+
+
+
+def test_redirect_handler_rejects_remote_http_downgrade() -> None:
+    from growwise.adapters.http import _ValidatedRedirectHandler
+
+    handler = _ValidatedRedirectHandler()
+    original = request.Request("https://example.com/api")
+    with pytest.raises(ExternalAdapterError, match="unsafe external redirect"):
+        handler.redirect_request(
+            original,
+            None,
+            302,
+            "Found",
+            {},
+            "http://example.net/downgraded",
         )
