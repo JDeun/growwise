@@ -25,6 +25,7 @@ class IdempotencyStatus(StrEnum):
 
 DEFAULT_LEASE_SECONDS = 120
 
+
 class _GenerationBound(Protocol):
     _data_generation: int
 
