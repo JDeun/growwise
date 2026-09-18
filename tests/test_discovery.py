@@ -6,9 +6,8 @@ import pytest
 
 from growwise.adapters import AdapterResult
 from growwise.config import Settings
-from growwise.domain import ActivityPlan, ChildProfile, LearningLog, Stage
+from growwise.domain import ActivityPlan, ChildProfile, LearningLog, ResourceKind, Stage
 from growwise.services.discovery import DiscoverySuggestion
-from growwise.domain import ResourceKind
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services.discovery import EducationDiscoveryService
 from growwise.services.public_query import generalize_public_terms
