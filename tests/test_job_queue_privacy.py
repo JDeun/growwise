@@ -1,8 +1,8 @@
 import json
 import sqlite3
+from uuid import uuid4
 
 import pytest
-from uuid import uuid4
 
 from growwise.jobs import SQLiteJobQueue
 
