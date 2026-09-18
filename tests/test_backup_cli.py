@@ -15,6 +15,7 @@ from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.jobs import SQLiteJobQueue
+from growwise.maintenance import StaleDataGeneration
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
@@ -113,7 +114,12 @@ def test_cli_helpers_create_list_and_restore_managed_backup(tmp_path: Path) -> N
     assert queue.get(pending_job.id) is None
     assert queue.get(running_job.id) is None
     assert queue.get(unrelated_job.id) is None
-    assert idempotency.get("pre-restore-key") is None
+
+    # The owner created before restore is generation-bound and must not inspect or mutate the new
+    # operational registry. A fresh post-restore owner sees that the disposable registry was reset.
+    with pytest.raises(StaleDataGeneration):
+        idempotency.get("pre-restore-key")
+    assert SQLiteIdempotencyStore(settings.idempotency_path).get("pre-restore-key") is None
 
     checkpoint_connection = sqlite3.connect(settings.checkpoint_path)
     try:
