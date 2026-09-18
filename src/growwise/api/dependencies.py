@@ -42,8 +42,9 @@ def get_model_provider() -> ModelProvider | None:
         return None
 
 
-@lru_cache
-def get_rag_index() -> HybridRagIndex:
+@lru_cache(maxsize=4)
+def _get_rag_index(generation: int) -> HybridRagIndex:
+    del generation
     settings = get_settings()
     embedding = None
     if settings.embedding_features_enabled:
@@ -56,6 +57,12 @@ def get_rag_index() -> HybridRagIndex:
             logger.exception("embedding provider unavailable; RAG will use lexical search")
             embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
+
+
+def get_rag_index() -> HybridRagIndex:
+    generation = DATA_MAINTENANCE.generation
+    with DATA_MAINTENANCE.mutation(expected_generation=generation):
+        return _get_rag_index(generation)
 
 
 @lru_cache(maxsize=4)
@@ -93,6 +100,7 @@ def get_idempotency_store() -> SQLiteIdempotencyStore:
 # Preserve the historical test/downstream cache-reset seam while keying the actual cached object by
 # data generation. A destructive restore therefore obtains fresh generation-bound stores without
 # forcing every caller to know about the coordinator.
+get_rag_index.cache_clear = _get_rag_index.cache_clear  # type: ignore[attr-defined]
 get_conversation_store.cache_clear = _get_conversation_store.cache_clear  # type: ignore[attr-defined]
 get_idempotency_store.cache_clear = _get_idempotency_store.cache_clear  # type: ignore[attr-defined]
 
