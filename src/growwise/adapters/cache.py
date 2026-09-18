@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -36,6 +38,15 @@ class SQLiteExternalCache:
         connection.row_factory = sqlite3.Row
         return connection
 
+    @contextmanager
+    def _connection(self) -> Iterator[sqlite3.Connection]:
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def _setup(self) -> None:
         try:
             self._create_schema()
@@ -55,7 +66,7 @@ class SQLiteExternalCache:
             self._create_schema()
 
     def _create_schema(self) -> None:
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS external_cache (
@@ -86,7 +97,7 @@ class SQLiteExternalCache:
         fetched_at = self._normalize_time(now or datetime.now(UTC))
         expires_at = fetched_at + timedelta(seconds=ttl_seconds)
         encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
-        with self._connect() as connection:
+        with self._connection() as connection:
             connection.execute(
                 """
                 INSERT INTO external_cache (
@@ -134,7 +145,7 @@ class SQLiteExternalCache:
         now: datetime | None = None,
     ) -> CachedPayload | None:
         reference = self._normalize_time(now or datetime.now(UTC))
-        with self._connect() as connection:
+        with self._connection() as connection:
             row = connection.execute(
                 "SELECT * FROM external_cache WHERE cache_key = ?",
                 (cache_key,),
@@ -171,7 +182,7 @@ class SQLiteExternalCache:
 
     def delete_expired(self, *, now: datetime | None = None) -> int:
         reference = self._normalize_time(now or datetime.now(UTC))
-        with self._connect() as connection:
+        with self._connection() as connection:
             cursor = connection.execute(
                 "DELETE FROM external_cache WHERE expires_at <= ?",
                 (reference.isoformat(),),
