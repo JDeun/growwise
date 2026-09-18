@@ -13,6 +13,7 @@ import {
   LearningRecordWorkspace,
   MaterialsWorkspaceHub,
   PhotoActivityWorkspace,
+  ProfileWorkspaceHub,
 } from "./features";
 import { applyDocumentLocale, detectBrowserLocale } from "./i18n";
 import "./styles.css";
@@ -31,7 +32,13 @@ createRoot(document.getElementById("root")!).render(
         renderWorkspace={(activeView, navigate) => (
           <>
             <CapabilityStatus />
-            {activeView === "materials" ? (
+            {activeView === "profile" ? (
+              <ProfileWorkspaceHub
+                app={<App activeView={activeView} />}
+                renderLearning={(active) => <LearningRecordWorkspace active={active} embedded />}
+                onNavigate={navigate}
+              />
+            ) : activeView === "materials" ? (
               <MaterialsWorkspaceHub
                 app={<App activeView={activeView} />}
                 renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
