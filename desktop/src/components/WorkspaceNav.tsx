@@ -1,5 +1,5 @@
 import { ChildAvatar } from "./ChildAvatar";
-import { useActiveChild } from "../active-child-context";
+import { useOptionalActiveChild } from "../active-child-context";
 import { stageLabel } from "../presentation";
 import "./WorkspaceNav.css";
 import { WORKSPACE_LABELS } from "./workspaceLabels";
@@ -68,7 +68,7 @@ function NavItem({
 }
 
 export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
-  const { activeChild } = useActiveChild();
+  const activeChild = useOptionalActiveChild()?.activeChild ?? null;
 
   return (
     <nav className="workspace-nav" aria-label="GrowWise 주요 메뉴">
