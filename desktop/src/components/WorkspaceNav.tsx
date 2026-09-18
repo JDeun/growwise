@@ -1,4 +1,4 @@
-import { useActiveChild } from "../active-child-context";
+import { useOptionalActiveChild } from "../active-child-context";
 import { ChildAvatar } from "./ChildAvatar";
 import "./WorkspaceNav.css";
 import { WORKSPACE_DESCRIPTIONS } from "./workspaceDescriptions";
@@ -47,7 +47,7 @@ const ICONS: Record<WorkspaceView, string> = {
 };
 
 export function WorkspaceNav({ activeView, onChange }: WorkspaceNavProps) {
-  const { activeChild } = useActiveChild();
+  const activeChild = useOptionalActiveChild()?.activeChild ?? null;
 
   return (
     <nav className="workspace-nav" aria-label="GrowWise 주요 메뉴">
