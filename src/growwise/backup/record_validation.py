@@ -63,6 +63,8 @@ def validate_record_tree(records_root: Path) -> int:
     seen_ids: set[str] = set()
     count = 0
     for path in sorted(records_root.rglob("*")):
+        if path.is_symlink():
+            raise InvalidRecordTree(f"symlink record is not allowed: {path.name}")
         if not path.is_file():
             continue
         if path.suffix != ".md":
