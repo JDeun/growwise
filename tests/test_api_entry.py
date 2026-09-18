@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from growwise.api import entry
+from growwise.api import entry, main
 
 
 def test_standalone_entry_rejects_non_loopback_host(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -35,3 +35,28 @@ def test_standalone_entry_holds_data_dir_lock(
         "port": 9876,
         "reload": False,
     }
+
+
+def test_main_module_runner_delegates_to_guarded_entry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    called = False
+
+    def fake_guarded_run() -> None:
+        nonlocal called
+        called = True
+
+    monkeypatch.setattr(entry, "run", fake_guarded_run)
+
+    main.run()
+
+    assert called is True
+
+
+def test_main_module_runner_cannot_bypass_loopback_guard(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("GROWWISE_API_HOST", "0.0.0.0")
+
+    with pytest.raises(RuntimeError, match="local-only"):
+        main.run()
