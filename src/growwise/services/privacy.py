@@ -50,13 +50,15 @@ class ChildPurgeService:
 
     def purge(self, child_id: str) -> ChildPurgeResult:
         # Privacy purge is a destructive data-generation boundary, not an ordinary mutation.
-        # Drain every in-flight authoritative writer first, block new writers for the duration, and
-        # advance the generation on exit. Any worker/store created before the purge therefore becomes
-        # stale and cannot resurrect child-scoped records after deletion, even if that writer never
-        # participates in the per-child lock.
-        with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
-            with child_operation_lock(child_id):
-                return self._purge_locked(child_id)
+        # Drain every in-flight authoritative writer first, block new writers for the duration,
+        # and advance the generation on exit. Any worker/store created before the purge therefore
+        # becomes stale and cannot resurrect child-scoped records after deletion, even if that
+        # writer never participates in the per-child lock.
+        with (
+            DATA_MAINTENANCE.maintenance(invalidate_generation=True),
+            child_operation_lock(child_id),
+        ):
+            return self._purge_locked(child_id)
 
     def _purge_locked(self, child_id: str) -> ChildPurgeResult:
         profile = self.store.index.get_entity(child_id, entity_type="child_profile")
