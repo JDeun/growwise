@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, date, datetime
 from functools import lru_cache
-from collections.abc import Callable
-from typing import Annotated, TypeVar
+from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
@@ -113,10 +113,7 @@ def _study_child(store: EntityStore, child_id: UUID) -> ChildProfile:
     return child
 
 
-TStudyEntity = TypeVar("TStudyEntity", bound=EntityBase)
-
-
-def _idempotent_study_create(
+def _idempotent_study_create[TStudyEntity: EntityBase](
     *,
     child_id: UUID,
     request_payload: dict[str, object],
