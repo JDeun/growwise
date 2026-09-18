@@ -1,19 +1,143 @@
 .workspace-shell-root,
+.workspace-main,
 .workspace-shell {
   min-width: 0;
 }
 
 .workspace-shell-root {
   display: grid;
-  grid-template-columns: minmax(220px, 252px) minmax(0, 1fr);
-  gap: 24px;
+  grid-template-columns: 258px minmax(0, 1fr);
+  gap: 20px;
   align-items: start;
-  width: min(1480px, calc(100% - 32px));
+  width: min(1540px, calc(100% - 28px));
   margin: 0 auto;
+  padding: 18px 0 48px;
+}
+
+.workspace-main {
+  display: grid;
+  gap: 14px;
+}
+
+.workspace-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 64px;
+  padding: 10px 4px 10px 10px;
+  background: color-mix(in srgb, var(--bg) 90%, transparent);
+  backdrop-filter: blur(18px);
+}
+
+.workspace-topbar-title {
+  display: grid;
+  gap: 1px;
+}
+
+.workspace-topbar-title small {
+  color: #9aa39f;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.workspace-topbar-title h1 {
+  margin: 0;
+  color: #27332d;
+  font-size: 20px;
+  font-weight: 720;
+  letter-spacing: -.035em;
+}
+
+.workspace-topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.workspace-search-trigger,
+.workspace-quick-record,
+.workspace-topbar-avatar {
+  border: 1px solid rgba(41, 70, 57, .11);
+  background: rgba(255,255,255,.88);
+  color: #59665f;
+  box-shadow: 0 4px 14px rgba(44,67,57,.04);
+}
+
+.workspace-search-trigger {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 230px;
+  height: 36px;
+  padding: 0 9px 0 11px;
+  border-radius: 10px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.workspace-search-trigger svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+}
+
+.workspace-search-trigger span {
+  flex: 1;
+  color: #89938e;
+  font-size: 10px;
+}
+
+.workspace-search-trigger kbd {
+  padding: 2px 5px;
+  border: 1px solid rgba(41,70,57,.09);
+  border-radius: 5px;
+  background: #f7f8f7;
+  color: #9aa39f;
+  font-family: inherit;
+  font-size: 8px;
+}
+
+.workspace-quick-record {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 0 12px;
+  border-color: #2f8f6b;
+  border-radius: 10px;
+  background: #2f8f6b;
+  color: #fff;
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 750;
+}
+
+.workspace-quick-record span {
+  margin-top: -1px;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.workspace-topbar-avatar {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 1px;
+  border-radius: 50%;
+  cursor: pointer;
 }
 
 .workspace-shell {
-  min-height: 100vh;
+  min-height: calc(100vh - 96px);
+  padding: 0 4px 40px 10px;
 }
 
 .workspace-frame {
@@ -37,14 +161,16 @@
 }
 
 /*
- * App.tsx deliberately remains mounted while the workspace changes. This keeps
- * active-child state, in-progress forms and Core-backed controller state intact
- * while the shell projects the existing sections into product-level workspaces.
+ * App remains mounted while the workspace changes so Core-backed state and unsaved forms survive
+ * navigation. Visual projection is explicit: only the section owned by the active workspace is
+ * exposed.
  */
+.workspace-shell[data-active-workspace="home"] .app-shell {
+  display: none;
+}
+
 .workspace-shell[data-active-workspace] .app-shell > .hero,
 .workspace-shell[data-active-workspace] .app-shell > .status-grid,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .section-heading,
-.workspace-shell[data-active-workspace] .app-shell > .workspace > .skeleton-grid,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .observation-panel,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .search-section,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .conversation-section,
@@ -54,13 +180,13 @@
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .activity-section,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .quest-section,
 .workspace-shell[data-active-workspace] .app-shell > .workspace > .timeline-section,
+.workspace-shell[data-active-workspace] .app-shell > .workspace > .child-profile-section,
 .workspace-shell[data-active-workspace] .app-shell > .data-management-section {
   display: none;
 }
 
-/* Home prioritizes child context plus the dedicated action/recent-record dashboard. */
-.workspace-shell[data-active-workspace="home"] .app-shell > .workspace > .skeleton-grid {
-  display: grid;
+.workspace-shell[data-active-workspace="profile"] .app-shell > .workspace > .child-profile-section {
+  display: block;
 }
 
 .workspace-shell[data-active-workspace="settings"] .app-shell > .status-grid {
@@ -103,30 +229,27 @@
   display: none;
 }
 
-@media (max-width: 1050px) {
+@media (max-width: 1080px) {
   .workspace-shell-root {
-    grid-template-columns: minmax(200px, 220px) minmax(0, 1fr);
-    gap: 18px;
+    grid-template-columns: 230px minmax(0, 1fr);
   }
+  .workspace-search-trigger { min-width: 180px; }
 }
 
-@media (max-width: 900px) {
+@media (max-width: 940px) {
   .workspace-shell-root {
     grid-template-columns: minmax(0, 1fr);
     width: min(100% - 24px, 1180px);
   }
-
-  .workspace-shell {
-    min-height: 0;
-  }
-
-  .workspace-shell > .app-shell {
-    width: 100%;
-  }
+  .workspace-topbar { position: static; }
+  .workspace-shell { min-height: 0; padding-left: 0; padding-right: 0; }
+  .workspace-shell > .app-shell { width: 100%; }
 }
 
-@media (max-width: 700px) {
-  .workspace-shell[data-active-workspace="growth"] .app-shell > .workspace > .observation-panel {
-    grid-template-columns: minmax(0, 1fr);
-  }
+@media (max-width: 680px) {
+  .workspace-search-trigger span,
+  .workspace-search-trigger kbd { display: none; }
+  .workspace-search-trigger { min-width: 36px; width: 36px; justify-content: center; padding: 0; }
+  .workspace-topbar-title h1 { font-size: 18px; }
+  .workspace-quick-record { padding: 0 9px; }
 }
