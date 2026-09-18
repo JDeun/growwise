@@ -7,8 +7,8 @@ from typing import Any
 
 from fastapi import HTTPException
 
-import growwise.api.main as api
-from growwise.api.main import MaterialEditRequest
+import growwise.api.material_routes as api
+from growwise.api.contracts import MaterialEditRequest
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind, MaterialStatus, Stage
 from growwise.generators import MaterialEditService
 from growwise.storage import EntityStore
