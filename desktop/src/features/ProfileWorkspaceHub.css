@@ -353,3 +353,45 @@
     grid-column: 1 / -1;
   }
 }
+
+
+.profile-tab-context {
+  display: grid;
+  gap: 4px;
+  margin: 14px 14px 0;
+  padding: 12px 14px;
+  border: 1px solid rgba(43, 42, 40, .07);
+  border-radius: 12px;
+  background: #fafcfb;
+}
+
+.profile-tab-context span {
+  color: #2f8f6b;
+  font-size: 8px;
+  font-weight: 800;
+}
+
+.profile-tab-context strong {
+  color: #344139;
+  font-size: 11px;
+}
+
+.profile-tab-context p {
+  margin: 0;
+  color: #7d8782;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.profile-hub[data-profile-tab="records"] .profile-tab-context {
+  display: none;
+}
+
+/* Development focuses on the distribution analysis; report focuses on the real record timeline. */
+.profile-hub[data-profile-tab="report"] .profile-hub-core .observation-panel {
+  display: none !important;
+}
+
+.profile-hub[data-profile-tab="report"] .profile-hub-core .timeline-section {
+  display: block !important;
+}
