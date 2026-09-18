@@ -12,5 +12,5 @@ export const WORKSPACE_LABELS: Record<WorkspaceView, string> = {
   discovery: "자료 찾기",
   library: "참고 자료",
   materials: "학습 자료",
-  settings: "백업 및 설정",
+  settings: "백업",
 };
