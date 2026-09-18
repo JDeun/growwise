@@ -4,6 +4,7 @@ import hashlib
 import json
 import secrets
 import sqlite3
+from contextlib import AbstractContextManager
 from collections.abc import Mapping
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -104,7 +105,7 @@ class SQLiteIdempotencyStore:
         self._data_generation = DATA_MAINTENANCE.generation
         self._ensure_schema()
 
-    def _mutation_window(self):
+    def _mutation_window(self) -> AbstractContextManager[None]:
         from growwise.maintenance import DATA_MAINTENANCE
 
         return DATA_MAINTENANCE.mutation(expected_generation=self._data_generation)
@@ -399,13 +400,13 @@ class SQLiteIdempotencyStore:
         resource_id: str,
         claim_token: str | None = None,
     ) -> bool:
-        with self._mutation_window():
-            """Abandon a live claim without forgetting its reserved resource ID.
+        """Abandon a live claim without forgetting its reserved resource ID.
 
-            The lease is expired immediately. A later retry can therefore reacquire the claim while
-            preserving the same resource ID, which makes partial Markdown commits retry-safe. The
-            update is fenced by the current claim token; a stale owner becomes a harmless no-op.
-            """
+        The lease is expired immediately. A later retry can therefore reacquire the claim while
+        preserving the same resource ID, which makes partial Markdown commits retry-safe. The
+        update is fenced by the current claim token; a stale owner becomes a harmless no-op.
+        """
+        with self._mutation_window():
             context = self._claim_context(key)
             owner_token = claim_token or context.token
             if owner_token is None:
@@ -434,8 +435,8 @@ class SQLiteIdempotencyStore:
                 self._clear_claim_context(key)
 
     def delete_resources(self, resource_ids: set[str]) -> int:
+        """Remove idempotency metadata for resources that were deliberately purged."""
         with self._mutation_window():
-            """Remove idempotency metadata for resources that were deliberately purged."""
             if not resource_ids:
                 return 0
             placeholders = ",".join("?" for _ in resource_ids)
@@ -473,7 +474,6 @@ class SQLiteIdempotencyStore:
             resource_id=claim.record.resource_id,
             claim_token=claim.record.claim_token,
         )
-
 
     def reset(self) -> int:
         """Delete retry metadata that belongs to the pre-restore data generation."""
