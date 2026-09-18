@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from typing import Annotated
 
 from pydantic import BaseModel, Field
 
@@ -8,10 +9,13 @@ from growwise.model import ModelProvider
 
 from .index import HybridRagIndex
 
+_AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
+_SourceChunkId = Annotated[str, Field(min_length=1, max_length=500)]
+
 
 class GroundedAnswer(BaseModel):
-    answer: str
-    source_chunk_ids: list[str] = Field(default_factory=list)
+    answer: _AnswerText
+    source_chunk_ids: list[_SourceChunkId] = Field(default_factory=list, max_length=100)
     insufficient_evidence: bool = False
 
 

@@ -1,17 +1,21 @@
 from __future__ import annotations
 
+from typing import Annotated
+
 from pydantic import BaseModel, Field
 
 from growwise.domain import ExperienceAxis
 from growwise.model import ModelProvider
 
+_TagText = Annotated[str, Field(min_length=1, max_length=200)]
+
 
 class ObservationEnrichment(BaseModel):
-    tags: list[str] = Field(default_factory=list)
-    experience_axes: list[ExperienceAxis] = Field(default_factory=list)
-    interest: str | None = None
-    difficulty_note: str | None = None
-    next_activity: str | None = None
+    tags: list[_TagText] = Field(default_factory=list, max_length=100)
+    experience_axes: list[ExperienceAxis] = Field(default_factory=list, max_length=20)
+    interest: str | None = Field(default=None, max_length=2_000)
+    difficulty_note: str | None = Field(default=None, max_length=4_000)
+    next_activity: str | None = Field(default=None, max_length=4_000)
 
 
 _FORBIDDEN_INTERPRETATION_MARKERS = (
