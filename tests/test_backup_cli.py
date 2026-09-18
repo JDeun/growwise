@@ -8,6 +8,7 @@ from growwise.backup.cli import (
     create_backup,
     list_backups,
     managed_archive_path,
+    rebuild_rag_projection,
     restore_backup,
     validate_archive_name,
 )
@@ -207,3 +208,79 @@ def test_managed_backup_roundtrips_conversations_at_snapshot_boundary(tmp_path: 
     assert restored_baseline is not None
     assert [turn.content for turn in restored_baseline.turns] == ["백업 전 질문"]
     assert reopened.get(later.id) is None
+
+
+
+def test_restore_rag_rehydrates_embeddings_when_enabled(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeEmbeddingProvider:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            return [[1.0, float(index + 1)] for index, _text in enumerate(texts)]
+
+        def embed_query(self, text: str) -> list[float]:
+            del text
+            return [1.0, 1.0]
+
+    settings = Settings(data_dir=tmp_path, embedding_features_enabled=True)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    resource = ResourceRecord(
+        kind=ResourceKind.NOTE,
+        title="임베딩 복원",
+        content="고양이 관찰 기록",
+    )
+    store.save(resource)
+    monkeypatch.setattr(
+        "growwise.backup.cli.OllamaEmbeddingProvider",
+        FakeEmbeddingProvider,
+    )
+
+    assert rebuild_rag_projection(settings) > 0
+
+    with sqlite3.connect(settings.rag_index_path) as connection:
+        rows = connection.execute(
+            "SELECT embedding_json FROM rag_chunks WHERE resource_id = ?",
+            (str(resource.id),),
+        ).fetchall()
+    assert rows
+    assert all(row[0] is not None for row in rows)
+
+
+def test_restore_rag_keeps_lexical_projection_when_embedding_runtime_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FailingEmbeddingProvider:
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def embed_documents(self, texts: list[str]) -> list[list[float]]:
+            del texts
+            raise RuntimeError("embedding runtime unavailable")
+
+        def embed_query(self, text: str) -> list[float]:
+            del text
+            raise RuntimeError("embedding runtime unavailable")
+
+    settings = Settings(data_dir=tmp_path, embedding_features_enabled=True)
+    store = EntityStore(settings.records_dir, settings.index_path)
+    resource = ResourceRecord(
+        kind=ResourceKind.NOTE,
+        title="lexical fallback",
+        content="공룡 탐색 기록",
+    )
+    store.save(resource)
+    monkeypatch.setattr(
+        "growwise.backup.cli.OllamaEmbeddingProvider",
+        FailingEmbeddingProvider,
+    )
+
+    assert rebuild_rag_projection(settings) > 0
+
+    restored = HybridRagIndex(settings.rag_index_path)
+    hits = restored.search(query="공룡", child_id=None)
+    assert [item["resource_id"] for item in hits] == [str(resource.id)]
