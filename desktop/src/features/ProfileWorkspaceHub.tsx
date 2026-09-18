@@ -149,6 +149,21 @@ export function ProfileWorkspaceHub({
               {renderLearning(tab === "records")}
             </div>
 
+            {tab === "development" && (
+              <div className="profile-tab-context">
+                <span>발달 분석</span>
+                <strong>최근 기록이 어떤 경험 축에 연결됐는지 살펴봅니다.</strong>
+                <p>기록의 분포를 보여주는 회고 도구이며 능력이나 발달 수준을 점수화하지 않습니다.</p>
+              </div>
+            )}
+            {tab === "report" && (
+              <div className="profile-tab-context">
+                <span>성장 리포트</span>
+                <strong>시간 순서로 쌓인 기록에서 변화와 반복되는 관심을 돌아봅니다.</strong>
+                <p>관찰 타임라인을 중심으로 실제 기록을 다시 확인합니다.</p>
+              </div>
+            )}
+
             <div className="profile-hub-core">
               {app}
             </div>
