@@ -129,8 +129,10 @@ class SQLiteConversationStore:
         for row in rows:
             try:
                 session = ConversationSession.model_validate(json.loads(row["payload_json"]))
-            except Exception:
-                continue
+            except (TypeError, ValueError, json.JSONDecodeError) as exc:
+                raise ValueError(
+                    f"legacy conversation session cannot be migrated: {row['id']}"
+                ) from exc
             self._insert_turns(connection, session.id, session.turns)
 
     def _insert_turns(
