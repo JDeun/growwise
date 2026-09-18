@@ -601,3 +601,43 @@
     grid-template-columns: minmax(0, 1fr);
   }
 }
+
+
+/* Embedded profile record browser */
+.learning-record-workspace.is-embedded {
+  gap: 12px;
+}
+
+.learning-record-workspace.is-embedded > .learning-record-heading,
+.learning-record-workspace.is-embedded .learning-profile-panel {
+  display: none;
+}
+
+.learning-record-workspace.is-embedded .learning-record-product-layout {
+  grid-template-columns: minmax(230px, .72fr) minmax(0, 1.28fr);
+  gap: 10px;
+}
+
+.learning-record-workspace.is-embedded .learning-master-panel,
+.learning-record-workspace.is-embedded .learning-detail-panel {
+  border-radius: 14px;
+  box-shadow: none;
+}
+
+.learning-record-workspace.is-embedded .learning-master-list {
+  max-height: 470px;
+}
+
+.learning-record-workspace.is-embedded .learning-detail-panel {
+  min-height: 470px;
+}
+
+.learning-record-workspace.is-embedded .learning-record-create {
+  margin-top: 2px;
+}
+
+@media (max-width: 820px) {
+  .learning-record-workspace.is-embedded .learning-record-product-layout {
+    grid-template-columns: 1fr;
+  }
+}
