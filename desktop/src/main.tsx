@@ -3,7 +3,6 @@ import { createRoot } from "react-dom/client";
 
 import App from "./App";
 import { ActiveChildProvider } from "./active-child-context";
-import PrintApprovedMaterials from "./PrintApprovedMaterials";
 import { WorkspaceShell } from "./components";
 import {
   DiscoveryWorkspace,
