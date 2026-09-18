@@ -16,7 +16,6 @@ import {
   type LearningLog,
   type ResourceRecord,
 } from "../api";
-import { ChildAvatar } from "../components";
 import type { WorkspaceView } from "../components/workspaceTypes";
 import "./HomeDashboard.css";
 
