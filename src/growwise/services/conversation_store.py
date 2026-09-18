@@ -19,8 +19,11 @@ class SQLiteConversationStore:
     """
 
     def __init__(self, path: Path) -> None:
+        from growwise.maintenance import DATA_MAINTENANCE
+
         self.path = path
         self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._data_generation = DATA_MAINTENANCE.generation
         self._ensure_schema()
 
     def _connect(self) -> sqlite3.Connection:
@@ -120,7 +123,9 @@ class SQLiteConversationStore:
     def save(self, session: ConversationSession) -> None:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(), self._connect() as connection:
+        with DATA_MAINTENANCE.mutation(
+            expected_generation=self._data_generation
+        ), self._connect() as connection:
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
