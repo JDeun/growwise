@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  isProductWorkspaceView,
   isWorkspaceView,
   LEGACY_WORKSPACE_VIEWS,
   PRODUCT_WORKSPACE_VIEWS,
@@ -35,6 +36,8 @@ describe("workspaceViews", () => {
     expect(isWorkspaceView("conversation")).toBe(true);
     expect(isWorkspaceView("backup")).toBe(true);
     expect(isWorkspaceView("discovery")).toBe(true);
+    expect(isProductWorkspaceView("conversation")).toBe(true);
+    expect(isProductWorkspaceView("discovery")).toBe(false);
     expect(isWorkspaceView("unknown")).toBe(false);
   });
 });
