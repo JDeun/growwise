@@ -4,10 +4,9 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Query
-
-from growwise.api.contracts import ConversationCreateRequest, ConversationTurnRequest
 from uuid6 import uuid7
 
+from growwise.api.contracts import ConversationCreateRequest, ConversationTurnRequest
 from growwise.api.dependencies import (
     build_child_context_service,
     get_conversation_store,
