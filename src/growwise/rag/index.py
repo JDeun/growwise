@@ -282,6 +282,20 @@ class HybridRagIndex:
     def _normalized_shared_ids(shared_resource_ids: Iterable[str] | None) -> tuple[str, ...]:
         return tuple(dict.fromkeys(str(resource_id) for resource_id in shared_resource_ids or ()))
 
+    @staticmethod
+    def _replace_shared_ids(
+        connection: sqlite3.Connection,
+        shared_ids: tuple[str, ...],
+    ) -> None:
+        connection.execute(
+            "CREATE TEMP TABLE IF NOT EXISTS shared_resource_ids (id TEXT PRIMARY KEY)"
+        )
+        connection.execute("DELETE FROM shared_resource_ids")
+        connection.executemany(
+            "INSERT OR IGNORE INTO shared_resource_ids (id) VALUES (?)",
+            ((resource_id,) for resource_id in shared_ids),
+        )
+
     @classmethod
     def _scoped_rows(
         cls,
@@ -292,11 +306,11 @@ class HybridRagIndex:
     ) -> list[sqlite3.Row]:
         shared_ids = cls._normalized_shared_ids(shared_resource_ids)
         if shared_ids:
-            placeholders = ",".join("?" for _ in shared_ids)
+            cls._replace_shared_ids(connection, shared_ids)
             return connection.execute(
-                f"SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ? "
-                f"OR resource_id IN ({placeholders})",
-                (child_id, *shared_ids),
+                "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ? "
+                "OR resource_id IN (SELECT id FROM shared_resource_ids)",
+                (child_id,),
             ).fetchall()
         return connection.execute(
             "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
@@ -322,12 +336,12 @@ class HybridRagIndex:
         shared_ids = self._normalized_shared_ids(shared_resource_ids)
         candidate_limit = max(200, limit * 20)
         if shared_ids:
-            placeholders = ",".join("?" for _ in shared_ids)
+            self._replace_shared_ids(connection, shared_ids)
             scope_sql = (
                 "(c.child_id IS NULL OR c.child_id = ? "
-                f"OR c.resource_id IN ({placeholders}))"
+                "OR c.resource_id IN (SELECT id FROM shared_resource_ids))"
             )
-            scope_params: tuple[object, ...] = (child_id, *shared_ids)
+            scope_params: tuple[object, ...] = (child_id,)
         else:
             scope_sql = "(c.child_id IS NULL OR c.child_id = ?)"
             scope_params = (child_id,)
