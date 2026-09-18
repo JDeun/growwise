@@ -68,6 +68,9 @@ def test_conversation_turn_retry_returns_persisted_exchange_without_duplicate(
         store,
         idempotency_key="conversation-retry",
     )
+    # Simulate registry loss/rebuild after the response was lost. The persisted operation identity
+    # in conversation_turns is independently sufficient to recover the exact exchange.
+    idempotency.reset()
     second = append_conversation_turn(
         session.id,
         request,
