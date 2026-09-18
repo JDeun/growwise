@@ -1,6 +1,6 @@
 use serde_json::Value;
 
-use super::{client, ensure_success, CORE_BASE_URL};
+use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 
 async fn post_value(url: String, body: &Value, label: &str) -> Result<Value, String> {
     let response = client()?
@@ -9,6 +9,20 @@ async fn post_value(url: String, body: &Value, label: &str) -> Result<Value, Str
         .send()
         .await
         .map_err(|error| error.to_string())?;
+    ensure_success(response, label)
+        .await?
+        .json::<Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+async fn post_idempotent_value(
+    url: String,
+    body: &Value,
+    label: &str,
+    operation_label: &str,
+) -> Result<Value, String> {
+    let response = post_idempotent_json(url, body, operation_label).await?;
     ensure_success(response, label)
         .await?
         .json::<Value>()
@@ -34,10 +48,11 @@ pub(crate) async fn record_study_progress(
     child_id: String,
     request: Value,
 ) -> Result<Value, String> {
-    post_value(
+    post_idempotent_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/progress"),
         &request,
         "학습 진도 저장 실패",
+        "study-progress",
     )
     .await
 }
@@ -56,10 +71,11 @@ pub(crate) async fn record_study_mistake(
     child_id: String,
     request: Value,
 ) -> Result<Value, String> {
-    post_value(
+    post_idempotent_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/mistakes"),
         &request,
         "오답 기록 저장 실패",
+        "study-mistake",
     )
     .await
 }
@@ -78,10 +94,11 @@ pub(crate) async fn record_study_reflection(
     child_id: String,
     request: Value,
 ) -> Result<Value, String> {
-    post_value(
+    post_idempotent_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/reflections"),
         &request,
         "학습 회고 저장 실패",
+        "study-reflection",
     )
     .await
 }
@@ -100,10 +117,11 @@ pub(crate) async fn record_self_explanation(
     child_id: String,
     request: Value,
 ) -> Result<Value, String> {
-    post_value(
+    post_idempotent_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/self-explanations"),
         &request,
         "자기설명 기록 저장 실패",
+        "study-self-explanation",
     )
     .await
 }
@@ -153,10 +171,11 @@ pub(crate) async fn recommend_study_resources(
 
 #[tauri::command]
 pub(crate) async fn create_study_plan(child_id: String, request: Value) -> Result<Value, String> {
-    post_value(
+    post_idempotent_value(
         format!("{CORE_BASE_URL}/v1/children/{child_id}/study/plans"),
         &request,
         "학습 계획 생성 실패",
+        "study-plan",
     )
     .await
 }
