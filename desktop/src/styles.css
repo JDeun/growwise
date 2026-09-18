@@ -205,3 +205,58 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
   background: transparent;
   box-shadow: none;
 }
+
+
+/* Product-wide optical alignment contract */
+.workspace-shell button {
+  line-height: 1.2;
+}
+
+.workspace-shell button > svg,
+.workspace-shell button > span > svg,
+.workspace-shell .workspace-nav-icon > svg,
+.workspace-shell .home-metric-icon > svg,
+.workspace-shell .home-recent-icon > svg {
+  display: block;
+  flex: 0 0 auto;
+}
+
+.workspace-shell :where(.eyebrow, .card-label) {
+  line-height: 1.2;
+}
+
+.workspace-shell :where(
+  .home-dashboard-heading--concept,
+  .profile-hub-heading,
+  .learning-hub-heading,
+  .materials-hub-heading,
+  .photo-workspace-heading,
+  .conversation-product-heading,
+  .data-management-page-heading,
+  .settings-product-heading,
+  .help-workspace-heading
+) :where(h1, h2) {
+  line-height: 1.12;
+}
+
+.workspace-shell :where(
+  .home-dashboard-heading--concept,
+  .profile-hub-heading,
+  .learning-hub-heading,
+  .materials-hub-heading,
+  .photo-workspace-heading,
+  .conversation-product-heading,
+  .data-management-page-heading,
+  .settings-product-heading,
+  .help-workspace-heading
+) > div > p:last-child {
+  line-height: 1.5;
+}
+
+.workspace-shell :where(input, select) {
+  line-height: 1.25;
+}
+
+.workspace-shell textarea {
+  line-height: 1.55;
+}
