@@ -10,6 +10,44 @@ from typing import Any
 from .base import ExternalAdapterError
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "::1", "localhost"})
+
+
+def validate_public_endpoint(url: str) -> str:
+    """Accept encrypted public endpoints plus explicit loopback HTTP for local development."""
+
+    candidate = url.strip()
+    parsed = urllib.parse.urlsplit(candidate)
+    if not candidate or parsed.hostname is None:
+        raise ValueError("external endpoint must be an absolute URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("external endpoint must not contain credentials")
+    scheme = parsed.scheme.lower()
+    hostname = parsed.hostname.lower()
+    if scheme == "https":
+        return candidate
+    if scheme == "http" and hostname in _LOOPBACK_HOSTS:
+        return candidate
+    raise ValueError("external endpoint must use HTTPS or loopback HTTP")
+
+
+class _ValidatedRedirectHandler(urllib.request.HTTPRedirectHandler):
+    def redirect_request(
+        self,
+        req: urllib.request.Request,
+        fp: Any,
+        code: int,
+        msg: str,
+        headers: Any,
+        newurl: str,
+    ) -> urllib.request.Request | None:
+        try:
+            validate_public_endpoint(newurl)
+        except ValueError as exc:
+            raise ExternalAdapterError(f"unsafe external redirect: {exc}") from exc
+        return super().redirect_request(req, fp, code, msg, headers, newurl)
+
+
 class JsonHttpClient:
     """Minimal bounded HTTP client for public-data adapters.
 
@@ -31,6 +69,7 @@ class JsonHttpClient:
         self.timeout_seconds = timeout_seconds
         self.max_response_bytes = max_response_bytes
         self.user_agent = user_agent
+        self._opener = urllib.request.build_opener(_ValidatedRedirectHandler())
 
     def get_json(self, url: str, *, params: Mapping[str, str | int | float]) -> dict[str, Any]:
         query = urllib.parse.urlencode(params)
@@ -66,7 +105,8 @@ class JsonHttpClient:
 
     def _open_json(self, request: urllib.request.Request) -> dict[str, Any]:
         try:
-            with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+            validate_public_endpoint(request.full_url)
+            with self._opener.open(request, timeout=self.timeout_seconds) as response:
                 length = response.headers.get("Content-Length")
                 if length is not None and int(length) > self.max_response_bytes:
                     raise ExternalAdapterError("external response exceeds configured size limit")
