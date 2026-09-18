@@ -2,6 +2,8 @@ from __future__ import annotations
 
 import base64
 import binascii
+import ipaddress
+import urllib.parse
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
