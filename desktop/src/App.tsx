@@ -72,6 +72,7 @@ type WriteNotice = { id: number; message: string };
 
 function App() {
   const {
+    activeChild: sharedActiveChild,
     selectChild: selectSharedChild,
     upsertChild: upsertSharedChild,
   } = useActiveChild();
@@ -227,6 +228,15 @@ function App() {
     scopeIsCurrent,
   });
 
+  const handleChildProfileUpdated = useCallback(
+    (child: ChildProfile) => {
+      upsertSharedChild(child);
+      setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
+      if (activeChildIdRef.current === child.id) setActiveChild(child);
+    },
+    [upsertSharedChild],
+  );
+
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
       const requestId = ++childContextRequestId.current;
@@ -356,6 +366,11 @@ function App() {
   useEffect(() => {
     void refresh();
   }, [refresh]);
+
+  useEffect(() => {
+    if (!sharedActiveChild || sharedActiveChild.id === activeChildIdRef.current) return;
+    void loadChildContext(sharedActiveChild);
+  }, [loadChildContext, sharedActiveChild]);
 
   useEffect(() => {
     if (!writeNotice) return;
@@ -633,6 +648,7 @@ function App() {
           onAgeMonthsChange={setAgeMonths}
           onSubmit={handleCreateChild}
           onSelectChild={(childId) => void handleSelectChild(childId)}
+          onChildUpdated={handleChildProfileUpdated}
         />
 
         {activeChild && (
