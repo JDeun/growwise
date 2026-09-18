@@ -74,8 +74,7 @@ def create_conversation(
     )
     try:
         conversation_store.save(session)
-        if claim is not None and claim.acquired:
-            assert idempotency_store is not None
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -83,7 +82,7 @@ def create_conversation(
             )
         return session
     except Exception:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             existing = conversation_store.get(claim.record.resource_id)
             if existing is None:
                 idempotency_store.release(
@@ -205,8 +204,7 @@ def append_conversation_turn(
             operation_hash=request_hash if idempotency_key is not None else None,
         )
         conversation_store.save(session)
-        if claim is not None and claim.acquired:
-            assert idempotency_store is not None
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -219,7 +217,7 @@ def append_conversation_turn(
             "turn_count": len(session.turns),
         }
     except Exception:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             persisted = conversation_store.get(session_id)
             existing_exchange = (
                 _existing_exchange(
