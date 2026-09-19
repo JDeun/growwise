@@ -5,7 +5,8 @@ import itertools
 import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, Stage
-from growwise.generators import MaterialGenerationService, MaterialQualityGate
+from growwise.generators.material import MaterialGenerationService
+from growwise.generators.quality import MaterialQualityGate
 from growwise.generators.templates import variants_for
 
 
@@ -75,7 +76,18 @@ def test_preschool_and_secondary_stages_use_distinct_core_template_pools(
     assert "부모" in preschool_text or "아이" in preschool_text
     assert any(
         marker in secondary_text
-        for marker in ("근거", "가설", "변수", "출처", "전제", "피드백", "한계", "격식", "뉘앙스", "어조")
+        for marker in (
+            "근거",
+            "가설",
+            "변수",
+            "출처",
+            "전제",
+            "피드백",
+            "한계",
+            "격식",
+            "뉘앙스",
+            "어조",
+        )
     )
 
 
@@ -87,7 +99,10 @@ def test_preschool_writing_is_expression_first_not_conventional_writing_required
     )
 
     assert "읽기·쓰기 수행을 강제하지 않으며" in material.content_markdown
-    assert "말과 그림" in material.content_markdown or "글쓰기가 부담되면" in material.content_markdown
+    assert (
+        "말과 그림" in material.content_markdown
+        or "글쓰기가 부담되면" in material.content_markdown
+    )
     assert "맞춤법" in material.content_markdown or "부모가 기록" in material.content_markdown
 
 
