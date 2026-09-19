@@ -46,7 +46,7 @@
 
 .profile-hub-layout {
   display: grid;
-  grid-template-columns: minmax(205px, .54fr) minmax(0, 2.46fr);
+  grid-template-columns: minmax(250px, .80fr) minmax(0, 2.20fr);
   gap: 12px;
   align-items: start;
 }
