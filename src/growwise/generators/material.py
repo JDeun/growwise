@@ -493,7 +493,7 @@ until Parent Review approves it. Return the requested structured schema only."""
             ),
             Stage.MIDDLE: (
                 "학습자가 질문과 기준을 점차 스스로 정하고, 두 가지 이상의 근거를 비교해 "
-                "판단·전략·수정 과정을 기록합니다."
+                "판단·전략·수정 과정을 기록하고 자료와 방법의 한계를 점검합니다."
             ),
             Stage.HIGH: (
                 "학습자가 독립적으로 과제를 설계·수행하고 출처·가정·반례 또는 대안 해석을 "
