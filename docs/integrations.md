@@ -29,8 +29,9 @@ growwise가 자료를 생성할 때 쓰는 **오픈 API·오픈소스·오픈 �
 
 - **오프라인/로컬 카탈로그**: 공식 한국 교육과정, GrowWise 공식 교육 콘텐츠 링크 카탈로그
 - **키 기반**: 도서관 정보나루, 국립중앙도서관 ISBN, 한국어기초사전, 기상청, 전국 박물관·미술관
-- **선택적 공개 보강**: Open Library, Google Books, Wikipedia, Wikidata, Wikimedia Commons,
+- **선택적 공개 보강**: Google Books, Wikipedia, Wikidata, Wikimedia Commons,
   NASA Image and Video Library, GBIF, 국가유산청 궁궐·문화유산
+- **정책상 production live 호출 제외**: Open Library live API. 별도 검증한 CC0/offline dump만 import 가능
 - **명시적 위치 기반**: OpenStreetMap Overpass, 전국 박물관·미술관, 기상청
 
 그 밖의 Gutendex, Tatoeba, OpenTopoData, KBR, 로컬 NLP/수학 엔진 등은 이 문서의 **후보/확장
@@ -49,7 +50,7 @@ matrix**다. 안정적인 endpoint, 라이선스, 캐시·rate limit, 테스트�
 | ⭐ 도서관 정보나루 | data4library.kr | 오픈API(키), 이용약관 | 연령·주제별 추천도서, 대출 통계(ISBN). 1일 500건 초과→캐싱 |
 | ⭐ 국립중앙도서관 ISBN/서지 | data.go.kr(3078982) | 제한 없음(무료) | ISBN→서지 메타데이터 자동 채움 |
 | Google Books API | developers.google.com/books | 무료(약관) | 표지·서지(영어 포함) |
-| Open Library | openlibrary.org/developers | **데이터 덤프 CC0** (라이브 API는 비상업→덤프 사용) | 서지·표지 |
+| Open Library | openlibrary.org/developers | **데이터 덤프 CC0**. live API는 production에서 호출하지 않음 | 별도 검증한 offline 서지 import만 허용 |
 | Gutendex + Gutenberg | gutendex.com | 본문 퍼블릭도메인 | 영어 고전(아동용은 적음) |
 | ⭐ Pratham StoryWeaver | storyweaver.org.in | **CC BY 4.0(전부)** | 5.3만+ 그림책, 읽기 수준별, **한국어 포함, 번역·개작·상업 재배포 가능** |
 | Global Digital Library | digitallibrary.io | CC BY 책만 채택(BY-NC 책 제외) | 레벨별 초기 리더 |
