@@ -32,8 +32,19 @@ def test_catalog_filters_by_stage_and_public_query_only() -> None:
     assert len(result.records) == 1
     record = result.records[0]
     assert record["curriculum_id"] == "kr-national-2022-elementary"
-    assert record["metadata"]["official_notice"] == "교육부고시 제2022-33호"
+    assert record["metadata"]["official_notice"] == "국가교육위원회고시 제2024-3호"
     assert record["source_url"].startswith("https://ncic.go.kr/")
+
+
+def test_catalog_keeps_stage_framework_when_topic_is_not_a_catalog_keyword() -> None:
+    result = OfficialKoreanCurriculumCatalogAdapter().search(
+        stage=Stage.ELEMENTARY.value,
+        subject="science",
+        query="곤충 관찰",
+    )
+
+    assert len(result.records) == 1
+    assert result.records[0]["curriculum_id"] == "kr-national-2022-elementary"
 
 
 def test_catalog_records_convert_to_global_resource_links() -> None:
