@@ -508,3 +508,62 @@
 .material-workspace .material-ai-status {
   white-space: nowrap;
 }
+
+
+.material-primary-actions {
+  display: flex;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.material-supporting-details,
+.material-workflow-admin {
+  margin-top: 12px;
+  border: 1px solid rgba(42, 73, 60, .09);
+  border-radius: 12px;
+  background: rgba(249, 251, 250, .92);
+}
+
+.material-supporting-details > summary,
+.material-workflow-admin > summary {
+  padding: 10px 12px;
+  color: var(--ink-soft);
+  cursor: pointer;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.material-supporting-details[open],
+.material-workflow-admin[open] {
+  padding-bottom: 12px;
+}
+
+.material-supporting-details[open] > summary,
+.material-workflow-admin[open] > summary {
+  margin-bottom: 10px;
+  border-bottom: 1px solid rgba(42, 73, 60, .07);
+}
+
+.material-supporting-details > :not(summary) {
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+.material-workflow-admin {
+  margin: 18px 0;
+  background: rgba(255, 255, 255, .74);
+}
+
+.material-workflow-admin > .material-queue-summary,
+.material-workflow-admin > .material-queue-lanes {
+  margin-right: 12px;
+  margin-left: 12px;
+}
+
+@media (max-width: 620px) {
+  .material-primary-actions {
+    display: grid;
+    justify-items: stretch;
+  }
+}
