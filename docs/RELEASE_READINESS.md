@@ -11,6 +11,11 @@ Public **stable** distribution has an additional trust boundary enforced by
 - A release tag must match the desktop version exactly.
 - Pull requests and prerelease tags build and smoke-test Windows x64, macOS Apple Silicon, and macOS
   Intel installers.
+- The desktop frontend job runs lint/tests/production build and uploads `growwise-frontend-dist` so
+  visual QA can inspect the exact production Vite bundle rather than a hand-built mock.
+- The current product shell and all nine workspaces have production-bundle visual acceptance coverage
+  for page errors, horizontal overflow, and visible text/button clipping.
+
 - Stable tags refuse to package unless platform signing credentials are present.
 - Stable macOS builds import a Developer ID Application certificate and provide notarization
   credentials to Tauri.

@@ -54,26 +54,26 @@ Parent Review / 직접 수정 / 승인
 AI가 없어도 이 흐름의 기록·연결·lexical 검색·공식 교육과정 메타데이터·라이브러리·템플릿 자료 생성은
 동작한다. AI가 있으면 태깅, semantic retrieval, 이미지 캡션, 질의 재작성, 자료 개인화 등을 보강한다.
 
-## 화면별로 무엇을 할 수 있나
+## 현재 데스크톱 작업공간
 
-| 화면 | 사용자가 하는 일 | 결과 |
+사용자에게 노출되는 사이드바는 다음 9개 작업공간으로 정리되어 있다.
+
+| 화면 | 사용자가 하는 일 | 주요 하위 기능 |
 | --- | --- | --- |
-| **홈** | 아이 프로필을 만들고 현재 아이를 선택 | 모든 child-scoped 화면의 기준 맥락 설정 |
-| **관찰** | 실제로 본 행동·질문·관심·어려움을 기록 | 장기 `LearningLog`, 활동 후속 관찰, 성장/검색 근거 |
-| **사진 기록** | 활동 사진과 부모 글을 저장하고 필요하면 AI 캡션/초안 보조 사용 | 사진 일기 + 검토 가능한 관찰 초안. AI 없이도 완전 동작 |
-| **성장** | 최근 경험 축과 기록 분포를 확인 | 점수·등수 없는 장기 경험 맥락 |
-| **활동** | 활동 후보를 고르고 시작·완료·건너뜀을 관리 | 활동 lifecycle과 후속 관찰 연결 |
-| **검색** | 관찰·활동·자료를 자연어/lexical로 찾고 후속 질문 | 현재 월 → 현재 연도 → 장기 아카이브 계층 검색 |
-| **발견** | 현재 관심사나 직접 입력한 주제로 공개 교육 자원 탐색 | 도서·교육과정·탐방 후보. 부모가 선택하기 전에는 정본에 들어가지 않음 |
-| **라이브러리** | 직접 저장한 자료와 `발견`에서 채택한 근거를 관리 | provenance가 있는 `ResourceRecord` + RAG 근거 |
-| **자료** | 주제·목표·근거를 선택해 활동지/독서/수학/과학/글쓰기/탐방 자료 생성 | Parent Review 대상 `GeneratedMaterial` |
-| **설정** | 상태 확인, 백업·복원·내보내기, 아이 데이터 삭제 | 로컬 데이터 수명주기 관리 |
+| **대시보드** | 현재 아이와 최근 상태 확인 | KPI, 최근 활동, 오늘의 추천 |
+| **아이 프로필** | 아이 정보와 장기 흐름 확인 | 학습 기록, 발달 분석, 성장 리포트 |
+| **학습 기록** | 배움의 결과·과정·관찰 기록 | 학습 기록, 관찰 기록, 중·고 학습 트래커 |
+| **자료실** | 활동 자료와 근거 자료 관리 | 활동 자료, 활동 관리, 참고 자료, 자료 찾기 |
+| **사진첩** | 사진 중심 기록 관리 | 갤러리, 필터, 상세 보기, 새 사진 기록 |
+| **대화하기** | 기록/자료를 근거로 검색·후속 질문 | 대화 목록, 대화 본문, 백업 보조 패널 |
+| **백업 및 복원** | 로컬 데이터 snapshot 관리 | 생성, 내보내기, 가져오기, 복원, 이력 |
+| **설정** | 앱 상태·가족 프로필·개인정보 관리 | 상태, 프로필 편집, 삭제 |
+| **도움말** | 사용법과 데이터 원칙 확인 | 시작하기, AI/데이터 원칙, 단축키, 문제 해결 |
 
-상세한 단계별 사용법은 **[docs/user-guide.md](docs/user-guide.md)**를 참고한다.
-
+이전의 관찰/성장/활동/발견/라이브러리/검색 기능은 사라진 것이 아니라 각각 위 상위 작업공간의 탭·하위 기능으로 흡수됐다. 상세한 단계별 사용법은 **[docs/user-guide.md](docs/user-guide.md)**를 참고한다.
 ---
 
-## 사진 기록: AI가 없어도 사진 일기처럼
+## 사진첩: AI가 없어도 사진 일기처럼
 
 사진 기록은 AI 기능이 아니라 **기록 기능**이 우선이다.
 
@@ -117,9 +117,9 @@ LearningLog 확정
 
 ---
 
-## 공개 교육 자원 발견
+## 자료실 > 자료 찾기
 
-`발견` 화면은 GrowWise가 단순 기록장에 머물지 않도록 **아이의 현재 맥락과 외부 교육 자원을 연결**한다.
+`자료실 > 자료 찾기`는 GrowWise가 단순 기록장에 머물지 않도록 **아이의 현재 맥락과 외부 교육 자원을 연결**한다.
 
 검색어를 직접 입력할 수도 있고, 비워두면 로컬에서 다음 정보의 일반 키워드만 추출한다.
 
@@ -139,7 +139,7 @@ LearningLog 확정
 | **도서관 정보나루** | 관심 주제의 도서 후보 검색 | 무료 API key 필요 |
 | **OpenStreetMap Overpass** | 부모가 지정한 위치 주변 도서관·박물관·문화시설 탐색 | key 불필요, 위치를 명시한 요청만 |
 
-외부 결과는 자동으로 장기 기록에 들어가지 않는다. 부모가 `라이브러리에 저장`을 선택하면 그때
+외부 결과는 자동으로 장기 기록에 들어가지 않는다. 부모가 `참고 자료에 저장`을 선택하면 그때
 `ResourceRecord`를 만들고 attribution, license note, provenance를 함께 보존한 뒤 RAG에 편입한다.
 
 ### Discovery 설정
@@ -157,7 +157,7 @@ GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
 
 ---
 
-## 교육자료 생성
+## 자료실 > 활동 자료
 
 현재 생성 종류:
 
@@ -169,7 +169,7 @@ GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
 - 글쓰기 프롬프트
 - 탐방 활동
 
-자료 생성 시 라이브러리에 저장한 `resource:<UUID>`를 근거로 선택할 수 있다. 생성물은 부모 검토 상태
+자료 생성 시 자료실의 참고 자료에 저장한 `resource:<UUID>`를 근거로 선택할 수 있다. 생성물은 부모 검토 상태
 머신을 거치며 수정 요청과 부모 직접 편집은 새 버전으로 보존한다. 승인된 자료만 사용/인쇄 대상으로
 취급한다.
 
@@ -281,7 +281,9 @@ LangGraph checkpoint, 사진 asset, entity link 등 child-scoped live data를 �
 
 ## 현재 구현 상태
 
-**pre-1.0 / 활발한 구현 단계.** 주요 코드 기반에는 다음이 포함된다.
+**pre-1.0 / repository-side implementation complete, operator validation remaining.** 제품 코드는 9-workspace IA와 production visual QA까지 반영되어 있고, stable public release에 필요한 서명/노터라이즈·updater trust root·실기기 benchmark·household dogfooding은 별도 운영 증거로 남아 있다.
+
+주요 코드 기반에는 다음이 포함된다.
 
 - Python FastAPI local Core
 - Pydantic bounded domain model + UUIDv7
@@ -304,6 +306,8 @@ LangGraph checkpoint, 사진 asset, entity link 등 child-scoped live data를 �
 - 콘텐츠 안전 가드와 적대적 회귀 테스트
 - Windows/macOS/Linux Python CI, React test/build, Rust check/Clippy
 - dependency vulnerability/license audit + secret scan
+- 9-workspace desktop IA + production Vite visual QA artifact
+- crash/retry-safe create operations, purge fencing, crash-consistent photo/material/discovery flows
 
 운영 단계에서 별도로 필요한 항목은 실제 code signing/notarization 자격증명, 장기 updater trust key,
 실기기/로컬모델 benchmark, 가정 dogfooding이다.
@@ -436,6 +440,7 @@ GET    /health
 
 | 문서 | 내용 |
 | --- | --- |
+| **[docs/README.md](docs/README.md)** | **문서 전체 인덱스와 현재 IA 문서화 규칙** |
 | **[docs/user-guide.md](docs/user-guide.md)** | **화면별 사용법과 대표 사용자 시나리오** |
 | **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 제품 철학** |
 | [docs/vision.md](docs/vision.md) | 제품 비전·LLM 역할·성공 기준 |
@@ -450,6 +455,8 @@ GET    /health
 | [docs/evaluation.md](docs/evaluation.md) | 생성/RAG/장기해석/안전 평가 |
 | [docs/curriculum-sources.md](docs/curriculum-sources.md) | 교육과정·과목별 공개 자료 후보 |
 | [docs/design-system.md](docs/design-system.md) | 브랜드·UI 디자인 규칙 |
+| [docs/FRONTEND_COMPLETION_AUDIT.md](docs/FRONTEND_COMPLETION_AUDIT.md) | 현재 데스크톱 IA·visual acceptance·프론트 완료 상태 |
+| [docs/RELEASE_READINESS.md](docs/RELEASE_READINESS.md) | 저장소 완료 범위와 stable release 운영 경계 |
 | [docs/hardware.md](docs/hardware.md) | 최소/권장 하드웨어 |
 | [docs/release.md](docs/release.md) | 릴리스·패키징 절차 |
 | [docs/operational-validation.md](docs/operational-validation.md) | 실기기 benchmark·서명·updater 검증 |

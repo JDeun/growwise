@@ -81,6 +81,37 @@ Use-case / Domain Core
 외부 API와 LLM은 모두 **선택적 보강 계층**이다. 인터넷·모델이 없어도 기록·자료 관리·조회,
 기본 검색, 상태 관리, projection, export는 동작해야 한다.
 
+## Desktop product composition
+
+React desktop은 **Shell → Product Hub → active feature** 계층으로 구성한다.
+
+```text
+WorkspaceShell
+ ├─ WorkspaceNav
+ ├─ shared topbar
+ └─ active product workspace
+      ├─ HomeDashboard
+      ├─ ProfileWorkspaceHub
+      ├─ LearningWorkspaceHub
+      ├─ MaterialsWorkspaceHub
+      ├─ PhotoActivityWorkspace
+      ├─ Conversation
+      ├─ Backup
+      ├─ Settings
+      └─ Help
+```
+
+원칙:
+
+- 사용자 노출 navigation과 legacy/internal route를 분리한다.
+- 이전 workspace 저장값은 migration하되 legacy 항목을 sidebar에 되살리지 않는다.
+- 모든 feature를 동시에 mount한 뒤 global CSS로 숨기지 않는다.
+- 현재 workspace에 필요한 feature만 실제 mount한다.
+- Profile/Learning/Materials Hub가 자신의 tab/subview visibility를 소유한다.
+- child-scoped async 작업은 active child + request generation을 함께 검증한다.
+- production visual QA는 CI가 업로드한 실제 Vite `desktop/dist` artifact를 기준으로 수행한다.
+
+
 ## Desktop local trust boundary
 
 Desktop 앱은 localhost에 떠 있는 임의의 프로세스를 GrowWise Core로 간주하지 않는다.

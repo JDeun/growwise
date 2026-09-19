@@ -1,82 +1,98 @@
 # Desktop completion audit
 
-This audit treats the current React/Tauri desktop as a production user surface, not a demo of Core endpoints.
+이 문서는 현재 React/Tauri 데스크톱을 Core API 데모가 아니라 **실제 제품 사용자 화면**으로 보고 완료 상태를 점검한다.
 
-## Current structural risk
+## Current product workspace surface
 
-`desktop/src/App.tsx` remains the largest Core-backed controller/orchestration boundary. Presentation is split into typed feature components and `ActiveChildProvider` now owns the shared child list/selection used by the newer workspaces, but App still keeps legacy child/controller state for several older surfaces. The states are synchronized and race-guarded today; a later refactor can remove the duplicate controller ownership without changing Core contracts. This is a maintainability item, not a blocker for the user workflows below.
+사용자에게 노출되는 persistent workspace는 9개다.
 
-## Current workspace surface
+1. Dashboard / 대시보드
+2. Child Profile / 아이 프로필
+3. Learning Records / 학습 기록
+4. Materials / 자료실
+5. Photos / 사진첩
+6. Conversation / 대화하기
+7. Backup / 백업 및 복원
+8. Settings / 설정
+9. Help / 도움말
 
-The desktop exposes eleven persistent workspaces:
+이전의 observations, growth, activities, discovery, library, search는 제품 사이드바 항목이 아니다. 저장된 구형 workspace 값은 새 상위 workspace로 migration되고 기능은 다음처럼 재조립됐다.
 
-1. Home
-2. Observations
-3. Photos
-4. Learning records
-5. Growth
-6. Activities / Quest Board
-7. Search / conversations
-8. Discovery
-9. Library
-10. Materials
-11. Settings
+| Legacy feature | Current product location |
+| --- | --- |
+| observations | 학습 기록 → 관찰 기록 / 아이 프로필 맥락 |
+| growth | 아이 프로필 → 발달 분석 / 성장 리포트 |
+| activities | 자료실 → 활동 관리 |
+| discovery | 자료실 → 자료 찾기 |
+| library | 자료실 → 참고 자료 |
+| search | 대화하기 |
 
-The selected child is preserved across child-scoped workspaces. Photo, Discovery and Learning Records use the shared active-child context directly and clear child-scoped drafts/results when the child changes.
+## Desktop composition status
 
-## P0 completion batch
+- [x] WorkspaceShell이 브랜드, 사이드바, 공통 topbar, 작업공간 frame을 소유한다.
+- [x] topbar는 검색 진입점 → 데이터 기반 알림 → 아이 프로필 순서다.
+- [x] 전역 새 기록 버튼은 제거하고 page-local CTA로 이동했다.
+- [x] WorkspaceView의 사용자 노출 IA와 legacy migration 경계를 분리했다.
+- [x] feature를 모두 mount한 뒤 CSS로 숨기는 전역 projection 방식을 제거했다.
+- [x] 현재 workspace에 필요한 feature만 실제 mount한다.
+- [x] Profile/Learning/Materials는 상위 Hub가 탭과 subview visibility를 소유한다.
+- [x] child switch 중 stale async response가 현재 아이 상태를 덮지 않도록 generation/scope guard를 유지한다.
+- [x] 프로필 저장은 전체 페이지 reload 없이 ActiveChildProvider와 App state를 즉시 reconciliation한다.
 
-- [x] Persistent eleven-workspace navigation with keyboard/tab semantics, skip link, reduced-motion support and responsive laptop-width layouts.
-- [x] Child-scoped loading/error/empty states with stale-response guards so a slow request for a previous child cannot overwrite the current view.
-- [x] Explicit Core-only mode. Recording, lexical retrieval, activity management, deterministic material generation, Parent Review, backup/restore and manual photo diary remain usable without an LLM.
-- [x] Backup/import/restore, child purge and runtime diagnostics live in Settings with app-level confirmation rather than browser confirmation APIs.
-- [x] Parent Review is a first-class material state machine. Only approved materials are printable/exportable.
-- [x] Visible success/error feedback for writes and background AI state (`queued`, `running`, `completed`, `failed`, `skipped`).
-- [x] Desktop Core trust boundary uses OS app-data, a random loopback port and a per-run session token.
+## Visual acceptance status
 
-## P1 product-quality batch
+승인된 GrowWise concept/brand 기준으로 다음을 production Vite bundle에서 검수했다.
 
-- [x] Home dashboard summarizes useful next actions and recent child-scoped records instead of implementation details.
-- [x] Observation timeline supports filters, activity linkage, experience axes and record details.
-- [x] Growth map presents record coverage/diversity as context, not ability, diagnosis, percentile or peer ranking.
-- [x] Quest Board manages selected activities and approved generated materials through `생성됨 -> 진행 중 -> 완료됨/건너뜀 -> 결과 기록됨`.
-- [x] An approved `GeneratedMaterial` automatically receives a real `ActivityPlan` with `material:<UUID>` provenance when its approved-use card is rendered. The material card and global Quest Board therefore operate on the same activity object rather than parallel synthetic state.
-- [x] Material result entry persists structured process, child question/reaction, interest, difficulty, next activity and experience axes as a `LearningLog(record_kind=material_use)`.
-- [x] Material-use results feed the next material-generation cycle. Raw parent/learner text stays in the local parent guide; model-facing personalization receives generalized scaffolding signals only.
-- [x] Materials generate two parent-reviewable outputs: child-facing material plus a parent teaching/facilitation guide. Approved print output uses kind-specific A4 presentation templates.
-- [x] Seven material kinds are available across stages, including parent-led, low-pressure infant variants.
-- [x] Resource library provides search/filter/detail/edit/delete, provenance display, synchronized RAG mutation and read-only presentation for sibling-shared resources.
-- [x] `child_scope` sharing is visibility, not ownership: sibling-shared resources can be read/retrieved but not edited, deleted or re-shared outside the owning child context.
-- [x] Search/conversation history preserves evidence IDs and keeps conversation text separate from factual evidence.
-- [x] First-run onboarding explains that the child profile is the only required setup and local AI is optional.
+- [x] Warm Off White / Ink / Sage / Leaf / Stone 토큰
+- [x] 하나의 rounded desktop application frame
+- [x] integrated left sidebar
+- [x] 9-workspace navigation + 하단 설정/도움말
+- [x] Dashboard: title → four KPI cards → recent activity + recommendation
+- [x] Profile: child summary + 기록/발달 분석/성장 리포트
+- [x] Learning: 학습 기록 + 관찰 기록
+- [x] Materials: document canvas + generation controls를 first viewport에 배치
+- [x] Photos: gallery-first + filter + detail + create workflow
+- [x] Conversation: history + chat + backup 3-pane composition
+- [x] Backup / Settings 분리
+- [x] Help 독립 workspace
+- [x] 전역 print toolbar 누출 제거
+- [x] production-render 기준 horizontal overflow 0
+- [x] production-render 기준 visible text/button clipping 0
+- [x] production-render 기준 page error 0
 
-## P2 closed-loop and discovery batch
+CI의 desktop-frontend job은 production desktop/dist를 growwise-frontend-dist artifact로 업로드해 동일 bundle을 시각 검수에 재사용할 수 있다.
 
-- [x] Manual photo diary works without AI. Photo bytes are saved first; optional vision/text analysis runs through a durable background job. Parent notes are never passed into the vision caption call.
-- [x] Photos commit to `LearningLog(record_kind=photo_activity)` after parent review and survive AI/provider failure.
-- [x] Independent Learning Records workspace captures reading reflections, diary entries, school/academy learning, self-study, assignments/projects and other learning that did not originate from a GrowWise quest.
-- [x] Independent records use the same `LearningLog` ecosystem so they participate in search, growth context and later material personalization instead of forming an isolated diary database.
-- [x] Discovery combines official curriculum metadata, optional public curriculum endpoints, Data4Library book candidates and optional Overpass place discovery.
-- [x] External candidates are never automatically persisted. The parent explicitly saves a candidate to create a provenance-bearing `ResourceRecord` and RAG evidence.
-- [x] External discovery privacy is enforced in code: free-form interests/goals/log tags/activity titles are local ranking context, while public adapters receive only canonical allow-listed education topics. Child IDs, names, nicknames, raw observations, parent notes and photos do not cross this boundary.
-- [x] Overpass receives coordinates only when the parent explicitly enters latitude/longitude; those coordinates are not stored in the child profile.
-- [x] Shared resources participate in child-scoped RAG visibility without turning `child_scope` into a semantic expansion edge.
-- [x] Slow non-interactive text-model work uses deterministic-save-first background enrichment. Interactive chat/search remains foreground because the parent is waiting for an answer.
+## Runtime regressions closed during visual QA
 
-## Definition of done
+- [x] 이전 대화 선택 UI와 실제 후속 질문 session이 다르게 유지되던 경로 수정
+- [x] 사진첩 filter 밖 record detail이 남는 상태 수정
+- [x] 사진첩 DOM 순서와 visual order를 일치시켜 keyboard/screen-reader order 보정
+- [x] 승인 material mount 시 window.location.reload fallback으로 발생할 수 있던 reload loop 제거
+- [x] material result/quest 생성 뒤 전체 reload 대신 activities/observations/growth context만 선택 재조회
+- [x] material result reload regression test 추가
+- [x] profile edit action이 실제 Settings editor로 연결되도록 의미 정렬
 
-For repository-controlled behavior, a non-developer can:
+## Core product-quality completion
 
-- create/select multiple children and switch child-scoped workspaces safely;
-- record ordinary observations, manual/AI-assisted photo diaries, and independent reading/diary/school/self-study records;
-- connect one source activity/resource to multiple children without duplicating the source record;
-- inspect growth context and search long-term records/resources;
-- discover public books/curriculum/places without sending private child text to public adapters;
-- save chosen discovery evidence to the library;
-- generate a child-facing material and parent guide with or without an LLM;
-- Parent Review, edit/revise, approve, print/PDF and manage approved materials as Quest Board items;
-- enter the real-world result of a printed activity and have that result feed later material personalization;
-- back up, restore/export/import and permanently purge a child's live data;
-- continue all required deterministic workflows while the LLM provider is unavailable.
+- [x] Core-only mode: 기록, lexical retrieval, activity management, deterministic material generation, Parent Review, backup/restore가 LLM 없이 동작
+- [x] Parent Review material state machine
+- [x] durable background photo processing
+- [x] child full purge
+- [x] crash/retry-safe create operations with stable reserved IDs
+- [x] conversation operation identity persistence
+- [x] discovery/RAG interrupted-ingest reconciliation
+- [x] managed file permission hardening
+- [x] authenticated random-port desktop Core boundary
+- [x] Windows/macOS package validation, CodeQL, secret scan, dependency/license hygiene
 
-No required workflow should depend on understanding Core/sidecar implementation terminology. Public stable distribution still requires operator-owned signing/notarization, updater trust-root activation, packaged-client update testing and household dogfooding as described in `docs/RELEASE_READINESS.md`.
+## Remaining non-repository evidence
+
+현재 저장소 코드/자동화 관점의 blocker는 없다. 다음은 운영자가 실제 장비·자격증명·장기 키를 사용해 증명해야 한다.
+
+- production code signing/notarization
+- updater long-lived trust-root activation and packaged-client update test
+- representative local-model latency/quality benchmark
+- representative minimum/recommended hardware benchmark
+- household dogfooding
+
+관련 절차는 docs/operational-validation.md와 docs/operator-handoff.md를 따른다.
