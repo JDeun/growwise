@@ -9,11 +9,13 @@ from growwise.adapters import (
     GbifSpeciesAdapter,
     GlobalDigitalLibraryAdapter,
     GoogleBooksAdapter,
+    KbrAdapter,
     KmaForecastAdapter,
     KoreanHeritageAdapter,
     KrdictAdapter,
     NasaMediaAdapter,
     NationalLibraryIsbnAdapter,
+    OpenLibraryAdapter,
     NominatimAdapter,
     SQLiteExternalCache,
     TatoebaAdapter,
@@ -441,3 +443,57 @@ def test_kma_location_request_normalizes_first_forecast_without_leaking_key(
     with sqlite3.connect(cache_path) as connection:
         rows = connection.execute("SELECT cache_key, payload_json FROM external_cache").fetchall()
     assert secret not in "\n".join(f"{key}\n{payload}" for key, payload in rows)
+
+
+
+def test_open_library_normalizes_low_volume_human_facing_search(tmp_path: Path) -> None:
+    result = OpenLibraryAdapter(
+        cache=_cache(tmp_path),
+        http=FakeJsonHttp(  # type: ignore[arg-type]
+            object_payload={
+                "docs": [
+                    {
+                        "key": "/works/OL1W",
+                        "title": "별과 행성",
+                        "author_name": ["테스트 저자"],
+                        "first_publish_year": 2020,
+                        "isbn": ["9780000000003"],
+                        "language": ["kor"],
+                    }
+                ]
+            }
+        ),
+    ).search(query="우주")
+
+    assert result.records[0]["title"] == "별과 행성"
+    assert result.records[0]["url"] == "https://openlibrary.org/works/OL1W"
+    assert result.records[0]["metadata"]["isbn"] == "9780000000003"
+
+
+def test_kbr_uses_own_access_key_contract_and_normalizes_taxonomy(tmp_path: Path) -> None:
+    secret = "KBR-ACCESS-KEY"
+    http = FakeJsonHttp(
+        object_payload={
+            "bioList": [
+                {
+                    "taxon_knm": "참둑중개",
+                    "taxon_nm": "czerskii",
+                    "ktsn": "120000058184",
+                    "ktsn_p": "120000058183",
+                    "comm_group_nm": "어류",
+                    "cls_step_nm": "종",
+                }
+            ]
+        }
+    )
+    result = KbrAdapter(
+        api_key=secret,
+        endpoint="https://example.org/kbr",
+        cache=_cache(tmp_path),
+        http=http,  # type: ignore[arg-type]
+    ).search(query="중개")
+
+    assert result.records[0]["title"] == "참둑중개"
+    assert result.records[0]["metadata"]["ktsn"] == "120000058184"
+    assert http.calls[0][1]["access_key"] == secret
+    assert "serviceKey" not in http.calls[0][1]
