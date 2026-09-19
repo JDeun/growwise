@@ -1,16 +1,14 @@
 from __future__ import annotations
 
 import math
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
-from zoneinfo import ZoneInfo
-
 from .base import AdapterResult
 from .cache import SQLiteExternalCache
 from .cached_search import cached_search, stable_cache_key
 from .http import JsonHttpClient
 
-_KST = ZoneInfo("Asia/Seoul")
+_KST = timezone(timedelta(hours=9), name="KST")
 
 
 def kma_grid_for(latitude: float, longitude: float) -> tuple[int, int]:
