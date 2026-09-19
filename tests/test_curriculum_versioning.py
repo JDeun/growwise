@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import date
 
 from growwise.curriculum_versions import (
+    effective_curriculum_stage,
     resolve_curriculum_version,
     resolve_external_curriculum_version,
     school_transition_start,
@@ -12,6 +13,37 @@ from growwise.domain import ChildProfile, Stage
 
 def _student(*, grade: int, stage: Stage) -> ChildProfile:
     return ChildProfile(name="합성학생", stage=stage, grade=grade)
+
+
+def test_effective_stage_uses_grade_or_birth_date_but_not_static_age_snapshot() -> None:
+    explicit = ChildProfile(
+        name="명시단계",
+        stage=Stage.ELEMENTARY,
+        age_months=48,
+    )
+    by_grade = ChildProfile(
+        name="학년우선",
+        stage=Stage.PRESCHOOL_3_5,
+        grade=8,
+    )
+    by_birth = ChildProfile(
+        name="생년월일",
+        stage=Stage.PRESCHOOL_3_5,
+        birth_date=date(2018, 4, 1),
+    )
+
+    assert (
+        effective_curriculum_stage(explicit, on_date=date(2026, 9, 19))
+        is Stage.ELEMENTARY
+    )
+    assert (
+        effective_curriculum_stage(by_grade, on_date=date(2026, 9, 19))
+        is Stage.MIDDLE
+    )
+    assert (
+        effective_curriculum_stage(by_birth, on_date=date(2026, 9, 19))
+        is Stage.ELEMENTARY
+    )
 
 
 def test_2026_rollout_resolves_each_school_grade_correctly() -> None:
