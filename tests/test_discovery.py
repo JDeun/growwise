@@ -308,22 +308,6 @@ def test_public_source_fanout_receives_only_allowlisted_queries(
 ) -> None:
     seen: list[tuple[str, str]] = []
 
-    class FakeOpenLibrary:
-        SOURCE = "open_library"
-
-        def __init__(self, **_kwargs: object) -> None:
-            pass
-
-        def search_books(self, *, query: str, limit: int, offline: bool) -> AdapterResult:
-            del limit, offline
-            seen.append((self.SOURCE, query))
-            return AdapterResult(
-                source=self.SOURCE,
-                records=[],
-                attribution="test",
-                license_note="test",
-            )
-
     class FakeGoogleBooks:
         SOURCE = "google_books"
 
@@ -406,7 +390,6 @@ def test_public_source_fanout_receives_only_allowlisted_queries(
                 license_note="test",
             )
 
-    monkeypatch.setattr("growwise.services.discovery.OpenLibraryAdapter", FakeOpenLibrary)
     monkeypatch.setattr("growwise.services.discovery.GoogleBooksAdapter", FakeGoogleBooks)
     monkeypatch.setattr("growwise.services.discovery.WikipediaAdapter", FakeWikipedia)
     monkeypatch.setattr("growwise.services.discovery.WikidataAdapter", FakeWikidata)
@@ -437,6 +420,13 @@ def test_public_source_fanout_receives_only_allowlisted_queries(
     assert child.name not in outbound
     assert str(child.id) not in outbound
     assert ("nasa_images", "space dinosaurs observation") in seen
+    assert all(source != "open_library" for source, _query in seen)
+    assert any(
+        state.source == "open_library"
+        and state.enabled is False
+        and state.status == "policy_disabled"
+        for state in result.sources
+    )
 
 def test_discovery_calls_configured_korean_book_and_dictionary_sources(
     tmp_path: Path,
