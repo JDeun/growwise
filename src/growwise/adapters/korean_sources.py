@@ -404,6 +404,7 @@ class KmaForecastAdapter(CachedSearchAdapter):
         if not service_key.strip():
             raise ValueError("service_key is required")
         self.service_key = service_key
+        self._location_request: tuple[int, int, str, str, float, float] | None = None
         kwargs.setdefault(
             "endpoint",
             "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst",
@@ -486,6 +487,8 @@ class KmaForecastAdapter(CachedSearchAdapter):
 
     def _params(self, *, query: str, limit: int) -> dict[str, str | int | float]:
         del query, limit
+        if self._location_request is None:
+            raise ValueError("KMA forecast requires an explicit location")
         nx, ny, date, base_time, _, _ = self._location_request
         return {
             "serviceKey": self.service_key,
@@ -523,6 +526,8 @@ class KmaForecastAdapter(CachedSearchAdapter):
             return []
         first_key = sorted(grouped)[0]
         values = grouped[first_key]
+        if self._location_request is None:
+            raise ValueError("KMA forecast requires an explicit location")
         _, _, _, _, latitude, longitude = self._location_request
         sky_label = {"1": "맑음", "3": "구름많음", "4": "흐림"}.get(values.get("SKY", ""), "")
         precipitation = values.get("POP", "")
