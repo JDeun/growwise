@@ -15,6 +15,10 @@ const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
   book: "도서",
   curriculum: "교육과정",
   place: "탐방",
+  reference: "백과·역사",
+  science: "과학·자연",
+  language: "언어·어휘",
+  media: "공개 미디어",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
@@ -45,6 +49,20 @@ function sourceStatusText(status: string): string {
       return "위치 입력 시 사용";
     case "unavailable":
       return "현재 사용할 수 없음";
+    case "disabled":
+      return "확장 검색 꺼짐";
+    case "available":
+      return "연결 가능";
+    case "configured":
+      return "설정됨";
+    case "catalog_link":
+      return "공식 카탈로그 링크";
+    case "offline_dataset":
+      return "오프라인 데이터셋";
+    case "local_optional":
+      return "선택 로컬 엔진";
+    case "renderer":
+      return "로컬 렌더러";
     default:
       return status;
   }
@@ -118,7 +136,7 @@ export function DiscoveryWorkspace({ active }: Props) {
       await saveDiscoveredResource(childId, suggestion);
       setSavedIds((current) => new Set(current).add(suggestion.candidate_id));
       setNotice(
-        "라이브러리에 저장했습니다. 이제 이 자료를 검색 근거로 쓰거나 자료 생성 화면에서 선택할 수 있습니다.",
+        "참고 자료에 저장했습니다. 이제 이 자료를 검색 근거로 쓰거나 자료 생성 화면에서 선택할 수 있습니다.",
       );
     } catch (saveError) {
       setError(errorMessage(saveError));
@@ -242,18 +260,56 @@ export function DiscoveryWorkspace({ active }: Props) {
         {result && (
           <>
             <section className="discovery-source-status" aria-label="자료 출처 상태">
-              <h3>자료 출처</h3>
-              <div className="discovery-source-list">
-                {result.sources.map((source) => (
-                  <div key={source.source}>
-                    <strong>{SOURCE_LABEL[source.source] ?? source.source}</strong>
-                    <span>{sourceStatusText(source.status)}</span>
-                  </div>
-                ))}
+              <div className="discovery-source-summary">
+                <div>
+                  <h3>교육 소스</h3>
+                  <p className="muted">
+                    {result.sources.filter((source) =>
+                      ["live", "fresh", "stale", "ready"].includes(source.status),
+                    ).length}개 소스가 이번 검색에 응답했습니다.
+                  </p>
+                </div>
+                <span>{result.sources.length}개 연동 카탈로그</span>
               </div>
+
+              <div className="discovery-source-list discovery-source-list--active">
+                {result.sources
+                  .filter((source) =>
+                    ["live", "fresh", "stale", "ready"].includes(source.status),
+                  )
+                  .map((source) => (
+                    <div key={source.source}>
+                      <strong>{source.label ?? SOURCE_LABEL[source.source] ?? source.source}</strong>
+                      <span>{sourceStatusText(source.status)}</span>
+                    </div>
+                  ))}
+              </div>
+
+              <details className="discovery-source-catalog">
+                <summary>전체 교육 소스와 연결 상태 보기</summary>
+                <div className="discovery-source-list">
+                  {result.sources.map((source) => (
+                    <div key={source.source}>
+                      <div className="discovery-source-name">
+                        <strong>{source.label ?? SOURCE_LABEL[source.source] ?? source.source}</strong>
+                        {source.mode && <small>{source.mode}</small>}
+                      </div>
+                      <div className="discovery-source-actions">
+                        <span>{sourceStatusText(source.status)}</span>
+                        {source.homepage && (
+                          <a href={source.homepage} target="_blank" rel="noreferrer">
+                            공식 사이트
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+
               <p className="muted">
-                외부 서비스가 꺼져 있어도 공식 교육과정 메타데이터와 이미 저장한 라이브러리는 계속
-                사용할 수 있습니다. 탐방 위치를 입력한 경우에만 해당 좌표가 Overpass 요청에 포함됩니다.
+                아이 이름, ID, 관찰 원문은 외부 소스에 보내지 않습니다. 텍스트 검색에는 일반화된
+                주제어만 사용하고, 부모가 직접 좌표를 입력한 경우에만 위치 기반 소스에 좌표를 전송합니다.
               </p>
             </section>
 
@@ -296,10 +352,10 @@ export function DiscoveryWorkspace({ active }: Props) {
                           onClick={() => void handleSave(suggestion)}
                         >
                           {saved
-                            ? "라이브러리에 저장됨"
+                            ? "참고 자료에 저장됨"
                             : savingId === suggestion.candidate_id
                               ? "저장 중…"
-                              : "라이브러리에 저장"}
+                              : "참고 자료에 저장"}
                         </button>
                       </article>
                     );
