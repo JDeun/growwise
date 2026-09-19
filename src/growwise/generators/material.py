@@ -230,6 +230,7 @@ requested schema."""
                 MaterialSourceCitation(
                     source_ref=item.source_ref,
                     title=item.title,
+                    excerpt=item.excerpt,
                     source_name=item.source_name,
                     source_url=item.source_url,
                     attribution=item.attribution,
