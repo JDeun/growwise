@@ -3,8 +3,8 @@ from .book_sources import (
     GlobalDigitalLibraryAdapter,
     GoogleBooksAdapter,
     GutendexAdapter,
-    OpenLibraryAdapter,
     NationalLibraryIsbnAdapter,
+    OpenLibraryAdapter,
 )
 from .cache import CachedPayload, SQLiteExternalCache
 from .curriculum import CurriculumRecord, PublicCurriculumAdapter
@@ -60,8 +60,8 @@ __all__ = [
     "GlobalDigitalLibraryAdapter",
     "GoogleBooksAdapter",
     "GutendexAdapter",
-    "OpenLibraryAdapter",
     "JsonHttpClient",
+    "OpenLibraryAdapter",
     "KbrAdapter",
     "KmaForecastAdapter",
     "KoreanHeritageAdapter",
