@@ -74,6 +74,7 @@ class Settings(BaseSettings):
     data4library_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
 
     # Public, privacy-safe enrichment sources. They receive only allow-listed generic topics.
+    public_enrichment_enabled: bool = True
     openlibrary_endpoint: str = "https://openlibrary.org/search.json"
     google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
     google_books_api_key: str | None = None
