@@ -66,7 +66,7 @@ interface MaterialWorkspaceProps {
   onGoalChange: (value: string) => void;
   onToggleResource: (resourceId: string) => void;
   onGenerate: (event: FormEvent<HTMLFormElement>) => void;
-  onUse: (materialId: string) => void;
+  onUse?: (materialId: string) => void;
   onReview: (materialId: string, status: MaterialStatus) => void;
   onRevisionNoteChange: (materialId: string, note: string) => void;
   onRevise: (materialId: string) => void;
@@ -204,7 +204,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     onGoalChange,
     onToggleResource,
     onGenerate,
-    onUse,
+    onUse = () => undefined,
     onReview,
     onRevisionNoteChange,
     onRevise,
