@@ -2,13 +2,20 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import AdapterResult
+from .base import AdapterResult, ExternalUnavailable
 from .cache import SQLiteExternalCache
 from .cached_search import cached_search, stable_cache_key
 from .http import JsonHttpClient
 
 
 class OpenLibraryAdapter:
+    """Quarantined live adapter; production discovery does not wire this source.
+
+    Live calls are default-denied because GrowWise's commercial-safe policy permits only
+    separately reviewed offline metadata/dumps from Open Library. The explicit opt-in exists
+    for migration tests and non-production diagnostics only.
+    """
+
     SOURCE = "open_library"
     ATTRIBUTION = "Open Library (Internet Archive)"
     LICENSE_NOTE = (
@@ -23,11 +30,13 @@ class OpenLibraryAdapter:
         http: JsonHttpClient | None = None,
         endpoint: str = "https://openlibrary.org/search.json",
         ttl_seconds: int = 86_400,
+        allow_live_api: bool = False,
     ) -> None:
         self.cache = cache
         self.http = http or JsonHttpClient()
         self.endpoint = endpoint
         self.ttl_seconds = ttl_seconds
+        self.allow_live_api = allow_live_api
 
     def search_books(
         self,
@@ -36,6 +45,11 @@ class OpenLibraryAdapter:
         limit: int = 8,
         offline: bool = False,
     ) -> AdapterResult:
+        if not self.allow_live_api:
+            raise ExternalUnavailable(
+                "Open Library live API is disabled by GrowWise commercial-use policy; "
+                "use commercial-safe offline metadata or another approved source"
+            )
         normalized = " ".join(query.split())
         if not 1 <= len(normalized) <= 200:
             raise ValueError("query must be 1-200 characters")

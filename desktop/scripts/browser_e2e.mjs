@@ -562,12 +562,19 @@ async function main() {
       });
     }
     server.close();
-    rmSync(userDataDir, {
-      recursive: true,
-      force: true,
-      maxRetries: 5,
-      retryDelay: 100,
-    });
+    try {
+      rmSync(userDataDir, {
+        recursive: true,
+        force: true,
+        maxRetries: 8,
+        retryDelay: 150,
+      });
+    } catch (error) {
+      // Chrome helper processes can briefly recreate profile files after the browser exits.
+      // The runner's temporary filesystem is discarded after the job, so cleanup failure must
+      // never turn a fully passed product E2E run into a false negative.
+      console.warn("GrowWise browser E2E temp-profile cleanup skipped:", error.message);
+    }
   }
 }
 

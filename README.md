@@ -139,7 +139,7 @@ LearningLog 확정
 | **Public Curriculum Adapter** | 설정된 공공 교육과정 endpoint 검색 | 선택적 endpoint |
 | **도서관 정보나루** | 관심 주제의 국내 도서 후보 검색 | API key 필요 |
 | **국립중앙도서관 ISBN 서지** | 국내 ISBN·저자·출판사 메타데이터 | API key 필요 |
-| **Open Library / Google Books** | 국제 도서·서지 후보 | 공개 API, 선택적 Google key |
+| **Google Books** | 국제 도서·서지 후보 | 공개 API, 선택적 Google key |
 | **한국어기초사전** | 쉬운 뜻풀이·발음·품사 참고 | API key 필요 |
 | **Wikipedia / Wikidata** | 개념 설명과 구조화 지식 | 공개 API |
 | **Wikimedia Commons** | 재사용 조건을 통과한 공개 이미지 후보 | 공개 API |
@@ -148,6 +148,8 @@ LearningLog 확정
 | **OpenStreetMap Overpass** | 부모 지정 위치 주변 공공 탐방 장소 | key 불필요, 위치 입력 시 |
 | **전국 박물관·미술관 표준데이터** | 부모 지정 위치 주변 박물관·미술관 | 공공데이터 service key + 위치 |
 | **기상청 현재 날씨** | 날씨·계절 관찰 활동용 현황 | 공공데이터 service key + 위치 |
+
+Open Library는 상업 이용 정책과의 충돌을 피하기 위해 **live API를 production discovery에서 호출하지 않는다**. 별도로 검증·수입한 commercial-safe offline metadata/dump만 참고 자료로 사용할 수 있다.
 
 `GROWWISE_PUBLIC_ENRICHMENT_ENABLED=false`이면 무키 공개 웹 소스의 라이브 조회는 하지
 않고 로컬 카탈로그·저장 자료·명시적으로 설정한 keyed source 중심으로 동작한다. 외부 결과는
@@ -170,7 +172,7 @@ GROWWISE_DATA_GO_KR_SERVICE_KEY=...
 # 선택: 별도 공공 교육과정 endpoint
 GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
 
-# 선택: 무키 공개 소스(Open Library/Wikipedia/NASA/GBIF 등) 라이브 보강
+# 선택: 무키 공개 소스(Wikipedia/Wikidata/Wikimedia/NASA/GBIF 등) 라이브 보강
 GROWWISE_PUBLIC_ENRICHMENT_ENABLED=true
 ```
 

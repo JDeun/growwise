@@ -272,6 +272,7 @@ def test_openlibrary_normalizes_book_search(tmp_path: Path) -> None:
     adapter = OpenLibraryAdapter(
         cache=SQLiteExternalCache(tmp_path / "ol.sqlite3"),
         http=http,  # type: ignore[arg-type]
+        allow_live_api=True,
     )
     result = adapter.search_books(query="dinosaurs")
     assert result.records[0]["title"] == "Dinosaurs"

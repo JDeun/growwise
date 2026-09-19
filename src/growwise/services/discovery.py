@@ -21,7 +21,6 @@ from growwise.adapters import (
     NasaImagesAdapter,
     NationalLibraryIsbnAdapter,
     OfficialKoreanCurriculumCatalogAdapter,
-    OpenLibraryAdapter,
     OverpassAdapter,
     PublicCurriculumAdapter,
     SQLiteExternalCache,
@@ -175,7 +174,9 @@ class EducationDiscoveryService:
             offline=offline,
         )
 
-        # Books: combine Korean library metadata with two broad international catalogs.
+        # Books: combine Korean public-library metadata, curated commercial-safe sources,
+        # and Google Books when optional public enrichment is enabled. Open Library's live API
+        # is intentionally excluded from the production discovery path by license policy.
         self._collect_data4library(
             query=public_query,
             suggestions=suggestions,
@@ -199,13 +200,18 @@ class EducationDiscoveryService:
             suggestions=suggestions,
             source_states=source_states,
         )
-        if self.settings.public_enrichment_enabled:
-            self._collect_open_library(
-                query=english_query or public_query,
-                suggestions=suggestions,
-                source_states=source_states,
-                offline=offline,
+        source_states.append(
+            DiscoverySourceState(
+                source="open_library",
+                enabled=False,
+                status="policy_disabled",
+                detail=(
+                    "Open Library live API is excluded from production discovery; "
+                    "only separately imported commercial-safe offline metadata may be used."
+                ),
             )
+        )
+        if self.settings.public_enrichment_enabled:
             self._collect_google_books(
                 query=public_query or english_query,
                 suggestions=suggestions,
@@ -215,11 +221,6 @@ class EducationDiscoveryService:
         else:
             source_states.extend(
                 [
-                    DiscoverySourceState(
-                        source=OpenLibraryAdapter.SOURCE,
-                        enabled=False,
-                        status="disabled",
-                    ),
                     DiscoverySourceState(
                         source=GoogleBooksAdapter.SOURCE,
                         enabled=False,
@@ -862,80 +863,6 @@ class EducationDiscoveryService:
                     query=" ".join(public_terms[:3]),
                     tags=tags,
                     metadata={"catalog_id": source_key},
-                )
-            )
-        self._source_ready(
-            result_source=result.source,
-            cache_status=result.cache_status,
-            source_states=source_states,
-        )
-
-    def _collect_open_library(
-        self,
-        *,
-        query: str,
-        suggestions: list[DiscoverySuggestion],
-        source_states: list[DiscoverySourceState],
-        offline: bool,
-    ) -> None:
-        if self._needs_query(
-            source=OpenLibraryAdapter.SOURCE,
-            query=query,
-            source_states=source_states,
-        ):
-            return
-        adapter = OpenLibraryAdapter(
-            cache=self.cache,
-            endpoint=self.settings.openlibrary_endpoint,
-            ttl_seconds=self.settings.public_enrichment_cache_ttl_seconds,
-        )
-        try:
-            result = adapter.search_books(
-                query=query,
-                limit=self.settings.discovery_source_result_limit,
-                offline=offline,
-            )
-        except ExternalAdapterError as exc:
-            self._failed_source(
-                source=OpenLibraryAdapter.SOURCE,
-                exc=exc,
-                source_states=source_states,
-            )
-            return
-        for record in result.records:
-            title = self._text(record.get("title"))
-            if not title:
-                continue
-            subjects = record.get("subjects")
-            subject_list = [str(v) for v in subjects[:8]] if isinstance(subjects, list) else []
-            authors = self._text(record.get("authors"))
-            year = self._text(record.get("first_publish_year"))
-            summary = " · ".join(
-                part
-                for part in (authors, year, ", ".join(subject_list[:4]))
-                if part
-            )
-            suggestions.append(
-                self._suggestion(
-                    source=result.source,
-                    source_key=self._text(record.get("id")) or title,
-                    category=DiscoveryCategory.BOOK,
-                    resource_kind=ResourceKind.BOOK,
-                    title=title,
-                    summary=summary or None,
-                    content=", ".join(subject_list) or None,
-                    source_url=self._optional_text(record.get("source_url")),
-                    author=authors or None,
-                    attribution=result.attribution,
-                    license_note=result.license_note,
-                    cache_status=result.cache_status,
-                    rationale="주제와 연결된 국제 도서·서지 후보입니다.",
-                    query=query,
-                    tags=["도서", *subject_list[:5]],
-                    metadata={
-                        "isbn": self._text(record.get("isbn")),
-                        "first_publish_year": year,
-                    },
                 )
             )
         self._source_ready(
