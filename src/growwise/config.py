@@ -72,6 +72,19 @@ class Settings(BaseSettings):
     data4library_api_key: str | None = None
     data4library_endpoint: str = "https://data4library.kr/api/srchBooks"
     data4library_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+
+    # Public, privacy-safe enrichment sources. They receive only allow-listed generic topics.
+    openlibrary_endpoint: str = "https://openlibrary.org/search.json"
+    google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
+    google_books_api_key: str | None = None
+    nasa_images_endpoint: str = "https://images-api.nasa.gov/search"
+    wikidata_endpoint: str = "https://www.wikidata.org/w/api.php"
+    wikipedia_endpoint: str = "https://ko.wikipedia.org/w/rest.php/v1/search/page"
+    wikimedia_commons_endpoint: str = "https://commons.wikimedia.org/w/api.php"
+    gbif_species_endpoint: str = "https://api.gbif.org/v1/species/search"
+    public_enrichment_cache_ttl_seconds: int = Field(default=604_800, ge=60, le=2_592_000)
+    discovery_source_result_limit: int = Field(default=6, ge=1, le=20)
+
     overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
     overpass_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
     discovery_place_radius_m: int = Field(default=2_000, ge=100, le=20_000)
