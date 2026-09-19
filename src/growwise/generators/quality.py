@@ -9,11 +9,15 @@ _HEADING_RE = re.compile(r"(?m)^#{2,3}\s+\S")
 _PLACEHOLDER_RE = re.compile(
     r"(?i)(?:\bTODO\b|\bTBD\b|\[insert[^\]]*\]|여기에\s*(?:입력|작성)|placeholder)"
 )
-_INTERNAL_MARKERS = (
+_CANDIDATE_INTERNAL_MARKERS = (
     "generation_guidance",
     "internal generation guidance",
     "infant_0_2",
     "preschool_3_5",
+)
+_PUBLISHED_INTERNAL_MARKERS = (
+    "generation_guidance",
+    "internal generation guidance",
 )
 
 _REQUIRED_CONTENT_HEADINGS = (
@@ -72,7 +76,7 @@ class MaterialQualityGate:
         if _PLACEHOLDER_RE.search(text):
             issues.append("candidate_core_contains_placeholder")
         folded = text.casefold()
-        if any(marker in folded for marker in _INTERNAL_MARKERS):
+        if any(marker in folded for marker in _CANDIDATE_INTERNAL_MARKERS):
             issues.append("candidate_core_exposes_internal_metadata")
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
 
@@ -106,7 +110,7 @@ class MaterialQualityGate:
         if _PLACEHOLDER_RE.search(combined):
             issues.append("published_contains_placeholder")
         folded = combined.casefold()
-        if any(marker in folded for marker in _INTERNAL_MARKERS):
+        if any(marker in folded for marker in _PUBLISHED_INTERNAL_MARKERS):
             issues.append("published_exposes_internal_metadata")
 
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
