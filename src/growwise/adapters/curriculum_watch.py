@@ -7,7 +7,7 @@ from urllib.parse import urljoin
 
 from .http import JsonHttpClient
 
-_NCIC_URL = "https://ncic.go.kr/board/B0033.cs"
+_NCIC_URL = "https://www.ncic.re.kr/bbs/ncicnotice/list.do"
 _MOE_EARLY_URL = "https://www.moe.go.kr/boardCnts/list.do"
 _KNOWN_NCIC_NOTICES = frozenset(
     {
@@ -15,6 +15,8 @@ _KNOWN_NCIC_NOTICES = frozenset(
         "국가교육위원회 고시 제2024-2호",
         "국가교육위원회 고시 제2024-3호",
         "국가교육위원회 고시 제2024-4호",
+        "국가교육위원회 고시 제2026-1호",
+        "국가교육위원회 고시 제2026-2호",
     }
 )
 _KNOWN_EARLY_REVISIONS = frozenset({"2024"})
@@ -55,7 +57,9 @@ class OfficialCurriculumUpdateWatcher:
         anchors = _anchors(html, base_url=_NCIC_URL)
         candidates: list[CurriculumUpdateCandidate] = []
         for title, url in anchors:
-            if "개정 관련" not in title or "교육과정 고시 안내" not in title:
+            if "교육과정" not in title or "고시" not in title:
+                continue
+            if "특수교육" in title:
                 continue
             match = _NCIC_NOTICE_RE.search(title)
             if match is None:
