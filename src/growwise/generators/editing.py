@@ -38,6 +38,10 @@ class MaterialEditService:
             parent_guide_markdown=material.parent_guide_markdown,
             status=MaterialStatus.REVIEW_PENDING,
             source_refs=list(material.source_refs),
+            source_citations=[
+                citation.model_copy(deep=True)
+                for citation in material.source_citations
+            ],
             curriculum_targets=curriculum_targets,
             generator_mode="parent_edit",
             review_note=None,
