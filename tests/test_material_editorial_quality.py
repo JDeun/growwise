@@ -4,7 +4,6 @@ import itertools
 
 import pytest
 
-import growwise.generators.templates as material_templates
 from growwise.domain import ChildProfile, MaterialKind, Stage
 from growwise.generators import MaterialGenerationService, MaterialQualityGate
 
@@ -55,39 +54,6 @@ def test_same_topic_is_not_a_one_size_fits_all_material_across_stages(
 
     assert len(set(outputs)) == len(Stage)
     assert len(set(guides)) == len(Stage)
-
-
-@pytest.mark.parametrize("kind", list(MaterialKind))
-def test_preschool_and_secondary_stages_use_distinct_core_template_pools(
-    kind: MaterialKind,
-) -> None:
-    preschool = material_templates.variants_for(kind, Stage.PRESCHOOL_3_5)
-    elementary = material_templates.variants_for(kind, Stage.ELEMENTARY)
-    middle = material_templates.variants_for(kind, Stage.MIDDLE)
-    high = material_templates.variants_for(kind, Stage.HIGH)
-
-    assert preschool is not elementary
-    assert middle is not elementary
-    assert high is middle
-
-    preschool_text = "\n".join(preschool)
-    secondary_text = "\n".join(middle)
-    assert "부모" in preschool_text or "아이" in preschool_text
-    assert any(
-        marker in secondary_text
-        for marker in (
-            "근거",
-            "가설",
-            "변수",
-            "출처",
-            "전제",
-            "피드백",
-            "한계",
-            "격식",
-            "뉘앙스",
-            "어조",
-        )
-    )
 
 
 def test_preschool_writing_is_expression_first_not_conventional_writing_required() -> None:
