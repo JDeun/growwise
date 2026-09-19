@@ -6,7 +6,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, ValidationError
 
-from growwise.curriculum import curriculum_targets_for
+from growwise.curriculum import curriculum_targets_for_child
 from growwise.domain import (
     ChildProfile,
     CurriculumTarget,
@@ -155,13 +155,18 @@ until Parent Review approves it. Return the requested structured schema only."""
         generation_guidance: str | None = None,
         source_refs: list[str] | None = None,
         source_evidence: list[MaterialSourceEvidence] | None = None,
+        curriculum_targets_override: list[CurriculumTarget] | None = None,
     ) -> GeneratedMaterial:
         refs = list(dict.fromkeys(source_refs or []))
         evidence = self._bounded_source_evidence(
             source_evidence or [],
             allowed_refs=set(refs),
         )
-        curriculum_targets = curriculum_targets_for(child.stage, kind)
+        curriculum_targets = (
+            [target.model_copy(deep=True) for target in curriculum_targets_override]
+            if curriculum_targets_override is not None
+            else curriculum_targets_for_child(child, kind)
+        )
         fallback = self._template(
             child=child,
             kind=kind,
@@ -772,6 +777,14 @@ until Parent Review approves it. Return the requested structured schema only."""
             ", ".join(dict.fromkeys(target.domain for target in curriculum_targets))
             or "일반 탐구"
         )
+        curriculum_frameworks = (
+            ", ".join(dict.fromkeys(target.framework for target in curriculum_targets))
+            or "교육과정 미지정"
+        )
+        curriculum_sources = (
+            ", ".join(dict.fromkeys(target.source_ref for target in curriculum_targets))
+            or "기준 고시 미지정"
+        )
         if stage is Stage.INFANT_0_2:
             reflection = (
                 "- 아이가 오래 바라보거나 반복한 행동은 무엇이었나요?\n"
@@ -859,6 +872,8 @@ until Parent Review approves it. Return the requested structured schema only."""
             "## 오늘의 목표\n"
             f"- 목표: {goal_display}\n"
             f"- 교육과정 연결: {curriculum_domains}\n"
+            f"- 적용 교육과정: {curriculum_frameworks}\n"
+            f"- 기준 고시: {curriculum_sources}\n"
             "- 결과를 빨리 맞히는 것보다 관찰·시도·설명 과정에 집중합니다.\n\n"
             "## 예상 시간\n"
             f"- {cls._duration_label(kind, stage)} · 아이의 상태와 몰입에 따라 "
