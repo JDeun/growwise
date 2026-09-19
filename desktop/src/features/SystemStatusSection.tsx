@@ -160,7 +160,7 @@ export function SystemStatusSection({
           </p>
         )}
         {setupNotice && <p className="muted" role="status">{setupNotice}</p>}
-        {setupError && <p className="error-text" role="alert">{setupError}</p>}
+        {setupError && <p className="form-error" role="alert">{setupError}</p>}
 
         {connection.kind === "connected" && (
           <details className="technical-details">
