@@ -14,7 +14,7 @@ GrowWise는 AI 없이도 사용할 수 있습니다. 로컬 AI는 기록 검색,
 
 ```bash
 ollama pull qwen3.5:9b
-ollama pull gemma3:4b
+ollama pull gemma4:e4b
 ollama pull nomic-embed-text
 ```
 
@@ -23,7 +23,7 @@ ollama pull nomic-embed-text
 | 역할 | 기본 모델 | 다운로드 크기 기준 | 설명 |
 | --- | --- | ---: | --- |
 | 텍스트 | `qwen3.5:9b` | 약 6.6 GB | 대화, 자료 생성, 기록 정리 |
-| 사진 | `gemma3:4b` | 약 3.3 GB | 사진 이해와 기록 초안 |
+| 사진 | `gemma4:e4b` | 약 9.6 GB | 사진 이해와 기록 초안 |
 | 임베딩 | `nomic-embed-text` | 약 274 MB | 의미 기반 검색 보조 |
 
 모델이 준비되면 Ollama가 실행 중인 상태에서 GrowWise를 실행합니다.
@@ -197,13 +197,13 @@ launchctl setenv GROWWISE_MODEL_ID qwen3.5:9b
 
 ## 사진 AI
 
-GrowWise의 현재 기본 사진 모델은 `gemma3:4b`입니다.
+GrowWise의 현재 기본 사진 모델은 `gemma4:e4b`입니다.
 
 ```bash
-ollama pull gemma3:4b
+ollama pull gemma4:e4b
 ```
 
-Gemma 3 4B는 Ollama에서 이미지 입력을 지원하며 약 3.3 GB 크기의 기본 양자화 모델이 제공됩니다.
+Gemma 4 E4B는 Ollama에서 이미지 입력을 지원하며 약 9.6 GB 크기의 edge-oriented 멀티모달 모델입니다. 더 낮은 메모리 환경에서는 `gemma4:e2b`(약 7.2 GB)를 사용할 수 있습니다.
 
 메모리가 부족하다면 사진 AI를 끄고 부모가 직접 사진 기록을 남길 수 있습니다.
 
@@ -211,7 +211,7 @@ Gemma 3 4B는 Ollama에서 이미지 입력을 지원하며 약 3.3 GB 크기의
 GROWWISE_VISION_FEATURES_ENABLED=false
 ```
 
-Qwen 3.5도 멀티모달 모델이므로 고급 설정에서는 텍스트와 사진 모델을 같은 Qwen 3.5 모델 ID로 맞출 수 있습니다. 다만 GrowWise의 현재 기본 검증 조합은 `qwen3.5:9b` + `gemma3:4b`입니다.
+Qwen 3.5도 멀티모달 모델이므로 고급 설정에서는 텍스트와 사진 모델을 같은 Qwen 3.5 모델 ID로 맞출 수 있습니다. 다만 GrowWise의 현재 기본 검증 조합은 `qwen3.5:9b` + `gemma4:e4b`입니다.
 
 ---
 
@@ -266,7 +266,7 @@ GrowWise의 기본 설정:
 ```text
 Ollama 주소       http://127.0.0.1:11434
 텍스트 모델       qwen3.5:9b
-사진 모델         gemma3:4b
+사진 모델         gemma4:e4b
 임베딩 모델       nomic-embed-text
 ```
 
@@ -325,7 +325,7 @@ uv run python scripts/benchmark_model.py --warmup-rounds 1 --repeats 3
 ## 공식 모델 정보
 
 - [Ollama Qwen 3.5](https://ollama.com/library/qwen3.5)
-- [Ollama Gemma 3](https://ollama.com/library/gemma3)
+- [Ollama Gemma 4](https://ollama.com/library/gemma4)
 - [Ollama Qwen3 Embedding](https://ollama.com/library/qwen3-embedding)
 - [Ollama nomic-embed-text](https://ollama.com/library/nomic-embed-text)
 - [Ollama 다운로드](https://ollama.com/download)
