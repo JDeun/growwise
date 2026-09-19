@@ -154,3 +154,24 @@
 .materials-hub[data-material-tab="activities"] .materials-hub-core .quest-section {
   display: block;
 }
+
+
+/* Concept alignment: the materials tab opens directly into the document canvas + controls.
+ * Workflow counts remain available in the queue lanes below the studio instead of repeating
+ * a second page heading and status summary above the primary task. */
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace > .section-heading,
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace > .material-queue-summary {
+  display: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-studio {
+  margin-top: 0;
+}
