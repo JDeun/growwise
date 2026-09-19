@@ -84,7 +84,6 @@ class Settings(BaseSettings):
 
     # Public, privacy-safe enrichment sources. They receive only allow-listed generic topics.
     public_enrichment_enabled: bool = True
-    openlibrary_endpoint: str = "https://openlibrary.org/search.json"
     google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
     google_books_api_key: str | None = None
     national_library_api_key: str | None = None
