@@ -48,14 +48,20 @@ def _get_rag_index(generation: int) -> HybridRagIndex:
     settings = get_settings()
     embedding = None
     if settings.embedding_features_enabled:
-        try:
-            embedding = OllamaEmbeddingProvider(
-                model=settings.embedding_model_id,
-                base_url=settings.model_base_url,
+        if settings.embedding_provider.casefold().replace("-", "_") != "ollama":
+            logger.warning(
+                "unsupported embedding provider %s; RAG will use lexical search",
+                settings.embedding_provider,
             )
-        except Exception:
-            logger.exception("embedding provider unavailable; RAG will use lexical search")
-            embedding = None
+        else:
+            try:
+                embedding = OllamaEmbeddingProvider(
+                    model=settings.embedding_model_id,
+                    base_url=settings.embedding_base_url,
+                )
+            except Exception:
+                logger.exception("embedding provider unavailable; RAG will use lexical search")
+                embedding = None
     return HybridRagIndex(settings.rag_index_path, embedding=embedding)
 
 
