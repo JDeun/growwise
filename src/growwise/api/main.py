@@ -69,7 +69,11 @@ from growwise.idempotency import (
     IdempotencyStatus,
     request_fingerprint,
 )
-from growwise.model.health import probe_embedding_runtime, probe_model_runtime
+from growwise.model.health import (
+    probe_embedding_runtime,
+    probe_model_runtime,
+    probe_vision_runtime,
+)
 from growwise.rag import (
     GroundedRagService,
     ResourceIngestor,
@@ -150,20 +154,44 @@ def validate_activity_link(
 
 
 @app.get("/health")
-def health() -> dict[str, str | bool]:
+def health() -> dict[str, str | bool | None]:
     settings = get_settings()
     runtime = probe_model_runtime(settings)
     embedding_runtime = probe_embedding_runtime(settings)
-    llm_effective = settings.llm_features_enabled and runtime.reachable
-    embedding_effective = settings.embedding_features_enabled and embedding_runtime.reachable
+    vision_runtime = probe_vision_runtime(settings)
+
+    llm_effective = (
+        settings.llm_features_enabled
+        and runtime.reachable
+        and runtime.model_available is not False
+    )
+    embedding_effective = (
+        settings.embedding_features_enabled
+        and embedding_runtime.reachable
+        and embedding_runtime.model_available is not False
+    )
+    vision_effective = (
+        settings.vision_features_enabled
+        and vision_runtime.reachable
+        and vision_runtime.model_available is not False
+    )
     return {
         "status": "ok",
         "operation_mode": ("ai_enhanced_with_core_fallback" if llm_effective else "core_only"),
         "core_requires_llm": False,
         "llm_configured": runtime.configured,
         "llm_reachable": runtime.reachable,
+        "llm_model_id": runtime.model_id,
+        "llm_model_available": runtime.model_available,
         "llm_features_enabled": llm_effective,
+        "embedding_reachable": embedding_runtime.reachable,
+        "embedding_model_id": embedding_runtime.model_id,
+        "embedding_model_available": embedding_runtime.model_available,
         "embedding_features_enabled": embedding_effective,
+        "vision_reachable": vision_runtime.reachable,
+        "vision_model_id": vision_runtime.model_id,
+        "vision_model_available": vision_runtime.model_available,
+        "vision_features_enabled": vision_effective,
         "model_provider": settings.model_provider,
     }
 
