@@ -64,9 +64,9 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("자료 사용과 결과");
     expect(html).toContain("Document canvas");
-    expect(html).toContain("AI &amp; template controls");
+    expect(html).toContain("활동 만들기");
+    expect(html).toContain("이 활동 사용하기");
     expect(html).toContain('role="tablist"');
     expect(html).toContain("부모 가이드");
     expect(html).toContain("출처");
@@ -74,8 +74,8 @@ describe("MaterialWorkspace", () => {
 
   it("keeps review-pending material out of the printable and closed-loop lane", () => {
     const html = render([base]);
-    expect(html).toContain("부모 검토 필요");
-    expect(html).toContain("승인하고 사용");
+    expect(html).toContain("이 활동 사용하기");
+    expect(html).toContain('<details class="material-workflow-admin">');
     expect(html).not.toContain("인쇄 / PDF 내보내기");
     expect(html).not.toContain("자료 사용과 결과");
   });
@@ -91,8 +91,9 @@ describe("MaterialWorkspace", () => {
 
   it("communicates deterministic generation availability without implementation jargon", () => {
     const html = render([]);
-    expect(html).toContain("AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다.");
+    expect(html).toContain("주제와 목표를 정하면 아이에게 맞는 활동 자료를 준비합니다.");
     expect(html).not.toContain("Core 템플릿");
+    expect(html).not.toContain("AI &amp; template controls");
     expect(html).not.toContain("Parent Review");
     expect(html).not.toContain("MATERIALS");
   });
