@@ -26,7 +26,7 @@ describe("SystemStatusSection", () => {
             embedding_model_available: false,
             embedding_features_enabled: false,
             vision_reachable: true,
-            vision_model_id: "gemma4:e2b",
+            vision_model_id: "qwen3.5:4b",
             vision_model_available: false,
             vision_features_enabled: false,
             model_provider: "ollama",
@@ -39,7 +39,7 @@ describe("SystemStatusSection", () => {
 
     expect(html).toContain("모델 준비 필요");
     expect(html).toContain("기본 AI 준비");
-    expect(html).toContain("사진 AI 준비");
+    expect(html).not.toContain("사진 AI 준비");
     expect(html).not.toContain("ollama pull");
   });
 
@@ -63,7 +63,7 @@ describe("SystemStatusSection", () => {
             embedding_model_available: true,
             embedding_features_enabled: true,
             vision_reachable: true,
-            vision_model_id: "gemma4:e2b",
+            vision_model_id: "qwen3.5:4b",
             vision_model_available: true,
             vision_features_enabled: true,
             model_provider: "ollama",
