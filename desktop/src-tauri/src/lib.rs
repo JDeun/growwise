@@ -519,6 +519,20 @@ async fn review_material(
         .map_err(|error| error.to_string())
 }
 #[tauri::command]
+async fn use_material(material_id: String) -> Result<serde_json::Value, String> {
+    let response = client()?
+        .post(format!("{CORE_BASE_URL}/v1/materials/{material_id}/use"))
+        .send()
+        .await
+        .map_err(|error| error.to_string())?;
+    ensure_success(response, "자료 사용 준비 실패")
+        .await?
+        .json::<serde_json::Value>()
+        .await
+        .map_err(|error| error.to_string())
+}
+
+#[tauri::command]
 async fn revise_material(
     material_id: String,
     note: Option<String>,
@@ -687,6 +701,7 @@ pub fn run() {
             generate_material_background,
             list_materials,
             review_material,
+            use_material,
             revise_material,
             revise_material_background,
             edit_material,
