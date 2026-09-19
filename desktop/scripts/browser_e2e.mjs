@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { createReadStream, existsSync, mkdtempSync, rmSync } from "node:fs";
+import { createReadStream, existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
@@ -10,7 +10,6 @@ const DIST = join(ROOT, "dist");
 const ARTIFACTS = join(ROOT, "artifacts", "browser-e2e");
 const HOST = "127.0.0.1";
 const PORT = 4173;
-const DEBUG_PORT = 9222;
 const BASE_URL = `http://${HOST}:${PORT}`;
 const VIEWPORT = { width: 1672, height: 941 };
 
@@ -458,7 +457,7 @@ async function main() {
     "--no-sandbox",
     "--disable-dev-shm-usage",
     "--hide-scrollbars",
-    `--remote-debugging-port=${DEBUG_PORT}`,
+    "--remote-debugging-port=0",
     "--remote-debugging-address=127.0.0.1",
     `--window-size=${VIEWPORT.width},${VIEWPORT.height}`,
     `--user-data-dir=${userDataDir}`,
@@ -467,12 +466,20 @@ async function main() {
 
   let cdp;
   try {
+    const devToolsPort = await waitFor(() => {
+      const activePortFile = join(userDataDir, "DevToolsActivePort");
+      if (!existsSync(activePortFile)) return null;
+      const [portLine] = readFileSync(activePortFile, "utf8").trim().split(/\\r?\\n/);
+      const port = Number.parseInt(portLine, 10);
+      return Number.isInteger(port) && port > 0 ? port : null;
+    }, { timeoutMs: 30_000, label: "Chrome DevTools port" });
+
     const target = await waitFor(async () => {
-      const response = await fetch(`http://127.0.0.1:${DEBUG_PORT}/json/list`);
+      const response = await fetch(`http://127.0.0.1:${devToolsPort}/json/list`);
       if (!response.ok) return null;
       const targets = await response.json();
       return targets.find((item) => item.type === "page" && item.webSocketDebuggerUrl);
-    }, { label: "Chrome DevTools target" });
+    }, { timeoutMs: 15_000, label: "Chrome DevTools target" });
 
     cdp = new Cdp(target.webSocketDebuggerUrl);
     await cdp.connect();
