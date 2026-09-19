@@ -47,7 +47,7 @@ growwise가 자료를 생성할 때 쓰는 **오픈 API·오픈소스·오픈 �
 | ⭐ 도서관 정보나루 | data4library.kr | 오픈API(키), 이용약관 | 연령·주제별 추천도서, 대출 통계(ISBN). 1일 500건 초과→캐싱 |
 | ⭐ 국립중앙도서관 ISBN/서지 | data.go.kr(3078982) | 제한 없음(무료) | ISBN→서지 메타데이터 자동 채움 |
 | Google Books API | developers.google.com/books | 무료(약관) | 표지·서지(영어 포함) |
-| Open Library | openlibrary.org/developers | **데이터 덤프 CC0** (라이브 API는 비상업→덤프 사용) | 서지·표지 |
+| Open Library | openlibrary.org/developers | 저빈도 human-facing Web API + cache 권장 / bulk는 dump | 서지·저자·ISBN·언어 메타데이터 |
 | Gutendex + Gutenberg | gutendex.com | 본문 퍼블릭도메인 | 영어 고전(아동용은 적음) |
 | ⭐ Pratham StoryWeaver | storyweaver.org.in | **CC BY 4.0(전부)** | 5.3만+ 그림책, 읽기 수준별, **한국어 포함, 번역·개작·상업 재배포 가능** |
 | Global Digital Library | digitallibrary.io | CC BY 책만 채택(BY-NC 책 제외) | 레벨별 초기 리더 |
