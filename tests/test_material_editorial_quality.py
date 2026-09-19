@@ -7,7 +7,6 @@ import pytest
 from growwise.domain import ChildProfile, MaterialKind, Stage
 from growwise.generators import MaterialGenerationService, MaterialQualityGate
 
-
 STAGE_MARKERS = {
     Stage.INFANT_0_2: "감각·움직임과 보호자와의 상호작용",
     Stage.PRESCHOOL_3_5: "유아가 놀이의 선택과 흐름을 주도",
