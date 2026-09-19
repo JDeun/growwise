@@ -4,7 +4,6 @@ import json
 import socket
 from dataclasses import dataclass
 from ipaddress import ip_address
-from urllib.error import OSError as UrlOSError
 from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
