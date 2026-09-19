@@ -143,6 +143,26 @@ class MaterialStatus(StrEnum):
 
 LangGraph human-in-the-loop checkpoint와 연결해 앱 재시작 후에도 검토를 이어간다.
 
+## LearningWiki — 파생 장기 맥락
+
+`learning_wiki`는 원본 학습 기록을 대체하지 않는 rebuildable child-scoped entity다.
+
+| 필드 | 의미 |
+| --- | --- |
+| `child_id` | 대상 아이 |
+| `summary` | 짧은 파생 요약 |
+| `content_markdown` | 장기 맥락 Wiki 본문 |
+| `source_refs[]` | 이번 revision을 만든 원본 기록 |
+| `source_fingerprint` | canonical 원본 집합 SHA-256 |
+| `generator_mode` | `llm_wiki` / `deterministic_projection` |
+| `model_provider/model_id` | 사용한 모델 provenance |
+| `revision` | source 변화/rebuild revision |
+| `derived` | 항상 true |
+| `rebuilt_at` | 마지막 합성 시각 |
+
+**Invariant:** Wiki는 기존 Wiki를 evidence로 다시 합성하지 않는다. 각 LLM item은 현재 허용된
+`source_refs` 중 최소 하나를 가져야 하며, 원본과의 관계는 `derived_from` link로 유지한다.
+
 ## LearningLog — 핵심 데이터
 
 GrowWise의 중심은 활동지 자체보다 **아이의 질문·시도·부모 관찰·검증·자기 언어 재구성**이다.
