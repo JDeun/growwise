@@ -294,6 +294,7 @@ class CurriculumTarget(BaseModel):
 class MaterialSourceCitation(BaseModel):
     source_ref: SourceRef
     title: str = Field(min_length=1, max_length=500)
+    excerpt: str = Field(default="", max_length=4_000)
     source_name: str | None = Field(default=None, max_length=500)
     source_url: str | None = Field(default=None, max_length=2_048)
     attribution: str | None = Field(default=None, max_length=2_000)
