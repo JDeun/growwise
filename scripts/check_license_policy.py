@@ -51,7 +51,11 @@ def _cargo(payload: dict[str, Any]) -> Iterable[tuple[str, str, str]]:
         license_value = package.get("license")
         if not license_value:
             continue
-        yield (\n            str(package.get("name") or "?"),\n            str(package.get("version") or "?"),\n            str(license_value),\n        )
+        yield (
+            str(package.get("name") or "?"),
+            str(package.get("version") or "?"),
+            str(license_value),
+        )
 
 
 def _packages(ecosystem: str, payload: Any) -> Iterable[tuple[str, str, str]]:
@@ -69,8 +73,14 @@ def _packages(ecosystem: str, payload: Any) -> Iterable[tuple[str, str, str]]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(\n        description="Fail CI on licenses forbidden by GrowWise policy."\n    )
-    parser.add_argument("--ecosystem", choices=("node-lock", "python", "cargo"), required=True)
+    parser = argparse.ArgumentParser(
+        description="Fail CI on licenses forbidden by GrowWise policy."
+    )
+    parser.add_argument(
+        "--ecosystem",
+        choices=("node-lock", "python", "cargo"),
+        required=True,
+    )
     parser.add_argument("--input", type=Path, required=True)
     args = parser.parse_args()
 
@@ -86,12 +96,16 @@ def main() -> int:
         for name, version, license_value in violations:
             print(f"FORBIDDEN LICENSE: {name} {version}: {license_value}")
         print(
-            "A dependency with a strong-copyleft, source-available, or non-commercial license "
-            "entered the dependency graph. Review and explicitly replace or relicense it."
+            "A dependency with a strong-copyleft, source-available, or non-commercial "
+            "license entered the dependency graph. Review and explicitly replace or "
+            "relicense it."
         )
         return 1
 
-    print(f"License policy passed for {checked} {args.ecosystem} packages with declared licenses.")
+    print(
+        f"License policy passed for {checked} {args.ecosystem} packages "
+        "with declared licenses."
+    )
     return 0
 
 
