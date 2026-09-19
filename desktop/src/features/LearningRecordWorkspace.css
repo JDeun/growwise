@@ -562,7 +562,7 @@
   display: none;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .learning-record-product-layout {
     grid-template-columns: minmax(200px, 0.7fr) minmax(250px, 0.9fr) minmax(320px, 1.2fr);
   }
