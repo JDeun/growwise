@@ -17,6 +17,7 @@ from growwise.api.child_profile_routes import router as child_profile_router
 from growwise.api.curriculum_routes import router as curriculum_router
 from growwise.api.discovery_routes import router as discovery_router
 from growwise.api.learning_record_routes import router as learning_record_router
+from growwise.api.learning_wiki_routes import router as learning_wiki_router
 from growwise.api.link_routes import router as link_router
 from growwise.api.material_result_routes import router as material_result_router
 from growwise.api.photo_routes import router as photo_router
@@ -432,6 +433,7 @@ def list_study_plans(
 
 router.include_router(background_write_router)
 router.include_router(learning_record_router)
+router.include_router(learning_wiki_router)
 router.include_router(curriculum_router)
 router.include_router(discovery_router)
 router.include_router(resource_router)
