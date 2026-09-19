@@ -6,10 +6,10 @@
 
 .workspace-shell-root {
   display: grid;
-  grid-template-columns: 232px minmax(0, 1fr);
+  grid-template-columns: var(--product-sidebar-width) minmax(0, 1fr);
   gap: 0;
   align-items: stretch;
-  width: min(1540px, calc(100% - 32px));
+  width: min(var(--product-shell-max), calc(100% - 32px));
   min-height: calc(100vh - 32px);
   margin: 16px auto;
   padding: 0;
@@ -35,7 +35,7 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
-  min-height: 62px;
+  min-height: var(--product-topbar-height);
   padding: 11px 18px;
   border-bottom: 1px solid rgba(43, 42, 40, 0.06);
   background: rgba(255, 255, 255, 0.94);
