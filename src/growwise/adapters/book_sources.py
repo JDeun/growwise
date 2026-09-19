@@ -61,6 +61,75 @@ class GoogleBooksAdapter(CachedSearchAdapter):
         return records
 
 
+class OpenLibraryAdapter(CachedSearchAdapter):
+    SOURCE = "open_library"
+    ATTRIBUTION = "Open Library / Internet Archive contributors"
+    LICENSE_NOTE = (
+        "Open Library permits low-volume human-facing discovery API use; cache results and keep "
+        "source links. Bibliographic records may contain pre-existing rights claims."
+    )
+
+    def __init__(self, **kwargs: Any) -> None:
+        kwargs.setdefault("endpoint", "https://openlibrary.org/search.json")
+        super().__init__(**kwargs)
+
+    def _params(self, *, query: str, limit: int) -> dict[str, str | int | float]:
+        return {
+            "q": query,
+            "limit": min(limit, 50),
+            "fields": "key,title,author_name,first_publish_year,isbn,language",
+        }
+
+    def _normalize(self, payload: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
+        records: list[dict[str, Any]] = []
+        for item in self.list_of_dicts(payload.get("docs"))[:limit]:
+            title = self.text(item.get("title"))
+            work_key = self.text(item.get("key"))
+            if not title:
+                continue
+            authors = item.get("author_name")
+            author_text = (
+                ", ".join(self.text(value) for value in authors if self.text(value))
+                if isinstance(authors, list)
+                else ""
+            )
+            isbns = item.get("isbn")
+            isbn = self.text(isbns[0]) if isinstance(isbns, list) and isbns else ""
+            languages = item.get("language")
+            language_values = (
+                [self.text(value) for value in languages if self.text(value)]
+                if isinstance(languages, list)
+                else []
+            )
+            records.append(
+                {
+                    "source_key": work_key or isbn or title,
+                    "title": title,
+                    "summary": (
+                        f"초판 {self.text(item.get('first_publish_year'))}"
+                        if item.get("first_publish_year")
+                        else None
+                    ),
+                    "url": f"https://openlibrary.org{work_key}" if work_key else None,
+                    "author": author_text or None,
+                    "resource_kind": "book",
+                    "tags": ["도서", "서지", "Open Library"],
+                    "metadata": {
+                        key: value
+                        for key, value in {
+                            "isbn": isbn,
+                            "first_publish_year": self.text(
+                                item.get("first_publish_year")
+                            ),
+                            "languages": ",".join(language_values[:8]),
+                        }.items()
+                        if value
+                    },
+                }
+            )
+        return records
+
+
 class GutendexAdapter(CachedSearchAdapter):
     SOURCE = "gutendex"
     ATTRIBUTION = "Project Gutenberg metadata via Gutendex"
