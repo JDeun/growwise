@@ -149,14 +149,14 @@ GrowWise의 현재 기본 구성은 다음과 같습니다.
 | 역할 | 기본 모델 |
 | --- | --- |
 | 대화·자료 생성 | `qwen3.5:9b` |
-| 사진 이해 | `gemma3:4b` |
+| 사진 이해 | `gemma4:e4b` |
 | 검색용 임베딩 | `nomic-embed-text` |
 
 Ollama를 설치한 뒤 다음 명령으로 기본 모델을 준비할 수 있습니다.
 
 ```bash
 ollama pull qwen3.5:9b
-ollama pull gemma3:4b
+ollama pull gemma4:e4b
 ollama pull nomic-embed-text
 ```
 
