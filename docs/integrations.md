@@ -21,6 +21,25 @@ growwise가 자료를 생성할 때 쓰는 **오픈 API·오픈소스·오픈 �
 
 ---
 
+## 현재 코드 연결 상태
+
+이 문서는 **후보 자원 전체 목록**과 라이선스 검토 메모를 함께 포함한다. 문서에 항목이 있다고 해서
+모두 GrowWise가 네트워크로 직접 호출하는 것은 아니다. 현재 `EducationDiscoveryService`에 실제
+연결된 경로는 다음과 같다.
+
+- **오프라인/로컬 카탈로그**: 공식 한국 교육과정, GrowWise 공식 교육 콘텐츠 링크 카탈로그
+- **키 기반**: 도서관 정보나루, 국립중앙도서관 ISBN, 한국어기초사전, 기상청, 전국 박물관·미술관
+- **선택적 공개 보강**: Open Library, Google Books, Wikipedia, Wikidata, Wikimedia Commons,
+  NASA Image and Video Library, GBIF, 국가유산청 궁궐·문화유산
+- **명시적 위치 기반**: OpenStreetMap Overpass, 전국 박물관·미술관, 기상청
+
+그 밖의 Gutendex, Tatoeba, OpenTopoData, KBR, 로컬 NLP/수학 엔진 등은 이 문서의 **후보/확장
+matrix**다. 안정적인 endpoint, 라이선스, 캐시·rate limit, 테스트가 코드로 검증되기 전에는
+"연결됨"으로 표시하지 않는다. 비공식 endpoint 추정이나 HTML scraping으로 빈칸을 메우지 않는다.
+
+모든 외부 검색 문자열은 allow-list 기반 일반 교육 주제어로 축약하며, 위치 기반 요청은 부모가 직접
+좌표를 입력한 경우에만 실행한다.
+
 ## 1. 콘텐츠 데이터 소스 (외부 API·데이터)
 
 ### 1.1 도서 · 문해력
