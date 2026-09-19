@@ -54,6 +54,23 @@ function isBackgroundRecord(record: PhotoActivityRecord): boolean {
   return record.status === "queued" || record.status === "processing";
 }
 
+export type PhotoFilter = "all" | "committed" | "attention";
+
+export function filterPhotoRecords(
+  records: PhotoActivityRecord[],
+  filter: PhotoFilter,
+): PhotoActivityRecord[] {
+  if (filter === "committed") {
+    return records.filter((record) => record.status === "committed");
+  }
+  if (filter === "attention") {
+    return records.filter((record) =>
+      ["queued", "processing", "draft", "failed"].includes(record.status),
+    );
+  }
+  return records.filter((record) => record.status !== "discarded");
+}
+
 type Props = { active: boolean };
 
 export function PhotoActivityWorkspace({ active }: Props) {
@@ -69,6 +86,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [files, setFiles] = useState<File[]>([]);
   const [previews, setPreviews] = useState<string[]>([]);
   const [storedPreviews, setStoredPreviews] = useState<string[]>([]);
+  const [recordPreviews, setRecordPreviews] = useState<Record<string, string>>({});
+  const recordPreviewLoaded = useRef(new Set<string>());
   const [context, setContext] = useState("");
   const [manualObservation, setManualObservation] = useState("");
   const [aiAssist, setAiAssist] = useState(true);
@@ -79,6 +98,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("all");
+  const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
 
   const refreshRecords = useCallback(async (targetChildId: string) => {
     const requestId = ++recordsRequestId.current;
@@ -106,6 +127,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setRecords([]);
     setFiles([]);
     setStoredPreviews([]);
+    setRecordPreviews({});
+    recordPreviewLoaded.current.clear();
     setContext("");
     setManualObservation("");
     setDraft(null);
@@ -114,6 +137,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setPendingRecordId(null);
     setError(null);
     setNotice(null);
+    setPhotoFilter("all");
+    setSelectedRecordId(null);
     void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
   }, [active, childId, refreshRecords]);
 
@@ -122,6 +147,41 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setPreviews(urls);
     return () => urls.forEach((url) => URL.revokeObjectURL(url));
   }, [files]);
+
+  useEffect(() => {
+    if (!active || records.length === 0) return;
+    let cancelled = false;
+    const candidates = records
+      .filter((record) => record.photo_asset_ids.length > 0 && !recordPreviewLoaded.current.has(record.id))
+      .slice(0, 24);
+
+    candidates.forEach((record) => recordPreviewLoaded.current.add(record.id));
+    if (candidates.length === 0) return;
+
+    void Promise.all(
+      candidates.map(async (record) => {
+        try {
+          const content = await getPhotoAsset(record.child_id, record.photo_asset_ids[0]);
+          return [record.id, `data:${content.asset.mime_type};base64,${content.data_base64}`] as const;
+        } catch {
+          return [record.id, null] as const;
+        }
+      }),
+    ).then((entries) => {
+      if (cancelled) return;
+      setRecordPreviews((current) => {
+        const next = { ...current };
+        entries.forEach(([recordId, preview]) => {
+          if (preview) next[recordId] = preview;
+        });
+        return next;
+      });
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [active, records]);
 
   useEffect(() => {
     if (!active || !childId || !records.some(isBackgroundRecord)) return;
@@ -313,14 +373,172 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
   const hasBackgroundWork = records.some(isBackgroundRecord);
   const shareCandidates = children.filter((child) => child.id !== childId);
+  const visibleRecords = filterPhotoRecords(records, photoFilter);
+  const selectedRecord =
+    visibleRecords.find((record) => record.id === selectedRecordId) ?? null;
 
   return (
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
-      <section className="workspace photo-workspace-card">
+      <header className="photo-workspace-heading">
+        <div>
+          <p className="eyebrow">PHOTO ARCHIVE</p>
+          <h1 id="photo-workspace-title">사진첩</h1>
+          <p>사진으로 남긴 배움과 활동을 한눈에 보고 새 기록을 추가합니다.</p>
+        </div>
+        <span>{records.length}개의 사진 기록</span>
+      </header>
+
+      <section className="workspace photo-history">
+        <div className="photo-history-heading">
+          <div>
+            <p className="card-label">사진 기록 내역</p>
+            <h2>사진 일기와 초안</h2>
+          </div>
+          <div className="photo-history-filters" role="group" aria-label="사진 기록 필터">
+            {([
+              ["all", "전체"],
+              ["committed", "기록 완료"],
+              ["attention", "검토 필요"],
+            ] as const).map(([value, label]) => (
+              <button
+                type="button"
+                key={value}
+                className={photoFilter === value ? "is-active" : ""}
+                aria-pressed={photoFilter === value}
+                onClick={() => setPhotoFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
+        {records.length === 0 ? (
+          <p className="muted">아직 사진으로 만든 기록이 없습니다.</p>
+        ) : (
+          <div className="photo-gallery-layout">
+            <div className="photo-gallery" aria-label="사진 기록 목록">
+            {visibleRecords.map((record) => (
+              <article className={`photo-gallery-card${selectedRecordId === record.id ? " is-selected" : ""}`} key={record.id}>
+                <div className="photo-gallery-thumb">
+                  {recordPreviews[record.id] ? (
+                    <img src={recordPreviews[record.id]} alt="" />
+                  ) : (
+                    <span aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4.5-4.5L8 19"/></svg>
+                    </span>
+                  )}
+                  <span className={`status-badge status-${record.status}`}>
+                    {STATUS_LABEL[record.status]}
+                  </span>
+                </div>
+                <div className="photo-gallery-copy">
+                  <div>
+                    <strong>사진 {record.photo_asset_ids.length}장</strong>
+                    <small>
+                      {record.created_at ? new Date(record.created_at).toLocaleDateString("ko-KR") : "날짜 없음"}
+                    </small>
+                  </div>
+                  <p>{record.generated_observation || "사진 기록을 준비하고 있습니다."}</p>
+                  {record.generation_mode === "manual_photo_diary" && (
+                    <span className="photo-gallery-mode">직접 기록</span>
+                  )}
+                  <div className="photo-gallery-actions">
+                    <button
+                      className="quiet-button"
+                      type="button"
+                      onClick={() => setSelectedRecordId(record.id)}
+                    >
+                      상세 보기
+                    </button>
+                    {record.status === "draft" && (
+                      <button
+                        className="quiet-button"
+                        type="button"
+                        onClick={() => void reopenDraft(record)}
+                        disabled={busy}
+                      >
+                        초안 검토
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </article>
+            ))}
+            {visibleRecords.length === 0 && (
+              <p className="photo-gallery-empty">이 필터에 해당하는 사진 기록이 없습니다.</p>
+            )}
+            </div>
+
+            {selectedRecord && (
+              <aside className="photo-record-detail" aria-label="선택한 사진 기록 상세">
+                <div className="photo-record-detail-heading">
+                  <div>
+                    <p className="card-label">기록 상세</p>
+                    <h3>{STATUS_LABEL[selectedRecord.status]}</h3>
+                  </div>
+                  <button type="button" onClick={() => setSelectedRecordId(null)} aria-label="사진 기록 상세 닫기">×</button>
+                </div>
+                <div className="photo-record-detail-media">
+                  {recordPreviews[selectedRecord.id] ? (
+                    <img src={recordPreviews[selectedRecord.id]} alt="" />
+                  ) : (
+                    <span aria-hidden="true">사진 {selectedRecord.photo_asset_ids.length}장</span>
+                  )}
+                </div>
+                <dl className="photo-record-detail-meta">
+                  <div>
+                    <dt>날짜</dt>
+                    <dd>{selectedRecord.created_at ? new Date(selectedRecord.created_at).toLocaleString("ko-KR") : "날짜 없음"}</dd>
+                  </div>
+                  <div><dt>사진</dt><dd>{selectedRecord.photo_asset_ids.length}장</dd></div>
+                  <div>
+                    <dt>작성 방식</dt>
+                    <dd>{selectedRecord.generation_mode === "manual_photo_diary" ? "직접 기록" : "AI 보조"}</dd>
+                  </div>
+                </dl>
+                <div className="photo-record-detail-copy">
+                  <span>관찰 기록</span>
+                  <p>{selectedRecord.generated_observation || "아직 작성된 관찰 기록이 없습니다."}</p>
+                </div>
+                {selectedRecord.suggested_tags.length > 0 && (
+                  <div className="photo-record-detail-tags">
+                    {selectedRecord.suggested_tags.map((tag) => <span key={tag}>#{tag}</span>)}
+                  </div>
+                )}
+                {selectedRecord.suggested_next_activity && (
+                  <div className="photo-record-detail-copy">
+                    <span>다음 활동</span>
+                    <p>{selectedRecord.suggested_next_activity}</p>
+                  </div>
+                )}
+                {selectedRecord.status === "draft" && (
+                  <button
+                    className="primary-button"
+                    type="button"
+                    onClick={() => void reopenDraft(selectedRecord)}
+                    disabled={busy}
+                  >
+                    초안 검토하기
+                  </button>
+                )}
+              </aside>
+            )}
+          </div>
+        )}
+      </section>
+
+      <details className="workspace photo-workspace-card" open={records.length === 0}>
+        <summary className="photo-create-summary">
+          <span>
+            <strong>새 사진 기록</strong>
+            <small>사진과 직접 쓴 글을 저장하고, 원할 때만 로컬 AI 보조를 사용합니다.</small>
+          </span>
+          <span aria-hidden="true">＋</span>
+        </summary>
         <div className="section-heading">
           <div>
             <p className="card-label">사진 활동 기록</p>
-            <h2 id="photo-workspace-title">사진 일기와 활동 기록</h2>
+            <h2>새 사진 일기와 활동 기록</h2>
             <p className="muted">
               사진과 부모가 직접 쓴 글만으로도 완전한 기록을 만들 수 있습니다. AI는 원할 때 장면
               설명과 초안 작성을 돕는 보조 기능이며, 사용할 수 없어도 기록 기능은 그대로 동작합니다.
@@ -504,55 +722,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
             </button>
           </section>
         )}
-      </section>
+      </details>
 
-      <section className="workspace photo-history">
-        <div className="activity-heading">
-          <div>
-            <p className="card-label">사진 기록 내역</p>
-            <h2>사진 일기와 초안</h2>
-          </div>
-        </div>
-        {records.length === 0 ? (
-          <p className="muted">아직 사진으로 만든 기록이 없습니다.</p>
-        ) : (
-          <div className="quest-list">
-            {records.map((record) => (
-              <article className="quest-card" key={record.id}>
-                <div className="material-meta">
-                  <strong>사진 {record.photo_asset_ids.length}장</strong>
-                  <span className={`status-badge status-${record.status}`}>
-                    {STATUS_LABEL[record.status]}
-                  </span>
-                </div>
-                <p>{record.generated_observation}</p>
-                {record.generation_mode === "manual_photo_diary" && (
-                  <p className="muted">직접 기록 모드</p>
-                )}
-                {record.status === "processing" && (
-                  <p className="muted">AI가 사진을 보조 분석하고 있습니다. 화면을 떠나도 계속 진행됩니다.</p>
-                )}
-                {record.status === "queued" && (
-                  <p className="muted">앞선 작업이 끝나면 자동으로 보조 분석을 시작합니다.</p>
-                )}
-                {record.status === "failed" && (
-                  <p className="form-error">로컬 기록 처리에 문제가 생겼습니다. 원본 사진은 보관되어 있습니다.</p>
-                )}
-                {record.status === "draft" && (
-                  <button
-                    className="quiet-button"
-                    type="button"
-                    onClick={() => void reopenDraft(record)}
-                    disabled={busy}
-                  >
-                    초안 검토
-                  </button>
-                )}
-              </article>
-            ))}
-          </div>
-        )}
-      </section>
     </main>
   );
 }

@@ -91,3 +91,154 @@
     grid-column: auto;
   }
 }
+
+
+.data-management-page-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 22px;
+}
+
+.data-management-page-heading h1,
+.data-management-page-heading p {
+  margin: 0;
+}
+
+.data-management-page-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.data-management-page-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.data-management-page-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+  line-height: 1.55;
+}
+
+.backup-status-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 14px;
+  align-items: center;
+  padding: 18px;
+  border: 1px solid rgba(47, 143, 107, 0.12);
+  border-radius: 16px;
+  background: linear-gradient(135deg, #f7fbf8, #fbfdfb);
+}
+
+.backup-status-card > div:nth-child(2) {
+  display: grid;
+  gap: 2px;
+}
+
+.backup-status-card span,
+.backup-status-card small {
+  color: #7b8580;
+  font-size: 9px;
+}
+
+.backup-status-card strong {
+  color: #2b2a28;
+  font-size: 14px;
+}
+
+.backup-status-icon {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: #e3f3ec;
+  color: #2f8f6b;
+  font-size: 15px;
+  font-weight: 800;
+}
+
+@media (max-width: 620px) {
+  .backup-status-card {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .backup-status-card .primary-button {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+}
+
+
+.settings-product-workspace {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.settings-product-heading {
+  padding: 2px 4px 0;
+}
+
+.settings-product-heading h1,
+.settings-product-heading p {
+  margin: 0;
+}
+
+.settings-product-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.settings-product-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.settings-product-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+}
+
+.settings-product-workspace > .status-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.settings-product-workspace > .status-grid .status-card {
+  min-height: 130px;
+  padding: 16px;
+  border-radius: 15px;
+  box-shadow: 0 7px 20px rgba(47, 66, 58, .035);
+}
+
+.settings-product-workspace > .status-grid .status-title {
+  margin: 14px 0 6px;
+  font-size: 17px;
+}
+
+.settings-product-workspace > .data-management-section--settings {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 18px;
+  border-radius: 17px;
+  box-shadow: 0 8px 24px rgba(47, 66, 58, .035);
+}
+
+.settings-product-workspace .profile-management-zone {
+  padding-top: 0;
+}
+
+@media (max-width: 900px) {
+  .settings-product-workspace > .status-grid {
+    grid-template-columns: 1fr;
+  }
+}

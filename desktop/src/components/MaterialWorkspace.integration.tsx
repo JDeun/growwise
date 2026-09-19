@@ -40,7 +40,7 @@ export interface MaterialWorkspaceController {
 
 export function MaterialWorkspaceIntegration({ controller }: { controller: MaterialWorkspaceController }) {
   const [displayMaterials, setDisplayMaterials] = useState(controller.materials);
-  const refreshAfterResult = controller.handleMaterialResultRecorded ?? (() => window.location.reload());
+  const refreshAfterResult = controller.handleMaterialResultRecorded ?? (() => undefined);
 
   useEffect(() => {
     setDisplayMaterials(controller.materials);

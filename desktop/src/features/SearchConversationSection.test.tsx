@@ -55,14 +55,17 @@ describe("SearchConversationSection", () => {
       />,
     );
 
-    expect(markup).toContain("현재 대화");
+    expect(markup).toContain("AI와 대화하기");
+    expect(markup).toContain("대화 목록");
+    expect(markup).toContain("새 대화");
     expect(markup).toContain("연결된 원본 근거");
     expect(markup).toContain("기록 1");
     expect(markup).toContain("참고 자료 2");
-    expect(markup).toContain("이전 답변 자체는 새 답변의 근거로 사용하지 않습니다");
+    expect(markup).toContain("이전 AI 답변을 다음 답변의 근거로 재사용하지 않고 원본 기록을 다시 확인합니다");
     expect(markup).toContain("대화와 기록 백업");
     expect(markup).toContain("지금 백업");
     expect(markup).toContain("Grounding policy");
+    expect(markup).toContain("기록을 직접 검색하기");
     expect(markup).not.toContain("BOUNDED MULTI-TURN");
     expect(markup).not.toContain("child scope");
   });

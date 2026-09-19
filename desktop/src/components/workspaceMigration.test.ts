@@ -1,17 +1,20 @@
 import { describe, expect, it } from "vitest";
 
-import { WORKSPACE_LAYOUT } from "./workspaceLayout";
 import { WORKSPACE_MIGRATION } from "./workspaceMigration";
+import { PRODUCT_WORKSPACE_VIEWS } from "./workspaceViews";
 
 describe("workspaceMigration", () => {
-  it("maps every legacy layout key back to its product workspace", () => {
-    const migratedKeys = new Set<string>();
-    for (const [view, keys] of Object.entries(WORKSPACE_LAYOUT)) {
-      for (const key of keys) {
-        expect(WORKSPACE_MIGRATION[key]).toBe(view);
-        migratedKeys.add(key);
-      }
+  it("maps every layout feature into a user-facing product workspace", () => {
+    const productViews = new Set(PRODUCT_WORKSPACE_VIEWS);
+    for (const target of Object.values(WORKSPACE_MIGRATION)) {
+      expect(productViews.has(target)).toBe(true);
     }
-    expect(migratedKeys.size).toBe(Object.keys(WORKSPACE_MIGRATION).length);
+
+    expect(WORKSPACE_MIGRATION.observations).toBe("learning");
+    expect(WORKSPACE_MIGRATION.growth).toBe("profile");
+    expect(WORKSPACE_MIGRATION.activities).toBe("materials");
+    expect(WORKSPACE_MIGRATION.search).toBe("conversation");
+    expect(WORKSPACE_MIGRATION.discovery).toBe("materials");
+    expect(WORKSPACE_MIGRATION.library).toBe("materials");
   });
 });

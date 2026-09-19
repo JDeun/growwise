@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
@@ -14,5 +16,14 @@ describe("MaterialWorkspaceIntegration", () => {
     const html = renderToStaticMarkup(<MaterialWorkspaceIntegration controller={controller} />);
     expect(html).toContain("탐방·여행 활동지 만들기");
     expect(html).toContain("관찰 중심");
+  });
+
+  it("never falls back to a full-page reload after recording a material result", () => {
+    const source = readFileSync(
+      fileURLToPath(new URL("./MaterialWorkspace.integration.tsx", import.meta.url)),
+      "utf8",
+    );
+    expect(source).not.toContain("window.location.reload");
+    expect(source).toContain("handleMaterialResultRecorded ?? (() => undefined)");
   });
 });

@@ -1,0 +1,133 @@
+.help-workspace {
+  display: grid;
+  gap: 18px;
+}
+
+.help-workspace-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 2px 4px 0;
+}
+
+.help-workspace-heading h1,
+.help-workspace-heading p {
+  margin: 0;
+}
+
+.help-workspace-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.help-workspace-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.help-workspace-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+}
+
+.help-shortcut {
+  padding: 7px 10px;
+  border: 1px solid rgba(43, 42, 40, 0.08);
+  border-radius: 9px;
+  background: #fafbfa;
+  color: #8b948f;
+  font-size: 9px;
+}
+
+.help-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.help-card,
+.help-support-card {
+  border: 1px solid rgba(43, 42, 40, 0.08);
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 8px 24px rgba(47, 66, 58, 0.035);
+}
+
+.help-card {
+  padding: 18px;
+}
+
+.help-card h2 {
+  margin: 0 0 14px;
+  color: #2f3a34;
+  font-size: 14px;
+}
+
+.help-items {
+  display: grid;
+}
+
+.help-items article {
+  padding: 11px 0;
+  border-top: 1px solid rgba(43, 42, 40, 0.06);
+}
+
+.help-items article:first-child {
+  padding-top: 0;
+  border-top: 0;
+}
+
+.help-items strong {
+  color: #3a433f;
+  font-size: 10.5px;
+}
+
+.help-items p {
+  margin: 4px 0 0;
+  color: #808984;
+  font-size: 9.5px;
+  line-height: 1.55;
+}
+
+.help-support-card {
+  padding: 18px;
+  background: linear-gradient(135deg, #f7fbf8, #fbfdfb);
+}
+
+.help-support-card > div {
+  display: grid;
+  gap: 4px;
+}
+
+.help-support-card span {
+  color: #2f8f6b;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.help-support-card strong {
+  color: #2b2a28;
+  font-size: 13px;
+}
+
+.help-support-card p {
+  margin: 0;
+  color: #7d8681;
+  font-size: 9.5px;
+}
+
+@media (max-width: 900px) {
+  .help-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .help-workspace-heading {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}

@@ -1,11 +1,13 @@
 :root {
-  --bg: #f5f7f6;
+  --bg: #fbf9f6;
   --surface: #ffffff;
-  --ink: #28342e;
-  --ink-soft: #6f7a74;
+  --ink: #2b2a28;
+  --ink-soft: #6f746f;
   --primary: #2f8f6b;
+  --leaf: #a7d7a0;
+  --stone: #9ca3af;
   --primary-strong: #247356;
-  --primary-soft: #e7f3ed;
+  --primary-soft: #edf6f1;
   --accent: #6f98c5;
   --accent-soft: #edf3fa;
   --info: #5c88ba;
@@ -44,6 +46,6 @@
   --product-control-radius: 11px;
   --product-panel-border: rgba(42, 73, 60, 0.09);
   --product-panel-shadow: 0 10px 30px rgba(47, 66, 58, 0.05);
-  --product-sage-surface: #eef7f2;
+  --product-sage-surface: #eff7f2;
   --product-blue-surface: #eef3f8;
 }

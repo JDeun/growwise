@@ -47,7 +47,13 @@ function displayDate(record: LearningLog): string {
   return value ? new Date(value).toLocaleDateString("ko-KR") : "날짜 없음";
 }
 
-export function LearningRecordWorkspace({ active }: { active: boolean }) {
+export function LearningRecordWorkspace({
+  active,
+  embedded = false,
+}: {
+  active: boolean;
+  embedded?: boolean;
+}) {
   const {
     children,
     activeChild,
@@ -215,7 +221,7 @@ export function LearningRecordWorkspace({ active }: { active: boolean }) {
   if (!active) return null;
 
   return (
-    <section className="learning-record-workspace" aria-labelledby="learning-record-title">
+    <section className={`learning-record-workspace${embedded ? " is-embedded" : ""}`} aria-labelledby="learning-record-title">
       <div className="section-heading learning-record-heading">
         <div>
           <p className="eyebrow">LEARNING RECORDS</p>

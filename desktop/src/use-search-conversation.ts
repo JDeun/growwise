@@ -37,6 +37,13 @@ export function useSearchConversation({
     setSearchResult(null);
   }, []);
 
+  const selectConversation = useCallback((session: ConversationSession) => {
+    setConversation(session);
+    setConversationAnswers([]);
+    setConversationQuestion("");
+    setConversationError(null);
+  }, []);
+
   const resetSearchConversation = useCallback(() => {
     setSearchQuery("");
     setSearchResult(null);
@@ -119,6 +126,7 @@ export function useSearchConversation({
     setConversationQuestion,
     handleSearch,
     handleConversation,
+    selectConversation,
     clearSearchResult,
     resetSearchConversation,
   };

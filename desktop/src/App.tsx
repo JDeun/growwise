@@ -6,6 +6,7 @@ import {
   MaterialWorkspaceIntegration,
   OperationNotice,
   ViewStateNotice,
+  type WorkspaceViewName,
 } from "./components";
 import {
   ActivitiesSection,
@@ -70,7 +71,7 @@ type ConnectionState =
 
 type WriteNotice = { id: number; message: string };
 
-function App() {
+function App({ activeView }: { activeView: WorkspaceViewName }) {
   const {
     selectChild: selectSharedChild,
     upsertChild: upsertSharedChild,
@@ -219,6 +220,7 @@ function App() {
     setConversationQuestion,
     handleSearch,
     handleConversation,
+    selectConversation,
     clearSearchResult,
     resetSearchConversation,
   } = useSearchConversation({
@@ -453,6 +455,16 @@ function App() {
     if (activeChildIdRef.current === child.id) setActiveChild(child);
   }
 
+  async function handleManagedProfileUpdated(child: ChildProfile) {
+    upsertSharedChild(child, { select: activeChildIdRef.current === child.id });
+    setChildren((current) =>
+      current.map((item) => (item.id === child.id ? child : item)),
+    );
+    if (activeChildIdRef.current === child.id) {
+      await loadChildContext(child);
+    }
+  }
+
   async function handleSelectChild(childId: string) {
     const child = children.find((item) => item.id === childId);
     if (!child) return;
@@ -596,6 +608,14 @@ function App() {
     window.setTimeout(() => window.print(), 0);
   }
 
+  async function handleMaterialResultRecorded() {
+    await Promise.all([
+      reloadChildContextPart("activities"),
+      reloadChildContextPart("observations"),
+      reloadChildContextPart("growth"),
+    ]);
+  }
+
   function toggleAxis(axis: ExperienceAxis) {
     setSelectedAxes((current) =>
       current.includes(axis) ? current.filter((item) => item !== axis) : [...current, axis],
@@ -603,47 +623,54 @@ function App() {
   }
 
   const isConnected = connection.kind === "connected";
+  const showProfile = activeView === "profile";
+  const showObservation =
+    activeView === "profile"
+    || activeView === "learning"
+    || activeView === "observations"
+    || activeView === "growth";
+  const showConversation = activeView === "conversation" || activeView === "search";
+  const showLibrary = activeView === "materials" || activeView === "library";
+  const showMaterials = activeView === "materials";
+  const showActivities = activeView === "materials" || activeView === "activities";
+  const showTimeline =
+    activeView === "profile" || activeView === "learning" || activeView === "observations";
+  const showChildWorkspace =
+    showProfile
+    || showObservation
+    || showConversation
+    || showLibrary
+    || showMaterials
+    || showActivities
+    || showTimeline;
+
   return (
     <div className="app-shell">
-      <header className="topbar">
-        <div className="brand">
-          <img className="brand-logo" src="/growwise-symbol.svg" alt="" aria-hidden="true" />
-          <div><strong>GrowWise</strong><span>아이의 배움 기록</span></div>
-        </div>
-        <button className="quiet-button" type="button" onClick={() => void refresh()}>새로고침</button>
-      </header>
+      {showChildWorkspace && (
+        <section className="workspace">
+          {showProfile && (
+            <ChildProfileSection
+              connected={isConnected}
+              children={children}
+              activeChild={activeChild}
+              childContext={childContext}
+              growthMap={growthMap}
+              activityCount={activityPlans.length}
+              nickname={nickname}
+              childStage={childStage}
+              ageMonths={ageMonths}
+              saving={saving}
+              error={formError}
+              onNicknameChange={setNickname}
+              onStageChange={setChildStage}
+              onAgeMonthsChange={setAgeMonths}
+              onSubmit={handleCreateChild}
+              onSelectChild={(childId) => void handleSelectChild(childId)}
+              onAvatarUpdated={handleAvatarUpdated}
+            />
+          )}
 
-      <section className="hero">
-        <p className="eyebrow">기록 · 연결 · 활용</p>
-        <h1>아이의 배움을 기록하고, 필요한 맥락을 연결합니다.</h1>
-        <p className="hero-copy">기록·검색·자료 관리는 기본 기능으로 사용할 수 있으며, AI 보조 기능은 필요한 경우에만 사용할 수 있습니다.</p>
-      </section>
-
-      <SystemStatusSection connection={connection} activeChild={activeChild} childrenCount={children.length} />
-
-      <section className="workspace">
-        <ChildProfileSection
-          connected={isConnected}
-          children={children}
-          activeChild={activeChild}
-          childContext={childContext}
-          growthMap={growthMap}
-          activityCount={activityPlans.length}
-          nickname={nickname}
-          childStage={childStage}
-          ageMonths={ageMonths}
-          saving={saving}
-          error={formError}
-          onNicknameChange={setNickname}
-          onStageChange={setChildStage}
-          onAgeMonthsChange={setAgeMonths}
-          onSubmit={handleCreateChild}
-          onSelectChild={(childId) => void handleSelectChild(childId)}
-          onAvatarUpdated={handleAvatarUpdated}
-        />
-
-        {activeChild && (
-          <>
+          {activeChild && showObservation && (
             <ObservationGrowthSection
               observation={observation}
               selectedAxes={selectedAxes}
@@ -659,7 +686,9 @@ function App() {
               onSubmit={handleCreateObservation}
               onRetryGrowth={() => void reloadChildContextPart("growth")}
             />
+          )}
 
+          {activeChild && showConversation && (
             <SearchConversationSection
               searchQuery={searchQuery}
               searchResult={searchResult}
@@ -674,6 +703,8 @@ function App() {
               onSearch={handleSearch}
               onConversationQuestionChange={setConversationQuestion}
               onConversation={handleConversation}
+              onNewConversation={resetSearchConversation}
+              onSelectConversation={selectConversation}
               backups={backups}
               backupBusy={backupBusy}
               backupError={backupError}
@@ -683,7 +714,9 @@ function App() {
               onBackupExport={handleExportBackup}
               onBackupRestore={handleRestoreBackup}
             />
+          )}
 
+          {activeChild && showLibrary && (
             <ResourceLibrarySection
               resourceKind={resourceKind}
               resourceTitle={resourceTitle}
@@ -700,8 +733,10 @@ function App() {
               onUpdate={handleUpdateResource}
               onDelete={handleDeleteResource}
             />
+          )}
 
-            {childContext.materials.kind === "loading" ? (
+          {activeChild && showMaterials && (
+            childContext.materials.kind === "loading" ? (
               <section className="material-workspace material-state-panel">
                 <ViewStateNotice kind="loading" title="생성 자료를 불러오는 중입니다." description="다른 작업공간은 계속 사용할 수 있습니다." />
               </section>
@@ -739,20 +774,23 @@ function App() {
                   setEditingMaterialId,
                   handleParentEdit,
                   handlePrintMaterial,
+                  handleMaterialResultRecorded,
                 }}
               />
-            )}
+            )
+          )}
 
-            {activeChild.stage === "infant_0_2" && (
-              <InfantGuidanceSection
-                observationHints={observationHints}
-                boardBooks={boardBooks}
-                loading={infantGuidanceLoading}
-                error={infantGuidanceError}
-                onLoad={() => void handleLoadInfantGuidance()}
-              />
-            )}
+          {activeChild && showActivities && activeChild.stage === "infant_0_2" && (
+            <InfantGuidanceSection
+              observationHints={observationHints}
+              boardBooks={boardBooks}
+              loading={infantGuidanceLoading}
+              error={infantGuidanceError}
+              onLoad={() => void handleLoadInfantGuidance()}
+            />
+          )}
 
+          {activeChild && showActivities && (
             <ActivitiesSection
               suggestions={activities}
               suggestionsLoading={activitiesLoading}
@@ -765,28 +803,64 @@ function App() {
               onTransition={(activityId, status) => void handleActivityTransition(activityId, status)}
               onRetryPlans={() => void reloadChildContextPart("activities")}
             />
+          )}
 
+          {activeChild && showTimeline && (
             <ObservationTimelineSection
               loadState={childContext.observations}
               timeline={timeline}
               activityPlans={activityPlans}
               onRetry={() => void reloadChildContextPart("observations")}
             />
-          </>
-        )}
-      </section>
+          )}
+        </section>
+      )}
 
-      <DataManagementSection
-        connected={isConnected}
-        backups={backups}
-        busy={backupBusy}
-        error={backupError}
-        notice={backupNotice}
-        onImport={handleImportBackup}
-        onCreate={() => void handleCreateBackup()}
-        onExport={(archiveName) => void handleExportBackup(archiveName)}
-        onRestore={handleRestoreBackup}
-      />
+      {activeView === "backup" && (
+        <DataManagementSection
+          mode="backup"
+          connected={isConnected}
+          backups={backups}
+          busy={backupBusy}
+          error={backupError}
+          notice={backupNotice}
+          onImport={handleImportBackup}
+          onCreate={() => void handleCreateBackup()}
+          onExport={(archiveName) => void handleExportBackup(archiveName)}
+          onRestore={handleRestoreBackup}
+        />
+      )}
+
+      {activeView === "settings" && (
+        <section className="settings-product-workspace" aria-labelledby="settings-product-title">
+          <header className="settings-product-heading">
+            <div>
+              <p className="eyebrow">PREFERENCES</p>
+              <h1 id="settings-product-title">설정</h1>
+              <p>앱 상태, 가족 프로필과 개인정보 관련 설정을 관리합니다.</p>
+            </div>
+          </header>
+          <SystemStatusSection
+            connection={connection}
+            activeChild={activeChild}
+            childrenCount={children.length}
+          />
+          <DataManagementSection
+            mode="settings"
+            showHeading={false}
+            connected={isConnected}
+            backups={backups}
+            busy={backupBusy}
+            error={backupError}
+            notice={backupNotice}
+            onImport={handleImportBackup}
+            onCreate={() => void handleCreateBackup()}
+            onExport={(archiveName) => void handleExportBackup(archiveName)}
+            onRestore={handleRestoreBackup}
+            onProfileUpdated={handleManagedProfileUpdated}
+          />
+        </section>
+      )}
 
       <ConfirmDialog
         open={backupConfirmation !== null}

@@ -5,10 +5,12 @@ import {
   useActiveChild,
   writeRememberedChildId,
 } from "../active-child-context";
-import { deleteChild, updateChild, type BackupItem, type Stage } from "../api";
+import { deleteChild, updateChild, type BackupItem, type ChildProfile, type Stage } from "../api";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
+  mode?: "backup" | "settings";
+  showHeading?: boolean;
   connected: boolean;
   backups: BackupItem[];
   busy: boolean;
@@ -18,6 +20,7 @@ interface DataManagementSectionProps {
   onCreate: () => void;
   onExport: (archiveName: string) => void;
   onRestore: (archiveName: string) => void;
+  onProfileUpdated?: (child: ChildProfile) => void | Promise<void>;
 }
 
 export function parseProfileList(value: string): string[] {
@@ -29,6 +32,8 @@ export function parseLearningGoals(value: string): string[] {
 }
 
 export function DataManagementSection({
+  mode = "backup",
+  showHeading = true,
   connected,
   backups,
   busy,
@@ -38,6 +43,7 @@ export function DataManagementSection({
   onCreate,
   onExport,
   onRestore,
+  onProfileUpdated = () => undefined,
 }: DataManagementSectionProps) {
   const { children, activeChild, upsertChild } = useActiveChild();
   const [profileChildId, setProfileChildId] = useState(activeChild?.id ?? children[0]?.id ?? "");
@@ -97,7 +103,7 @@ export function DataManagementSection({
     setProfileNotes(selectedProfileChild.notes ?? "");
   }, [selectedProfileChild]);
 
-  const destructiveBusy = busy || privacyBusy || profileBusy;
+  const destructiveBusy = (mode === "backup" ? busy : false) || privacyBusy || profileBusy;
   const deletionConfirmed =
     selectedDeleteChild !== null && deleteConfirmation.trim() === selectedDeleteChild.nickname;
 
@@ -148,11 +154,8 @@ export function DataManagementSection({
         notes: profileNotes.trim() || null,
       });
       upsertChild(updated);
-      setProfileNotice("아이 프로필을 저장했습니다. 최신 정보로 화면을 갱신합니다.");
-      // App still owns a legacy child-state projection alongside ActiveChildContext. Reloading
-      // after this low-frequency settings mutation keeps every child-scoped view consistent
-      // with the authoritative store until that duplicate state is fully removed.
-      window.setTimeout(() => window.location.reload(), 0);
+      await onProfileUpdated(updated);
+      setProfileNotice("아이 프로필을 저장했습니다.");
     } catch (profileSaveError) {
       setProfileError(
         profileSaveError instanceof Error && profileSaveError.message.trim()
@@ -193,7 +196,22 @@ export function DataManagementSection({
   }
 
   return (
-    <section className="data-management-section">
+    <section className={`data-management-section data-management-section--${mode}`}>
+      {showHeading && (
+        <div className="data-management-page-heading">
+          <div>
+            <p className="eyebrow">{mode === "backup" ? "DATA SAFETY" : "PREFERENCES"}</p>
+            <h1>{mode === "backup" ? "백업 및 복원" : "설정"}</h1>
+            <p>
+              {mode === "backup"
+                ? "소중한 기록을 안전하게 보관하고 필요한 시점의 백업으로 복원합니다."
+                : "가족 프로필, 앱 상태와 개인정보 관련 설정을 관리합니다."}
+            </p>
+          </div>
+        </div>
+      )}
+
+      {mode === "settings" && (
       <section className="profile-management-zone" aria-labelledby="profile-management-title">
         <div className="activity-heading">
           <div>
@@ -323,6 +341,25 @@ export function DataManagementSection({
           </form>
         )}
       </section>
+      )}
+
+      {mode === "backup" && (
+      <>
+      <div className="backup-status-card">
+        <div className="backup-status-icon" aria-hidden="true">✓</div>
+        <div>
+          <span>로컬 백업</span>
+          <strong>{backups.length > 0 ? "백업 준비됨" : "첫 백업을 만들어 주세요"}</strong>
+          <small>
+            {backups[0]
+              ? `최근 백업 · ${new Date(backups[0].modified_at).toLocaleString("ko-KR")}`
+              : "아직 생성된 백업이 없습니다."}
+          </small>
+        </div>
+        <button className="primary-button" type="button" onClick={onCreate} disabled={!connected || destructiveBusy}>
+          {busy ? "처리 중…" : "지금 백업"}
+        </button>
+      </div>
 
       <div className="activity-heading data-section-divider">
         <div>
@@ -368,7 +405,11 @@ export function DataManagementSection({
           ))}
         </div>
       )}
+      </>
+      )}
 
+      {mode === "settings" && (
+      <>
       <div className="activity-heading privacy-danger-zone">
         <div>
           <p className="card-label">개인정보와 삭제</p>
@@ -420,6 +461,8 @@ export function DataManagementSection({
           {privacyBusy ? "삭제 중…" : "아이 데이터 영구 삭제"}
         </button>
       </div>
+      </>
+      )}
     </section>
   );
 }

@@ -1,67 +1,57 @@
-import { readdirSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 
-const projectionCss = readFileSync(
+const mainSource = readFileSync(
+  fileURLToPath(new URL("../main.tsx", import.meta.url)),
+  "utf8",
+);
+const appSource = readFileSync(
+  fileURLToPath(new URL("../App.tsx", import.meta.url)),
+  "utf8",
+);
+const shellCss = readFileSync(
   fileURLToPath(new URL("./WorkspaceShell.css", import.meta.url)),
   "utf8",
 );
-const sourceRoot = fileURLToPath(new URL("../", import.meta.url));
 
-function collectTsxSource(directory: string): string {
-  return readdirSync(directory, { withFileTypes: true })
-    .filter((entry) => !entry.name.endsWith(".test.tsx"))
-    .map((entry) => {
-      const path = `${directory}/${entry.name}`;
-      if (entry.isDirectory()) return collectTsxSource(path);
-      return entry.name.endsWith(".tsx") ? readFileSync(path, "utf8") : "";
-    })
-    .join("\n");
-}
+const PRODUCT_SURFACES = [
+  ["home", "HomeDashboard"],
+  ["profile", "ProfileWorkspaceHub"],
+  ["learning", "LearningWorkspaceHub"],
+  ["materials", "MaterialsWorkspaceHub"],
+  ["photos", "PhotoActivityWorkspace"],
+  ["help", "HelpWorkspace"],
+] as const;
 
-const renderedSource = collectTsxSource(sourceRoot);
-
-const projectedSurfaces = {
-  profile: ["child-profile-section"],
-  observations: ["observation-panel", "timeline-section"],
-  growth: ["observation-panel"],
-  activities: ["infant-guidance-section", "activity-section", "quest-section"],
-  search: ["search-section", "conversation-section"],
-  library: ["resource-section"],
-  materials: ["material-workspace"],
-  settings: ["status-grid", "data-management-section"],
-} as const;
-
-describe("legacy workspace projection contract", () => {
-  it("keeps every projected workspace wired to a real rendered surface", () => {
-    for (const [workspace, classes] of Object.entries(projectedSurfaces)) {
-      expect(projectionCss, `${workspace} workspace selector is missing`).toContain(
-        `data-active-workspace="${workspace}"`,
+describe("product workspace composition contract", () => {
+  it("wires each dedicated product workspace to a rendered surface", () => {
+    for (const [workspace, component] of PRODUCT_SURFACES) {
+      expect(mainSource, `${workspace} workspace must render ${component}`).toContain(component);
+      expect(mainSource, `${workspace} workspace route is missing`).toContain(
+        `activeView === "${workspace}"`,
       );
-      for (const className of classes) {
-        expect(projectionCss, `${workspace} must project .${className}`).toContain(`.${className}`);
-        expect(renderedSource, `render tree must still contain .${className}`).toContain(className);
-      }
     }
+    expect(mainSource).toContain("<App activeView={activeView} />");
   });
 
-  it("keeps inactive legacy surfaces hidden before selectively projecting them", () => {
-    for (const className of [
-      "status-grid",
-      "child-profile-section",
-      "observation-panel",
-      "search-section",
-      "conversation-section",
-      "resource-section",
-      "material-workspace",
-      "infant-guidance-section",
-      "activity-section",
-      "quest-section",
-      "timeline-section",
-      "data-management-section",
-    ]) {
-      expect(projectionCss).toContain(`.${className}`);
-    }
-    expect(projectionCss).toContain("display: none");
+  it("mounts feature surfaces from App instead of reviving them through shell CSS", () => {
+    expect(appSource).toContain('activeView === "conversation"');
+    expect(appSource).toContain('activeView === "backup"');
+    expect(appSource).toContain('activeView === "settings"');
+    expect(appSource).toContain("showProfile");
+    expect(appSource).toContain("showMaterials");
+    expect(appSource).toContain("showTimeline");
+
+    expect(shellCss).not.toContain('data-active-workspace="profile"] .app-shell');
+    expect(shellCss).not.toContain('data-active-workspace="materials"] .app-shell');
+    expect(shellCss).toContain('data-active-workspace="growth"');
+  });
+
+  it("does not expose removed legacy routes in the product composition", () => {
+    expect(mainSource).not.toContain('activeView === "observations"');
+    expect(mainSource).not.toContain('activeView === "growth"');
+    expect(mainSource).not.toContain('activeView === "activities"');
+    expect(mainSource).not.toContain('activeView === "library"');
   });
 });

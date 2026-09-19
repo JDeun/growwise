@@ -1,0 +1,124 @@
+.learning-hub {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.learning-hub-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 2px 4px 0;
+}
+
+.learning-hub-heading h1,
+.learning-hub-heading p {
+  margin: 0;
+}
+
+.learning-hub-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.learning-hub-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.learning-hub-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+}
+
+.learning-hub-tabs {
+  display: flex;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(43, 42, 40, .07);
+  border-radius: 12px;
+  background: #f8faf9;
+}
+
+.learning-hub-tabs button {
+  display: grid;
+  gap: 2px;
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #76817b;
+  cursor: pointer;
+  text-align: left;
+}
+
+.learning-hub-tabs button strong {
+  font-size: 9.5px;
+}
+
+.learning-hub-tabs button small {
+  font-size: 7.5px;
+  opacity: .76;
+}
+
+.learning-hub-tabs button.is-active {
+  background: #fff;
+  color: #2f6f57;
+  box-shadow: 0 3px 10px rgba(43, 66, 56, .07);
+}
+
+.learning-hub-observations {
+  display: none;
+}
+
+.learning-hub[data-learning-tab="observations"] .learning-hub-records {
+  display: none;
+}
+
+.learning-hub[data-learning-tab="observations"] .learning-hub-observations {
+  display: block;
+}
+
+.learning-hub-observations .app-shell > .workspace > .child-profile-section,
+.learning-hub-observations .app-shell > .workspace > .conversation-workspace-grid,
+.learning-hub-observations .app-shell > .workspace > .search-section,
+.learning-hub-observations .app-shell > .workspace > .conversation-section,
+.learning-hub-observations .app-shell > .workspace > .resource-section,
+.learning-hub-observations .app-shell > .workspace > .material-workspace,
+.learning-hub-observations .app-shell > .workspace > .infant-guidance-section,
+.learning-hub-observations .app-shell > .workspace > .activity-section,
+.learning-hub-observations .app-shell > .workspace > .quest-section {
+  display: none !important;
+}
+
+.learning-hub[data-learning-tab="observations"] .learning-hub-observations .app-shell > .workspace > .observation-panel {
+  display: grid !important;
+}
+
+.learning-hub[data-learning-tab="observations"] .learning-hub-observations .app-shell > .workspace > .observation-panel > .observation-result {
+  display: none !important;
+}
+
+.learning-hub[data-learning-tab="observations"] .learning-hub-observations .app-shell > .workspace > .timeline-section {
+  display: block !important;
+  margin-top: 12px;
+}
+
+.learning-hub-observations .app-shell > .workspace {
+  padding: 0;
+}
+
+@media (max-width: 680px) {
+  .learning-hub-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .learning-hub-tabs button {
+    min-width: 0;
+  }
+}

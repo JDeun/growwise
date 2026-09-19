@@ -1,0 +1,177 @@
+.materials-hub {
+  display: grid;
+  gap: 14px;
+  min-width: 0;
+}
+
+.materials-hub-heading {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 2px 4px 0;
+}
+
+.materials-hub-heading h1,
+.materials-hub-heading p {
+  margin: 0;
+}
+
+.materials-hub-heading .eyebrow {
+  margin-bottom: 6px;
+}
+
+.materials-hub-heading h1 {
+  color: #2b2a28;
+  font-size: 25px;
+  font-weight: 780;
+  letter-spacing: -0.045em;
+}
+
+.materials-hub-heading > div > p:last-child {
+  margin-top: 5px;
+  color: #77807b;
+  font-size: 11px;
+}
+
+.materials-hub-tabs {
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
+  padding: 4px;
+  border: 1px solid rgba(43, 42, 40, 0.07);
+  border-radius: 12px;
+  background: #f8faf9;
+}
+
+.materials-hub-tabs button {
+  display: grid;
+  gap: 2px;
+  min-width: 132px;
+  padding: 8px 12px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: #76817b;
+  cursor: pointer;
+  text-align: left;
+}
+
+.materials-hub-tabs button strong {
+  font-size: 9.5px;
+}
+
+.materials-hub-tabs button small {
+  font-size: 7.5px;
+  opacity: .76;
+}
+
+.materials-hub-tabs button.is-active {
+  background: #fff;
+  color: #2f6f57;
+  box-shadow: 0 3px 10px rgba(43, 66, 56, 0.07);
+}
+
+.materials-hub-discovery {
+  display: none;
+}
+
+.materials-hub[data-material-tab="discovery"] .materials-hub-core {
+  display: none;
+}
+
+.materials-hub[data-material-tab="discovery"] .materials-hub-discovery {
+  display: block;
+}
+
+.materials-hub[data-material-tab="library"] .app-shell > .workspace > .material-workspace {
+  display: none !important;
+}
+
+.materials-hub[data-material-tab="library"] .app-shell > .workspace > .resource-section {
+  display: block !important;
+  margin-top: 0;
+}
+
+.materials-hub[data-material-tab="materials"] .app-shell > .workspace > .resource-section {
+  display: none !important;
+}
+
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .material-workspace,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .resource-section {
+  display: none !important;
+}
+
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .infant-guidance-section,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .activity-section,
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .quest-section {
+  display: block !important;
+}
+
+.materials-hub[data-material-tab="activities"] .app-shell > .workspace > .activity-section {
+  margin-top: 0;
+}
+
+.materials-hub .app-shell > .workspace > .material-workspace {
+  margin-top: 0;
+}
+
+.materials-hub .discovery-workspace {
+  margin: 0;
+}
+
+@media (max-width: 680px) {
+  .materials-hub-tabs {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .materials-hub-tabs button {
+    min-width: 0;
+  }
+}
+
+
+/* Hub tabs own feature visibility instead of relying on WorkspaceShell projection rules. */
+.materials-hub .materials-hub-core .material-workspace,
+.materials-hub .materials-hub-core .resource-section,
+.materials-hub .materials-hub-core .infant-guidance-section,
+.materials-hub .materials-hub-core .activity-section,
+.materials-hub .materials-hub-core .quest-section {
+  display: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace {
+  display: block;
+}
+
+.materials-hub[data-material-tab="library"] .materials-hub-core .resource-section {
+  display: block;
+}
+
+.materials-hub[data-material-tab="activities"] .materials-hub-core .infant-guidance-section,
+.materials-hub[data-material-tab="activities"] .materials-hub-core .activity-section,
+.materials-hub[data-material-tab="activities"] .materials-hub-core .quest-section {
+  display: block;
+}
+
+
+/* Concept alignment: the materials tab opens directly into the document canvas + controls.
+ * Workflow counts remain available in the queue lanes below the studio instead of repeating
+ * a second page heading and status summary above the primary task. */
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace {
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace > .section-heading,
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-workspace > .material-queue-summary {
+  display: none;
+}
+
+.materials-hub[data-material-tab="materials"] .materials-hub-core .material-studio {
+  margin-top: 0;
+}
