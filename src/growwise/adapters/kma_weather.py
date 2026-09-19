@@ -3,6 +3,7 @@ from __future__ import annotations
 import math
 from datetime import datetime, timedelta, timezone
 from typing import Any
+
 from .base import AdapterResult
 from .cache import SQLiteExternalCache
 from .cached_search import cached_search, stable_cache_key
