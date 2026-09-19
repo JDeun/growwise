@@ -122,8 +122,8 @@ def test_useful_model_core_is_wrapped_in_stable_commercial_shell() -> None:
     assert "### 관찰하기" in material.content_markdown
     assert "## 맞춤 진행 메모" in material.parent_guide_markdown
     assert "어떤 근거로 예상했는지" in material.parent_guide_markdown
-    assert "물의 상태 변화 관찰 자료 (\`resource:science-1\`)" in material.content_markdown
-    assert "물의 상태 변화 관찰 자료 (\`resource:science-1\`)" in material.parent_guide_markdown
+    assert "물의 상태 변화 관찰 자료 (`resource:science-1`)" in material.content_markdown
+    assert "물의 상태 변화 관찰 자료 (`resource:science-1`)" in material.parent_guide_markdown
 
 
 def test_publication_gate_rejects_placeholder_artifacts() -> None:
