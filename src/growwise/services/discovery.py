@@ -537,7 +537,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=Data4LibraryAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=Data4LibraryAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -572,7 +576,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_open_library(
         self,
@@ -582,7 +590,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=OpenLibraryAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=OpenLibraryAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = OpenLibraryAdapter(
             cache=self.cache,
@@ -596,7 +608,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=OpenLibraryAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=OpenLibraryAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -606,7 +622,11 @@ class EducationDiscoveryService:
             subject_list = [str(v) for v in subjects[:8]] if isinstance(subjects, list) else []
             authors = self._text(record.get("authors"))
             year = self._text(record.get("first_publish_year"))
-            summary = " · ".join(part for part in (authors, year, ", ".join(subject_list[:4])) if part)
+            summary = " · ".join(
+                part
+                for part in (authors, year, ", ".join(subject_list[:4]))
+                if part
+            )
             suggestions.append(
                 self._suggestion(
                     source=result.source,
@@ -630,7 +650,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_google_books(
         self,
@@ -640,7 +664,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=GoogleBooksAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=GoogleBooksAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = GoogleBooksAdapter(
             cache=self.cache,
@@ -655,7 +683,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=GoogleBooksAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=GoogleBooksAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -689,7 +721,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_wikipedia(
         self,
@@ -699,7 +735,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=WikipediaAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=WikipediaAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = WikipediaAdapter(
             cache=self.cache,
@@ -713,7 +753,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=WikipediaAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=WikipediaAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -742,7 +786,11 @@ class EducationDiscoveryService:
                     metadata={},
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_wikidata(
         self,
@@ -752,7 +800,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=WikidataAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=WikidataAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = WikidataAdapter(
             cache=self.cache,
@@ -766,7 +818,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=WikidataAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=WikidataAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -793,7 +849,11 @@ class EducationDiscoveryService:
                     metadata={"entity_id": self._text(record.get("id"))},
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_commons(
         self,
@@ -803,7 +863,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=WikimediaCommonsAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=WikimediaCommonsAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = WikimediaCommonsAdapter(
             cache=self.cache,
@@ -817,7 +881,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=WikimediaCommonsAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=WikimediaCommonsAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -836,7 +904,10 @@ class EducationDiscoveryService:
                     source_url=self._optional_text(record.get("source_url")),
                     author=self._optional_text(record.get("artist")),
                     attribution=result.attribution,
-                    license_note=f"{result.license_note}; file license={self._text(record.get('license'))}",
+                    license_note=(
+                        f"{result.license_note}; "
+                        f"file license={self._text(record.get('license'))}"
+                    ),
                     cache_status=result.cache_status,
                     rationale="관찰·비교·설명 활동에 활용할 수 있는 공개 이미지 후보입니다.",
                     query=query,
@@ -849,7 +920,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_nasa(
         self,
@@ -859,7 +934,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=NasaImagesAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=NasaImagesAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = NasaImagesAdapter(
             cache=self.cache,
@@ -873,7 +952,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=NasaImagesAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=NasaImagesAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -907,7 +990,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_gbif(
         self,
@@ -917,7 +1004,11 @@ class EducationDiscoveryService:
         source_states: list[DiscoverySourceState],
         offline: bool,
     ) -> None:
-        if self._needs_query(source=GbifSpeciesAdapter.SOURCE, query=query, source_states=source_states):
+        if self._needs_query(
+            source=GbifSpeciesAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
             return
         adapter = GbifSpeciesAdapter(
             cache=self.cache,
@@ -931,7 +1022,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source=GbifSpeciesAdapter.SOURCE, exc=exc, source_states=source_states)
+            self._failed_source(
+                source=GbifSpeciesAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("title"))
@@ -981,7 +1076,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     def _collect_places(
         self,
@@ -1015,7 +1114,11 @@ class EducationDiscoveryService:
                 offline=offline,
             )
         except ExternalAdapterError as exc:
-            self._failed_source(source="openstreetmap_overpass", exc=exc, source_states=source_states)
+            self._failed_source(
+                source="openstreetmap_overpass",
+                exc=exc,
+                source_states=source_states,
+            )
             return
         for record in result.records:
             title = self._text(record.get("name"))
@@ -1046,7 +1149,11 @@ class EducationDiscoveryService:
                     },
                 )
             )
-        self._source_ready(result_source=result.source, cache_status=result.cache_status, source_states=source_states)
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     @staticmethod
     def _curriculum_suggestions(
