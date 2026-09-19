@@ -174,7 +174,7 @@
 
 .home-dashboard-grid {
   display: grid;
-  grid-template-columns: minmax(300px, 0.82fr) minmax(0, 1.18fr);
+  grid-template-columns: minmax(300px, 0.84fr) minmax(0, 1.16fr);
   gap: 12px;
   align-items: stretch;
 }
