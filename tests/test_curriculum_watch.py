@@ -16,7 +16,7 @@ class StubHtmlClient:
         accept: str,
     ) -> str:
         del params, accept
-        if "ncic.go.kr" in url:
+        if "ncic." in url:
             return self.ncic
         return self.moe
 
