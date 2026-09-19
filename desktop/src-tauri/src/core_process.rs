@@ -38,6 +38,7 @@ impl CoreProcessManager {
                 .env("GROWWISE_SESSION_TOKEN", &session_token)
                 .env("GROWWISE_DATA_DIR", data_dir)
                 .stdin(Stdio::null());
+            apply_desktop_ai_defaults(&mut command);
 
             if cfg!(debug_assertions) {
                 command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -115,6 +116,117 @@ impl Drop for CoreProcessManager {
         *child_slot = None;
         self.session_token.clear();
     }
+}
+
+const GIB: u64 = 1024 * 1024 * 1024;
+
+fn recommended_text_model_id(total_memory_bytes: u64) -> &'static str {
+    if total_memory_bytes <= 12 * GIB {
+        "qwen3.5:2b"
+    } else if total_memory_bytes <= 20 * GIB {
+        "qwen3.5:4b"
+    } else {
+        // Desktop defaults prioritize a broadly usable balanced model instead of automatically
+        // downloading the largest model a machine might technically fit.
+        "qwen3.5:9b"
+    }
+}
+
+fn recommended_vision_model_id(total_memory_bytes: u64) -> &'static str {
+    if total_memory_bytes < 24 * GIB {
+        "gemma4:e2b"
+    } else {
+        "gemma4:e4b"
+    }
+}
+
+fn apply_desktop_ai_defaults(command: &mut Command) {
+    let Some(total_memory_bytes) = total_memory_bytes() else {
+        return;
+    };
+
+    if env::var_os("GROWWISE_MODEL_ID").is_none() {
+        command.env(
+            "GROWWISE_MODEL_ID",
+            recommended_text_model_id(total_memory_bytes),
+        );
+    }
+    if env::var_os("GROWWISE_VISION_MODEL_ID").is_none() {
+        command.env(
+            "GROWWISE_VISION_MODEL_ID",
+            recommended_vision_model_id(total_memory_bytes),
+        );
+    }
+}
+
+#[cfg(target_os = "macos")]
+fn total_memory_bytes() -> Option<u64> {
+    let output = Command::new("/usr/sbin/sysctl")
+        .args(["-n", "hw.memsize"])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
+    }
+    String::from_utf8(output.stdout)
+        .ok()?
+        .trim()
+        .parse::<u64>()
+        .ok()
+}
+
+#[cfg(target_os = "linux")]
+fn total_memory_bytes() -> Option<u64> {
+    let contents = std::fs::read_to_string("/proc/meminfo").ok()?;
+    let line = contents.lines().find(|line| line.starts_with("MemTotal:"))?;
+    let kib = line.split_whitespace().nth(1)?.parse::<u64>().ok()?;
+    Some(kib * 1024)
+}
+
+#[cfg(target_os = "windows")]
+fn total_memory_bytes() -> Option<u64> {
+    #[repr(C)]
+    struct MemoryStatusEx {
+        length: u32,
+        memory_load: u32,
+        total_phys: u64,
+        avail_phys: u64,
+        total_page_file: u64,
+        avail_page_file: u64,
+        total_virtual: u64,
+        avail_virtual: u64,
+        avail_extended_virtual: u64,
+    }
+
+    #[link(name = "kernel32")]
+    extern "system" {
+        fn GlobalMemoryStatusEx(buffer: *mut MemoryStatusEx) -> i32;
+    }
+
+    let mut status = MemoryStatusEx {
+        length: std::mem::size_of::<MemoryStatusEx>() as u32,
+        memory_load: 0,
+        total_phys: 0,
+        avail_phys: 0,
+        total_page_file: 0,
+        avail_page_file: 0,
+        total_virtual: 0,
+        avail_virtual: 0,
+        avail_extended_virtual: 0,
+    };
+    // SAFETY: GlobalMemoryStatusEx receives a valid writable structure whose length field is set
+    // to the exact ABI size and does not retain the pointer.
+    let ok = unsafe { GlobalMemoryStatusEx(&mut status) };
+    if ok == 0 {
+        None
+    } else {
+        Some(status.total_phys)
+    }
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux", target_os = "windows")))]
+fn total_memory_bytes() -> Option<u64> {
+    None
 }
 
 fn core_command(resource_dir: &Path) -> Result<Command, String> {
@@ -240,7 +352,10 @@ fn authenticated_handshake(port: u16, session_token: &str) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use super::{core_binary_name, default_python, reserve_loopback_port, secure_session_token};
+    use super::{
+        core_binary_name, default_python, recommended_text_model_id, recommended_vision_model_id,
+        reserve_loopback_port, secure_session_token, GIB,
+    };
 
     #[test]
     fn platform_names_are_stable() {
@@ -251,6 +366,17 @@ mod tests {
             assert_eq!(default_python(), "python3");
             assert_eq!(core_binary_name(), "growwise-core");
         }
+    }
+
+    #[test]
+    fn desktop_ai_defaults_are_conservative_for_consumer_memory_sizes() {
+        assert_eq!(recommended_text_model_id(8 * GIB), "qwen3.5:2b");
+        assert_eq!(recommended_text_model_id(16 * GIB), "qwen3.5:4b");
+        assert_eq!(recommended_text_model_id(24 * GIB), "qwen3.5:9b");
+        assert_eq!(recommended_text_model_id(64 * GIB), "qwen3.5:9b");
+
+        assert_eq!(recommended_vision_model_id(16 * GIB), "gemma4:e2b");
+        assert_eq!(recommended_vision_model_id(24 * GIB), "gemma4:e4b");
     }
 
     #[test]
