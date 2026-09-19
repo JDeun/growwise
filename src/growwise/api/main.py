@@ -69,7 +69,7 @@ from growwise.idempotency import (
     IdempotencyStatus,
     request_fingerprint,
 )
-from growwise.model.health import probe_model_runtime
+from growwise.model.health import probe_embedding_runtime, probe_model_runtime
 from growwise.rag import (
     GroundedRagService,
     ResourceIngestor,
@@ -153,8 +153,9 @@ def validate_activity_link(
 def health() -> dict[str, str | bool]:
     settings = get_settings()
     runtime = probe_model_runtime(settings)
+    embedding_runtime = probe_embedding_runtime(settings)
     llm_effective = settings.llm_features_enabled and runtime.reachable
-    embedding_effective = settings.embedding_features_enabled and runtime.reachable
+    embedding_effective = settings.embedding_features_enabled and embedding_runtime.reachable
     return {
         "status": "ok",
         "operation_mode": ("ai_enhanced_with_core_fallback" if llm_effective else "core_only"),
