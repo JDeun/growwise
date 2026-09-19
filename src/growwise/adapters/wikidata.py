@@ -78,7 +78,10 @@ class WikidataAdapter:
                     "id": entity_id,
                     "title": label,
                     "description": str(item.get("description") or "")[:4_000],
-                    "source_url": str(item.get("concepturi") or f"https://www.wikidata.org/wiki/{entity_id}"),
+                    "source_url": str(
+                        item.get("concepturi")
+                        or f"https://www.wikidata.org/wiki/{entity_id}"
+                    ),
                 }
             )
         return records
