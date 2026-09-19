@@ -22,6 +22,7 @@ from growwise.maintenance import StaleDataGeneration
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.entity_links import EntityLinkService
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.privacy import ChildPurgeService
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
@@ -92,6 +93,12 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
 
     rag = HybridRagIndex(settings.rag_index_path)
     ResourceIngestor(rag).ingest(resource)
+    wiki = LearningWikiService(
+        store,
+        provider=None,
+        rag_index=rag,
+    ).refresh(str(child.id))
+    assert rag.has_resource(str(wiki.id))
     sibling_resource = ResourceRecord(
         child_id=sibling.id,
         kind=ResourceKind.NOTE,
@@ -162,7 +169,9 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
     assert result.links_deleted >= 2
     assert result.backups_may_contain_deleted_child is True
     assert store.index.get_entity(str(child.id), entity_type="child_profile") is None
+    assert store.index.get_entity(str(wiki.id), entity_type="learning_wiki") is None
     assert store.index.list_entities(child_id=str(child.id)) == []
+    assert not rag.has_resource(str(wiki.id))
     assert store.index.get_entity(str(sibling.id), entity_type="child_profile") is not None
     assert store.index.get_entity(str(sibling_log.id), entity_type="learning_log") is not None
     assert store.index.get_entity(str(sibling_resource.id), entity_type="resource") is not None
