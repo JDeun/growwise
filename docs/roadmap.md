@@ -145,7 +145,7 @@ input → router → RAG/context → optional LLM → structured material
 - [x] 과학 탐구 제품 UX 완성 (`MaterialKindGuide` + stage-aware catalog + Parent Review)
 - [x] 글쓰기·말하기 코치 제품 UX 완성 (`MaterialKindGuide` + stage-aware catalog + Parent Review)
 - [x] 그림/표/도형 등 출력 컴포넌트 (`desktop/src/components/MaterialContent.tsx` — 안전 렌더러, 접근성 테이블/도형)
-- [x] curriculum mapping (`curriculum.py` + `MaterialCurriculumTargets` — stage/kind 결정적 매핑, 공식 코드 미추정)
+- [x] curriculum mapping (`curriculum.py` + `curriculum_versions.py` + `MaterialCurriculumTargets` — 생년월일/학년·기준일 기반 적용 교육과정/개정본 자동 선택, 전환기 fail-closed, 공식 코드 미추정)
 - [x] 활동 템플릿 라이브러리 확장 (`generators/templates.py` — kind별 5변형, 결정적 선택)
 - [x] 생성물 편집/재생성/immutable 버전 관리
 - [x] 인쇄 레이아웃 설정 (A4/Letter, 세로/가로, 5~40mm 안전 여백 + 적대 입력 회귀)
@@ -186,7 +186,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 ## Phase 6 — Integrations
 
 - [x] 도서관 정보나루(Data4Library) adapter
-- [x] 교육과정/공공 교육자료 adapter (`OfficialKoreanCurriculumCatalogAdapter` — 공식 메타데이터/링크만 번들, 원문 미재배포)
+- [x] 교육과정/공공 교육자료 adapter (`OfficialKoreanCurriculumCatalogAdapter` + `OfficialCurriculumUpdateWatcher` — 공식 메타데이터/링크 번들, 학년별 버전 resolver, 새 고시 주기 감시, 원문 미재배포)
 - [x] OpenStreetMap/Overpass adapter
 - [x] 외부 metadata/image license filtering (`adapters/license_filter.py`; 어댑터 배선은 상류 per-item 라이선스 필드 생기면)
 - [x] cache TTL / stale fallback

@@ -27,7 +27,10 @@ growwise가 자료를 생성할 때 쓰는 **오픈 API·오픈소스·오픈 �
 모두 GrowWise가 네트워크로 직접 호출하는 것은 아니다. 현재 `EducationDiscoveryService`에 실제
 연결된 경로는 다음과 같다.
 
-- **오프라인/로컬 카탈로그**: 공식 한국 교육과정, GrowWise 공식 교육 콘텐츠 링크 카탈로그
+- **교육과정**: 공식 한국 교육과정 bundled catalog + 생년월일/학년·기준일 기반 버전 resolver.
+  선택적 구조화 endpoint는 검증된 최신 개정 메타데이터를 보강하며, NCIC/교육부 공식 게시판은
+  주기 watcher가 새 고시 후보만 탐지한다. HTML 탐지 결과 자체를 교재 기준으로 자동 승격하지 않는다.
+- **오프라인/로컬 카탈로그**: GrowWise 공식 교육 콘텐츠 링크 카탈로그
 - **키 기반**: 도서관 정보나루, 국립중앙도서관 ISBN, 한국어기초사전, 기상청, 전국 박물관·미술관
 - **선택적 공개 보강**: Google Books, Wikipedia, Wikidata, Wikimedia Commons,
   NASA Image and Video Library, GBIF, 국가유산청 궁궐·문화유산
