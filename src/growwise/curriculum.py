@@ -83,14 +83,19 @@ _SCHOOL_KIND_DOMAINS: dict[MaterialKind, tuple[str, str, str]] = {
 }
 
 
-def curriculum_targets_for(stage: Stage, kind: MaterialKind) -> list[CurriculumTarget]:
+def curriculum_targets_for(
+    stage: Stage,
+    kind: MaterialKind,
+    *,
+    on_date: date | None = None,
+) -> list[CurriculumTarget]:
     """Return conservative stage-only curriculum metadata.
 
     School stages can span two curriculum families during a phased rollout. Call
     curriculum_targets_for_child when learner grade or birth-date information is available.
     """
     placeholder = ChildProfile(name="curriculum-resolution", stage=stage)
-    return curriculum_targets_for_child(placeholder, kind)
+    return curriculum_targets_for_child(placeholder, kind, on_date=on_date)
 
 
 def curriculum_targets_for_child(
