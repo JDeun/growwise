@@ -332,6 +332,12 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                   </>
                 )}
               </div>
+              {focusedMaterial.status === "approved" && (
+                <MaterialResultPanel
+                  material={focusedMaterial}
+                  onRecorded={onResultRecorded}
+                />
+              )}
             </>
           ) : (
             <div className="material-document-empty">
