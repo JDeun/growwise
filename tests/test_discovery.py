@@ -9,7 +9,7 @@ from growwise.config import Settings
 from growwise.domain import ActivityPlan, ChildProfile, LearningLog, ResourceKind, Stage
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services.discovery import DiscoverySuggestion, EducationDiscoveryService
-from growwise.services.public_query import generalize_public_terms
+from growwise.services.public_query import generalize_public_terms, translate_public_terms
 from growwise.storage import EntityStore
 
 
@@ -22,6 +22,7 @@ def _service(tmp_path: Path, **settings_overrides: object) -> tuple[
         llm_features_enabled=False,
         embedding_features_enabled=False,
         vision_features_enabled=False,
+        public_enrichment_enabled=False,
         **settings_overrides,
     )
     store = EntityStore(settings.records_dir, settings.index_path)
@@ -252,3 +253,179 @@ def test_explicit_discovery_query_is_generalized_before_external_use(
 def test_public_topic_projection_does_not_treat_nickname_fragment_as_topic() -> None:
     assert generalize_public_terms(["별이와 공룡을 함께 보기"]) == ["공룡"]
     assert generalize_public_terms(["PRIVATE_ONLY_MARKER"]) == []
+
+
+
+def test_public_topic_translation_only_maps_allowlisted_terms() -> None:
+    canonical = generalize_public_terms(["PRIVATE_MARKER 우주와 공룡"])
+    assert canonical == ["우주", "공룡"]
+    assert translate_public_terms(canonical, language="en") == ["space", "dinosaurs"]
+    assert "PRIVATE_MARKER" not in " ".join(
+        translate_public_terms(canonical, language="en")
+    )
+
+
+def test_discovery_save_persists_evidence_content_for_material_grounding(
+    tmp_path: Path,
+) -> None:
+    service, store = _service(tmp_path)
+    child = ChildProfile(name="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    suggestion = DiscoverySuggestion(
+        candidate_id="nasa_images:moon-test",
+        category="science",
+        resource_kind=ResourceKind.WEB,
+        title="Moon observation",
+        summary="달 표면을 관찰하는 NASA 자료",
+        content="달 표면에는 충돌구와 밝고 어두운 지형이 보인다.",
+        source_name="nasa_images",
+        source_url="https://images.nasa.gov/details/test",
+        attribution="NASA",
+        license_note="test public-domain note",
+        cache_status="live",
+        rationale="과학 관찰 근거",
+        tags=["NASA", "달"],
+    )
+
+    saved = service.save(child=child, suggestion=suggestion)
+    assert saved.content == suggestion.content
+    assert saved.summary == suggestion.summary
+    assert saved.provenance["discovery_source"] == "nasa_images"
+    assert saved.provenance["discovery_category"] == "science"
+
+
+def test_public_source_fanout_receives_only_allowlisted_queries(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    seen: list[tuple[str, str]] = []
+
+    class FakeOpenLibrary:
+        SOURCE = "open_library"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search_books(self, *, query: str, limit: int, offline: bool) -> AdapterResult:
+            del limit, offline
+            seen.append((self.SOURCE, query))
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[],
+                attribution="test",
+                license_note="test",
+            )
+
+    class FakeGoogleBooks:
+        SOURCE = "google_books"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search_books(
+            self,
+            *,
+            query: str,
+            limit: int,
+            offline: bool,
+        ) -> AdapterResult:
+            del limit, offline
+            seen.append((self.SOURCE, query))
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[],
+                attribution="test",
+                license_note="test",
+            )
+
+    class FakeSearch:
+        def __init__(self, source: str, **_kwargs: object) -> None:
+            self.SOURCE = source
+
+        def search(self, *, query: str, limit: int, offline: bool) -> AdapterResult:
+            del limit, offline
+            seen.append((self.SOURCE, query))
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[],
+                attribution="test",
+                license_note="test",
+            )
+
+    class FakeWikipedia(FakeSearch):
+        SOURCE = "wikipedia_ko"
+
+        def __init__(self, **kwargs: object) -> None:
+            super().__init__(self.SOURCE, **kwargs)
+
+    class FakeWikidata(FakeSearch):
+        SOURCE = "wikidata"
+
+        def __init__(self, **kwargs: object) -> None:
+            super().__init__(self.SOURCE, **kwargs)
+
+    class FakeNasa(FakeSearch):
+        SOURCE = "nasa_images"
+
+        def __init__(self, **kwargs: object) -> None:
+            super().__init__(self.SOURCE, **kwargs)
+
+    class FakeGbif(FakeSearch):
+        SOURCE = "gbif_species"
+
+        def __init__(self, **kwargs: object) -> None:
+            super().__init__(self.SOURCE, **kwargs)
+
+    class FakeCommons:
+        SOURCE = "wikimedia_commons"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search_images(
+            self,
+            *,
+            query: str,
+            limit: int,
+            offline: bool,
+        ) -> AdapterResult:
+            del limit, offline
+            seen.append((self.SOURCE, query))
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[],
+                attribution="test",
+                license_note="test",
+            )
+
+    monkeypatch.setattr("growwise.services.discovery.OpenLibraryAdapter", FakeOpenLibrary)
+    monkeypatch.setattr("growwise.services.discovery.GoogleBooksAdapter", FakeGoogleBooks)
+    monkeypatch.setattr("growwise.services.discovery.WikipediaAdapter", FakeWikipedia)
+    monkeypatch.setattr("growwise.services.discovery.WikidataAdapter", FakeWikidata)
+    monkeypatch.setattr("growwise.services.discovery.NasaImagesAdapter", FakeNasa)
+    monkeypatch.setattr("growwise.services.discovery.GbifSpeciesAdapter", FakeGbif)
+    monkeypatch.setattr("growwise.services.discovery.WikimediaCommonsAdapter", FakeCommons)
+
+    service, store = _service(
+        tmp_path,
+        public_enrichment_enabled=True,
+    )
+    child = ChildProfile(
+        name="PRIVATE_CHILD",
+        nickname="PRIVATE_NICK",
+        stage=Stage.ELEMENTARY,
+        interests=["우주", "공룡", "PRIVATE_INTEREST"],
+    )
+    store.save(child)
+    result = service.discover(
+        child=child,
+        query="PRIVATE_QUERY 아이와 우주 공룡을 관찰",
+    )
+
+    assert result.query == "우주 공룡 관찰"
+    assert seen
+    outbound = " ".join(query for _source, query in seen)
+    assert "PRIVATE_" not in outbound
+    assert child.name not in outbound
+    assert str(child.id) not in outbound
+    assert ("nasa_images", "space dinosaurs observation") in seen
