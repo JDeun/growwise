@@ -48,21 +48,31 @@ GrowWise 자체의 Core 기능 요구사항으로 간주하지 않는다.
 
 ### Desktop 로컬 모델 자동 선택
 
-일반 사용자용 Desktop은 전체 시스템 메모리를 보고 **최대 모델이 아니라 안정적인 기본 모델**을 선택한다.
+기본 설치는 텍스트와 사진에 **하나의 Qwen 3.5 멀티모달 모델**을 공유한다. 별도 vision 모델을 동시에 상주시킬 필요가 없으므로 저장 공간과 모델 전환 비용을 줄인다.
 
-| 시스템 메모리 | Desktop 텍스트 기본값 | 선택형 사진 AI |
-| --- | --- | --- |
-| 12 GB 이하 | `qwen3.5:2b` | `gemma4:e2b` |
-| 12 GB 초과~20 GB | `qwen3.5:4b` | `gemma4:e2b` |
-| 20 GB 초과 | `qwen3.5:9b` | `gemma4:e4b` |
+Apple Silicon은 통합 메모리를 직접 활용할 수 있으므로 다음 기준을 사용한다.
 
-48/64 GB 시스템에서도 Desktop이 27B/35B 모델을 자동 다운로드하지 않는다. 대형 모델은
-성능·다운로드 비용을 사용자가 명시적으로 선택하는 고급 설정으로 남긴다. `GROWWISE_MODEL_ID`
-또는 `GROWWISE_VISION_MODEL_ID`가 이미 지정되어 있으면 사용자 설정을 자동 선택보다 우선한다.
+| Apple Silicon 통합 메모리 | 기본 모델 |
+| --- | --- |
+| <16 GB | `qwen3.5:2b` |
+| 16 GB+ | `qwen3.5:4b` |
+| 24 GB+ | `qwen3.5:9b` |
+| 48 GB+ | `qwen3.5:27b` |
+| 64 GB+ | `qwen3.5:35b` |
 
-이 기준은 실기기 benchmark를 대체하지 않는다. 모델 파일 외에 KV cache, runtime, OS, GrowWise,
-vision model이 추가 메모리를 사용한다. 설치와 문제 해결은
-[local-ai-setup.md](local-ai-setup.md)를 따른다.
+Windows/Linux에서 NVIDIA GPU가 감지되면 VRAM을 우선 사용한다.
+
+| NVIDIA 총 VRAM | 기본 모델 |
+| --- | --- |
+| <6 GB | `qwen3.5:2b` |
+| 6 GB+ | `qwen3.5:4b` |
+| 10 GB+ | `qwen3.5:9b` |
+| 24 GB+ | `qwen3.5:27b` |
+| 32 GB+ | `qwen3.5:35b` |
+
+가속기를 확실히 감지하지 못하면 시스템 RAM만으로 대형 모델을 자동 선택하지 않고 최대 9B로 제한한다. `GROWWISE_MODEL_ID`를 명시하면 자동 선택보다 우선하며, `GROWWISE_VISION_MODEL_ID`를 별도로 지정하면 고급 사용자는 vision 역할만 다른 모델로 분리할 수 있다.
+
+이 기준은 실기기 benchmark를 대체하지 않는다. 모델 파일 외에 KV cache, runtime, OS, GrowWise가 추가 메모리를 사용한다. 설치와 문제 해결은 [local-ai-setup.md](local-ai-setup.md)를 따른다.
 
 ## 구성 요소별 부하
 
