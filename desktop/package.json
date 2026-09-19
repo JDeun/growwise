@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint src vite.config.ts",
     "test": "vitest run",
+    "test:e2e": "node scripts/browser_e2e.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
