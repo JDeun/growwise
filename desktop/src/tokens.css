@@ -39,10 +39,10 @@
 
   /* Approved GrowWise product composition */
   --product-shell-max: 1540px;
-  --product-sidebar-width: 258px;
+  --product-sidebar-width: 232px;
   --product-shell-gap: 20px;
-  --product-topbar-height: 64px;
-  --product-panel-radius: 20px;
+  --product-topbar-height: 62px;
+  --product-panel-radius: 17px;
   --product-control-radius: 11px;
   --product-panel-border: rgba(42, 73, 60, 0.09);
   --product-panel-shadow: 0 10px 30px rgba(47, 66, 58, 0.05);
