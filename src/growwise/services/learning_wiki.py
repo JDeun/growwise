@@ -135,7 +135,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         fingerprint = self._fingerprint(sources)
         existing = self.get(child_id)
         if existing is not None and existing.source_fingerprint == fingerprint and not force:
-            self._sync_rag(existing)
+            self._sync_rag(existing, replace=False)
             return existing
 
         allowed_refs = {self._source_ref(payload) for payload in sources}
@@ -196,7 +196,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         )
         self.store.save(wiki, body=markdown)
         self._sync_source_links(wiki, sources)
-        self._sync_rag(wiki)
+        self._sync_rag(wiki, replace=True)
         return wiki
 
     def _sources(self, child_id: str) -> list[dict]:
@@ -490,8 +490,10 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 parts.append("- 아직 충분한 기록이 없습니다.")
         return "\n".join(parts).strip()[:80_000]
 
-    def _sync_rag(self, wiki: LearningWiki) -> None:
+    def _sync_rag(self, wiki: LearningWiki, *, replace: bool) -> None:
         if self.rag_index is None:
+            return
+        if not replace and self.rag_index.has_resource(str(wiki.id)):
             return
         chunks = chunk_resource(
             resource_id=str(wiki.id),
