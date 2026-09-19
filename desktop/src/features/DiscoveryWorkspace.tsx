@@ -15,12 +15,23 @@ const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
   book: "도서",
   curriculum: "교육과정",
   place: "탐방",
+  reference: "백과·사실",
+  science: "과학",
+  nature: "자연·생물",
+  media: "공개 이미지",
 };
 
 const SOURCE_LABEL: Record<string, string> = {
   data4library: "도서관 정보나루",
+  open_library: "Open Library",
+  google_books: "Google Books",
   kr_official_curriculum_catalog: "공식 교육과정",
   public_curriculum: "공공 교육과정 API",
+  wikipedia_ko: "한국어 Wikipedia",
+  wikidata: "Wikidata",
+  wikimedia_commons: "Wikimedia Commons",
+  nasa_images: "NASA Images",
+  gbif_species: "GBIF 생물 분류",
   openstreetmap_overpass: "OpenStreetMap 탐방 장소",
 };
 
@@ -43,6 +54,8 @@ function sourceStatusText(status: string): string {
       return "일반 주제어 필요";
     case "needs_location":
       return "위치 입력 시 사용";
+    case "not_relevant":
+      return "현재 주제에서는 생략";
     case "unavailable":
       return "현재 사용할 수 없음";
     default:
@@ -118,7 +131,7 @@ export function DiscoveryWorkspace({ active }: Props) {
       await saveDiscoveredResource(childId, suggestion);
       setSavedIds((current) => new Set(current).add(suggestion.candidate_id));
       setNotice(
-        "라이브러리에 저장했습니다. 이제 이 자료를 검색 근거로 쓰거나 자료 생성 화면에서 선택할 수 있습니다.",
+        "참고 자료에 저장했습니다. 이제 검색 근거로 쓰거나 활동 자료 생성 시 근거로 선택할 수 있습니다.",
       );
     } catch (saveError) {
       setError(errorMessage(saveError));
@@ -252,8 +265,8 @@ export function DiscoveryWorkspace({ active }: Props) {
                 ))}
               </div>
               <p className="muted">
-                외부 서비스가 꺼져 있어도 공식 교육과정 메타데이터와 이미 저장한 라이브러리는 계속
-                사용할 수 있습니다. 탐방 위치를 입력한 경우에만 해당 좌표가 Overpass 요청에 포함됩니다.
+                외부 서비스가 꺼져 있어도 공식 교육과정 메타데이터와 이미 저장한 참고 자료는 계속
+                사용할 수 있습니다. 여러 공개 소스는 주제 관련성이 있을 때만 호출합니다. 탐방 위치를 입력한 경우에만 해당 좌표가 Overpass 요청에 포함됩니다.
               </p>
             </section>
 
@@ -296,10 +309,10 @@ export function DiscoveryWorkspace({ active }: Props) {
                           onClick={() => void handleSave(suggestion)}
                         >
                           {saved
-                            ? "라이브러리에 저장됨"
+                            ? "참고 자료에 저장됨"
                             : savingId === suggestion.candidate_id
                               ? "저장 중…"
-                              : "라이브러리에 저장"}
+                              : "참고 자료에 저장"}
                         </button>
                       </article>
                     );
