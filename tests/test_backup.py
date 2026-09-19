@@ -10,7 +10,8 @@ from pathlib import Path
 import pytest
 
 from growwise.backup import BackupService, InvalidBackup
-from growwise.domain import ChildProfile, Stage
+from growwise.domain import ChildProfile, LearningLog, Stage
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services import ConversationSession, SQLiteConversationStore
 from growwise.storage import EntityStore, SQLiteProjection
 
@@ -22,6 +23,41 @@ def _manifest(*, record_count: int = 0) -> dict[str, object]:
         "created_at": datetime.now(UTC).isoformat(),
         "record_count": record_count,
     }
+
+
+def test_backup_round_trip_preserves_learning_wiki(tmp_path: Path) -> None:
+    source_root = tmp_path / "source-records"
+    source_index = tmp_path / "source.sqlite3"
+    source_store = EntityStore(source_root, source_index)
+    child = ChildProfile(nickname="위키아이", stage=Stage.ELEMENTARY)
+    source_store.save(child)
+    source_store.save(
+        LearningLog(
+            child_id=child.id,
+            parent_observation="민들레 씨앗이 바람에 움직이는 모습을 관찰했다.",
+            interest="씨앗 이동",
+        )
+    )
+    wiki = LearningWikiService(source_store, provider=None).refresh(str(child.id))
+
+    archive = tmp_path / "wiki-backup.zip"
+    service = BackupService()
+    manifest = service.create(records_root=source_root, destination=archive)
+    assert manifest.record_count >= 3
+
+    restored_root = tmp_path / "restored-records"
+    restored_index = tmp_path / "restored.sqlite3"
+    service.restore(
+        archive_path=archive,
+        records_root=restored_root,
+        index_path=restored_index,
+    )
+
+    restored = EntityStore(restored_root, restored_index)
+    payload = restored.index.get_entity(str(wiki.id), entity_type="learning_wiki")
+    assert payload is not None
+    assert payload["source_fingerprint"] == wiki.source_fingerprint
+    assert "민들레" in payload["content_markdown"]
 
 
 def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> None:
