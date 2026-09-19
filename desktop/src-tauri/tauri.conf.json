@@ -39,8 +39,8 @@
     "resources": ["binaries"],
     "category": "Education",
     "licenseFile": "../../LICENSE",
-    "shortDescription": "Parent-led, local-first Personal Education OS",
-    "longDescription": "GrowWise organizes learning records, resources, growth context and parent-reviewed learning materials.",
+    "shortDescription": "Turn your child's real learning records into the next activity",
+    "longDescription": "GrowWise helps families record real questions and experiences, turn them into practical next activities, and carry the results forward without sending core records to a hosted AI service by default.",
     "macOS": {
       "signingIdentity": "-"
     }
