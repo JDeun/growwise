@@ -67,8 +67,20 @@ export interface HealthResponse {
   core_requires_llm: boolean;
   llm_configured: boolean;
   llm_reachable: boolean;
+  llm_model_id?: string | null;
+  llm_model_available?: boolean | null;
+  llm_base_url?: string | null;
   llm_features_enabled: boolean;
+  embedding_reachable?: boolean | null;
+  embedding_model_id?: string | null;
+  embedding_model_available?: boolean | null;
+  embedding_base_url?: string | null;
   embedding_features_enabled: boolean;
+  vision_reachable?: boolean | null;
+  vision_model_id?: string | null;
+  vision_model_available?: boolean | null;
+  vision_base_url?: string | null;
+  vision_features_enabled?: boolean | null;
   model_provider: string;
 }
 export interface CoreRuntimeStatus { started_by_desktop: boolean; }
@@ -445,6 +457,8 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
+export const prepareLocalAi = (component: "basic" | "vision") =>
+  call<"prepared" | "already_ready">("prepare_local_ai", { component });
 export const createChild = (request: ChildCreateInput) =>
   call<ChildProfile>("create_child", { request });
 export const updateChild = (childId: string, request: ChildUpdateInput) =>
