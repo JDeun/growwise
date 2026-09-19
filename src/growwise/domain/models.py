@@ -285,6 +285,12 @@ class CurriculumTarget(BaseModel):
     domain: str = Field(min_length=1, max_length=120)
     description: str = Field(min_length=1, max_length=500)
     source_ref: str = Field(min_length=1, max_length=160)
+    revision: str | None = Field(default=None, max_length=120)
+    effective_from: date | None = None
+    effective_to: date | None = None
+    grade: Annotated[int | None, Field(default=None, ge=1, le=12)] = None
+    resolution_precision: str | None = Field(default=None, max_length=80)
+    transition_note: str | None = Field(default=None, max_length=500)
     standard_codes: list[Annotated[str, Field(min_length=1, max_length=160)]] = Field(
         default_factory=list,
         max_length=50,
