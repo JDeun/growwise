@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html
 import re
+from datetime import date
 from typing import Annotated
 
 from pydantic import BaseModel, Field, ValidationError
@@ -157,6 +158,12 @@ until Parent Review approves it. Return the requested structured schema only."""
         source_evidence: list[MaterialSourceEvidence] | None = None,
         curriculum_targets_override: list[CurriculumTarget] | None = None,
     ) -> GeneratedMaterial:
+        effective_stage = child.stage_on(date.today())
+        generation_child = (
+            child
+            if effective_stage is child.stage
+            else child.model_copy(update={"stage": effective_stage})
+        )
         refs = list(dict.fromkeys(source_refs or []))
         evidence = self._bounded_source_evidence(
             source_evidence or [],
@@ -165,10 +172,10 @@ until Parent Review approves it. Return the requested structured schema only."""
         curriculum_targets = (
             [target.model_copy(deep=True) for target in curriculum_targets_override]
             if curriculum_targets_override is not None
-            else curriculum_targets_for_child(child, kind)
+            else curriculum_targets_for_child(generation_child, kind)
         )
         fallback = self._template(
-            child=child,
+            child=generation_child,
             kind=kind,
             topic=topic,
             goal=goal,
@@ -211,7 +218,7 @@ until Parent Review approves it. Return the requested structured schema only."""
                 candidate = self.provider.generate_structured(
                     system=self.SYSTEM,
                     user=self._llm_request(
-                        child=child,
+                        child=generation_child,
                         kind=kind,
                         topic=topic,
                         goal=goal,
@@ -240,7 +247,7 @@ until Parent Review approves it. Return the requested structured schema only."""
                 else:
                     core_quality = self.quality_gate.assess_candidate_core(
                         kind=kind,
-                        stage=child.stage,
+                        stage=generation_child.stage,
                         content_markdown=candidate.content_markdown,
                         parent_guide_markdown=candidate.parent_guide_markdown,
                     )
@@ -250,7 +257,7 @@ until Parent Review approves it. Return the requested structured schema only."""
                     else:
                         published = self._publish_candidate(
                             candidate=candidate,
-                            child=child,
+                            child=generation_child,
                             kind=kind,
                             topic=topic,
                             goal=goal,
