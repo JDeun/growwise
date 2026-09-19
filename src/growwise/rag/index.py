@@ -189,6 +189,17 @@ class HybridRagIndex:
             finally:
                 connection.close()
 
+    def has_resource(self, resource_id: str) -> bool:
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT 1 FROM rag_chunks WHERE resource_id = ? LIMIT 1",
+                (resource_id,),
+            ).fetchone()
+            return row is not None
+        finally:
+            connection.close()
+
     def delete_resource(self, resource_id: str) -> int:
         from growwise.maintenance import DATA_MAINTENANCE
 
