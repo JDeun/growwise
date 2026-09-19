@@ -7,10 +7,10 @@ from threading import Barrier
 
 import pytest
 
+import growwise.storage.markdown as markdown_module
 from growwise.domain import ChildProfile, Stage
 from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.storage.markdown import MarkdownRepository
-import growwise.storage.markdown as markdown_module
 
 
 def test_idempotency_claim_has_exactly_one_owner_under_real_thread_race(tmp_path: Path) -> None:
