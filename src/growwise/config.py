@@ -78,6 +78,21 @@ class Settings(BaseSettings):
     openlibrary_endpoint: str = "https://openlibrary.org/search.json"
     google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
     google_books_api_key: str | None = None
+    national_library_api_key: str | None = None
+    national_library_isbn_endpoint: str = "https://www.nl.go.kr/seoji/SearchApi.do"
+    krdict_api_key: str | None = None
+    krdict_endpoint: str = "https://krdict.korean.go.kr/api/search"
+    data_go_kr_service_key: str | None = None
+    kma_weather_endpoint: str = (
+        "https://apis.data.go.kr/1360000/"
+        "VilageFcstInfoService_2.0/getUltraSrtNcst"
+    )
+    museum_standard_endpoint: str = (
+        "https://api.data.go.kr/openapi/tn_pubr_public_museum_artgr_info_api"
+    )
+    heritage_palace_endpoint: str = (
+        "https://www.heritage.go.kr/heri/gungDetail/gogungListOpenApi.do"
+    )
     nasa_images_endpoint: str = "https://images-api.nasa.gov/search"
     wikidata_endpoint: str = "https://www.wikidata.org/w/api.php"
     wikipedia_endpoint: str = "https://ko.wikipedia.org/w/rest.php/v1/search/page"
