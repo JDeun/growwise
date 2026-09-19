@@ -528,6 +528,8 @@ export const listMaterials = (childId: string) =>
   call<GeneratedMaterial[]>("list_materials", { childId });
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) =>
   call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
+export const useMaterial = (materialId: string) =>
+  call<GeneratedMaterial>("use_material", { materialId });
 export const reviseMaterial = (materialId: string, note?: string) =>
   call<GeneratedMaterial>("revise_material_background", { materialId, note: note ?? null });
 export const editMaterial = (
