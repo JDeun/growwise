@@ -28,16 +28,16 @@ interface ChildProfileSectionProps {
   activityCount: number;
   nickname: string;
   childStage: Stage;
-  birthDate: string;
+  birthDate?: string;
   ageMonths: string;
-  grade: string;
+  grade?: string;
   saving: boolean;
   error: string | null;
   onNicknameChange: (value: string) => void;
   onStageChange: (value: Stage) => void;
-  onBirthDateChange: (value: string) => void;
+  onBirthDateChange?: (value: string) => void;
   onAgeMonthsChange: (value: string) => void;
-  onGradeChange: (value: string) => void;
+  onGradeChange?: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectChild: (childId: string) => void;
   onAvatarUpdated?: (child: ChildProfile) => void;
@@ -52,16 +52,16 @@ export function ChildProfileSection({
   activityCount,
   nickname,
   childStage,
-  birthDate,
+  birthDate = "",
   ageMonths,
-  grade,
+  grade = "",
   saving,
   error,
   onNicknameChange,
   onStageChange,
-  onBirthDateChange,
+  onBirthDateChange = () => undefined,
   onAgeMonthsChange,
-  onGradeChange,
+  onGradeChange = () => undefined,
   onSubmit,
   onSelectChild,
   onAvatarUpdated,
