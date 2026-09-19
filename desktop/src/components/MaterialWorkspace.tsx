@@ -87,11 +87,11 @@ function sourceTitle(
 ): string {
   if (!ref.startsWith("resource:")) return `외부 출처 · ${ref}`;
   const id = ref.slice("resource:".length);
-  const resourceTitle = resources.find((resource) => resource.id === id)?.title;
   const citationTitle = material.source_citations?.find(
     (citation) => citation.source_ref === ref,
   )?.title;
-  return resourceTitle ?? citationTitle ?? "연결 자료";
+  const resourceTitle = resources.find((resource) => resource.id === id)?.title;
+  return citationTitle ?? resourceTitle ?? "연결 자료";
 }
 
 function MaterialSources({
