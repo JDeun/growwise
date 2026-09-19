@@ -251,13 +251,10 @@ fn is_loopback_url(url: &reqwest::Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
     }
-    match url
-        .host_str()
-        .map(|host| {
-            host.trim_matches(|character| character == '[' || character == ']')
-                .to_ascii_lowercase()
-        })
-    {
+    match url.host_str().map(|host| {
+        host.trim_matches(|character| character == '[' || character == ']')
+            .to_ascii_lowercase()
+    }) {
         Some(host) if host == "localhost" || host.ends_with(".localhost") => true,
         Some(host) => host
             .parse::<std::net::IpAddr>()
