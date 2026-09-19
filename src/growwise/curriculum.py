@@ -95,7 +95,7 @@ def curriculum_targets_for(
     School stages can span two curriculum families during a phased rollout. Call
     curriculum_targets_for_child when learner grade or birth-date information is available.
     """
-    placeholder = ChildProfile(name="curriculum-resolution", stage=stage)
+    placeholder = ChildProfile(name="curriculum-resolution", stage=stage, age_months=None)
     return curriculum_targets_for_child(placeholder, kind, on_date=on_date)
 
 
