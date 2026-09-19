@@ -36,9 +36,18 @@ describe("ChildProfileSection first-run onboarding", () => {
     const markup = renderFirstRun();
 
     expect(markup).toContain("빠른 시작");
-    expect(markup).toContain("필수 설정은 첫 아이 프로필 하나뿐입니다");
+    expect(markup).toContain("닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다");
     expect(markup).toContain("첫 프로필");
     expect(markup).toContain("첫 프로필 저장");
+  });
+
+  it("prefers birth date while keeping manual age and grade as optional fallback", () => {
+    const markup = renderFirstRun();
+
+    expect(markup).toContain("생년월일(권장)");
+    expect(markup).toContain("생년월일 없이 직접 입력");
+    expect(markup).toContain('type="date"');
+    expect(markup).not.toContain("학년은 반드시");
   });
 
   it("keeps AI optional without exposing implementation setup commands", () => {
