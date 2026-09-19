@@ -58,7 +58,11 @@ def test_school_mapping_is_distinct_by_material_kind_and_effective_grade() -> No
 
 
 def test_stage_only_middle_mapping_marks_transition_uncertainty() -> None:
-    targets = curriculum_targets_for(Stage.MIDDLE, MaterialKind.READING_ACTIVITY)
+    targets = curriculum_targets_for(
+        Stage.MIDDLE,
+        MaterialKind.READING_ACTIVITY,
+        on_date=date(2026, 9, 19),
+    )
 
     assert targets[0].revision == "transition-unresolved"
     assert targets[0].resolution_precision == "stage_transition"
