@@ -251,7 +251,13 @@ fn is_loopback_url(url: &reqwest::Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
     }
-    match url.host_str().map(|host| host.trim_matches(|character| character == '[' || character == ']').to_ascii_lowercase()) {
+    match url
+        .host_str()
+        .map(|host| {
+            host.trim_matches(|character| character == '[' || character == ']')
+                .to_ascii_lowercase()
+        })
+    {
         Some(host) if host == "localhost" || host.ends_with(".localhost") => true,
         Some(host) => host
             .parse::<std::net::IpAddr>()
@@ -336,6 +342,7 @@ async fn prepare_local_ai(component: String) -> Result<String, String> {
     }
     Ok("prepared".to_string())
 }
+
 #[tauri::command]
 async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
     let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
