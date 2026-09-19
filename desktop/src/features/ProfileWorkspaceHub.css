@@ -72,9 +72,9 @@
 }
 
 .profile-summary-card .child-avatar {
-  width: 88px;
-  height: 88px;
-  font-size: 22px;
+  width: 112px;
+  height: 112px;
+  font-size: 24px;
   box-shadow: 0 12px 28px rgba(47, 86, 68, .10);
 }
 
@@ -292,6 +292,11 @@
     grid-template-columns: auto minmax(0, 1fr);
     justify-items: start;
     text-align: left;
+  }
+
+  .profile-summary-card .child-avatar {
+    width: 88px;
+    height: 88px;
   }
 
   .profile-summary-section,
