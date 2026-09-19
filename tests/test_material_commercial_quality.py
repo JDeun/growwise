@@ -129,34 +129,38 @@ def test_useful_model_core_is_wrapped_in_stable_commercial_shell() -> None:
     assert "물의 상태 변화 관찰 자료 (`resource:science-1`)" in material.parent_guide_markdown
 
 
-def test_publication_gate_rejects_placeholder_artifacts() -> None:
-    result = MaterialQualityGate().assess_published(
-        title="자료",
+def test_candidate_gate_rejects_model_placeholder_artifacts() -> None:
+    result = MaterialQualityGate().assess_candidate_core(
+        kind=MaterialKind.READING_ACTIVITY,
+        stage=Stage.ELEMENTARY,
         content_markdown=(
-            "## 오늘의 목표\nTODO\n"
-            "## 예상 시간\n10분\n"
-            "## 준비물\n- 종이\n"
-            "## 활동 자료\n내용\n"
-            "## 막힐 때 힌트\n힌트\n"
-            "## 돌아보기\n회고\n"
-            "## 더 해보기\n확장"
+            "## 시작\nTODO: 질문을 채운다.\n\n"
+            "## 활동\n아이와 내용을 살펴보고 관찰한 점을 설명합니다."
         ),
-        parent_guide_markdown=(
-            "## 수업 개요\n내용\n"
-            "## 핵심 목표\n내용\n"
-            "## 준비 체크리스트\n내용\n"
-            "## 진행 시나리오\n내용\n"
-            "## 활동 중 부모가 할 일\n내용\n"
-            "## 질문·힌트 사다리\n내용\n"
-            "## 관찰할 것\n내용\n"
-            "## 난이도 조절\n내용\n"
-            "## 안전·중단 기준\n내용\n"
-            "## 활동 후 GrowWise에 남길 것\n내용\n"
-            "## 근거·출처\n내용\n"
-            "## 사용 전 확인\n내용"
-        ),
-        source_refs=[],
+        parent_guide_markdown="## 진행 메모\n부모가 함께 관찰합니다.",
     )
 
     assert result.ready is False
-    assert "published_contains_placeholder" in result.issues
+    assert "candidate_core_contains_placeholder" in result.issues
+
+
+def test_publication_gate_does_not_treat_source_title_as_model_placeholder() -> None:
+    service = MaterialGenerationService(provider=None)
+    child = ChildProfile(name="아이", nickname="아이", stage=Stage.ELEMENTARY)
+
+    material = service.generate(
+        child=child,
+        kind=MaterialKind.READING_ACTIVITY,
+        topic="프로젝트 계획",
+        source_refs=["resource:todo"],
+        source_evidence=[
+            MaterialSourceEvidence(
+                source_ref="resource:todo",
+                title="TODO 프로젝트 관리 입문",
+                excerpt="프로젝트의 할 일을 구조화하는 방법을 설명한다.",
+            )
+        ],
+    )
+
+    assert material.generator_mode == "template"
+    assert "TODO 프로젝트 관리 입문" in material.content_markdown
