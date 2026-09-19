@@ -82,7 +82,7 @@
 - Cambridge English 공개 자료
 - Oxford Owl
 - Google Books API
-- Open Library API
+- Open Library CC0 data dump (offline import only; live API는 production에서 사용하지 않음)
 - TTS/STT 도구
 
 **구현 아이디어**
