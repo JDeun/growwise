@@ -187,4 +187,8 @@ class JsonHttpClient:
         except (OSError, urllib.error.URLError, ValueError) as exc:
             if isinstance(exc, ExternalAdapterError):
                 raise
-            raise ExternalAdapterError(f"external request failed: {exc}") from exc
+            # urllib errors can embed the complete request URL. Query strings may contain API
+            # credentials, so never copy the raw exception text across the adapter boundary.
+            raise ExternalAdapterError(
+                f"external request failed: {type(exc).__name__}"
+            ) from exc
