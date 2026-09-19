@@ -38,6 +38,8 @@ describe("MaterialParentGuide", () => {
     expect(html).toContain("관찰·실험");
     expect(html).toContain("결과·설명");
     expect(html).toContain("부모용 교안 · 진행 안내");
+    expect(html).toContain('<details class="material-parent-guide">');
+    expect(html).not.toContain('<details class="material-parent-guide" open');
     expect(html).toContain("진행 안내");
     expect(html.match(/천천히 관찰합니다\./g)).toHaveLength(1);
   });
