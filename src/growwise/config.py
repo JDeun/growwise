@@ -48,7 +48,10 @@ class Settings(BaseSettings):
     # Photo analysis is deliberately long-running and background-friendly: consumer hardware may
     # need minutes rather than seconds for one multimodal inference.
     vision_provider: str = "ollama"
-    vision_model_id: str = "gemma4:e4b"
+    # Text and vision remain separate roles so privacy/timeouts/providers can diverge, but the
+    # default local setup intentionally shares one multimodal Qwen model to avoid duplicate model
+    # downloads and model switching on consumer hardware.
+    vision_model_id: str = "qwen3.5:9b"
     vision_base_url: str = "http://127.0.0.1:11434"
     vision_features_enabled: bool = True
     vision_timeout_seconds: float = Field(default=300.0, gt=0.0, le=1800.0)
