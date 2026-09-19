@@ -517,6 +517,238 @@ class EducationDiscoveryService:
             )
         )
 
+    def _http(self) -> JsonHttpClient:
+        return JsonHttpClient(timeout_seconds=self.settings.external_source_timeout_seconds)
+
+    def _search_kwargs(self, endpoint: str) -> dict[str, Any]:
+        return {
+            "cache": self.cache,
+            "http": self._http(),
+            "endpoint": endpoint,
+            "ttl_seconds": self.settings.external_source_cache_ttl_seconds,
+        }
+
+    def _collect_extended_sources(
+        self,
+        *,
+        query: str,
+        latitude: float | None,
+        longitude: float | None,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        """Collect independent public sources concurrently.
+
+        Text sent outside the device is already reduced to allow-listed public terms.
+        Coordinates are used only when the parent explicitly supplied them to Discovery.
+        """
+
+        extended_ids = (
+            "google_books",
+            "gutendex",
+            "global_digital_library",
+            "national_library_isbn",
+            "nasa_images",
+            "wikidata",
+            "wikipedia_ko",
+            "wikimedia_commons",
+            "gbif_species",
+            "tatoeba",
+            "openstreetmap_nominatim",
+            "opentopodata",
+            "korean_heritage",
+            "krdict",
+            "opendict",
+            "kma_forecast",
+            "emuseum",
+            "kbr",
+        )
+        if not self.settings.external_live_sources_enabled:
+            source_states.extend(
+                DiscoverySourceState(source=source_id, enabled=False, status="disabled")
+                for source_id in extended_ids
+            )
+            return
+
+        tasks: list[tuple[str, DiscoveryCategory, Callable[[], Any]]] = []
+
+        if query:
+            tasks.extend(
+                [
+                    (
+                        "google_books",
+                        DiscoveryCategory.BOOK,
+                        lambda: GoogleBooksAdapter(
+                            **self._search_kwargs(self.settings.google_books_endpoint)
+                        ).search(query=query, limit=6, offline=offline),
+                    ),
+                    (
+                        "gutendex",
+                        DiscoveryCategory.BOOK,
+                        lambda: GutendexAdapter(
+                            **self._search_kwargs(self.settings.gutendex_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "global_digital_library",
+                        DiscoveryCategory.BOOK,
+                        lambda: GlobalDigitalLibraryAdapter(
+                            **self._search_kwargs(
+                                self.settings.global_digital_library_endpoint
+                            )
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "nasa_images",
+                        DiscoveryCategory.SCIENCE,
+                        lambda: NasaMediaAdapter(
+                            **self._search_kwargs(self.settings.nasa_images_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "wikidata",
+                        DiscoveryCategory.REFERENCE,
+                        lambda: WikidataAdapter(
+                            **self._search_kwargs(self.settings.wikidata_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "wikipedia_ko",
+                        DiscoveryCategory.REFERENCE,
+                        lambda: WikipediaAdapter(
+                            **self._search_kwargs(self.settings.wikipedia_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "wikimedia_commons",
+                        DiscoveryCategory.MEDIA,
+                        lambda: WikimediaCommonsAdapter(
+                            **self._search_kwargs(
+                                self.settings.wikimedia_commons_endpoint
+                            )
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "gbif_species",
+                        DiscoveryCategory.SCIENCE,
+                        lambda: GbifSpeciesAdapter(
+                            **self._search_kwargs(self.settings.gbif_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "tatoeba",
+                        DiscoveryCategory.LANGUAGE,
+                        lambda: TatoebaAdapter(
+                            **self._search_kwargs(self.settings.tatoeba_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "openstreetmap_nominatim",
+                        DiscoveryCategory.PLACE,
+                        lambda: NominatimAdapter(
+                            **self._search_kwargs(self.settings.nominatim_endpoint)
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                    (
+                        "korean_heritage",
+                        DiscoveryCategory.PLACE,
+                        lambda: KoreanHeritageAdapter(
+                            **self._search_kwargs(
+                                self.settings.korean_heritage_endpoint
+                            )
+                        ).search(query=query, limit=5, offline=offline),
+                    ),
+                ]
+            )
+            self._append_keyed_text_tasks(
+                tasks=tasks,
+                source_states=source_states,
+                query=query,
+                offline=offline,
+            )
+        else:
+            source_states.extend(
+                DiscoverySourceState(
+                    source=source_id,
+                    enabled=True,
+                    status="needs_query",
+                )
+                for source_id in (
+                    "google_books",
+                    "gutendex",
+                    "global_digital_library",
+                    "nasa_images",
+                    "wikidata",
+                    "wikipedia_ko",
+                    "wikimedia_commons",
+                    "gbif_species",
+                    "tatoeba",
+                    "openstreetmap_nominatim",
+                    "korean_heritage",
+                )
+            )
+            self._append_keyed_missing_query_states(source_states)
+
+        self._append_location_tasks(
+            tasks=tasks,
+            source_states=source_states,
+            latitude=latitude,
+            longitude=longitude,
+            offline=offline,
+        )
+
+        if not tasks:
+            return
+
+        max_workers = min(self.settings.discovery_max_parallel_sources, len(tasks))
+        with ThreadPoolExecutor(
+            max_workers=max_workers,
+            thread_name_prefix="growwise-discovery",
+        ) as executor:
+            future_map = {
+                executor.submit(fetch): (source_id, category)
+                for source_id, category, fetch in tasks
+            }
+            for future in as_completed(future_map):
+                source_id, category = future_map[future]
+                try:
+                    result = future.result()
+                except ExternalAdapterError:
+                    source_states.append(
+                        DiscoverySourceState(
+                            source=source_id,
+                            enabled=True,
+                            status="unavailable",
+                            detail="공개 데이터 소스 요청에 실패했습니다.",
+                        )
+                    )
+                    continue
+                except Exception:
+                    source_states.append(
+                        DiscoverySourceState(
+                            source=source_id,
+                            enabled=True,
+                            status="unavailable",
+                            detail="공개 데이터 소스를 처리하지 못했습니다.",
+                        )
+                    )
+                    continue
+                suggestions.extend(
+                    self._normalized_suggestions(
+                        result=result,
+                        category=category,
+                        query=query,
+                    )
+                )
+                source_states.append(
+                    DiscoverySourceState(
+                        source=result.source,
+                        enabled=True,
+                        status=result.cache_status,
+                    )
+                )
+
     @staticmethod
     def _curriculum_suggestions(
         records: list[dict[str, Any]],
