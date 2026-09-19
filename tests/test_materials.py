@@ -142,6 +142,31 @@ def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
     assert material.source_refs == ["resource:source-1"]
 
 
+def test_selected_evidence_budget_is_balanced_across_sources() -> None:
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    provider = CapturingProvider()
+    refs = [f"resource:source-{index}" for index in range(1, 5)]
+    evidence = [
+        MaterialSourceEvidence(
+            source_ref=ref,
+            title=f"근거 자료 {index}",
+            excerpt=(f"source-{index} evidence " + ("가" * 3_980)),
+        )
+        for index, ref in enumerate(refs, start=1)
+    ]
+
+    MaterialGenerationService(provider=provider).generate(
+        child=child,
+        kind=MaterialKind.SCIENCE_INQUIRY,
+        topic="여러 근거 비교",
+        source_refs=refs,
+        source_evidence=evidence,
+    )
+
+    for index in range(1, 5):
+        assert f"source-{index} evidence" in provider.user
+
+
 def test_source_evidence_cannot_break_prompt_delimiters() -> None:
     child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
     provider = CapturingProvider()
