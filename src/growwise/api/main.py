@@ -183,14 +183,29 @@ def health() -> dict[str, str | bool | None]:
         "llm_reachable": runtime.reachable,
         "llm_model_id": runtime.model_id,
         "llm_model_available": runtime.model_available,
+        "llm_base_url": (
+            settings.model_base_url
+            if settings.model_provider.casefold().replace("-", "_") == "ollama"
+            else None
+        ),
         "llm_features_enabled": llm_effective,
         "embedding_reachable": embedding_runtime.reachable,
         "embedding_model_id": embedding_runtime.model_id,
         "embedding_model_available": embedding_runtime.model_available,
+        "embedding_base_url": (
+            settings.embedding_base_url
+            if settings.embedding_provider.casefold().replace("-", "_") == "ollama"
+            else None
+        ),
         "embedding_features_enabled": embedding_effective,
         "vision_reachable": vision_runtime.reachable,
         "vision_model_id": vision_runtime.model_id,
         "vision_model_available": vision_runtime.model_available,
+        "vision_base_url": (
+            settings.vision_base_url
+            if settings.vision_provider.casefold().replace("-", "_") == "ollama"
+            else None
+        ),
         "vision_features_enabled": vision_effective,
         "model_provider": settings.model_provider,
     }
