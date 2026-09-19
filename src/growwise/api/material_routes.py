@@ -15,7 +15,13 @@ from growwise.api.contracts import (
     MaterialRevisionRequest,
 )
 from growwise.api.dependencies import get_idempotency_store, get_store
-from growwise.domain import ChildProfile, GeneratedMaterial, MaterialStatus, ResourceRecord
+from growwise.domain import (
+    ChildProfile,
+    GeneratedMaterial,
+    MaterialSourceCitation,
+    MaterialStatus,
+    ResourceRecord,
+)
 from growwise.generators import (
     MaterialEditError,
     MaterialEditService,
@@ -91,13 +97,32 @@ def material_source_evidence(
     *,
     source_refs: list[str],
     store: EntityStore,
+    fallback_citations: list[MaterialSourceCitation] | None = None,
 ) -> list[MaterialSourceEvidence]:
-    """Load bounded excerpts for already validated resource refs."""
+    """Load bounded excerpts and fall back to immutable material provenance snapshots."""
+    fallback_by_ref = {
+        citation.source_ref: citation
+        for citation in (fallback_citations or [])
+    }
     evidence: list[MaterialSourceEvidence] = []
     for ref in source_refs:
         raw_id = ref.removeprefix("resource:")
         payload = store.index.get_entity(raw_id, entity_type="resource")
         if payload is None:
+            citation = fallback_by_ref.get(ref)
+            if citation is not None:
+                evidence.append(
+                    MaterialSourceEvidence(
+                        source_ref=citation.source_ref,
+                        title=citation.title,
+                        excerpt=citation.excerpt,
+                        source_name=citation.source_name,
+                        source_url=citation.source_url,
+                        author=citation.author,
+                        attribution=citation.attribution,
+                        license_note=citation.license_note,
+                    )
+                )
             continue
         resource = ResourceRecord.model_validate(payload)
         parts: list[str] = []
@@ -113,6 +138,11 @@ def material_source_evidence(
                 source_ref=ref,
                 title=resource.title,
                 excerpt=excerpt,
+                source_name=resource.source_name,
+                source_url=resource.source_url,
+                author=resource.author,
+                attribution=resource.provenance.get("attribution"),
+                license_note=resource.provenance.get("license_note"),
             )
         )
     return evidence
@@ -316,7 +346,11 @@ def revise_material(
         if candidate.get("parent_material_id") == str(material.id):
             return GeneratedMaterial.model_validate(candidate)
 
-    source_evidence = material_source_evidence(source_refs=material.source_refs, store=store)
+    source_evidence = material_source_evidence(
+        source_refs=material.source_refs,
+        store=store,
+        fallback_citations=material.source_citations,
+    )
     try:
         revised = MaterialRevisionService(
             MaterialGenerationService(provider=_model_provider())
