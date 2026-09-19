@@ -37,6 +37,7 @@ from growwise.idempotency import (
 )
 from growwise.material_versions import serialize_material_successor
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 
@@ -201,12 +202,21 @@ def generate_material(
             raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
     source_evidence = material_source_evidence(source_refs=source_refs, store=store)
+    provider = _model_provider()
+    generation_guidance: str | None = None
     try:
-        material = MaterialGenerationService(provider=_model_provider()).generate(
+        learning_wiki = LearningWikiService(store, provider=provider).refresh(str(child.id))
+        generation_guidance = learning_wiki.content_markdown[:6_000]
+    except Exception:
+        logger.exception("Learning Wiki unavailable; material generation will use direct context only")
+
+    try:
+        material = MaterialGenerationService(provider=provider).generate(
             child=child,
             kind=request.kind,
             topic=request.topic,
             goal=request.goal,
+            generation_guidance=generation_guidance,
             source_refs=source_refs,
             source_evidence=source_evidence,
         )
