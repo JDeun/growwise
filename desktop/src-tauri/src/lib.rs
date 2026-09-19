@@ -251,7 +251,7 @@ fn is_loopback_url(url: &reqwest::Url) -> bool {
     if !matches!(url.scheme(), "http" | "https") {
         return false;
     }
-    match url.host_str().map(|host| host.trim_matches(['[', ']']).to_ascii_lowercase()) {
+    match url.host_str().map(|host| host.trim_matches(|character| character == '[' || character == ']').to_ascii_lowercase()) {
         Some(host) if host == "localhost" || host.ends_with(".localhost") => true,
         Some(host) => host
             .parse::<std::net::IpAddr>()
@@ -292,7 +292,7 @@ async fn pull_ollama_model(base_url: &str, model_id: &str) -> Result<(), String>
 #[tauri::command]
 async fn prepare_local_ai(component: String) -> Result<String, String> {
     let health = core_health().await?;
-    if health.model_provider.casefold() != "ollama" {
+    if !health.model_provider.eq_ignore_ascii_case("ollama") {
         return Err("자동 준비는 로컬 Ollama 구성에서만 사용할 수 있습니다.".to_string());
     }
 
