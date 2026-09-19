@@ -361,10 +361,11 @@ class NominatimAdapter(CachedSearchAdapter):
         }
 
     def _fetch(self, query: str, limit: int) -> dict[str, Any]:
-        # Nominatim returns a JSON array. JsonHttpClient intentionally enforces object roots,
-        # so request via the search wrapper endpoint is not compatible with its strict contract.
-        # This adapter is therefore activated only when a compatible proxy endpoint is configured.
-        return super()._fetch(query, limit)
+        items = self.http.get_json_list(
+            self.endpoint,
+            params=self._params(query=query, limit=limit),
+        )
+        return {"results": items}
 
     def _normalize(self, payload: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
         records = payload.get("results")
