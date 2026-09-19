@@ -443,7 +443,11 @@ def ask_child_context(
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
     try:
-        LearningWikiService(store, provider=get_model_provider()).refresh(str(child_id))
+        LearningWikiService(
+            store,
+            provider=get_model_provider(),
+            rag_index=get_rag_index(),
+        ).refresh(str(child_id))
     except Exception:
         logger.exception("Learning Wiki refresh failed; answering from raw records and RAG")
 
