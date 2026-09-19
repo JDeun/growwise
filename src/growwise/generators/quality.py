@@ -12,8 +12,6 @@ _PLACEHOLDER_RE = re.compile(
 _INTERNAL_MARKERS = (
     "generation_guidance",
     "internal generation guidance",
-    "prompt injection",
-    "system message",
     "infant_0_2",
     "preschool_3_5",
 )
