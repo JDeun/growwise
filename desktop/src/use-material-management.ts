@@ -6,6 +6,7 @@ import {
   generateMaterial,
   reviewMaterial,
   reviseMaterial,
+  useMaterial,
   type MaterialKind,
   type MaterialStatus,
 } from "./api";
@@ -80,6 +81,26 @@ export function useMaterialManagement({
     } catch (error) {
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
         setMaterialError(errorMessage(error, "자료 생성에 실패했습니다."));
+      }
+    } finally {
+      if (scopeIsCurrent(scope.childId, scope.requestId)) setMaterialBusy(false);
+    }
+  }
+
+  async function handleUseMaterial(materialId: string) {
+    const scope = currentScope();
+    if (!scope) return;
+    setMaterialBusy(true);
+    setMaterialError(null);
+    try {
+      await useMaterial(materialId);
+      if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
+      await reloadMaterials();
+      if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
+      announceWrite("활동을 사용할 준비가 됐습니다.");
+    } catch (error) {
+      if (scopeIsCurrent(scope.childId, scope.requestId)) {
+        setMaterialError(errorMessage(error, "활동 사용 준비에 실패했습니다."));
       }
     } finally {
       if (scopeIsCurrent(scope.childId, scope.requestId)) setMaterialBusy(false);
@@ -198,6 +219,7 @@ export function useMaterialManagement({
       setRevisionNotes((current) => ({ ...current, [materialId]: note })),
     setEditingMaterialId,
     handleGenerateMaterial,
+    handleUseMaterial,
     handleReviewMaterial,
     handleReviseMaterial,
     handleParentEdit,
