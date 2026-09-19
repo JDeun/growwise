@@ -496,7 +496,7 @@
   font-weight: 750;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1240px) {
   .conversation-workspace-grid {
     grid-template-columns: minmax(180px, .7fr) minmax(0, 1.7fr);
   }
