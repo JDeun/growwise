@@ -196,7 +196,12 @@ questions."""
         for record in records:
             source_id = f"record:{record['id']}"
             sources.append((source_id, _entity_text(record)))
+        direct_record_ids = {str(record["id"]) for record in records}
         for chunk in chunks:
+            # Learning Wiki can be retrieved both as a first-class entity and as a semantic RAG
+            # chunk. Keep the richer direct entity once instead of duplicating identical context.
+            if str(chunk.get("resource_id") or "") in direct_record_ids:
+                continue
             source_id = f"chunk:{chunk['chunk_id']}"
             text = f"{chunk['title']}\n{chunk['text']}"
             sources.append((source_id, text))
