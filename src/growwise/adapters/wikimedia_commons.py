@@ -89,7 +89,9 @@ class WikimediaCommonsAdapter:
             metadata = info.get("extmetadata")
             if not isinstance(metadata, dict):
                 continue
-            raw_license = _meta_value(metadata, "LicenseShortName") or _meta_value(metadata, "UsageTerms")
+            raw_license = _meta_value(
+                metadata, "LicenseShortName"
+            ) or _meta_value(metadata, "UsageTerms")
             if not is_commercial_safe(raw_license):
                 continue
             title = str(page.get("title") or "").removeprefix("File:").strip()
