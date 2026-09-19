@@ -1,3 +1,7 @@
+# The source matrix is intentionally table-like; one source declaration per line is easier to
+# diff against docs/integrations.md than wrapping every field independently.
+# ruff: noqa: E501
+
 from __future__ import annotations
 
 from dataclasses import dataclass
