@@ -75,7 +75,9 @@ export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput {
   nickname: string;
   stage: Stage;
+  birth_date: string | null;
   age_months: number | null;
+  grade: number | null;
   interests: string[];
 }
 export interface ChildUpdateInput extends ChildCreateInput {
@@ -88,7 +90,9 @@ export interface ChildProfile {
   id: string;
   nickname: string;
   stage: Stage;
+  birth_date?: string | null;
   age_months: number | null;
+  grade?: number | null;
   interests: string[];
   primary_language?: string;
   additional_languages?: string[];
