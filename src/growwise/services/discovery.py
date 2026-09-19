@@ -19,12 +19,14 @@ from growwise.adapters import (
     GoogleBooksAdapter,
     GutendexAdapter,
     JsonHttpClient,
+    KbrAdapter,
     KmaForecastAdapter,
     KoreanHeritageAdapter,
     KrdictAdapter,
     NasaMediaAdapter,
     NationalLibraryIsbnAdapter,
     NominatimAdapter,
+    OpenLibraryAdapter,
     OfficialKoreanCurriculumCatalogAdapter,
     OpenDictAdapter,
     OpenTopoDataAdapter,
@@ -546,6 +548,7 @@ class EducationDiscoveryService:
 
         extended_ids = (
             "google_books",
+            "open_library",
             "gutendex",
             "global_digital_library",
             "national_library_isbn",
@@ -581,6 +584,13 @@ class EducationDiscoveryService:
                         DiscoveryCategory.BOOK,
                         lambda: GoogleBooksAdapter(
                             **self._search_kwargs(self.settings.google_books_endpoint)
+                        ).search(query=query, limit=6, offline=offline),
+                    ),
+                    (
+                        "open_library",
+                        DiscoveryCategory.BOOK,
+                        lambda: OpenLibraryAdapter(
+                            **self._search_kwargs(self.settings.open_library_endpoint)
                         ).search(query=query, limit=6, offline=offline),
                     ),
                     (
@@ -676,6 +686,7 @@ class EducationDiscoveryService:
                 )
                 for source_id in (
                     "google_books",
+                    "open_library",
                     "gutendex",
                     "global_digital_library",
                     "nasa_images",
@@ -835,19 +846,29 @@ class EducationDiscoveryService:
             license_note="공공데이터 및 개별 유물/이미지 권리표시를 확인할 것",
             offline=offline,
         )
-        self._append_configured_public_data_task(
-            tasks=tasks,
-            source_states=source_states,
-            source_id="kbr",
-            endpoint=self.settings.kbr_endpoint,
-            query_param=self.settings.kbr_query_param,
-            query=query,
-            api_key=public_key,
-            category=DiscoveryCategory.SCIENCE,
-            attribution="국립생물자원관",
-            license_note="텍스트 메타데이터 중심; 이미지 재사용 권리는 별도 확인할 것",
-            offline=offline,
-        )
+        kbr_key = (self.settings.kbr_api_key or "").strip()
+        if kbr_key and self.settings.kbr_endpoint:
+            tasks.append(
+                (
+                    "kbr",
+                    DiscoveryCategory.SCIENCE,
+                    lambda: KbrAdapter(
+                        api_key=kbr_key,
+                        endpoint=self.settings.kbr_endpoint or "",
+                        cache=self.cache,
+                        http=self._http(),
+                        ttl_seconds=self.settings.external_source_cache_ttl_seconds,
+                    ).search(query=query, limit=5, offline=offline),
+                )
+            )
+        else:
+            source_states.append(
+                DiscoverySourceState(
+                    source="kbr",
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
 
     def _append_keyed_missing_query_states(
         self,
@@ -867,7 +888,7 @@ class EducationDiscoveryService:
             ),
             (
                 "kbr",
-                bool((self.settings.public_data_api_key or "").strip())
+                bool((self.settings.kbr_api_key or "").strip())
                 and bool(self.settings.kbr_endpoint),
             ),
         )
