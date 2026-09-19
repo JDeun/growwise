@@ -120,7 +120,7 @@ class KrDictAdapter:
                     "part_of_speech": (item.findtext("pos") or "").strip(),
                     "definitions": definitions,
                     "source_url": (item.findtext("link") or "").strip()
-                    or f"https://krdict.korean.go.kr/",
+                    or "https://krdict.korean.go.kr/",
                 }
             )
         return records
