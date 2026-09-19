@@ -89,10 +89,18 @@ class NasaImagesAdapter:
                 {
                     "id": nasa_id,
                     "title": title,
-                    "description": str(entry.get("description") or entry.get("description_508") or "")[:10_000],
+                    "description": str(
+                        entry.get("description")
+                        or entry.get("description_508")
+                        or ""
+                    )[:10_000],
                     "date_created": str(entry.get("date_created") or ""),
                     "center": str(entry.get("center") or ""),
-                    "keywords": [str(v) for v in keywords[:20]] if isinstance(keywords, list) else [],
+                    "keywords": (
+                        [str(v) for v in keywords[:20]]
+                        if isinstance(keywords, list)
+                        else []
+                    ),
                     "image_url": image_url,
                     "source_url": f"https://images.nasa.gov/details/{nasa_id}",
                 }
