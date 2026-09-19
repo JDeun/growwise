@@ -21,7 +21,7 @@ class _FakeResponse:
     def __init__(self, payload: dict) -> None:
         self._raw = json.dumps(payload).encode("utf-8")
 
-    def __enter__(self) -> "_FakeResponse":
+    def __enter__(self) -> _FakeResponse:
         return self
 
     def __exit__(self, *_args) -> None:
