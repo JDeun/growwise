@@ -81,6 +81,7 @@ class Settings(BaseSettings):
     discovery_max_parallel_sources: int = Field(default=8, ge=1, le=16)
 
     google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
+    open_library_endpoint: str = "https://openlibrary.org/search.json"
     gutendex_endpoint: str = "https://gutendex.com/books"
     global_digital_library_endpoint: str = (
         "https://content.digitallibrary.io/wp-json/content-api/v1/contentsearch"
@@ -117,8 +118,11 @@ class Settings(BaseSettings):
     )
     emuseum_endpoint: str | None = None
     emuseum_query_param: str = "keyword"
+    kbr_api_key: str | None = None
+    # KBR's published sample endpoint has historically been HTTP. GrowWise's public-data trust
+    # boundary requires HTTPS, so this remains unset unless the operator verifies an HTTPS endpoint
+    # or a same-origin HTTPS proxy.
     kbr_endpoint: str | None = None
-    kbr_query_param: str = "searchKeyword"
 
     # Public curriculum enrichment is disabled unless an endpoint is explicitly configured.
     # A bundled official-source metadata catalog remains available without network access.
