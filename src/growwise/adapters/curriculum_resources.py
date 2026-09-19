@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from typing import Any
+from uuid import NAMESPACE_URL, uuid5
 
 from growwise.domain.models import ResourceKind, ResourceRecord, Stage
 
@@ -28,6 +29,10 @@ def curriculum_records_to_resources(result: AdapterResult) -> list[ResourceRecor
         stage = _stage(record.stage)
         tags = _tags(record)
         resources.append(ResourceRecord(
+            id=uuid5(
+                NAMESPACE_URL,
+                f"growwise:curriculum:{result.source}:{record.curriculum_id}",
+            ),
             child_id=None,
             kind=ResourceKind.CURRICULUM,
             title=record.title,

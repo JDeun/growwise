@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sqlite3
 
+import pytest
 from langgraph.checkpoint.sqlite import SqliteSaver
 
 from growwise.config import Settings
@@ -17,12 +18,39 @@ from growwise.domain import (
 )
 from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.jobs import SQLiteJobQueue
+from growwise.maintenance import StaleDataGeneration
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.entity_links import EntityLinkService
 from growwise.services.privacy import ChildPurgeService
 from growwise.storage import EntityStore
 from growwise.workflows import build_observation_graph
+
+
+def test_child_purge_fences_preexisting_writer_generation(tmp_path) -> None:
+    settings = Settings(
+        data_dir=tmp_path,
+        llm_features_enabled=False,
+        embedding_features_enabled=False,
+        vision_features_enabled=False,
+    )
+    old_store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(name="삭제 대상", nickname="삭제 대상", stage=Stage.INFANT_0_2)
+    old_store.save(child)
+
+    ChildPurgeService(settings).purge(str(child.id))
+
+    with pytest.raises(StaleDataGeneration):
+        old_store.save(
+            LearningLog(
+                child_id=child.id,
+                parent_observation="삭제 완료 뒤 늦게 도착한 기록",
+            )
+        )
+
+    fresh_store = EntityStore(settings.records_dir, settings.index_path)
+    assert fresh_store.index.get_entity(str(child.id), entity_type="child_profile") is None
+    assert fresh_store.index.list_entities(child_id=str(child.id)) == []
 
 
 def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_path) -> None:
@@ -148,10 +176,12 @@ def test_child_purge_removes_live_and_derived_data_without_touching_sibling(tmp_
     assert not child_id_in_records
     assert rag.search(query="삭제할", child_id=str(child.id), limit=10) == []
     assert rag.search(query="보존", child_id=str(sibling.id), limit=10)
-    assert conversations.list_for_child(str(child.id)) == []
-    assert conversations.list_for_child(str(sibling.id))
-    assert idempotency.get("target-key") is None
-    assert idempotency.get("sibling-key") is not None
+    fresh_conversations = SQLiteConversationStore(settings.conversations_path)
+    fresh_idempotency = SQLiteIdempotencyStore(settings.idempotency_path)
+    assert fresh_conversations.list_for_child(str(child.id)) == []
+    assert fresh_conversations.list_for_child(str(sibling.id))
+    assert fresh_idempotency.get("target-key") is None
+    assert fresh_idempotency.get("sibling-key") is not None
 
     remaining_job = jobs.claim_next()
     assert remaining_job is not None

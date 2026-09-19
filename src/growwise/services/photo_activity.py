@@ -12,7 +12,9 @@ from contextlib import suppress
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from uuid import UUID
+from uuid import UUID, uuid5
+
+from uuid6 import uuid7
 
 from growwise.domain.models import LearningLog, LearningRecordKind
 from growwise.domain.photo import (
@@ -191,6 +193,7 @@ class PhotoAssetStore:
         child_id: str,
         upload: PhotoUpload,
         namespace: str = "photos",
+        asset_id: UUID | None = None,
     ) -> tuple[PhotoAsset, bool]:
         if not upload.data:
             raise PhotoValidationError("empty_image")
@@ -230,6 +233,7 @@ class PhotoAssetStore:
 
         return (
             PhotoAsset(
+                id=asset_id or uuid7(),
                 child_id=UUID(child_id),
                 original_filename=original_name[:255],
                 mime_type=detected_mime,
@@ -313,6 +317,7 @@ LearningLog."""
         child_id: str,
         uploads: list[PhotoUpload],
         user_context: str | None,
+        record_id: UUID | None = None,
     ) -> tuple[PhotoActivityRecord, list[PhotoAsset]]:
         """Persist upload bytes quickly without waiting for local model inference."""
         if not uploads or len(uploads) > self.max_images:
@@ -320,12 +325,20 @@ LearningLog."""
 
         with child_operation_lock(child_id):
             self._require_child(child_id)
+            draft_id = record_id or uuid7()
             assets: list[PhotoAsset] = []
             newly_created: list[Path] = []
             saved_assets: list[PhotoAsset] = []
             try:
-                for upload in uploads:
-                    asset, created = self.asset_store.store(child_id=child_id, upload=upload)
+                for index, upload in enumerate(uploads):
+                    # Stable per-draft metadata IDs let a crashed create retry overwrite/reconcile
+                    # the same photo_asset records instead of leaking duplicates. The binary itself
+                    # is already content-addressed by SHA-256.
+                    asset, created = self.asset_store.store(
+                        child_id=child_id,
+                        upload=upload,
+                        asset_id=uuid5(draft_id, f"photo-asset:{index}"),
+                    )
                     if created:
                         newly_created.append(self.asset_store.assets_root / asset.relative_path)
                     self.store.save(asset)
@@ -338,6 +351,7 @@ LearningLog."""
                     else None
                 )
                 record = PhotoActivityRecord(
+                    id=draft_id,
                     child_id=UUID(child_id),
                     photo_asset_ids=[asset.id for asset in assets],
                     user_context=clean_context,
@@ -581,20 +595,44 @@ LearningLog."""
         if not final_text:
             raise PhotoValidationError("empty_photo_observation")
 
-        tags = list(dict.fromkeys(["사진기록", *record.suggested_tags]))[:100]
-        log = LearningLog(
-            child_id=record.child_id,
-            record_kind=LearningRecordKind.PHOTO_ACTIVITY,
-            parent_observation=final_text[:10_000],
-            tags=tags,
-            experience_axes=record.suggested_experience_axes,
-            interest=record.suggested_interest,
-            difficulty_note=record.suggested_difficulty_note,
-            next_activity=record.suggested_next_activity,
+        # Reserve the authoritative LearningLog ID on the photo record before creating the log.
+        # If the process dies after either write, a retry reuses this same UUID instead of creating
+        # a duplicate LearningLog. The DRAFT + learning_log_id state is therefore an intentional
+        # crash-recovery state.
+        if record.learning_log_id is None:
+            record.learning_log_id = uuid7()
+            record.updated_at = datetime.now(UTC)
+            self.store.save(record)
+
+        reserved_log_id = record.learning_log_id
+        assert reserved_log_id is not None
+        existing_log = self.store.index.get_entity(
+            str(reserved_log_id),
+            entity_type="learning_log",
         )
-        self.store.save(log)
+        if existing_log is not None:
+            log = LearningLog.model_validate(existing_log)
+            if (
+                log.child_id != record.child_id
+                or log.record_kind is not LearningRecordKind.PHOTO_ACTIVITY
+            ):
+                raise RuntimeError("reserved photo learning_log_id points to incompatible data")
+        else:
+            tags = list(dict.fromkeys(["사진기록", *record.suggested_tags]))[:100]
+            log = LearningLog(
+                id=reserved_log_id,
+                child_id=record.child_id,
+                record_kind=LearningRecordKind.PHOTO_ACTIVITY,
+                parent_observation=final_text[:10_000],
+                tags=tags,
+                experience_axes=record.suggested_experience_axes,
+                interest=record.suggested_interest,
+                difficulty_note=record.suggested_difficulty_note,
+                next_activity=record.suggested_next_activity,
+            )
+            self.store.save(log)
+
         record.status = PhotoRecordStatus.COMMITTED
-        record.learning_log_id = log.id
         record.generated_observation = final_text[:10_000]
         record.updated_at = datetime.now(UTC)
         self.store.save(record)

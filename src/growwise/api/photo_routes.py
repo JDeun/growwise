@@ -2,18 +2,26 @@ from __future__ import annotations
 
 import base64
 import binascii
+import hashlib
 import ipaddress
 import urllib.parse
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, Header, HTTPException, status
 from pydantic import BaseModel, Field
+from uuid6 import uuid7
 
 from growwise.config import Settings
-from growwise.domain.photo import PhotoAsset, PhotoRecordStatus
-from growwise.jobs import SQLiteJobQueue
+from growwise.domain.photo import PhotoActivityRecord, PhotoAsset, PhotoRecordStatus
+from growwise.idempotency import (
+    IdempotencyConflict,
+    IdempotencyStatus,
+    SQLiteIdempotencyStore,
+    request_fingerprint,
+)
+from growwise.jobs import Job, SQLiteJobQueue
 from growwise.model.factory import create_model_provider
 from growwise.model.ollama import OllamaProvider
 from growwise.model.provider import ModelProvider
@@ -232,6 +240,106 @@ def _shared_children(
     return shared
 
 
+def _photo_create_fingerprint(
+    *,
+    child_id: UUID,
+    request: PhotoDraftRequest,
+    uploads: list[PhotoUpload],
+) -> str:
+    return request_fingerprint(
+        {
+            "child_id": str(child_id),
+            "files": [
+                {
+                    "filename": item.filename,
+                    "mime_type": item.mime_type,
+                    "sha256": hashlib.sha256(upload.data).hexdigest(),
+                }
+                for item, upload in zip(request.files, uploads, strict=True)
+            ],
+            "user_context": request.user_context,
+            "manual_observation": request.manual_observation,
+            "ai_assist": request.ai_assist,
+            "shared_child_ids": [str(item) for item in request.shared_child_ids],
+        }
+    )
+
+
+def _photo_job_payload(job: Job | None) -> dict[str, object] | None:
+    if job is None:
+        return None
+    return {
+        "id": str(job.id),
+        "status": job.status,
+        "attempts": job.attempts,
+    }
+
+
+def _finalize_photo_create(
+    *,
+    child_id: UUID,
+    record: PhotoActivityRecord,
+    assets: list[PhotoAsset],
+    shared_child_ids: list[UUID],
+    manual_text: str,
+    can_assist: bool,
+    settings: Settings,
+    store: EntityStore,
+    ai_service: PhotoActivityService,
+) -> dict[str, object]:
+    if shared_child_ids:
+        EntityLinkService(store).share_with_children(
+            source_id=record.id,
+            child_ids=shared_child_ids,
+        )
+
+    if not can_assist:
+        manual_service = _service(settings, store, ai_enabled=False)
+        if record.status not in {PhotoRecordStatus.DRAFT, PhotoRecordStatus.COMMITTED}:
+            record = manual_service.process_draft(str(record.id))
+        if record.status is PhotoRecordStatus.DRAFT:
+            if manual_text and record.generated_observation != manual_text:
+                record.generated_observation = manual_text[:10_000]
+            record.generation_mode = "manual_photo_diary"
+            store.save(record)
+        return {
+            "record": record.model_dump(mode="json"),
+            "assets": [asset.model_dump(mode="json") for asset in assets],
+            "job": None,
+        }
+
+    queue = SQLiteJobQueue(settings.jobs_path)
+    job = queue.get(record.job_id) if record.job_id is not None else None
+    if (
+        job is None
+        and record.status
+        in {PhotoRecordStatus.QUEUED, PhotoRecordStatus.PROCESSING, PhotoRecordStatus.FAILED}
+    ):
+        runner = get_photo_job_runner()
+        try:
+            with store.mutation_window():
+                runner.start()
+                job = runner.submit(child_id=str(child_id), record_id=str(record.id))
+                record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            fallback_service = _service(settings, store, ai_enabled=False)
+            fallback_service.mark_queued(str(record.id), error=f"background_queue_error: {exc}")
+            record = fallback_service.process_draft(str(record.id))
+            return {
+                "record": record.model_dump(mode="json"),
+                "assets": [asset.model_dump(mode="json") for asset in assets],
+                "job": None,
+            }
+
+    return {
+        "record": record.model_dump(mode="json"),
+        "assets": [asset.model_dump(mode="json") for asset in assets],
+        "job": _photo_job_payload(job),
+    }
+
+
 @router.post(
     "/children/{child_id}/photo-records",
     status_code=status.HTTP_202_ACCEPTED,
@@ -241,6 +349,7 @@ def create_photo_record(
     request: PhotoDraftRequest,
     settings: Annotated[Settings, Depends(get_photo_settings)],
     store: Annotated[EntityStore, Depends(get_photo_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> dict[str, object]:
     shared_child_ids = _shared_children(
         primary_child_id=child_id,
@@ -255,75 +364,119 @@ def create_photo_record(
     can_assist = request.ai_assist and (
         ai_service.text_provider is not None or ai_service.vision_provider is not None
     )
-    # In manual mode the parent's text is the record. If they only supplied a context note, keep
-    # that as the editable draft. No model is required to reach the parent-review state.
     effective_context = context_text
     if not can_assist and manual_text:
         effective_context = manual_text
+
+    idempotency_store = (
+        SQLiteIdempotencyStore(settings.idempotency_path)
+        if idempotency_key is not None
+        else None
+    )
+    request_hash = _photo_create_fingerprint(
+        child_id=child_id,
+        request=request,
+        uploads=uploads,
+    )
+    reserved_record_id: UUID = uuid7()
+    claim = None
+    if idempotency_key is not None:
+        assert idempotency_store is not None
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type="photo_activity_record",
+                resource_id=str(reserved_record_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        reserved_record_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing_payload = store.index.get_entity(
+                claim.record.resource_id,
+                entity_type="photo_activity_record",
+            )
+            if existing_payload is not None:
+                record = PhotoActivityRecord.model_validate(existing_payload)
+                if record.child_id != child_id:
+                    raise HTTPException(status_code=409, detail="idempotency_resource_mismatch")
+                assets = ai_service.get_assets_for_record(str(record.id))
+                try:
+                    result = _finalize_photo_create(
+                        child_id=child_id,
+                        record=record,
+                        assets=assets,
+                        shared_child_ids=shared_child_ids,
+                        manual_text=manual_text,
+                        can_assist=can_assist,
+                        settings=settings,
+                        store=store,
+                        ai_service=ai_service,
+                    )
+                except (PhotoValidationError, EntityLinkError) as exc:
+                    raise HTTPException(status_code=422, detail=str(exc)) from exc
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return result
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
 
     try:
         record, assets = ai_service.prepare_draft(
             child_id=str(child_id),
             uploads=uploads,
             user_context=effective_context or None,
+            record_id=reserved_record_id,
         )
-        if shared_child_ids:
-            EntityLinkService(store).share_with_children(
-                source_id=record.id,
-                child_ids=shared_child_ids,
+        result = _finalize_photo_create(
+            child_id=child_id,
+            record=record,
+            assets=assets,
+            shared_child_ids=shared_child_ids,
+            manual_text=manual_text,
+            can_assist=can_assist,
+            settings=settings,
+            store=store,
+            ai_service=ai_service,
+        )
+        if claim is not None and claim.acquired and idempotency_store is not None:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
             )
+        return result
     except KeyError as exc:
-        raise HTTPException(status_code=404, detail=str(exc.args[0])) from exc
+        error: Exception = HTTPException(status_code=404, detail=str(exc.args[0]))
     except (PhotoValidationError, EntityLinkError) as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-
-    if not can_assist:
-        manual_service = _service(settings, store, ai_enabled=False)
-        record = manual_service.process_draft(str(record.id))
-        if manual_text and record.generated_observation != manual_text:
-            # Deterministic processing can append metadata-only fallback text. Parent-authored text
-            # wins in manual diary mode and is stored verbatim until the parent edits it again.
-            record.generated_observation = manual_text[:10_000]
-            record.generation_mode = "manual_photo_diary"
-            store.save(record)
-        else:
-            record.generation_mode = "manual_photo_diary"
-            store.save(record)
-        return {
-            "record": record.model_dump(mode="json"),
-            "assets": [asset.model_dump(mode="json") for asset in assets],
-            "job": None,
-        }
-
-    runner = get_photo_job_runner()
-    try:
-        with store.mutation_window():
-            runner.start()
-            job = runner.submit(child_id=str(child_id), record_id=str(record.id))
-            record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
-    except HTTPException:
-        raise
+        error = HTTPException(status_code=422, detail=str(exc))
     except Exception as exc:
-        # Queue failure must not make a locally-saved diary unusable. Convert immediately to a
-        # deterministic parent-editable draft rather than returning a hard dependency on AI.
-        fallback_service = _service(settings, store, ai_enabled=False)
-        fallback_service.mark_queued(str(record.id), error=f"background_queue_error: {exc}")
-        record = fallback_service.process_draft(str(record.id))
-        return {
-            "record": record.model_dump(mode="json"),
-            "assets": [asset.model_dump(mode="json") for asset in assets],
-            "job": None,
-        }
+        error = exc
 
-    return {
-        "record": record.model_dump(mode="json"),
-        "assets": [asset.model_dump(mode="json") for asset in assets],
-        "job": {
-            "id": str(job.id),
-            "status": job.status,
-            "attempts": job.attempts,
-        },
-    }
+    if claim is not None and claim.acquired and idempotency_store is not None:
+        existing_payload = store.index.get_entity(
+            claim.record.resource_id,
+            entity_type="photo_activity_record",
+        )
+        if existing_payload is None:
+            idempotency_store.release(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+        else:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+    raise error
 
 
 @router.get("/children/{child_id}/photo-records")

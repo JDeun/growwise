@@ -26,6 +26,7 @@ from growwise.domain.models import (
     Stage,
 )
 from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
+from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.services.entity_links import EntityLinkService
 from growwise.services.growth import GrowthMapService
 from growwise.storage import EntityStore
@@ -282,6 +283,82 @@ def test_partial_result_keeps_material_activity_open_for_follow_up(tmp_path: Pat
     assert len(history) == 1
     assert history[0].activity.id == first.activity.id
     assert len(history[0].learning_logs) == 2
+
+
+
+def test_material_result_retry_repairs_links_without_duplicate_log(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    store = _store(tmp_path)
+    child, material = _approved_material(store)
+    idempotency = SQLiteIdempotencyStore(tmp_path / "material-result-idempotency.sqlite3")
+    monkeypatch.setattr(
+        "growwise.api.material_result_routes.get_material_result_idempotency_store",
+        lambda: idempotency,
+    )
+
+    original_create = EntityLinkService.create
+    calls = 0
+
+    def fail_second_link(self: EntityLinkService, **kwargs):
+        nonlocal calls
+        calls += 1
+        if calls == 2:
+            raise OSError("simulated crash during link fan-out")
+        return original_create(self, **kwargs)
+
+    monkeypatch.setattr(EntityLinkService, "create", fail_second_link)
+    request = MaterialResultRequest(
+        outcome=MaterialUseOutcome.COMPLETED,
+        observation="부분 저장 뒤에도 같은 결과로 수렴해야 한다.",
+    )
+
+    with pytest.raises(OSError, match="simulated crash"):
+        record_material_result(
+            material.id,
+            request,
+            store,
+            idempotency_key="material-result-retry",
+        )
+
+    logs = [
+        LearningLog.model_validate(payload)
+        for payload in store.index.list_entities(
+            entity_type="learning_log",
+            child_id=str(child.id),
+        )
+        if payload.get("record_kind") == LearningRecordKind.MATERIAL_USE.value
+    ]
+    assert len(logs) == 1
+    reserved_log_id = logs[0].id
+
+    monkeypatch.setattr(EntityLinkService, "create", original_create)
+    recovered = record_material_result(
+        material.id,
+        request,
+        store,
+        idempotency_key="material-result-retry",
+    )
+
+    assert recovered.learning_log.id == reserved_log_id
+    final_logs = [
+        payload
+        for payload in store.index.list_entities(
+            entity_type="learning_log",
+            child_id=str(child.id),
+        )
+        if payload.get("record_kind") == LearningRecordKind.MATERIAL_USE.value
+    ]
+    assert len(final_logs) == 1
+
+    links = store.index.list_entities(entity_type="entity_link")
+    relations = {
+        item["relation"]
+        for item in links
+        if item.get("source_id") in {str(material.id), str(reserved_log_id)}
+    }
+    assert {"supports", "documents", "derived_from"}.issubset(relations)
 
 
 def test_material_result_routes_are_registered() -> None:

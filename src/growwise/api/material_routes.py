@@ -4,8 +4,9 @@ import logging
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from langgraph.types import Command
+from uuid6 import uuid7
 
 from growwise.api.contracts import (
     MaterialEditRequest,
@@ -13,7 +14,7 @@ from growwise.api.contracts import (
     MaterialReviewRequest,
     MaterialRevisionRequest,
 )
-from growwise.api.dependencies import get_store
+from growwise.api.dependencies import get_idempotency_store, get_store
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialStatus, ResourceRecord
 from growwise.generators import (
     MaterialEditError,
@@ -22,6 +23,11 @@ from growwise.generators import (
     MaterialRevisionError,
     MaterialRevisionService,
     MaterialSourceEvidence,
+)
+from growwise.idempotency import (
+    IdempotencyConflict,
+    IdempotencyStatus,
+    request_fingerprint,
 )
 from growwise.material_versions import serialize_material_successor
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
@@ -117,6 +123,7 @@ def generate_material(
     child_id: UUID,
     request: MaterialGenerateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> GeneratedMaterial:
     child_payload = store.index.get_entity(str(child_id), entity_type="child_profile")
     if child_payload is None:
@@ -127,28 +134,97 @@ def generate_material(
         source_refs=request.source_refs,
         store=store,
     )
-    source_evidence = material_source_evidence(source_refs=source_refs, store=store)
-    material = MaterialGenerationService(provider=_model_provider()).generate(
-        child=child,
-        kind=request.kind,
-        topic=request.topic,
-        goal=request.goal,
-        source_refs=source_refs,
-        source_evidence=source_evidence,
+
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
+    request_hash = request_fingerprint(
+        {"child_id": str(child_id), **request.model_dump(mode="json")}
     )
-    material.request_topic = request.topic
-    material.request_goal = request.goal
-    store.save(material)
-    review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
-    with store.mutation_window():
-        _material_review_graph().invoke(
-            {
-                "material_id": str(material.id),
-                "child_id": str(child.id),
-                "title": material.title,
-            },
-            config=review_config,
+    reserved_material_id: UUID = uuid7()
+    claim = None
+    if idempotency_key is not None:
+        assert idempotency_store is not None
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type="generated_material",
+                resource_id=str(reserved_material_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        reserved_material_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id,
+                entity_type="generated_material",
+            )
+            if existing is not None:
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return GeneratedMaterial.model_validate(existing)
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
+    source_evidence = material_source_evidence(source_refs=source_refs, store=store)
+    try:
+        material = MaterialGenerationService(provider=_model_provider()).generate(
+            child=child,
+            kind=request.kind,
+            topic=request.topic,
+            goal=request.goal,
+            source_refs=source_refs,
+            source_evidence=source_evidence,
         )
+        material.id = reserved_material_id
+        material.request_topic = request.topic
+        material.request_goal = request.goal
+        store.save(material)
+        if claim is not None and claim.acquired and idempotency_store is not None:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+    except Exception:
+        if claim is not None and claim.acquired and idempotency_store is not None:
+            existing = store.index.get_entity(
+                claim.record.resource_id,
+                entity_type="generated_material",
+            )
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+        raise
+
+    review_config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
+    try:
+        with store.mutation_window():
+            _material_review_graph().invoke(
+                {
+                    "material_id": str(material.id),
+                    "child_id": str(child.id),
+                    "title": material.title,
+                },
+                config=review_config,
+            )
+    except Exception:
+        # The material Markdown is authoritative. Review checkpoints are a recoverable projection,
+        # and review_material already has a direct domain-transition fallback.
+        logger.exception("material review checkpoint initialization failed after material save")
     return material
 
 

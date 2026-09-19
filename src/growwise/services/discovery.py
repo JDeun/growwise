@@ -4,6 +4,7 @@ import hashlib
 from collections.abc import Iterable
 from enum import StrEnum
 from typing import Any
+from uuid import uuid5
 
 from pydantic import BaseModel, Field
 
@@ -144,7 +145,12 @@ class EducationDiscoveryService:
         ):
             provenance = payload.get("provenance") or {}
             if provenance.get("discovery_candidate_id") == suggestion.candidate_id:
-                return ResourceRecord.model_validate(payload)
+                resource = ResourceRecord.model_validate(payload)
+                # RAG is a disposable projection. Re-ingest an already-authoritative resource so a
+                # crash between Markdown save and the original ingest converges on retry instead of
+                # leaving the resource permanently absent from search until a full rebuild.
+                self.ingestor.ingest(resource)
+                return resource
 
         provenance = {
             "discovery_candidate_id": suggestion.candidate_id,
@@ -159,6 +165,7 @@ class EducationDiscoveryService:
             provenance[f"source_{key}"] = value[:4_000]
 
         resource = ResourceRecord(
+            id=uuid5(child.id, f"growwise:discovery:{suggestion.candidate_id}"),
             child_id=child.id,
             kind=suggestion.resource_kind,
             title=suggestion.title,

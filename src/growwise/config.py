@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 from pydantic import Field
@@ -8,6 +9,15 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="GROWWISE_", extra="ignore")
+
+    def model_post_init(self, __context: object) -> None:
+        # GrowWise stores child records, photos and conversations under one app-data root. On POSIX
+        # systems the root itself is the confidentiality boundary: even if a third-party library
+        # creates a database with a permissive process umask, other local users cannot traverse the
+        # directory. Windows relies on the user's app-data ACL instead.
+        self.data_dir.mkdir(parents=True, exist_ok=True)
+        if os.name == "posix":
+            os.chmod(self.data_dir, 0o700)
 
     data_dir: Path = Path.home() / ".growwise"
     api_host: str = "127.0.0.1"

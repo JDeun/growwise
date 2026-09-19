@@ -47,6 +47,7 @@ class DataMaintenanceCoordinator:
     def __init__(self) -> None:
         self._condition = threading.Condition()
         self._maintenance_active = False
+        self._maintenance_owner_thread_id: int | None = None
         self._active_mutations = 0
         self._generation = 0
         self._local = threading.local()
@@ -93,29 +94,42 @@ class DataMaintenanceCoordinator:
                 self._local.mutation_depth = depth
             return
 
+        current_thread_id = threading.get_ident()
+        maintenance_owned = False
         with self._condition:
-            while self._maintenance_active:
+            while (
+                self._maintenance_active
+                and self._maintenance_owner_thread_id != current_thread_id
+            ):
                 self._condition.wait()
             self._require_current_generation(expected_generation)
-            self._active_mutations += 1
+            maintenance_owned = (
+                self._maintenance_active
+                and self._maintenance_owner_thread_id == current_thread_id
+            )
+            if not maintenance_owned:
+                self._active_mutations += 1
         self._local.mutation_depth = 1
         try:
             yield
         finally:
             self._local.mutation_depth = 0
-            with self._condition:
-                self._active_mutations -= 1
-                if self._active_mutations == 0:
-                    self._condition.notify_all()
+            if not maintenance_owned:
+                with self._condition:
+                    self._active_mutations -= 1
+                    if self._active_mutations == 0:
+                        self._condition.notify_all()
 
     @contextmanager
     def maintenance(self, *, invalidate_generation: bool = False) -> Iterator[None]:
         if self._mutation_depth() > 0:
             raise RuntimeError("cannot start maintenance from inside a data mutation")
+        owner_thread_id = threading.get_ident()
         with self._condition:
             if self._maintenance_active:
                 raise MaintenanceInProgress("data maintenance is already in progress")
             self._maintenance_active = True
+            self._maintenance_owner_thread_id = owner_thread_id
             while self._active_mutations:
                 self._condition.wait()
         try:
@@ -124,6 +138,7 @@ class DataMaintenanceCoordinator:
             with self._condition:
                 if invalidate_generation:
                     self._generation += 1
+                self._maintenance_owner_thread_id = None
                 self._maintenance_active = False
                 self._condition.notify_all()
 

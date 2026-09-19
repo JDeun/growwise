@@ -18,6 +18,9 @@ class ConversationTurn(BaseModel):
     role: Literal["user", "assistant"]
     content: _ConversationContent
     source_ids: list[_ConversationSourceId] = Field(default_factory=list, max_length=100)
+    operation_key: str | None = Field(default=None, max_length=200)
+    operation_hash: str | None = Field(default=None, min_length=64, max_length=64)
+    insufficient_evidence: bool | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -54,7 +57,15 @@ user's questions. Return only the rewritten retrieval query."""
         self.provider = provider
         self.max_history_turns = max_history_turns
 
-    def ask(self, *, session: ConversationSession, question: str, limit: int = 8) -> ContextAnswer:
+    def ask(
+        self,
+        *,
+        session: ConversationSession,
+        question: str,
+        limit: int = 8,
+        operation_key: str | None = None,
+        operation_hash: str | None = None,
+    ) -> ContextAnswer:
         retrieval_query = self._rewrite(session=session, question=question)
         answer = self.context_service.ask(
             child_id=session.child_id,
@@ -63,11 +74,19 @@ user's questions. Return only the rewritten retrieval query."""
         )
         session.turns.extend(
             [
-                ConversationTurn(role="user", content=question),
+                ConversationTurn(
+                    role="user",
+                    content=question,
+                    operation_key=operation_key,
+                    operation_hash=operation_hash,
+                ),
                 ConversationTurn(
                     role="assistant",
                     content=answer.answer,
                     source_ids=answer.source_ids,
+                    operation_key=operation_key,
+                    operation_hash=operation_hash,
+                    insufficient_evidence=answer.insufficient_evidence,
                 ),
             ]
         )

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import UUID
+from uuid import UUID, uuid5
 
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.storage import EntityStore
@@ -47,6 +47,7 @@ class EntityLinkService:
             return EntityLink.model_validate(existing_links[0])
 
         link = EntityLink(
+            id=uuid5(source_id, f"{relation.value}:{target_id}"),
             child_id=child_id,
             source_id=source_id,
             target_id=target_id,

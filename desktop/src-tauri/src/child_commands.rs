@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{client, ensure_success, CORE_BASE_URL};
+use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub(crate) struct ChildCreateInput {
@@ -50,12 +50,13 @@ pub(crate) struct ChildProfileDto {
 
 #[tauri::command]
 pub(crate) async fn create_child(request: ChildCreateInput) -> Result<ChildProfileDto, String> {
-    let response = client()?
-        .post(format!("{CORE_BASE_URL}/v1/children"))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/children"),
+        &body,
+        "child-create",
+    )
+    .await?;
     ensure_success(response, "아이 프로필 저장 실패")
         .await?
         .json::<ChildProfileDto>()

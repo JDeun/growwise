@@ -5,7 +5,7 @@ from pathlib import Path
 import pytest
 
 from growwise.config import Settings
-from growwise.domain import ChildProfile, Stage
+from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
 from growwise.idempotency import SQLiteIdempotencyStore, request_fingerprint
 from growwise.maintenance import (
     DATA_MAINTENANCE,
@@ -14,6 +14,7 @@ from growwise.maintenance import (
     MaintenanceInProgress,
     StaleDataGeneration,
 )
+from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, SQLiteConversationStore
 from growwise.storage import EntityStore
 
@@ -41,6 +42,19 @@ def test_ordinary_mutation_waits_for_non_destructive_maintenance() -> None:
 
     worker.join(timeout=1)
     assert finished.is_set()
+
+
+
+def test_maintenance_owner_can_mutate_inside_exclusive_window() -> None:
+    coordinator = DataMaintenanceCoordinator()
+
+    with (
+        coordinator.maintenance(invalidate_generation=True),
+        coordinator.mutation(expected_generation=0),
+    ):
+        assert coordinator.active is True
+
+    assert coordinator.generation == 1
 
 
 def test_concurrent_maintenance_is_retryable_503() -> None:
@@ -99,6 +113,52 @@ def test_maintenance_aware_job_heartbeat_fences_new_store_on_same_worker_thread(
     retry_store = EntityStore(settings.records_dir, settings.index_path)
     retry_store.save(_child("after-clear"))
 
+
+
+def test_destructive_maintenance_fences_old_rag_projection_generation(tmp_path: Path) -> None:
+    settings = Settings(data_dir=tmp_path)
+    stale_index = HybridRagIndex(settings.rag_index_path)
+    resource = ResourceRecord(
+        child_id=_child("rag-child").id,
+        kind=ResourceKind.NOTE,
+        title="삭제 이후 들어오면 안 되는 자료",
+        content="stale-rag-marker",
+    )
+
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        pass
+
+    assert ResourceIngestor(stale_index).ingest(resource) == 0
+    fresh_index = HybridRagIndex(settings.rag_index_path)
+    assert fresh_index.search(
+        query="stale-rag-marker",
+        child_id=str(resource.child_id),
+        limit=10,
+    ) == []
+
+
+def test_generation_keyed_api_rag_cache_refreshes_after_destructive_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from growwise.api import dependencies
+
+    settings = Settings(
+        data_dir=tmp_path,
+        embedding_features_enabled=False,
+        llm_features_enabled=False,
+        vision_features_enabled=False,
+    )
+    monkeypatch.setattr(dependencies, "get_settings", lambda: settings)
+    dependencies.get_rag_index.cache_clear()
+
+    first = dependencies.get_rag_index()
+    with DATA_MAINTENANCE.maintenance(invalidate_generation=True):
+        pass
+    second = dependencies.get_rag_index()
+
+    assert first is not second
+    dependencies.get_rag_index.cache_clear()
 
 
 def test_destructive_maintenance_fences_old_conversation_store_generation(tmp_path: Path) -> None:

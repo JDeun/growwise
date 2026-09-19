@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import stat
 import zipfile
 from datetime import UTC, datetime
@@ -48,6 +49,34 @@ def test_backup_restores_markdown_and_rebuilds_projection(tmp_path: Path) -> Non
     assert payload is not None
     assert payload["nickname"] == "샘플아이"
 
+
+
+
+@pytest.mark.skipif(os.name == "nt", reason="POSIX mode bits are not the Windows privacy boundary")
+def test_backup_and_restored_record_tree_use_private_permissions(tmp_path: Path) -> None:
+    source_root = tmp_path / "source-records"
+    source_store = EntityStore(source_root, tmp_path / "source.sqlite3")
+    source_store.save(
+        ChildProfile(nickname="권한테스트", stage=Stage.INFANT_0_2, age_months=9)
+    )
+
+    archive = tmp_path / "private-backup.zip"
+    service = BackupService()
+    service.create(records_root=source_root, destination=archive)
+
+    assert stat.S_IMODE(archive.stat().st_mode) == 0o600
+
+    restored_root = tmp_path / "restored-records"
+    service.restore(
+        archive_path=archive,
+        records_root=restored_root,
+        index_path=tmp_path / "restored.sqlite3",
+    )
+
+    assert stat.S_IMODE(restored_root.stat().st_mode) == 0o700
+    restored_files = list(restored_root.rglob("*.md"))
+    assert restored_files
+    assert all(stat.S_IMODE(path.stat().st_mode) == 0o600 for path in restored_files)
 
 
 def test_backup_create_rejects_semantically_invalid_record_tree(tmp_path: Path) -> None:

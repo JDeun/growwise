@@ -171,10 +171,70 @@ def health() -> dict[str, str | bool]:
 def create_child(
     request: ChildCreateRequest,
     store: Annotated[EntityStore, Depends(get_store)],
+    idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> ChildProfile:
-    profile = ChildProfile(**request.model_dump())
-    store.save(profile)
-    return profile
+    idempotency_store = get_idempotency_store() if idempotency_key is not None else None
+    request_hash = request_fingerprint(request.model_dump(mode="json"))
+    reserved_child_id: UUID = uuid7()
+    claim = None
+    if idempotency_key is not None:
+        assert idempotency_store is not None
+        try:
+            claim = idempotency_store.claim(
+                key=idempotency_key,
+                request_hash=request_hash,
+                resource_type="child_profile",
+                resource_id=str(reserved_child_id),
+            )
+        except IdempotencyConflict as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
+        reserved_child_id = UUID(claim.record.resource_id)
+        if not claim.acquired:
+            existing = store.index.get_entity(
+                claim.record.resource_id,
+                entity_type="child_profile",
+            )
+            if existing is not None:
+                if claim.record.status is IdempotencyStatus.PENDING:
+                    idempotency_store.complete(
+                        key=claim.record.key,
+                        request_hash=claim.record.request_hash,
+                        resource_id=claim.record.resource_id,
+                    )
+                return ChildProfile.model_validate(existing)
+            if claim.record.status is IdempotencyStatus.COMPLETED:
+                raise HTTPException(status_code=409, detail="idempotency_resource_missing")
+            raise HTTPException(status_code=409, detail="idempotency_in_progress")
+
+    profile = ChildProfile(id=reserved_child_id, **request.model_dump())
+    try:
+        store.save(profile)
+        if claim is not None and claim.acquired and idempotency_store is not None:
+            idempotency_store.complete(
+                key=claim.record.key,
+                request_hash=claim.record.request_hash,
+                resource_id=claim.record.resource_id,
+            )
+        return profile
+    except Exception:
+        if claim is not None and claim.acquired and idempotency_store is not None:
+            existing = store.index.get_entity(
+                claim.record.resource_id,
+                entity_type="child_profile",
+            )
+            if existing is None:
+                idempotency_store.release(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+            else:
+                idempotency_store.complete(
+                    key=claim.record.key,
+                    request_hash=claim.record.request_hash,
+                    resource_id=claim.record.resource_id,
+                )
+        raise
 
 
 @app.get("/v1/children", response_model=list[ChildProfile])
@@ -237,7 +297,7 @@ def create_activity(
     )
     try:
         store.save(activity)
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -245,7 +305,7 @@ def create_activity(
             )
         return activity
     except Exception:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.release(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -446,7 +506,7 @@ def create_observation(
         workflow.output_ref = str(log.id)
         workflow.updated_at = datetime.now(UTC)
         store.save(workflow)
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             idempotency_store.complete(
                 key=claim.record.key,
                 request_hash=claim.record.request_hash,
@@ -454,7 +514,7 @@ def create_observation(
             )
         return log
     except HTTPException:
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is None:
                 idempotency_store.release(
@@ -474,7 +534,7 @@ def create_observation(
         workflow.last_error_code = "observation_workflow_failed"
         workflow.updated_at = datetime.now(UTC)
         store.save(workflow)
-        if claim is not None and claim.acquired:
+        if claim is not None and claim.acquired and idempotency_store is not None:
             existing = store.index.get_entity(claim.record.resource_id, entity_type="learning_log")
             if existing is None:
                 idempotency_store.release(

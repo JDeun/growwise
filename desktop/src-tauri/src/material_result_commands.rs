@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use super::{client, ensure_success, CORE_BASE_URL};
+use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 
 #[derive(Debug, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -25,14 +25,13 @@ pub async fn record_material_result(
     material_id: String,
     request: MaterialResultRequest,
 ) -> Result<serde_json::Value, String> {
-    let response = client()?
-        .post(format!(
-            "{CORE_BASE_URL}/v1/materials/{material_id}/results"
-        ))
-        .json(&request)
-        .send()
-        .await
-        .map_err(|error| error.to_string())?;
+    let body = serde_json::to_value(&request).map_err(|error| error.to_string())?;
+    let response = post_idempotent_json(
+        format!("{CORE_BASE_URL}/v1/materials/{material_id}/results"),
+        &body,
+        "material-result",
+    )
+    .await?;
     ensure_success(response, "활동 결과 저장 실패")
         .await?
         .json::<serde_json::Value>()

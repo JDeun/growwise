@@ -34,6 +34,27 @@ def test_curriculum_result_maps_to_global_provenance_resource() -> None:
     assert curriculum_refs(result) == ["curriculum:SCI-01"]
 
 
+
+def test_curriculum_resource_identity_is_stable_across_retry() -> None:
+    result = AdapterResult(
+        source="public_curriculum",
+        attribution="교육부",
+        license_note="공공누리 조건 확인",
+        records=[{
+            "curriculum_id": "SCI-STABLE-01",
+            "title": "안정 ID",
+            "stage": "elementary",
+            "subject": "science",
+            "metadata": {},
+        }],
+    )
+
+    first = curriculum_records_to_resources(result)[0]
+    second = curriculum_records_to_resources(result)[0]
+
+    assert first.id == second.id
+
+
 def test_unknown_stage_does_not_invent_stage_tag() -> None:
     result = AdapterResult(
         source="public_curriculum",

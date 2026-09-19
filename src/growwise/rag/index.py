@@ -71,7 +71,10 @@ class HybridRagIndex:
     """
 
     def __init__(self, path: Path, embedding: EmbeddingProvider | None = None) -> None:
+        from growwise.maintenance import DATA_MAINTENANCE
+
         self.path = path
+        self._data_generation = DATA_MAINTENANCE.generation
         self.embedding = embedding
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fts_available = False
@@ -170,57 +173,76 @@ class HybridRagIndex:
 
     def reset(self) -> None:
         """Clear the rebuildable RAG projection without replacing the SQLite file."""
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            connection.execute("DELETE FROM rag_chunks")
-            if self._fts_available:
-                connection.execute("DELETE FROM rag_chunks_fts")
-            connection.commit()
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                connection.execute("DELETE FROM rag_chunks")
+                if self._fts_available:
+                    connection.execute("DELETE FROM rag_chunks_fts")
+                connection.commit()
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
 
     def delete_resource(self, resource_id: str) -> int:
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            cursor = connection.execute(
-                "DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,)
-            )
-            if self._fts_available:
-                connection.execute(
-                    "DELETE FROM rag_chunks_fts WHERE resource_id = ?", (resource_id,)
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    "DELETE FROM rag_chunks WHERE resource_id = ?", (resource_id,)
                 )
-            connection.commit()
-            return cursor.rowcount
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+                if self._fts_available:
+                    connection.execute(
+                        "DELETE FROM rag_chunks_fts WHERE resource_id = ?", (resource_id,)
+                    )
+                connection.commit()
+                return cursor.rowcount
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
 
     def delete_child(self, child_id: str) -> int:
         """Delete every private RAG chunk belonging to one child."""
-        connection = self._connect()
-        try:
-            connection.execute("BEGIN IMMEDIATE")
-            cursor = connection.execute("DELETE FROM rag_chunks WHERE child_id = ?", (child_id,))
-            if self._fts_available:
-                connection.execute("DELETE FROM rag_chunks_fts WHERE child_id = ?", (child_id,))
-            connection.commit()
-            return cursor.rowcount
-        except Exception:
-            connection.rollback()
-            raise
-        finally:
-            connection.close()
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+            connection = self._connect()
+            try:
+                connection.execute("BEGIN IMMEDIATE")
+                cursor = connection.execute(
+                    "DELETE FROM rag_chunks WHERE child_id = ?", (child_id,)
+                )
+                if self._fts_available:
+                    connection.execute(
+                        "DELETE FROM rag_chunks_fts WHERE child_id = ?", (child_id,)
+                    )
+                connection.commit()
+                return cursor.rowcount
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                connection.close()
 
     def replace_resource(self, chunks: list[ResourceChunk]) -> int:
+        from growwise.maintenance import DATA_MAINTENANCE
+
         if not chunks:
             return 0
+        with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+            return self._replace_resource_current_generation(chunks)
+
+    def _replace_resource_current_generation(self, chunks: list[ResourceChunk]) -> int:
         resource_id = chunks[0].resource_id
         if any(chunk.resource_id != resource_id for chunk in chunks):
             raise ValueError("replace_resource expects chunks from exactly one resource")

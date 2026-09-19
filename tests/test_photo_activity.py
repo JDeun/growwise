@@ -104,6 +104,63 @@ def test_concurrent_photo_commit_creates_exactly_one_learning_log(tmp_path: Path
     assert len(stored_logs) == 1
 
 
+
+def test_photo_commit_recovers_after_crash_between_log_and_record(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service, store, child, _settings = _service(tmp_path)
+    record, _assets = service.create_draft(
+        child_id=str(child.id),
+        uploads=[PhotoUpload(filename="play.png", mime_type="image/png", data=_ONE_PIXEL_PNG)],
+        user_context="crash recovery test",
+    )
+
+    original_save = store.save
+    failed = False
+
+    def fail_final_record_save(entity, body: str = ""):
+        nonlocal failed
+        if (
+            not failed
+            and entity.entity_type == "photo_activity_record"
+            and entity.status is PhotoRecordStatus.COMMITTED
+        ):
+            failed = True
+            raise OSError("simulated crash after learning log commit")
+        return original_save(entity, body=body)
+
+    monkeypatch.setattr(store, "save", fail_final_record_save)
+    with pytest.raises(OSError, match="simulated crash"):
+        service.commit(record_id=str(record.id), observation="부모가 확정한 관찰")
+
+    persisted = PhotoActivityRecord.model_validate(
+        store.index.get_entity(str(record.id), entity_type="photo_activity_record")
+    )
+    assert persisted.status is PhotoRecordStatus.DRAFT
+    assert persisted.learning_log_id is not None
+    logs_after_failure = store.index.list_entities(
+        entity_type="learning_log",
+        child_id=str(child.id),
+    )
+    assert len(logs_after_failure) == 1
+    assert logs_after_failure[0]["id"] == str(persisted.learning_log_id)
+
+    monkeypatch.setattr(store, "save", original_save)
+    recovered = service.commit(record_id=str(record.id), observation="부모가 확정한 관찰")
+    assert recovered.id == persisted.learning_log_id
+
+    logs_after_retry = store.index.list_entities(
+        entity_type="learning_log",
+        child_id=str(child.id),
+    )
+    assert len(logs_after_retry) == 1
+    final_record = PhotoActivityRecord.model_validate(
+        store.index.get_entity(str(record.id), entity_type="photo_activity_record")
+    )
+    assert final_record.status is PhotoRecordStatus.COMMITTED
+    assert final_record.learning_log_id == recovered.id
+
 def test_photo_asset_rejects_spoofed_mime_oversize_and_truncated_input(tmp_path: Path) -> None:
     asset_store = PhotoAssetStore(tmp_path / "assets", max_file_bytes=len(_ONE_PIXEL_PNG))
     child_id = "018f47f2-9786-7c99-bc1f-1d5df10c0000"
