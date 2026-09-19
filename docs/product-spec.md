@@ -84,6 +84,25 @@ DRAFT → REVIEW_PENDING
 APPROVED 이전에는 최종 export/아이 사용 대상으로 처리하지 않는 것을 domain invariant로
 강제한다.
 
+## Desktop product IA
+
+사용자에게 노출되는 desktop navigation은 9개 상위 workspace로 고정한다.
+
+| Workspace | 책임 | 포함되는 하위 기능 |
+| --- | --- | --- |
+| 대시보드 | 현재 아이와 최근 상태 요약 | KPI, 최근 활동, 추천 활동 |
+| 아이 프로필 | 아이 정보와 장기 맥락 | 학습 기록, 발달 분석, 성장 리포트 |
+| 학습 기록 | 배움/관찰의 정본 기록 | 학습 기록, 관찰 기록, 중·고 학습 트래커 |
+| 자료실 | 활동/근거 자료의 생성과 관리 | 활동 자료, 활동 관리, 참고 자료, 자료 찾기 |
+| 사진첩 | 사진 중심 기록 | gallery, filter, detail, create/commit |
+| 대화하기 | 기록·자료를 근거로 한 검색/후속 질문 | conversation history, answer, backup assist |
+| 백업 및 복원 | 데이터 snapshot lifecycle | create/export/import/restore/history |
+| 설정 | 앱/가족/개인정보 설정 | runtime status, profile edit, privacy delete |
+| 도움말 | 사용법/원칙/문제 해결 | onboarding, AI/data policy, shortcuts |
+
+관찰, 성장, 활동, discovery, library는 별도의 primary navigation이 아니라 위 상위 workspace의 subview다. legacy persisted route는 migration할 수 있지만 새 UI에서 다시 독립 sidebar 항목으로 노출하지 않는다.
+
+
 ## 교육 철학을 제품 요구사항으로
 
 ### 1. 측정은 허용하되 아이를 점수로 환원하지 않는다
