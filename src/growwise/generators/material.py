@@ -549,13 +549,30 @@ until Parent Review approves it. Return the requested structured schema only."""
                 "3. 더 작은 예시로 바꿔 해결 과정을 만든 뒤 원래 활동으로 돌아옵니다."
             )
         extension = {
-            MaterialKind.ACTIVITY_GUIDE: "아이의 선택을 하나 바꾸어 같은 주제를 다른 방식으로 다시 탐색합니다.",
-            MaterialKind.READING_ACTIVITY: "책의 한 장면을 실제 경험·그림·역할놀이와 연결합니다.",
-            MaterialKind.ENGLISH_CARD: "오늘 표현을 다른 실제 상황에서 한 번 자연스럽게 다시 사용합니다.",
-            MaterialKind.MATH_ACTIVITY: "수나 조건을 하나만 바꾸어 같은 해결 방법이 통하는지 비교합니다.",
-            MaterialKind.SCIENCE_INQUIRY: "한 변수만 바꾸어 결과가 어떻게 달라지는지 새 질문을 만듭니다.",
-            MaterialKind.WRITING_PROMPT: "첫 표현에서 마음에 드는 한 부분을 골라 말·그림·글을 한 단계 확장합니다.",
-            MaterialKind.FIELD_TRIP: "현장에서 생긴 질문 하나를 책·지도·공개 자료와 연결해 후속 탐구로 이어갑니다.",
+            MaterialKind.ACTIVITY_GUIDE: (
+                "아이의 선택을 하나 바꾸어 같은 주제를 다른 방식으로 "
+                "다시 탐색합니다."
+            ),
+            MaterialKind.READING_ACTIVITY: (
+                "책의 한 장면을 실제 경험·그림·역할놀이와 연결합니다."
+            ),
+            MaterialKind.ENGLISH_CARD: (
+                "오늘 표현을 다른 실제 상황에서 한 번 자연스럽게 다시 사용합니다."
+            ),
+            MaterialKind.MATH_ACTIVITY: (
+                "수나 조건을 하나만 바꾸어 같은 해결 방법이 통하는지 비교합니다."
+            ),
+            MaterialKind.SCIENCE_INQUIRY: (
+                "한 변수만 바꾸어 결과가 어떻게 달라지는지 새 질문을 만듭니다."
+            ),
+            MaterialKind.WRITING_PROMPT: (
+                "첫 표현에서 마음에 드는 한 부분을 골라 "
+                "말·그림·글을 한 단계 확장합니다."
+            ),
+            MaterialKind.FIELD_TRIP: (
+                "현장에서 생긴 질문 하나를 책·지도·공개 자료와 연결해 "
+                "후속 탐구로 이어갑니다."
+            ),
         }[kind]
         return (
             f"# {cls._title(kind, topic)}\n\n"
@@ -564,7 +581,8 @@ until Parent Review approves it. Return the requested structured schema only."""
             f"- 목표: {goal_display}\n"
             "- 결과를 빨리 맞히는 것보다 관찰·시도·설명 과정에 집중합니다.\n\n"
             "## 예상 시간\n"
-            f"- {cls._duration_label(kind, stage)} · 아이의 상태와 몰입에 따라 더 짧게 끝내도 됩니다.\n\n"
+            f"- {cls._duration_label(kind, stage)} · 아이의 상태와 몰입에 따라 "
+            "더 짧게 끝내도 됩니다.\n\n"
             "## 준비물\n"
             f"{materials}\n\n"
             "## 활동 자료\n"
@@ -640,13 +658,27 @@ until Parent Review approves it. Return the requested structured schema only."""
         enhancement_notes: str | None = None,
     ) -> str:
         kind_tips = {
-            MaterialKind.ACTIVITY_GUIDE: "아이의 선택을 먼저 기다리고, 활동 순서를 끝까지 밀어붙이지 않습니다.",
-            MaterialKind.READING_ACTIVITY: "내용 확인 문제보다 예측·느낌·경험 연결 질문을 우선합니다.",
-            MaterialKind.ENGLISH_CARD: "틀린 표현을 즉시 교정하기보다 자연스러운 표현을 한 번 다시 들려줍니다.",
-            MaterialKind.MATH_ACTIVITY: "정답을 말하기보다 더 작은 수·실물·그림으로 힌트 수준을 낮춥니다.",
-            MaterialKind.SCIENCE_INQUIRY: "예측과 결과가 달라도 실패가 아니라 관찰할 차이로 다룹니다.",
-            MaterialKind.WRITING_PROMPT: "맞춤법보다 먼저 아이가 자신의 생각을 끝까지 표현하도록 돕습니다.",
-            MaterialKind.FIELD_TRIP: "모든 문항을 채우기보다 실제로 관심을 보인 대상과 질문을 우선합니다.",
+            MaterialKind.ACTIVITY_GUIDE: (
+                "아이의 선택을 먼저 기다리고, 활동 순서를 끝까지 밀어붙이지 않습니다."
+            ),
+            MaterialKind.READING_ACTIVITY: (
+                "내용 확인 문제보다 예측·느낌·경험 연결 질문을 우선합니다."
+            ),
+            MaterialKind.ENGLISH_CARD: (
+                "틀린 표현을 즉시 교정하기보다 자연스러운 표현을 한 번 다시 들려줍니다."
+            ),
+            MaterialKind.MATH_ACTIVITY: (
+                "정답을 말하기보다 더 작은 수·실물·그림으로 힌트 수준을 낮춥니다."
+            ),
+            MaterialKind.SCIENCE_INQUIRY: (
+                "예측과 결과가 달라도 실패가 아니라 관찰할 차이로 다룹니다."
+            ),
+            MaterialKind.WRITING_PROMPT: (
+                "맞춤법보다 먼저 아이가 자신의 생각을 끝까지 표현하도록 돕습니다."
+            ),
+            MaterialKind.FIELD_TRIP: (
+                "모든 문항을 채우기보다 실제로 관심을 보인 대상과 질문을 우선합니다."
+            ),
         }
         domains = (
             ", ".join(dict.fromkeys(target.domain for target in curriculum_targets))
@@ -660,7 +692,10 @@ until Parent Review approves it. Return the requested structured schema only."""
             source_evidence=source_evidence,
         )
         if not source_lines:
-            source_lines = ["- 선택한 근거 자료 없음 · 일반 활동 구조와 교육과정 정렬을 기반으로 구성"]
+            source_lines = [
+                "- 선택한 근거 자료 없음 · 일반 활동 구조와 "
+                "교육과정 정렬을 기반으로 구성"
+            ]
         source_block = "\n".join(source_lines)
 
         guide = (
@@ -683,19 +718,25 @@ until Parent Review approves it. Return the requested structured schema only."""
             "- [ ] 오늘 아이의 컨디션과 공간의 안전 요소를 확인합니다.\n"
             "- [ ] 선택한 참고 자료가 있다면 사실·출처·사용 범위를 한 번 더 확인합니다.\n\n"
             "## 진행 시나리오\n"
-            "1. **도입** — 주제와 연결된 실물·사진·책·경험을 짧게 제시하고 아이가 먼저 반응할 시간을 줍니다.\n"
-            "2. **탐색** — 한 번에 한 과제나 질문만 제시하고, 말·그림·몸짓·실물 조작 등 다양한 반응 방식을 허용합니다.\n"
-            "3. **정리** — 아이가 발견한 것과 남은 질문을 자신의 말로 정리하게 하고 다음 활동 후보를 하나만 남깁니다.\n\n"
+            "1. **도입** — 주제와 연결된 실물·사진·책·경험을 짧게 제시하고 "
+            "아이가 먼저 반응할 시간을 줍니다.\n"
+            "2. **탐색** — 한 번에 한 과제나 질문만 제시하고, "
+            "말·그림·몸짓·실물 조작 등 다양한 반응 방식을 허용합니다.\n"
+            "3. **정리** — 아이가 발견한 것과 남은 질문을 자신의 말로 정리하게 하고 "
+            "다음 활동 후보를 하나만 남깁니다.\n\n"
             "## 활동 중 부모가 할 일\n"
             "- 설명하기 전에 아이가 먼저 보고, 만지고, 말하거나 질문할 시간을 줍니다.\n"
-            "- 맞고 틀림을 즉시 판정하기보다 '어떻게 생각했어?', '무엇을 보고 그렇게 생각했어?'처럼 근거를 묻습니다.\n"
+            "- 맞고 틀림을 즉시 판정하기보다 '어떻게 생각했어?', "
+            "'무엇을 보고 그렇게 생각했어?'처럼 근거를 묻습니다.\n"
             "- 아이가 스스로 한 선택과 전략을 구체적으로 되짚어 줍니다.\n"
             "- 집중이 끊기면 분량을 줄이거나 중단하고, 완료 자체를 목표로 삼지 않습니다.\n\n"
             "## 질문·힌트 사다리\n"
             "1. **열린 질문** — '무엇이 보이니?', '어떤 점이 궁금해?'처럼 관찰을 엽니다.\n"
             "2. **초점 질문** — 비교할 두 대상이나 한 가지 단서만 좁혀 제시합니다.\n"
-            "3. **구체 힌트** — 실물·그림·더 작은 예시를 보여 주되 마지막 판단은 아이가 하게 둡니다.\n"
-            "4. **부모 모델링** — 필요할 때만 한 단계의 생각 과정을 소리 내어 보여 주고 다시 아이 차례로 넘깁니다.\n\n"
+            "3. **구체 힌트** — 실물·그림·더 작은 예시를 보여 주되 "
+            "마지막 판단은 아이가 하게 둡니다.\n"
+            "4. **부모 모델링** — 필요할 때만 한 단계의 생각 과정을 소리 내어 보여 주고 "
+            "다시 아이 차례로 넘깁니다.\n\n"
             "## 관찰할 것\n"
             "- 오래 머문 장면, 반복해서 선택한 대상, 스스로 만든 규칙\n"
             "- 아이가 실제로 한 질문과 설명, 사용한 전략\n"
@@ -709,7 +750,8 @@ until Parent Review approves it. Return the requested structured schema only."""
             "- 조건을 하나만 바꾸어 비교하거나, 다른 방법이 가능한지 설명하게 합니다.\n"
             "- 선택한 근거 자료가 있다면 아이가 찾은 생각과 근거 자료의 정보를 서로 비교합니다.\n\n"
             "## 안전·중단 기준\n"
-            "- 신체 활동·실험·외출은 보호자가 재료, 장소, 날씨, 알레르기 및 연령 적합성을 직접 확인합니다.\n"
+            "- 신체 활동·실험·외출은 보호자가 재료, 장소, 날씨, 알레르기 및 "
+            "연령 적합성을 직접 확인합니다.\n"
             "- 피로, 불안, 짜증, 흥미 저하가 뚜렷하면 즉시 중단하거나 다른 시간으로 옮깁니다.\n"
             "- 활동 결과를 능력·성향의 고정된 평가로 해석하지 않습니다.\n\n"
             "## 활동 후 GrowWise에 남길 것\n"
@@ -729,7 +771,8 @@ until Parent Review approves it. Return the requested structured schema only."""
         guide += (
             "## 사용 전 확인\n"
             "- [ ] 주제·표현·분량이 오늘 아이에게 적절한지 부모가 직접 확인했습니다.\n"
-            "- [ ] 사실 정보와 참고 자료의 맥락을 확인했고, 출처가 없는 내용을 사실처럼 단정하지 않습니다.\n"
+            "- [ ] 사실 정보와 참고 자료의 맥락을 확인했고, "
+            "출처가 없는 내용을 사실처럼 단정하지 않습니다.\n"
             "- [ ] 준비물과 활동 환경의 안전 조건을 확인했습니다.\n"
             "- [ ] 아이가 원하지 않거나 피로해하면 중단할 수 있도록 계획했습니다.\n"
             "- [ ] 활동 후 결과가 아니라 과정과 질문을 기록할 준비가 되어 있습니다.\n"
