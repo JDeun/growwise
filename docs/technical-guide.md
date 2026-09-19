@@ -165,7 +165,7 @@ GROWWISE_MODEL_ID=qwen3.5:9b
 GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
 
 GROWWISE_VISION_PROVIDER=ollama
-GROWWISE_VISION_MODEL_ID=gemma4:e4b
+GROWWISE_VISION_MODEL_ID=qwen3.5:9b
 GROWWISE_VISION_BASE_URL=http://127.0.0.1:11434
 
 GROWWISE_EMBEDDING_PROVIDER=ollama
@@ -174,6 +174,8 @@ GROWWISE_EMBEDDING_BASE_URL=http://127.0.0.1:11434
 ```
 
 일반 사용자용 모델 설치와 사양별 추천은 [local-ai-setup.md](local-ai-setup.md)를 참고하세요.
+
+기본 Desktop은 text/vision adapter를 논리적으로 분리하지만 같은 Qwen 3.5 멀티모달 모델 ID를 주입한다. 이를 통해 사진 처리의 별도 timeout/privacy 경계는 유지하면서 모델 artifact 중복 다운로드와 런타임 model swapping을 줄인다. 고급 설정에서만 두 역할의 모델을 다르게 지정한다.
 
 ### AI 완전 비활성화
 
