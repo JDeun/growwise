@@ -203,7 +203,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
           <div>
             <p className="eyebrow">처음 시작</p>
             <h2 id="home-dashboard-title">아이 프로필부터 시작해 주세요.</h2>
-            <p>프로필을 만들면 관찰, 활동, 성장 맥락과 학습 자료를 한 화면에서 이어 볼 수 있습니다.</p>
+            <p>프로필을 만들면 아이의 질문과 경험을 기록하고, 그 기록에서 다음 활동을 이어갈 수 있습니다.</p>
           </div>
           <button
             className="primary-button"
@@ -264,7 +264,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
             view: "materials",
             category: "추천 활동",
             title: "최근 기록에서 이어갈 활동을 살펴보세요",
-            description: "관심사와 최근 기록을 바탕으로 집에서 바로 이어갈 수 있는 활동을 확인합니다.",
+            description: "최근 질문과 활동 기록에서 이어지는 다음 경험을 확인합니다.",
           };
 
   return (
@@ -313,7 +313,7 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
         <article className="home-metric-card">
           <span className="home-metric-icon home-metric-icon--violet" aria-hidden="true"><DashboardMetricIcon kind="activities" /></span>
           <div>
-            <span>AI 추천 활동</span>
+            <span>이어갈 활동</span>
             <strong>{activeActivities.length}개</strong>
             <small>{activeActivities.length > 0 ? "진행 중인 활동 기준" : "새 활동을 확인해 보세요"}</small>
           </div>
@@ -369,9 +369,9 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
               <h4>{recommendation.title}</h4>
               <p>{recommendation.description}</p>
               <div className="home-recommendation-tags" aria-hidden="true">
-                <span>관찰 연결</span>
-                <span>부모 확인</span>
-                <span>우리 아이 맞춤</span>
+                <span>최근 기록 연결</span>
+                <span>오늘 바로 하기</span>
+                <span>결과를 다음으로</span>
               </div>
               <button type="button" className="primary-button" onClick={() => onNavigate(recommendation.view)}>
                 자세히 보기 →
