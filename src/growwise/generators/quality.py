@@ -15,10 +15,6 @@ _CANDIDATE_INTERNAL_MARKERS = (
     "infant_0_2",
     "preschool_3_5",
 )
-_PUBLISHED_INTERNAL_MARKERS = (
-    "generation_guidance",
-    "internal generation guidance",
-)
 
 _REQUIRED_CONTENT_HEADINGS = (
     "오늘의 목표",
@@ -64,18 +60,20 @@ class MaterialQualityGate:
         kind: MaterialKind,
         stage: Stage,
         content_markdown: str,
+        parent_guide_markdown: str = "",
     ) -> MaterialQualityResult:
         del kind
         text = content_markdown.strip()
+        generated_text = f"{content_markdown}\n{parent_guide_markdown}"
         issues: list[str] = []
         minimum_chars = 50 if stage is Stage.INFANT_0_2 else 80
         if len(text) < minimum_chars:
             issues.append("candidate_core_too_short")
         if len(_HEADING_RE.findall(text)) < 2:
             issues.append("candidate_core_missing_structure")
-        if _PLACEHOLDER_RE.search(text):
+        if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
-        folded = text.casefold()
+        folded = generated_text.casefold()
         if any(marker in folded for marker in _CANDIDATE_INTERNAL_MARKERS):
             issues.append("candidate_core_exposes_internal_metadata")
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
@@ -105,12 +103,5 @@ class MaterialQualityGate:
             issues.append("content_too_short")
         if len(parent_guide_markdown.strip()) < 1_000:
             issues.append("guide_too_short")
-
-        combined = f"{content_markdown}\n{parent_guide_markdown}"
-        if _PLACEHOLDER_RE.search(combined):
-            issues.append("published_contains_placeholder")
-        folded = combined.casefold()
-        if any(marker in folded for marker in _PUBLISHED_INTERNAL_MARKERS):
-            issues.append("published_exposes_internal_metadata")
 
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
