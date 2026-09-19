@@ -33,7 +33,7 @@ def test_catalog_filters_by_stage_and_public_query_only() -> None:
     record = result.records[0]
     assert record["curriculum_id"] == "kr-national-2022-elementary"
     assert record["metadata"]["official_notice"] == "국가교육위원회고시 제2026-1호"
-    assert record["source_url"].startswith("https://www.ne.go.kr/")
+    assert record["source_url"].startswith("https://www.ncic.re.kr/")
 
 
 def test_catalog_keeps_stage_framework_when_topic_is_not_a_catalog_keyword() -> None:
