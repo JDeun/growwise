@@ -103,11 +103,10 @@ class CachedSearchAdapter(ABC):
     def _normalize(self, payload: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
         raise NotImplementedError
 
-    @classmethod
-    def _cache_key(cls, descriptor: dict[str, Any]) -> str:
+    def _cache_key(self, descriptor: dict[str, Any]) -> str:
         encoded = json.dumps(descriptor, ensure_ascii=False, sort_keys=True).encode("utf-8")
         digest = hashlib.sha256(encoded).hexdigest()
-        return f"{cls.SOURCE}:search:{digest}"
+        return f"{self.SOURCE}:search:{digest}"
 
     @staticmethod
     def text(value: object) -> str:
