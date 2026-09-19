@@ -153,11 +153,24 @@ def test_child_context_can_retrieve_learning_wiki_as_derived_context(tmp_path: P
             interest="씨앗 이동",
         )
     )
-    wiki = LearningWikiService(store, provider=None).refresh(str(child.id))
+    rag_index = HybridRagIndex(tmp_path / "rag.sqlite3")
+    wiki = LearningWikiService(
+        store,
+        provider=None,
+        rag_index=rag_index,
+    ).refresh(str(child.id))
+
+    assert rag_index.has_resource(str(wiki.id))
+    wiki_hits = rag_index.search(
+        query="민들레",
+        child_id=str(child.id),
+        limit=8,
+    )
+    assert any(hit["resource_id"] == str(wiki.id) for hit in wiki_hits)
 
     answer = ChildContextService(
         entity_index=store.index,
-        rag_index=HybridRagIndex(tmp_path / "rag.sqlite3"),
+        rag_index=rag_index,
         provider=None,
     ).ask(
         child_id=str(child.id),
