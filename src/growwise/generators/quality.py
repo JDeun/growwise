@@ -20,6 +20,7 @@ _REQUIRED_CONTENT_HEADINGS = (
     "오늘의 목표",
     "예상 시간",
     "준비물",
+    "단계별 활동 기준",
     "활동 자료",
     "막힐 때 힌트",
     "돌아보기",
@@ -28,6 +29,7 @@ _REQUIRED_CONTENT_HEADINGS = (
 _REQUIRED_GUIDE_HEADINGS = (
     "수업 개요",
     "핵심 목표",
+    "단계별 진행 기준",
     "준비 체크리스트",
     "진행 시나리오",
     "활동 중 부모가 할 일",

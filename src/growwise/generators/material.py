@@ -112,6 +112,15 @@ selected source evidence. Do not diagnose development, compare with peers, stere
 or make unsupported factual claims. Keep the learner doing the thinking: prefer observation,
 prediction, worked examples, staged hints, and explanation prompts over giving final answers.
 
+Developmental rigor is mandatory. For 0-2, use sensory play, co-regulation, and observation
+without performance pressure. For 3-5, keep learning child-led and play-centered; do not require
+conventional reading or writing. For elementary learners, move from concrete experience to drawing,
+tables, short
+writing, and explanation. For middle-school learners, expect increasing independence, comparison of
+evidence, explicit reasoning, and revision. For high-school learners, expect independent work,
+source/assumption checking, counterexamples or alternative interpretations, and limitations. Never
+make an older learner complete a preschool-style task merely because the topic is simple.
+
 For content_markdown, produce the substantive activity core with at least two meaningful Markdown
 headings and concrete, executable steps. GrowWise will place that core inside a deterministic
 publication shell with goal, estimated time, materials, hint ladder, reflection, and extension
@@ -344,7 +353,7 @@ until Parent Review approves it. Return the requested structured schema only."""
         source_evidence: list[MaterialSourceEvidence],
         curriculum_targets: list[CurriculumTarget],
     ) -> MaterialDraft:
-        goal_text = goal or "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        goal_text = goal or self._default_goal(child.stage)
         display_topic = self._inline_text(topic, max_chars=200)
         content = self._commercial_content(
             kind=kind,
@@ -385,7 +394,7 @@ until Parent Review approves it. Return the requested structured schema only."""
         source_evidence: list[MaterialSourceEvidence],
         curriculum_targets: list[CurriculumTarget],
     ) -> MaterialDraft:
-        goal_text = goal or "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        goal_text = goal or self._default_goal(child.stage)
         display_topic = self._inline_text(topic, max_chars=200)
         content = self._commercial_content(
             kind=kind,
@@ -442,6 +451,235 @@ until Parent Review approves it. Return the requested structured schema only."""
             Stage.MIDDLE: "중등",
             Stage.HIGH: "고등",
         }[stage]
+
+    @staticmethod
+    def _default_goal(stage: Stage) -> str:
+        return {
+            Stage.INFANT_0_2: (
+                "감각·움직임과 보호자와의 상호작용으로 주제를 경험하고 "
+                "아이의 관심과 반응을 관찰한다."
+            ),
+            Stage.PRESCHOOL_3_5: (
+                "놀이와 구체적인 경험으로 주제를 탐색하고 발견한 것을 "
+                "말·몸짓·그림 중 편한 방식으로 표현한다."
+            ),
+            Stage.ELEMENTARY: (
+                "구체적인 활동과 기록을 연결해 주제를 탐색하고 "
+                "자신의 방법과 근거를 설명한다."
+            ),
+            Stage.MIDDLE: (
+                "질문을 스스로 좁히고 두 가지 이상의 근거를 비교해 "
+                "자신의 판단과 해결 과정을 설명한다."
+            ),
+            Stage.HIGH: (
+                "자료와 근거를 독립적으로 검토하고 가정·대안·한계를 고려해 "
+                "자신의 결론을 정교하게 설명한다."
+            ),
+        }[stage]
+
+    @staticmethod
+    def _stage_learning_standard(stage: Stage) -> str:
+        return {
+            Stage.INFANT_0_2: (
+                "정답이나 완성을 요구하지 않고 감각·움직임·시선·소리로 탐색하며 "
+                "보호자와 주고받는 과정 자체를 학습으로 봅니다."
+            ),
+            Stage.PRESCHOOL_3_5: (
+                "유아가 놀이의 선택과 흐름을 주도하고, 읽기·쓰기 수행을 강제하지 않으며 "
+                "말·몸짓·그림·실물 조작으로 발견을 표현합니다."
+            ),
+            Stage.ELEMENTARY: (
+                "구체물과 실제 경험에서 시작해 그림·표·짧은 글 같은 표현으로 옮기고, "
+                "자신이 사용한 방법과 이유를 설명합니다."
+            ),
+            Stage.MIDDLE: (
+                "학습자가 질문과 기준을 점차 스스로 정하고, 두 가지 이상의 근거를 비교해 "
+                "판단·전략·수정 과정을 기록하고 자료와 방법의 한계를 점검합니다."
+            ),
+            Stage.HIGH: (
+                "학습자가 독립적으로 과제를 설계·수행하고 출처·가정·반례 또는 대안 해석을 "
+                "검토하며 결론의 한계와 다음 검증 방법까지 밝힙니다."
+            ),
+        }[stage]
+
+    @staticmethod
+    def _parent_role(stage: Stage) -> str:
+        return {
+            Stage.INFANT_0_2: (
+                "보호자는 공동 탐색자이자 안전 조절자입니다. 반응을 기다리고 "
+                "아이의 감각·몸짓에 짧게 응답합니다."
+            ),
+            Stage.PRESCHOOL_3_5: (
+                "부모는 놀이 파트너입니다. 활동 방향을 정해 주기보다 선택지를 열고 "
+                "아이의 놀이 흐름과 표현을 따라갑니다."
+            ),
+            Stage.ELEMENTARY: (
+                "부모는 비계를 제공하는 조력자입니다. 막힌 지점에서만 질문·구체물·예시로 "
+                "한 단계씩 돕고 다시 아이에게 결정권을 돌려줍니다."
+            ),
+            Stage.MIDDLE: (
+                "부모는 코치 역할에 머뭅니다. 계획과 판단은 학습자가 맡고, 요청받거나 "
+                "명확히 막힌 경우에만 근거를 되묻거나 검토 관점을 제안합니다."
+            ),
+            Stage.HIGH: (
+                "부모는 필요할 때만 검토자 역할을 합니다. 과제의 계획·자료 선택·결론은 "
+                "학습자가 소유하고, 부모는 출처·논리·안전 점검을 지원합니다."
+            ),
+        }[stage]
+
+    @staticmethod
+    def _stage_kind_expectation(kind: MaterialKind, stage: Stage) -> str:
+        expectations: dict[Stage, dict[MaterialKind, str]] = {
+            Stage.INFANT_0_2: {
+                MaterialKind.ACTIVITY_GUIDE: (
+                    "한두 가지 안전한 재료를 자유롭게 만지고 "
+                    "반복한 행동을 관찰합니다."
+                ),
+                MaterialKind.READING_ACTIVITY: (
+                    "그림·소리·페이지 넘기기에 보이는 반응을 따라가며 "
+                    "책과 친숙해집니다."
+                ),
+                MaterialKind.ENGLISH_CARD: (
+                    "짧은 소리나 인사말을 표정·몸짓과 함께 주고받습니다."
+                ),
+                MaterialKind.MATH_ACTIVITY: (
+                    "모으기·나누기·크기 차이를 실물 놀이로 경험합니다."
+                ),
+                MaterialKind.SCIENCE_INQUIRY: (
+                    "안전한 감각 탐색으로 변화·소리·감촉에 대한 관심을 "
+                    "관찰합니다."
+                ),
+                MaterialKind.WRITING_PROMPT: (
+                    "끼적이기·옹알이·몸짓을 표현으로 받아 주고 "
+                    "의미를 말로 담아 줍니다."
+                ),
+                MaterialKind.FIELD_TRIP: (
+                    "짧고 안전한 이동에서 시선이 머문 풍경·소리·감촉을 "
+                    "함께 경험합니다."
+                ),
+            },
+            Stage.PRESCHOOL_3_5: {
+                MaterialKind.ACTIVITY_GUIDE: (
+                    "놀이 재료와 방법을 아이가 고르고, 완성보다 탐색과 "
+                    "변형을 경험합니다."
+                ),
+                MaterialKind.READING_ACTIVITY: (
+                    "그림과 이야기에서 예측·감정·경험을 "
+                    "말·몸짓·역할놀이로 표현합니다."
+                ),
+                MaterialKind.ENGLISH_CARD: (
+                    "실제 놀이 상황에서 짧은 표현 1~2개를 "
+                    "의미 중심으로 주고받습니다."
+                ),
+                MaterialKind.MATH_ACTIVITY: (
+                    "수·모양·크기·패턴을 실물로 조작하고 발견한 차이를 "
+                    "말이나 그림으로 보여 줍니다."
+                ),
+                MaterialKind.SCIENCE_INQUIRY: (
+                    "안전한 대상을 예상→관찰→비교하고 예상과 달랐던 점도 "
+                    "발견으로 다룹니다."
+                ),
+                MaterialKind.WRITING_PROMPT: (
+                    "말과 그림을 먼저 사용하고, 쓰고 싶은 낱말만 "
+                    "선택적으로 글자와 연결합니다."
+                ),
+                MaterialKind.FIELD_TRIP: (
+                    "현장에서 아이가 멈춘 대상 하나를 깊게 보고 "
+                    "질문·그림·사진으로 기억을 남깁니다."
+                ),
+            },
+            Stage.ELEMENTARY: {
+                MaterialKind.ACTIVITY_GUIDE: (
+                    "목표를 작은 단계로 나누어 실행하고 선택한 방법과 "
+                    "바꾼 점을 짧게 기록합니다."
+                ),
+                MaterialKind.READING_ACTIVITY: (
+                    "내용을 예측하고 장면이나 문장을 근거로 "
+                    "자신의 생각을 설명합니다."
+                ),
+                MaterialKind.ENGLISH_CARD: (
+                    "짧은 표현을 실제 상황에 적용하고 단어를 바꾸어 "
+                    "새 문장을 만들어 봅니다."
+                ),
+                MaterialKind.MATH_ACTIVITY: (
+                    "실물·그림·표·식 중 적절한 표현을 사용하고 "
+                    "해결 방법을 설명합니다."
+                ),
+                MaterialKind.SCIENCE_INQUIRY: (
+                    "예측→관찰 또는 측정→결과 비교의 흐름을 기록하고 "
+                    "새 질문을 만듭니다."
+                ),
+                MaterialKind.WRITING_PROMPT: (
+                    "말·그림에서 문장과 짧은 문단으로 확장하고 "
+                    "한 번 스스로 고쳐 씁니다."
+                ),
+                MaterialKind.FIELD_TRIP: (
+                    "가기 전 질문을 정하고 현장 관찰·표지·사진을 연결해 "
+                    "돌아온 뒤 답을 정리합니다."
+                ),
+            },
+            Stage.MIDDLE: {
+                MaterialKind.ACTIVITY_GUIDE: (
+                    "계획·성공 기준·실행 결과를 스스로 정리하고 "
+                    "피드백에 따라 한 번 수정합니다."
+                ),
+                MaterialKind.READING_ACTIVITY: (
+                    "주장·인물 선택·주제를 근거 두 곳 이상과 연결하고 "
+                    "다른 해석과 비교합니다."
+                ),
+                MaterialKind.ENGLISH_CARD: (
+                    "목적·상대·격식에 따라 표현을 바꾸고 "
+                    "왜 그 표현이 적절한지 설명합니다."
+                ),
+                MaterialKind.MATH_ACTIVITY: (
+                    "변수·조건·표현을 구분해 모델을 만들고 "
+                    "다른 전략 또는 표현과 비교합니다."
+                ),
+                MaterialKind.SCIENCE_INQUIRY: (
+                    "가설·변인·측정 방법을 구분하고 자료가 가설을 "
+                    "얼마나 지지하는지 해석합니다."
+                ),
+                MaterialKind.WRITING_PROMPT: (
+                    "독자와 목적을 정하고 주장·근거를 구조화한 뒤 "
+                    "내용과 표현을 수정합니다."
+                ),
+                MaterialKind.FIELD_TRIP: (
+                    "현장 질문에 필요한 서로 다른 종류의 근거를 모으고 "
+                    "관찰 사실과 해석을 구분합니다."
+                ),
+            },
+            Stage.HIGH: {
+                MaterialKind.ACTIVITY_GUIDE: (
+                    "과제를 독립적으로 설계하고 성공 기준·피드백·수정 이유를 "
+                    "근거와 함께 남깁니다."
+                ),
+                MaterialKind.READING_ACTIVITY: (
+                    "주장과 근거를 비판적으로 검토하고 "
+                    "맥락·대안 해석·빠진 전제를 함께 평가합니다."
+                ),
+                MaterialKind.ENGLISH_CARD: (
+                    "의도·상대·매체에 맞게 어조와 표현을 조절하고 "
+                    "뉘앙스 차이를 설명합니다."
+                ),
+                MaterialKind.MATH_ACTIVITY: (
+                    "가정과 변수를 명시해 모델링하고 해의 타당성·경계 사례·"
+                    "다른 표현을 검토합니다."
+                ),
+                MaterialKind.SCIENCE_INQUIRY: (
+                    "탐구 설계와 자료의 불확실성을 검토하고 "
+                    "오차·한계·후속 검증 방법을 제안합니다."
+                ),
+                MaterialKind.WRITING_PROMPT: (
+                    "주장·근거·반론 또는 대안을 조직하고 "
+                    "출처·논리·문체를 독자 관점에서 편집합니다."
+                ),
+                MaterialKind.FIELD_TRIP: (
+                    "현장 자료의 출처·관점·한계를 비교하고 "
+                    "관찰만으로 단정할 수 없는 부분을 명시합니다."
+                ),
+            },
+        }
+        return expectations[stage][kind]
 
     @staticmethod
     def _duration_label(kind: MaterialKind, stage: Stage) -> str:
@@ -545,16 +783,49 @@ until Parent Review approves it. Return the requested structured schema only."""
                 "2. 말로 요구하기보다 부모가 짧게 시범을 보이고 반응할 시간을 줍니다.\n"
                 "3. 피로하거나 관심이 사라지면 바로 멈추고 다른 시간에 다시 시도합니다."
             )
-        else:
+        elif stage is Stage.PRESCHOOL_3_5:
             reflection = (
-                "- 가장 기억에 남거나 재미있었던 부분은 무엇인가요?\n"
-                "- 처음 생각과 실제로 해 본 뒤 달라진 점이 있나요?\n"
-                "- 다음에 더 알아보거나 다른 방법으로 해 보고 싶은 것은 무엇인가요?"
+                "- 무엇이 가장 재미있었고 다시 해 보고 싶은가요?\n"
+                "- 아이가 스스로 고르거나 바꾸어 본 것은 무엇인가요?\n"
+                "- 말·몸짓·그림 중 어떤 방식으로 자신의 발견을 표현했나요?"
             )
             hints = (
-                "1. 문제나 장면을 다시 관찰하고 이미 알고 있는 것을 한 가지 말해 봅니다.\n"
-                "2. 두 가지 선택지, 그림, 실물 중 하나를 단서로 제공합니다.\n"
-                "3. 더 작은 예시로 바꿔 해결 과정을 만든 뒤 원래 활동으로 돌아옵니다."
+                "1. 질문을 하나로 줄이고 실물·그림·몸짓으로 다시 보여 줍니다.\n"
+                "2. 두 가지 선택지만 열어 두고 아이가 직접 고르게 합니다.\n"
+                "3. 놀이 흐름이 끊기면 설명을 늘리지 말고 쉬거나 다른 방식으로 바꿉니다."
+            )
+        elif stage is Stage.ELEMENTARY:
+            reflection = (
+                "- 어떤 방법으로 시작했고 중간에 무엇을 바꾸었나요?\n"
+                "- 관찰·그림·표·식·문장 중 어떤 것이 생각을 가장 잘 보여 주었나요?\n"
+                "- 다음에 조건을 하나 바꾼다면 무엇을 확인하고 싶은가요?"
+            )
+            hints = (
+                "1. 이미 알고 있는 것과 구해야 하는 것을 한 가지씩 표시합니다.\n"
+                "2. 실물·그림·표 중 하나로 바꾸어 관계를 다시 봅니다.\n"
+                "3. 더 작은 예시를 해결한 뒤 사용한 방법을 원래 활동에 적용합니다."
+            )
+        elif stage is Stage.MIDDLE:
+            reflection = (
+                "- 처음 세운 질문·기준·전략은 무엇이었고 왜 바뀌었나요?\n"
+                "- 판단을 뒷받침한 근거 중 가장 강한 것과 약한 것은 무엇인가요?\n"
+                "- 다른 방법이나 해석과 비교했을 때 자신의 선택에는 어떤 장단점이 있나요?"
+            )
+            hints = (
+                "1. 문제를 질문·조건·근거로 나누고 빠진 정보를 표시합니다.\n"
+                "2. 서로 다른 두 사례나 자료를 같은 기준으로 비교합니다.\n"
+                "3. 현재 판단을 잠정 결론으로 적고 반대 사례가 있는지 확인합니다."
+            )
+        else:
+            reflection = (
+                "- 결론을 지탱하는 핵심 근거와 전제는 무엇인가요?\n"
+                "- 출처·자료·방법의 한계가 결론에 어떤 영향을 줄 수 있나요?\n"
+                "- 대안 해석이나 반례를 고려한 뒤 무엇을 추가로 검증해야 하나요?"
+            )
+            hints = (
+                "1. 주장·가정·근거·결론을 분리해 논리 연결을 점검합니다.\n"
+                "2. 출처가 다른 근거나 경계 사례를 찾아 현재 설명과 비교합니다.\n"
+                "3. 결론의 적용 범위와 한계를 적고 이를 줄일 다음 검증 절차를 설계합니다."
             )
         extension = {
             MaterialKind.ACTIVITY_GUIDE: (
@@ -594,6 +865,9 @@ until Parent Review approves it. Return the requested structured schema only."""
             "더 짧게 끝내도 됩니다.\n\n"
             "## 준비물\n"
             f"{materials}\n\n"
+            "## 단계별 활동 기준\n"
+            f"- 학습 수준: {cls._stage_learning_standard(stage)}\n"
+            f"- 자료 유형 기준: {cls._stage_kind_expectation(kind, stage)}\n\n"
             "## 활동 자료\n"
             f"{cls._normalize_core_markdown(core_body)}\n\n"
             "## 막힐 때 힌트\n"
@@ -720,8 +994,13 @@ until Parent Review approves it. Return the requested structured schema only."""
             f"| 교육과정 연결 | {domains} |\n\n"
             "## 핵심 목표\n"
             f"- {goal_display}\n"
-            "- 아이가 자신의 방식으로 관찰·시도·설명하도록 돕고, 결과보다 사고 과정을 기록합니다.\n"
+            "- 학습자가 자신의 방식으로 관찰·시도·설명하도록 돕고, "
+            "결과보다 사고 과정을 기록합니다.\n"
             f"- 진행 원칙: {kind_tips[kind]}\n\n"
+            "## 단계별 진행 기준\n"
+            f"- 학습자 수행 기준: {cls._stage_learning_standard(child.stage)}\n"
+            f"- 자료 유형 기준: {cls._stage_kind_expectation(kind, child.stage)}\n"
+            f"- 부모 역할: {cls._parent_role(child.stage)}\n\n"
             "## 준비 체크리스트\n"
             f"{materials}\n"
             "- [ ] 오늘 아이의 컨디션과 공간의 안전 요소를 확인합니다.\n"
