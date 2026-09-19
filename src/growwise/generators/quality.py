@@ -20,6 +20,7 @@ _REQUIRED_CONTENT_HEADINGS = (
     "오늘의 목표",
     "예상 시간",
     "준비물",
+    "단계별 활동 기준",
     "활동 자료",
     "막힐 때 힌트",
     "돌아보기",
@@ -28,6 +29,7 @@ _REQUIRED_CONTENT_HEADINGS = (
 _REQUIRED_GUIDE_HEADINGS = (
     "수업 개요",
     "핵심 목표",
+    "단계별 진행 기준",
     "준비 체크리스트",
     "진행 시나리오",
     "활동 중 부모가 할 일",
@@ -70,7 +72,7 @@ class MaterialQualityGate:
         substantive = re.sub(r"(?m)^#{1,6}\s+.*$", "", text).strip()
         if len(substantive) < 12:
             issues.append("candidate_core_too_short")
-        if len(_HEADING_RE.findall(text)) < 1:
+        if len(_HEADING_RE.findall(text)) < 2:
             issues.append("candidate_core_missing_structure")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
