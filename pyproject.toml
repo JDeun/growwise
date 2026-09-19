@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "growwise"
 version = "0.1.0a0"
-description = "Local-first personal education OS for long-term child learning tracking, knowledge organization, and material generation"
+description = "Local-first family learning app that turns a child's real records into useful next-step activities"
 readme = "README.md"
 requires-python = ">=3.12"
 license = { text = "Apache-2.0" }
