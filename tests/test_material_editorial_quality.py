@@ -4,10 +4,9 @@ import itertools
 
 import pytest
 
+import growwise.generators.templates as material_templates
 from growwise.domain import ChildProfile, MaterialKind, Stage
-from growwise.generators.material import MaterialGenerationService
-from growwise.generators.quality import MaterialQualityGate
-from growwise.generators.templates import variants_for
+from growwise.generators import MaterialGenerationService, MaterialQualityGate
 
 
 STAGE_MARKERS = {
@@ -62,10 +61,10 @@ def test_same_topic_is_not_a_one_size_fits_all_material_across_stages(
 def test_preschool_and_secondary_stages_use_distinct_core_template_pools(
     kind: MaterialKind,
 ) -> None:
-    preschool = variants_for(kind, Stage.PRESCHOOL_3_5)
-    elementary = variants_for(kind, Stage.ELEMENTARY)
-    middle = variants_for(kind, Stage.MIDDLE)
-    high = variants_for(kind, Stage.HIGH)
+    preschool = material_templates.variants_for(kind, Stage.PRESCHOOL_3_5)
+    elementary = material_templates.variants_for(kind, Stage.ELEMENTARY)
+    middle = material_templates.variants_for(kind, Stage.MIDDLE)
+    high = material_templates.variants_for(kind, Stage.HIGH)
 
     assert preschool is not elementary
     assert middle is not elementary
