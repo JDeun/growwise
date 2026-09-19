@@ -201,6 +201,11 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] 모델 다운로드/삭제/무결성 검증 (`model/registry.py` — 원자적 쓰기+sha256 검증)
 - [x] storage location 관리 (`storage/location.py` — 검증+안전 relocate)
 - [x] backup/restore/import/export Desktop UX
+- [x] 9-workspace 제품 IA 정렬 (대시보드/아이 프로필/학습 기록/자료실/사진첩/대화하기/백업 및 복원/설정/도움말)
+- [x] legacy 관찰/성장/활동/자료 찾기/참고 자료를 상위 workspace subview로 재조립
+- [x] production Vite artifact 기반 visual QA (9개 workspace, overflow/clipping/page-error 검증)
+- [x] 자료실 reload-loop 및 전역 print toolbar 누출 회귀 제거
+
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
 - [x] crash recovery 전체 (`test_crash_recovery.py`; 손상 인덱스/부분 레코드 복구 하드닝)
 - [x] accessibility (ARIA roles/labels·role=alert·focus-visible, `desktop/src/a11y.ts`)
