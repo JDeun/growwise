@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import html
 import json
 from datetime import UTC, datetime
 from typing import Annotated
@@ -247,8 +248,8 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             ref = cls._source_ref(payload)
             text = cls._source_text(payload)
             block = (
-                f'<evidence source_ref="{ref}">\n'
-                f"{text}\n"
+                f'<evidence source_ref="{html.escape(ref, quote=True)}">\n'
+                f"{html.escape(text)}\n"
                 "</evidence>"
             )
             if len(block) > remaining:
