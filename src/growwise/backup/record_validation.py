@@ -12,6 +12,7 @@ from growwise.domain.models import (
     EntityBase,
     GeneratedMaterial,
     LearningLog,
+    LearningWiki,
     ResourceRecord,
     WorkflowRun,
 )
@@ -32,6 +33,7 @@ _RECORD_MODELS: dict[str, type[EntityBase]] = {
     "entity_link": EntityLink,
     "generated_material": GeneratedMaterial,
     "learning_log": LearningLog,
+    "learning_wiki": LearningWiki,
     "mistake_record": MistakeRecord,
     "photo_activity_record": PhotoActivityRecord,
     "photo_asset": PhotoAsset,
