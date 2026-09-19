@@ -33,12 +33,6 @@ export function MaterialParentGuide({ material }: { material: GeneratedMaterial 
           <h3>{presentation.label}</h3>
           <p>{presentation.purpose}</p>
         </header>
-        {guide && (
-          <section className="material-presentation-guide" aria-label="부모용 진행 안내">
-            <strong>진행 안내</strong>
-            <MaterialContent markdown={guide} />
-          </section>
-        )}
         <div className="material-presentation-zones">
           {presentation.zones.map((zone, index) => (
             <section key={zone} className="material-presentation-zone">
