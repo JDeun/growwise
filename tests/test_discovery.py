@@ -298,5 +298,5 @@ def test_discovery_reports_original_source_catalog_without_network(tmp_path: Pat
     assert states["nasa_images"].status == "disabled"
     assert states["storyweaver"].status == "catalog_link"
     assert states["sympy"].status == "local_optional"
-    assert states["open_library"].status == "offline_dataset"
+    assert states["open_library"].status == "disabled"
     assert states["wikimedia_commons"].homepage == "https://commons.wikimedia.org"
