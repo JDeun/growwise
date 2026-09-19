@@ -41,7 +41,7 @@
 .conversation-utility-card {
   min-width: 0;
   border: 1px solid rgba(42, 73, 60, .09);
-  border-radius: 17px;
+  border-radius: var(--product-panel-radius);
   background: rgba(255, 255, 255, .98);
   box-shadow: 0 8px 24px rgba(47, 66, 58, .035);
 }
