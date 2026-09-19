@@ -6,8 +6,10 @@
 
 | 문서 | 용도 |
 | --- | --- |
-| [../README.md](../README.md) | 프로젝트 개요, 현재 구현 상태, 개발 실행법 |
+| [../README.md](../README.md) | 비개발자 중심 제품 소개와 첫 사용 흐름 |
 | [user-guide.md](user-guide.md) | 현재 9-workspace 데스크톱 사용법 |
+| [local-ai-setup.md](local-ai-setup.md) | Ollama 설치, 사양별 오픈 모델 추천, 모델 변경 |
+| [technical-guide.md](technical-guide.md) | 개발·아키텍처·테스트·모델·패키징 기술 진입점 |
 | [product-spec.md](product-spec.md) | 제품 범위, 연령별 요구사항, Desktop product IA |
 | [FRONTEND_COMPLETION_AUDIT.md](FRONTEND_COMPLETION_AUDIT.md) | 현재 프론트 구조와 visual acceptance 상태 |
 
@@ -21,6 +23,7 @@
 
 ## Engineering
 
+- [technical-guide.md](technical-guide.md) — 개발/운영 기술 진입점
 - [architecture.md](architecture.md) — Tauri/React/Python/LangGraph 구조와 Desktop composition
 - [data-model.md](data-model.md) — Markdown SoT, SQLite projection, 상태 모델
 - [hardening-contracts.md](hardening-contracts.md) — crash/retry/purge/race/RAG invariant
