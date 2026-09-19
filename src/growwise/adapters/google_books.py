@@ -11,7 +11,10 @@ from .http import JsonHttpClient
 class GoogleBooksAdapter:
     SOURCE = "google_books"
     ATTRIBUTION = "Google Books"
-    LICENSE_NOTE = "Google Books API metadata terms apply; cover/preview reuse rights vary by volume"
+    LICENSE_NOTE = (
+        "Google Books API metadata terms apply; "
+        "cover/preview reuse rights vary by volume"
+    )
 
     def __init__(
         self,
@@ -91,13 +94,24 @@ class GoogleBooksAdapter:
                 {
                     "id": volume_id,
                     "title": title,
-                    "authors": ", ".join(str(v) for v in authors[:5]) if isinstance(authors, list) else "",
+                    "authors": (
+                        ", ".join(str(v) for v in authors[:5])
+                        if isinstance(authors, list)
+                        else ""
+                    ),
                     "publisher": str(info.get("publisher") or ""),
                     "published_date": str(info.get("publishedDate") or ""),
                     "description": str(info.get("description") or "")[:8_000],
-                    "categories": [str(v) for v in categories[:10]] if isinstance(categories, list) else [],
+                    "categories": (
+                        [str(v) for v in categories[:10]]
+                        if isinstance(categories, list)
+                        else []
+                    ),
                     "isbn13": isbn,
-                    "source_url": str(info.get("infoLink") or f"https://books.google.com/books?id={volume_id}"),
+                    "source_url": str(
+                        info.get("infoLink")
+                        or f"https://books.google.com/books?id={volume_id}"
+                    ),
                 }
             )
         return records
