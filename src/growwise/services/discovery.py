@@ -749,6 +749,376 @@ class EducationDiscoveryService:
                     )
                 )
 
+    def _append_keyed_text_tasks(
+        self,
+        *,
+        tasks: list[tuple[str, DiscoveryCategory, Callable[[], Any]]],
+        source_states: list[DiscoverySourceState],
+        query: str,
+        offline: bool,
+    ) -> None:
+        national_key = (self.settings.national_library_api_key or "").strip()
+        if national_key:
+            tasks.append(
+                (
+                    "national_library_isbn",
+                    DiscoveryCategory.BOOK,
+                    lambda: NationalLibraryIsbnAdapter(
+                        cert_key=national_key,
+                        **self._search_kwargs(self.settings.national_library_endpoint),
+                    ).search(query=query, limit=6, offline=offline),
+                )
+            )
+        else:
+            source_states.append(
+                DiscoverySourceState(
+                    source="national_library_isbn",
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+
+        krdict_key = (self.settings.krdict_api_key or "").strip()
+        if krdict_key:
+            tasks.append(
+                (
+                    "krdict",
+                    DiscoveryCategory.LANGUAGE,
+                    lambda: KrdictAdapter(
+                        api_key=krdict_key,
+                        **self._search_kwargs(self.settings.krdict_endpoint),
+                    ).search(query=query, limit=5, offline=offline),
+                )
+            )
+        else:
+            source_states.append(
+                DiscoverySourceState(
+                    source="krdict",
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+
+        opendict_key = (self.settings.opendict_api_key or "").strip()
+        if opendict_key:
+            tasks.append(
+                (
+                    "opendict",
+                    DiscoveryCategory.LANGUAGE,
+                    lambda: OpenDictAdapter(
+                        api_key=opendict_key,
+                        cert_key_no=self.settings.opendict_cert_key_no,
+                        **self._search_kwargs(self.settings.opendict_endpoint),
+                    ).search(query=query, limit=5, offline=offline),
+                )
+            )
+        else:
+            source_states.append(
+                DiscoverySourceState(
+                    source="opendict",
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+
+        public_key = (self.settings.public_data_api_key or "").strip()
+        self._append_configured_public_data_task(
+            tasks=tasks,
+            source_states=source_states,
+            source_id="emuseum",
+            endpoint=self.settings.emuseum_endpoint,
+            query_param=self.settings.emuseum_query_param,
+            query=query,
+            api_key=public_key,
+            category=DiscoveryCategory.REFERENCE,
+            attribution="국립중앙박물관 e뮤지엄",
+            license_note="공공데이터 및 개별 유물/이미지 권리표시를 확인할 것",
+            offline=offline,
+        )
+        self._append_configured_public_data_task(
+            tasks=tasks,
+            source_states=source_states,
+            source_id="kbr",
+            endpoint=self.settings.kbr_endpoint,
+            query_param=self.settings.kbr_query_param,
+            query=query,
+            api_key=public_key,
+            category=DiscoveryCategory.SCIENCE,
+            attribution="국립생물자원관",
+            license_note="텍스트 메타데이터 중심; 이미지 재사용 권리는 별도 확인할 것",
+            offline=offline,
+        )
+
+    def _append_keyed_missing_query_states(
+        self,
+        source_states: list[DiscoverySourceState],
+    ) -> None:
+        checks = (
+            (
+                "national_library_isbn",
+                bool((self.settings.national_library_api_key or "").strip()),
+            ),
+            ("krdict", bool((self.settings.krdict_api_key or "").strip())),
+            ("opendict", bool((self.settings.opendict_api_key or "").strip())),
+            (
+                "emuseum",
+                bool((self.settings.public_data_api_key or "").strip())
+                and bool(self.settings.emuseum_endpoint),
+            ),
+            (
+                "kbr",
+                bool((self.settings.public_data_api_key or "").strip())
+                and bool(self.settings.kbr_endpoint),
+            ),
+        )
+        source_states.extend(
+            DiscoverySourceState(
+                source=source_id,
+                enabled=configured,
+                status="needs_query" if configured else "not_configured",
+            )
+            for source_id, configured in checks
+        )
+
+    def _append_configured_public_data_task(
+        self,
+        *,
+        tasks: list[tuple[str, DiscoveryCategory, Callable[[], Any]]],
+        source_states: list[DiscoverySourceState],
+        source_id: str,
+        endpoint: str | None,
+        query_param: str,
+        query: str,
+        api_key: str,
+        category: DiscoveryCategory,
+        attribution: str,
+        license_note: str,
+        offline: bool,
+    ) -> None:
+        if not endpoint or not api_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source=source_id,
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        tasks.append(
+            (
+                source_id,
+                category,
+                lambda: ConfiguredPublicDataAdapter(
+                    source=source_id,
+                    attribution=attribution,
+                    license_note=license_note,
+                    service_key=api_key,
+                    query_param=query_param,
+                    **self._search_kwargs(endpoint),
+                ).search(query=query, limit=5, offline=offline),
+            )
+        )
+
+    def _append_location_tasks(
+        self,
+        *,
+        tasks: list[tuple[str, DiscoveryCategory, Callable[[], Any]]],
+        source_states: list[DiscoverySourceState],
+        latitude: float | None,
+        longitude: float | None,
+        offline: bool,
+    ) -> None:
+        if latitude is None or longitude is None:
+            source_states.append(
+                DiscoverySourceState(
+                    source="opentopodata",
+                    enabled=True,
+                    status="needs_location",
+                )
+            )
+            kma_configured = bool((self.settings.public_data_api_key or "").strip())
+            source_states.append(
+                DiscoverySourceState(
+                    source="kma_forecast",
+                    enabled=kma_configured,
+                    status="needs_location" if kma_configured else "not_configured",
+                )
+            )
+            return
+
+        tasks.append(
+            (
+                "opentopodata",
+                DiscoveryCategory.PLACE,
+                lambda: OpenTopoDataAdapter(
+                    **self._search_kwargs(self.settings.opentopodata_endpoint)
+                ).search_location(
+                    latitude=latitude,
+                    longitude=longitude,
+                    offline=offline,
+                ),
+            )
+        )
+
+        public_key = (self.settings.public_data_api_key or "").strip()
+        if not public_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source="kma_forecast",
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        tasks.append(
+            (
+                "kma_forecast",
+                DiscoveryCategory.SCIENCE,
+                lambda: KmaForecastAdapter(
+                    service_key=public_key,
+                    cache=self.cache,
+                    http=self._http(),
+                    endpoint=self.settings.kma_endpoint,
+                    ttl_seconds=min(
+                        self.settings.external_source_cache_ttl_seconds,
+                        10_800,
+                    ),
+                ).search_location(
+                    latitude=latitude,
+                    longitude=longitude,
+                    offline=offline,
+                ),
+            )
+        )
+
+    @classmethod
+    def _normalized_suggestions(
+        cls,
+        *,
+        result: Any,
+        category: DiscoveryCategory,
+        query: str,
+    ) -> list[DiscoverySuggestion]:
+        suggestions: list[DiscoverySuggestion] = []
+        for record in result.records:
+            if not isinstance(record, dict):
+                continue
+            title = cls._text(record.get("title"))
+            if not title:
+                continue
+            source_key = cls._text(record.get("source_key")) or title
+            raw_kind = cls._text(record.get("resource_kind"))
+            resource_kind = (
+                ResourceKind.BOOK if raw_kind == ResourceKind.BOOK.value else ResourceKind.WEB
+            )
+            raw_tags = record.get("tags")
+            tags = (
+                [cls._text(value) for value in raw_tags if cls._text(value)]
+                if isinstance(raw_tags, list)
+                else []
+            )
+            metadata = record.get("metadata")
+            safe_metadata = (
+                {
+                    str(key)[:200]: str(value)[:1_000]
+                    for key, value in metadata.items()
+                    if isinstance(key, str) and value is not None
+                }
+                if isinstance(metadata, dict)
+                else {}
+            )
+            suggestions.append(
+                DiscoverySuggestion(
+                    candidate_id=cls._candidate_id(result.source, source_key),
+                    category=category,
+                    resource_kind=resource_kind,
+                    title=title,
+                    summary=cls._optional_text(record.get("summary")),
+                    source_name=result.source,
+                    source_url=cls._optional_text(record.get("url")),
+                    author=cls._optional_text(record.get("author")),
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale=cls._rationale(category=category, query=query),
+                    query_term=query or None,
+                    tags=list(dict.fromkeys([*tags, *query.split()[:3]]))[:30],
+                    metadata=safe_metadata,
+                )
+            )
+        return suggestions
+
+    @staticmethod
+    def _rationale(*, category: DiscoveryCategory, query: str) -> str:
+        label = {
+            DiscoveryCategory.BOOK: "도서",
+            DiscoveryCategory.CURRICULUM: "교육과정",
+            DiscoveryCategory.PLACE: "탐방",
+            DiscoveryCategory.REFERENCE: "백과·역사",
+            DiscoveryCategory.SCIENCE: "과학·자연",
+            DiscoveryCategory.LANGUAGE: "언어·어휘",
+            DiscoveryCategory.MEDIA: "공개 미디어",
+        }[category]
+        if query:
+            return f"'{query}'와 연결된 {label} 공개 자료 후보입니다."
+        return f"현재 맥락과 연결할 수 있는 {label} 공개 자료 후보입니다."
+
+    def _finalize_source_states(
+        self,
+        states: list[DiscoverySourceState],
+    ) -> list[DiscoverySourceState]:
+        by_source = {state.source: state for state in states}
+        ordered: list[DiscoverySourceState] = []
+
+        for spec in EDUCATION_SOURCE_CATALOG:
+            current = by_source.pop(spec.source_id, None)
+            configured = (
+                bool(getattr(self.settings, spec.requires_setting, None))
+                if spec.requires_setting
+                else True
+            )
+            if spec.source_id in {"emuseum", "kbr"}:
+                endpoint = (
+                    self.settings.emuseum_endpoint
+                    if spec.source_id == "emuseum"
+                    else self.settings.kbr_endpoint
+                )
+                configured = configured and bool(endpoint)
+
+            if current is None:
+                status_by_mode = {
+                    SourceIntegrationMode.CURATED_LINK: "catalog_link",
+                    SourceIntegrationMode.OFFLINE_DATASET: "offline_dataset",
+                    SourceIntegrationMode.LOCAL_ENGINE: "local_optional",
+                    SourceIntegrationMode.RENDERER: "renderer",
+                    SourceIntegrationMode.KEYED_API: (
+                        "configured" if configured else "not_configured"
+                    ),
+                    SourceIntegrationMode.LIVE_API: (
+                        "available"
+                        if self.settings.external_live_sources_enabled
+                        else "disabled"
+                    ),
+                }
+                current = DiscoverySourceState(
+                    source=spec.source_id,
+                    enabled=configured
+                    and (
+                        spec.mode != SourceIntegrationMode.LIVE_API
+                        or self.settings.external_live_sources_enabled
+                    ),
+                    status=status_by_mode[spec.mode],
+                )
+
+            current.label = spec.label
+            current.domain = spec.domain
+            current.mode = spec.mode.value
+            current.homepage = spec.homepage
+            ordered.append(current)
+
+        ordered.extend(sorted(by_source.values(), key=lambda state: state.source))
+        return ordered
+
     @staticmethod
     def _curriculum_suggestions(
         records: list[dict[str, Any]],
