@@ -12,8 +12,15 @@ from growwise.adapters import (
     Data4LibraryAdapter,
     ExternalAdapterError,
     ExternalUnavailable,
+    GbifSpeciesAdapter,
+    GoogleBooksAdapter,
+    NasaImagesAdapter,
+    OpenLibraryAdapter,
     OverpassAdapter,
     SQLiteExternalCache,
+    WikidataAdapter,
+    WikimediaCommonsAdapter,
+    WikipediaAdapter,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "external"
@@ -235,3 +242,204 @@ def test_external_cache_recreates_malformed_disposable_database(tmp_path: Path) 
 
     assert cached.payload == {"records": [{"id": 1}]}
     assert cache.get("recovered") is not None
+
+
+
+def test_openlibrary_normalizes_book_search(tmp_path: Path) -> None:
+    http = FixtureHttp(
+        {
+            "docs": [
+                {
+                    "key": "/works/OL1W",
+                    "title": "Dinosaurs",
+                    "author_name": ["A. Author"],
+                    "first_publish_year": 2020,
+                    "subject": ["Dinosaurs", "Fossils"],
+                    "isbn": ["9780000000002"],
+                    "edition_count": 3,
+                }
+            ]
+        }
+    )
+    adapter = OpenLibraryAdapter(
+        cache=SQLiteExternalCache(tmp_path / "ol.sqlite3"),
+        http=http,  # type: ignore[arg-type]
+    )
+    result = adapter.search_books(query="dinosaurs")
+    assert result.records[0]["title"] == "Dinosaurs"
+    assert result.records[0]["source_url"].endswith("/works/OL1W")
+
+
+def test_google_books_normalizes_description_for_grounding(tmp_path: Path) -> None:
+    http = FixtureHttp(
+        {
+            "items": [
+                {
+                    "id": "g1",
+                    "volumeInfo": {
+                        "title": "달 관찰",
+                        "authors": ["저자"],
+                        "description": "달의 위상과 표면을 설명한다.",
+                        "categories": ["Science"],
+                        "industryIdentifiers": [
+                            {"type": "ISBN_13", "identifier": "9780000000003"}
+                        ],
+                    },
+                }
+            ]
+        }
+    )
+    adapter = GoogleBooksAdapter(
+        cache=SQLiteExternalCache(tmp_path / "gb.sqlite3"),
+        http=http,  # type: ignore[arg-type]
+    )
+    result = adapter.search_books(query="달")
+    assert result.records[0]["description"] == "달의 위상과 표면을 설명한다."
+    assert result.records[0]["isbn13"] == "9780000000003"
+
+
+def test_nasa_images_exposes_description_and_image_url(tmp_path: Path) -> None:
+    http = FixtureHttp(
+        {
+            "collection": {
+                "items": [
+                    {
+                        "data": [
+                            {
+                                "nasa_id": "NASA-1",
+                                "title": "The Moon",
+                                "description": "A detailed view of lunar craters.",
+                                "keywords": ["Moon", "crater"],
+                            }
+                        ],
+                        "links": [
+                            {"render": "image", "href": "https://images-assets.nasa.gov/moon.jpg"}
+                        ],
+                    }
+                ]
+            }
+        }
+    )
+    adapter = NasaImagesAdapter(
+        cache=SQLiteExternalCache(tmp_path / "nasa.sqlite3"),
+        http=http,  # type: ignore[arg-type]
+    )
+    result = adapter.search(query="moon")
+    assert result.records[0]["id"] == "NASA-1"
+    assert "lunar craters" in result.records[0]["description"]
+    assert result.records[0]["image_url"].startswith("https://")
+
+
+def test_wikidata_and_wikipedia_normalize_reference_evidence(tmp_path: Path) -> None:
+    wikidata = WikidataAdapter(
+        cache=SQLiteExternalCache(tmp_path / "wd.sqlite3"),
+        http=FixtureHttp(
+            {
+                "search": [
+                    {
+                        "id": "Q405",
+                        "label": "달",
+                        "description": "지구의 유일한 자연위성",
+                        "concepturi": "https://www.wikidata.org/entity/Q405",
+                    }
+                ]
+            }
+        ),  # type: ignore[arg-type]
+    )
+    wiki = WikipediaAdapter(
+        cache=SQLiteExternalCache(tmp_path / "wiki.sqlite3"),
+        http=FixtureHttp(
+            {
+                "pages": [
+                    {
+                        "id": 1,
+                        "key": "달",
+                        "title": "달",
+                        "description": "지구의 위성",
+                        "excerpt": "<span>지구</span> 주위를 돈다.",
+                    }
+                ]
+            }
+        ),  # type: ignore[arg-type]
+    )
+
+    wd_result = wikidata.search(query="달")
+    wiki_result = wiki.search(query="달")
+    assert wd_result.records[0]["id"] == "Q405"
+    assert wiki_result.records[0]["excerpt"] == "지구 주위를 돈다."
+
+
+def test_gbif_normalizes_taxonomy(tmp_path: Path) -> None:
+    adapter = GbifSpeciesAdapter(
+        cache=SQLiteExternalCache(tmp_path / "gbif.sqlite3"),
+        http=FixtureHttp(
+            {
+                "results": [
+                    {
+                        "key": 2435099,
+                        "vernacularName": "고양이",
+                        "scientificName": "Felis catus Linnaeus, 1758",
+                        "canonicalName": "Felis catus",
+                        "rank": "SPECIES",
+                        "kingdom": "Animalia",
+                        "family": "Felidae",
+                    }
+                ]
+            }
+        ),  # type: ignore[arg-type]
+    )
+    result = adapter.search(query="cat")
+    assert result.records[0]["title"] == "고양이"
+    assert result.records[0]["family"] == "Felidae"
+
+
+def test_commons_drops_noncommercial_and_unknown_media(tmp_path: Path) -> None:
+    payload = {
+        "query": {
+            "pages": [
+                {
+                    "pageid": 1,
+                    "title": "File:Safe.jpg",
+                    "imageinfo": [
+                        {
+                            "url": "https://upload.wikimedia.org/safe.jpg",
+                            "descriptionurl": "https://commons.wikimedia.org/wiki/File:Safe.jpg",
+                            "extmetadata": {
+                                "LicenseShortName": {"value": "CC BY 4.0"},
+                                "ImageDescription": {"value": "Safe image"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "pageid": 2,
+                    "title": "File:NC.jpg",
+                    "imageinfo": [
+                        {
+                            "url": "https://upload.wikimedia.org/nc.jpg",
+                            "extmetadata": {
+                                "LicenseShortName": {"value": "CC BY-NC 4.0"},
+                            },
+                        }
+                    ],
+                },
+                {
+                    "pageid": 3,
+                    "title": "File:Unknown.jpg",
+                    "imageinfo": [
+                        {
+                            "url": "https://upload.wikimedia.org/unknown.jpg",
+                            "extmetadata": {},
+                        }
+                    ],
+                },
+            ]
+        }
+    }
+    adapter = WikimediaCommonsAdapter(
+        cache=SQLiteExternalCache(tmp_path / "commons.sqlite3"),
+        http=FixtureHttp(payload),  # type: ignore[arg-type]
+    )
+    result = adapter.search_images(query="moon")
+    assert [item["title"] for item in result.records] == ["Safe.jpg"]
+    assert result.records[0]["license"] == "cc-by"
