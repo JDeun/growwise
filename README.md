@@ -132,29 +132,54 @@ LearningLog 확정
 
 ### 현재 Discovery source
 
-| Source | 역할 | 네트워크/키 |
+`자료실 > 자료 찾기`는 초기 기획의 교육 소스 matrix를 코드 registry로 유지한다. 한 소스 장애가 전체 검색을 깨지 않도록 네트워크 소스는 독립 timeout/cache/stale fallback으로 병렬 조회한다.
+
+| 구분 | 연결 소스 | 동작 |
 | --- | --- | --- |
-| **공식 한국 교육과정 카탈로그** | 단계별 교육부·NCIC·i-누리 공식 출처 메타데이터 | 앱 번들, 오프라인 가능 |
-| **Public Curriculum Adapter** | 설정된 공공 교육과정 endpoint 검색 | 선택적 endpoint |
-| **도서관 정보나루** | 관심 주제의 도서 후보 검색 | 무료 API key 필요 |
-| **OpenStreetMap Overpass** | 부모가 지정한 위치 주변 도서관·박물관·문화시설 탐색 | key 불필요, 위치를 명시한 요청만 |
+| **기본/공식** | 공식 한국 교육과정 카탈로그, 설정형 Public Curriculum | 번들 메타데이터 또는 선택 endpoint |
+| **도서·문해력** | Data4Library, 국립중앙도서관 ISBN, Google Books, Open Library, Gutendex/Project Gutenberg, Global Digital Library | 서지·공개 메타데이터 검색 |
+| **언어·어휘** | KRDict, 우리말샘, Tatoeba | 사전/예문 검색 |
+| **탐방·역사** | Nominatim, Overpass, OpenTopoData, Wikidata, Wikipedia, Wikimedia Commons, 국가유산청, e뮤지엄 | 장소·역사·공개 미디어·지형 |
+| **과학·자연** | NASA Image and Video Library, Wikidata, Wikimedia Commons, GBIF, 기상청, KBR | 우주·생물·날씨·공개 이미지/메타데이터 |
+| **공식 카탈로그 링크** | StoryWeaver, Standard Ebooks, PhET, Illustrative Mathematics 1판, Khan Academy Kids, OpenStax | 안정적인 공개 검색 API를 가정하지 않고 공식 사이트로 연결 |
+| **로컬/오프라인 capability** | WordNet, CMUdict, wordfreq, Kiwi, spaCy, soynlp, LanguageTool, hunspell-ko, BioCLIP, SymPy, Manim, JSXGraph, mathjs, Leaflet, Three.js | source registry에서 로컬 엔진/렌더러로 명시 |
 
-외부 결과는 자동으로 장기 기록에 들어가지 않는다. 부모가 `참고 자료에 저장`을 선택하면 그때
-`ResourceRecord`를 만들고 attribution, license note, provenance를 함께 보존한 뒤 RAG에 편입한다.
+공개 live API 중 key가 필요 없는 소스는 기본적으로 활성화된다. key가 필요한 소스는 설정이 없으면 `설정 필요`, 좌표 기반 지형·기상 소스는 부모가 좌표를 직접 입력하지 않으면 `위치 필요`로 표시된다. 전체 source catalog와 현재 연결 상태는 자료 찾기 화면에서 펼쳐볼 수 있다.
 
+외부 검색에는 child ID, 이름, 관찰 원문, 부모 메모, 사진을 보내지 않는다. 텍스트는 로컬에서 일반 교육 주제어로 축약하며, 좌표는 부모가 탐방 위치를 명시적으로 입력한 요청에서만 사용한다.
 ### Discovery 설정
 
+키가 필요한 소스만 환경변수 설정이 필요하다. 실제 secret은 저장소, README example 값, 로그에 커밋하지 않는다.
+
 ```bash
-# 선택: 도서관 정보나루
+# 도서관 정보나루
 GROWWISE_DATA4LIBRARY_API_KEY=...
+
+# 국립중앙도서관 ISBN/서지
+GROWWISE_NATIONAL_LIBRARY_API_KEY=...
+
+# 국립국어원 사전
+GROWWISE_KRDICT_API_KEY=...
+GROWWISE_OPENDICT_API_KEY=...
+# 선택: 우리말샘 인증키 번호
+GROWWISE_OPENDICT_CERT_KEY_NO=...
+
+# data.go.kr 계열: 기상청 + 명시적으로 설정한 공공데이터 endpoint
+GROWWISE_PUBLIC_DATA_API_KEY=...
+
+# KBR은 별도 access_key 계약
+GROWWISE_KBR_API_KEY=...
+# upstream의 HTTPS endpoint를 검증한 경우에만 설정
+GROWWISE_KBR_ENDPOINT=https://...
+
+# e뮤지엄 API endpoint는 계정/공공데이터 계약에서 확인한 HTTPS URL만 사용
+GROWWISE_EMUSEUM_ENDPOINT=https://...
 
 # 선택: 별도 공공 교육과정 endpoint
 GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
 ```
 
-실제 API key를 저장소 `.env`, README, issue, 로그에 커밋하지 않는다. 현재 pre-1.0 개발 환경은 환경변수
-주입을 사용하며, 배포판의 credential UX는 OS credential store를 기준으로 확장한다.
-
+확장 공개 API 검색 전체를 끄려면 `GROWWISE_EXTERNAL_LIVE_SOURCES_ENABLED=false`를 사용한다. 공식 번들 교육과정과 이미 저장한 참고 자료는 계속 사용할 수 있다.
 ---
 
 ## 자료실 > 활동 자료
