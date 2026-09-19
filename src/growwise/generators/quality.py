@@ -72,7 +72,7 @@ class MaterialQualityGate:
         substantive = re.sub(r"(?m)^#{1,6}\s+.*$", "", text).strip()
         if len(substantive) < 12:
             issues.append("candidate_core_too_short")
-        if len(_HEADING_RE.findall(text)) < 2:
+        if len(_HEADING_RE.findall(text)) < 1:
             issues.append("candidate_core_missing_structure")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
