@@ -28,11 +28,11 @@ Desktop은 하드웨어에 따라 다음처럼 자동 선택합니다.
 
 | 통합 메모리 | 기본 멀티모달 모델 |
 | --- | --- |
-| 16 GB 미만 | `qwen3.5:2b` |
-| 16 GB 이상 | `qwen3.5:4b` |
-| 24 GB 이상 | `qwen3.5:9b` |
-| 48 GB 이상 | `qwen3.5:27b` |
-| 64 GB 이상 | `qwen3.5:35b` |
+| 16 GB 미만 | `qwen3.5:2b-mlx` |
+| 16 GB 이상 | `qwen3.5:4b-mlx` |
+| 24 GB 이상 | `qwen3.5:9b-mlx` |
+| 48 GB 이상 | `qwen3.5:27b-mlx` |
+| 64 GB 이상 | `qwen3.5:35b-mlx` |
 
 ### NVIDIA GPU가 감지되는 Windows/Linux
 
@@ -44,7 +44,7 @@ Desktop은 하드웨어에 따라 다음처럼 자동 선택합니다.
 | 24 GB 이상 | `qwen3.5:27b` |
 | 32 GB 이상 | `qwen3.5:35b` |
 
-여러 NVIDIA GPU가 보이면 감지 가능한 VRAM을 합산합니다. Apple Silicon은 GPU와 CPU가 공유하는 통합 메모리를 기준으로 봅니다. AMD/Intel GPU나 감지가 불확실한 환경에서는 시스템 메모리를 보수적으로 참고하며 자동 선택은 최대 9B로 제한합니다.
+여러 NVIDIA GPU가 보이면 감지 가능한 VRAM을 합산합니다. Apple Silicon은 GPU와 CPU가 공유하는 통합 메모리를 기준으로 보고, Ollama가 제공하는 Qwen 3.5 MLX 태그를 우선 사용합니다. AMD/Intel GPU나 감지가 불확실한 환경에서는 시스템 메모리를 보수적으로 참고하며 자동 선택은 최대 9B로 제한합니다.
 
 검색용 임베딩은 `nomic-embed-text`를 별도로 사용합니다.
 
