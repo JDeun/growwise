@@ -4,7 +4,7 @@ import { stageForBirthDate } from "./child-stage";
 
 describe("stageForBirthDate", () => {
   it("uses the Korean March school-year boundary", () => {
-    expect(stageForBirthDate("2019-10-10", new Date("2026-02-28T12:00:00"))).toBeNull();
+    expect(stageForBirthDate("2019-10-10", new Date("2026-02-28T12:00:00"))).toBe("preschool_3_5");
     expect(stageForBirthDate("2019-10-10", new Date("2026-03-01T12:00:00"))).toBe("elementary");
     expect(stageForBirthDate("2013-10-10", new Date("2026-03-01T12:00:00"))).toBe("middle");
     expect(stageForBirthDate("2010-10-10", new Date("2026-03-01T12:00:00"))).toBe("high");
