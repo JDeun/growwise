@@ -21,6 +21,23 @@ growwise가 자료를 생성할 때 쓰는 **오픈 API·오픈소스·오픈 �
 
 ---
 
+## 구현 상태와 연결 규칙
+
+`src/growwise/adapters/source_catalog.py`가 이 문서의 초기 교육 소스 matrix를 코드 수준에서 유지한다. 자료 찾기 화면은 source registry를 표시하며 다음 integration mode를 구분한다.
+
+- `live_api` — GrowWise가 공개 API를 직접 검색한다. 일반화된 공개 주제어만 전송한다.
+- `keyed_api` — adapter는 구현되어 있고 운영자 API key/검증된 HTTPS endpoint가 있을 때 활성화된다.
+- `curated_link` — 안정적인 공개 검색 API를 추정하거나 HTML을 scrape하지 않고 공식 카탈로그로 연결한다.
+- `local_engine` — 원격 교육 소스가 아니라 선택 설치형 로컬 처리 엔진이다.
+- `renderer` — 자료 표현/시각화를 위한 로컬 renderer다.
+- `offline_dataset` — 대량 API backend 대신 다운로드/로컬 dataset ingestion이 적합한 경우다.
+
+현재 live 연결에는 Google Books, Open Library, Gutendex, Global Digital Library, NASA, Wikidata, Wikipedia, Wikimedia Commons, GBIF, Tatoeba, Nominatim, OpenTopoData, 국가유산청과 기존 Data4Library/Overpass/교육과정 adapter가 포함된다. 국립중앙도서관, KRDict, 우리말샘, 기상청, KBR, e뮤지엄 계열은 각 provider credential/HTTPS endpoint가 설정될 때 활성화된다.
+
+소스가 문서에 적혀 있다는 이유만으로 비공식 endpoint를 추측하지 않는다. StoryWeaver·PhET·OpenStax 등은 공개 검색 API가 안정적으로 확인되지 않은 경우 공식 카탈로그 링크로 연결한다. KBR처럼 공식 예제가 HTTP인 provider는 GrowWise의 HTTPS-only public-data trust boundary를 우회하지 않는다.
+
+---
+
 ## 1. 콘텐츠 데이터 소스 (외부 API·데이터)
 
 ### 1.1 도서 · 문해력
