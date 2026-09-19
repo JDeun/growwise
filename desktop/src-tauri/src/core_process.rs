@@ -130,15 +130,15 @@ fn recommended_multimodal_model_id(
         // Apple Silicon can use unified memory directly through Ollama's MLX/Metal path. Keep
         // enough headroom for macOS, GrowWise, KV cache, image tokens and ordinary desktop apps.
         if total_memory_bytes >= 64 * GIB {
-            "qwen3.5:35b"
+            "qwen3.5:35b-mlx"
         } else if total_memory_bytes >= 48 * GIB {
-            "qwen3.5:27b"
+            "qwen3.5:27b-mlx"
         } else if total_memory_bytes >= 24 * GIB {
-            "qwen3.5:9b"
+            "qwen3.5:9b-mlx"
         } else if total_memory_bytes >= 16 * GIB {
-            "qwen3.5:4b"
+            "qwen3.5:4b-mlx"
         } else {
-            "qwen3.5:2b"
+            "qwen3.5:2b-mlx"
         }
     } else if let Some(accelerator_memory_bytes) = accelerator_memory_bytes {
         // NVIDIA VRAM is queried when available. Ollama can schedule across multiple GPUs, so the
@@ -431,23 +431,23 @@ mod tests {
     fn desktop_ai_defaults_use_apple_unified_memory_when_available() {
         assert_eq!(
             recommended_multimodal_model_id(8 * GIB, None, true),
-            "qwen3.5:2b"
+            "qwen3.5:2b-mlx"
         );
         assert_eq!(
             recommended_multimodal_model_id(16 * GIB, None, true),
-            "qwen3.5:4b"
+            "qwen3.5:4b-mlx"
         );
         assert_eq!(
             recommended_multimodal_model_id(24 * GIB, None, true),
-            "qwen3.5:9b"
+            "qwen3.5:9b-mlx"
         );
         assert_eq!(
             recommended_multimodal_model_id(48 * GIB, None, true),
-            "qwen3.5:27b"
+            "qwen3.5:27b-mlx"
         );
         assert_eq!(
             recommended_multimodal_model_id(64 * GIB, None, true),
-            "qwen3.5:35b"
+            "qwen3.5:35b-mlx"
         );
     }
 
