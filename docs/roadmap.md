@@ -96,7 +96,7 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 - [x] retry/timeout/cancellation policy
 - [x] idempotency (SQLite claim/complete/release + schema migration + observation API `Idempotency-Key` 회귀 테스트)
 - [x] interrupt/resume parent review skeleton (SQLite checkpoint 기반 LangGraph interrupt/resume 회귀 테스트)
-- [x] provider abstraction + Ollama adapter
+- [x] provider abstraction + Ollama + OpenAI-compatible local/remote adapter (원격은 명시적 privacy opt-in, embedding endpoint 독립)
 
 **Phase 0 상태: 완료.**
 
@@ -150,6 +150,10 @@ input → router → RAG/context → optional LLM → structured material
 - [x] 생성물 편집/재생성/immutable 버전 관리
 - [x] 인쇄 레이아웃 설정 (A4/Letter, 세로/가로, 5~40mm 안전 여백 + 적대 입력 회귀)
 - [x] source/citation 표시 완성 (`desktop/src/components/MaterialSources.tsx` + 워크스페이스 인라인)
+- [x] 상용 자료 publication contract (목표·시간·준비물·핵심 활동·힌트·회고·확장 + 학부모 교안)
+- [x] deterministic material quality gate (부실/placeholder/내부 메타데이터 모델 출력 자동 fallback)
+- [x] 학부모 교안 상용 구조 (진행 시나리오·힌트 사다리·관찰·난이도·안전·근거·사용 전 확인)
+- [x] 인쇄 출력 분리 (활동 자료 → 전체 학부모 교안 → 기록용 worksheet)
 
 ## Phase 4 — 성장 지도 / 퀘스트 / 장기 기록
 

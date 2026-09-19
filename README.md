@@ -191,9 +191,12 @@ GROWWISE_PUBLIC_ENRICHMENT_ENABLED=true
 - 글쓰기 프롬프트
 - 탐방 활동
 
-자료 생성 시 자료실의 참고 자료에 저장한 `resource:<UUID>`를 근거로 선택할 수 있다. 생성물은 부모 검토 상태
-머신을 거치며 수정 요청과 부모 직접 편집은 새 버전으로 보존한다. 승인된 자료만 사용/인쇄 대상으로
-취급한다.
+자료 생성 시 자료실의 참고 자료에 저장한 `resource:<UUID>`를 근거로 선택할 수 있다. 모든 생성물은
+목표·예상 시간·준비물·핵심 활동·힌트·회고·확장 활동을 갖는 활동 자료와, 별도의 **학부모 교안**을
+함께 만든다. 학부모 교안에는 진행 시나리오, 질문·힌트 사다리, 관찰 포인트, 난이도 조절,
+안전·중단 기준, 근거·출처, 사용 전 체크리스트가 포함된다. 모델 출력이 이 publication contract를
+충족하지 못하면 deterministic 상용 템플릿으로 자동 강등한다. 생성물은 부모 검토 상태 머신을 거치며
+수정 요청과 부모 직접 편집은 새 버전으로 보존한다. 승인된 자료만 사용/인쇄 대상으로 취급한다.
 
 외부 교육과정 endpoint가 설정되어 있으면 `CurriculumGroundedMaterialService`가 공공 교육과정 결과를
 일반 `ResourceRecord`로 먼저 저장한 뒤 동일한 provenance contract로 자료 생성에 사용한다.
@@ -245,8 +248,12 @@ LLM이 없어도 가능한 일:
 - Parent Review
 - 백업/복원/삭제
 
-provider 호출에는 bounded timeout과 circuit breaker를 적용한다. 사진·Vision 작업은 일반 대화형 요청보다
-느려도 괜찮으므로 별도의 긴 timeout과 durable background job을 사용한다.
+provider 호출에는 bounded timeout과 circuit breaker를 적용한다. 텍스트 모델은 Ollama 또는
+OpenAI-compatible Chat Completions endpoint로 교체할 수 있다. 비-loopback OpenAI-compatible endpoint는
+아동의 단계·관심사·일반화된 학습 맥락이 외부로 전송될 수 있으므로
+`GROWWISE_MODEL_REMOTE_ALLOWED=true`를 명시해야 하며 API-key 사용 원격 endpoint는 HTTPS만 허용한다.
+사진·Vision 작업은 별도의 로컬 우선 경계를 유지하고, 일반 대화형 요청보다 느려도 괜찮으므로 별도의
+긴 timeout과 durable background job을 사용한다.
 
 ---
 
@@ -292,7 +299,7 @@ LangGraph checkpoint, 사진 asset, entity link 등 child-scoped live data를 �
 - RAG: lexical + optional embedding hybrid retrieval + temporal hierarchy
 - External resources: bounded adapter layer + SQLite external cache
 - Background jobs: SQLite durable job queue
-- Model: local-first provider abstraction, 현재 Ollama adapter
+- Model: local-first provider abstraction, Ollama + OpenAI-compatible text adapters
 - Packaging: PyInstaller one-file Core bundled as Tauri resource
 - Platforms: Windows + macOS
 
@@ -354,6 +361,7 @@ http://127.0.0.1:8765
 ```bash
 GROWWISE_DATA_DIR=~/.growwise
 
+# 기본: Ollama
 GROWWISE_MODEL_PROVIDER=ollama
 GROWWISE_MODEL_ID=qwen3.5:9b
 GROWWISE_MODEL_BASE_URL=http://127.0.0.1:11434
@@ -362,6 +370,18 @@ GROWWISE_MODEL_CIRCUIT_FAILURE_THRESHOLD=3
 GROWWISE_MODEL_CIRCUIT_RECOVERY_SECONDS=30
 GROWWISE_LLM_FEATURES_ENABLED=true
 
+# 대안: llama.cpp/vLLM/LM Studio 등 OpenAI-compatible Chat Completions endpoint
+# GROWWISE_MODEL_PROVIDER=openai_compatible
+# GROWWISE_MODEL_ID=your-model
+# GROWWISE_MODEL_BASE_URL=http://127.0.0.1:8080/v1
+# 원격 endpoint는 명시적 opt-in + HTTPS를 요구한다.
+# GROWWISE_MODEL_REMOTE_ALLOWED=true
+# GROWWISE_MODEL_API_KEY=...
+
+# embedding은 text provider와 독립적이다.
+GROWWISE_EMBEDDING_PROVIDER=ollama
+GROWWISE_EMBEDDING_MODEL_ID=nomic-embed-text
+GROWWISE_EMBEDDING_BASE_URL=http://127.0.0.1:11434
 GROWWISE_EMBEDDING_TIMEOUT_SECONDS=8
 GROWWISE_EMBEDDING_FEATURES_ENABLED=true
 

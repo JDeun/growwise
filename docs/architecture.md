@@ -169,12 +169,18 @@ REVIEW_PENDING
 모든 생성·검토·임베딩 호출은 특정 공급자 SDK를 직접 호출하지 않고 LangChain-compatible
 provider 인터페이스 뒤에서 수행한다. **Provider는 nullable/optional dependency**다.
 
-초기 어댑터:
+구현된 text provider:
 
-1. Ollama(local default)
-2. llama.cpp/OpenAI-compatible local endpoint
-3. OpenAI-compatible remote endpoint
-4. 필요 시 Anthropic/Google 등 추가
+1. **Ollama** — local default
+2. **OpenAI-compatible Chat Completions** — llama.cpp/vLLM/LM Studio 등 local endpoint
+3. **OpenAI-compatible remote endpoint** — 명시적 `model_remote_allowed=true` opt-in + API-key 사용 시 HTTPS
+
+Anthropic/Google 등 vendor-specific adapter는 필요할 때 추가할 수 있지만 Core는 해당 SDK에 의존하지 않는다.
+OpenAI-compatible structured output은 JSON Schema를 우선 사용하고, 이를 지원하지 않는 호환 서버에서는
+JSON-only fallback 후 동일 Pydantic schema로 검증한다.
+
+text provider와 embedding runtime은 별도 endpoint/config로 분리한다. 따라서 text generation을 원격
+OpenAI-compatible endpoint로 바꿔도 local Ollama embedding이 자동으로 원격 전환되지 않는다.
 
 기능별 모델을 분리할 수 있다(`generation`, `review`, `embedding`). 원격 공급자는 부모가
 명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을 통과해야 한다.
@@ -289,7 +295,7 @@ backup에 개인정보가 남아 있을 수 있음을 알리고, 완전 폐기�
 - Python: 3.12+, uv, Pydantic v2, FastAPI
 - Orchestration: **LangChain + LangGraph (optional AI workflow layer)**
 - Persistence: Markdown + SQLite
-- Local model default: Ollama, **optional**
+- Local model default: Ollama, **optional**; OpenAI-compatible local/remote text endpoint 지원
 - RAG: lexical/metadata baseline + optional embedding hybrid retrieval
 - PDF: WeasyPrint 기본, Typst 보조
 - Test: pytest + Vitest + Playwright

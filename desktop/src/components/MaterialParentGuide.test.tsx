@@ -39,6 +39,7 @@ describe("MaterialParentGuide", () => {
     expect(html).toContain("결과·설명");
     expect(html).toContain("부모용 교안 · 진행 안내");
     expect(html).toContain("진행 안내");
+    expect(html.match(/천천히 관찰합니다\./g)).toHaveLength(1);
   });
 
   it("keeps the printable worksheet even when no parent guide was generated", () => {

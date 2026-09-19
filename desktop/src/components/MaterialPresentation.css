@@ -7,10 +7,6 @@
     break-inside: auto !important;
   }
 
-  .material-parent-guide {
-    display: none !important;
-  }
-
   .material-presentation-template {
     display: block;
     box-sizing: border-box;

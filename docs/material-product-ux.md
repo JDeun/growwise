@@ -101,12 +101,19 @@ out for use**.
 
 - Content templates define the pedagogical sequence, curriculum alignment, source grounding, and
   deterministic fallback text.
+- Every stored child/activity document is wrapped in a deterministic **publication shell**:
+  목표 → 예상 시간 → 준비물 → 활동 자료 → 막힐 때 힌트 → 돌아보기 → 더 해보기.
+- Every parent guide uses a deterministic **teaching-guide shell**:
+  수업 개요 → 핵심 목표 → 준비 체크리스트 → 진행 시나리오 → 부모 역할 → 질문·힌트 사다리
+  → 관찰 → 난이도 조절 → 안전·중단 기준 → 기록 → 근거·출처 → 사용 전 확인.
+- Model output supplies the substantive activity core and optional facilitation notes. It cannot remove
+  the publication shell. Weak/placeholder/internal-metadata output is rejected by a deterministic
+  quality gate and falls back to the complete template artifact.
 - Presentation templates are desktop-only print metadata. They never change the stored Markdown or
   Parent Review state.
-- The normal review screen keeps the existing safe Markdown renderer and parent guide UI.
-- When an approved material is printed or exported to PDF, the presentation template adds a dedicated
-  writable worksheet page after the material body. If a parent guide exists, a compact copy is placed
-  on that worksheet page so the parent does not need a separate third page.
+- The normal review screen keeps the safe Markdown renderer and full parent guide UI.
+- Approved print/PDF output is deliberately separated into **activity material → full parent teaching
+  guide → writable worksheet** pages. Long teaching guidance is never squeezed into the worksheet.
 - Quest controls and result-entry UI are never included in the printed output.
 
 | kind | print worksheet | writable zones |
@@ -209,8 +216,9 @@ Discovery candidate → parent saves it → ResourceRecord/RAG → parent select
 
 ### LLM unavailable or unsafe output
 
-The deterministic template and parent guide are built **before** the optional LLM job. If the provider
-is unavailable, times out, returns malformed output, fabricates unsafe content, violates scaffold
-rules, or the request/internal guidance contains review-bypass or prompt-injection markers, GrowWise
-keeps or restores the deterministic artifact. The resulting material still enters Parent Review
+The deterministic publication-ready material and parent guide are built **before** the optional LLM
+job. If the provider is unavailable, times out, returns malformed or structurally weak output,
+contains placeholders/internal metadata, fabricates unsafe content, violates scaffold rules, or the
+request/internal guidance contains review-bypass or prompt-injection markers, GrowWise keeps or
+restores the complete deterministic artifact. The resulting material still enters Parent Review
 rather than being auto-approved.

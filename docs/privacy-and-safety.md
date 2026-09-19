@@ -56,8 +56,14 @@ GrowWise는 육아 ERP나 상시 감시 시스템을 목표로 하지 않는다.
 
 "로컬=비공개"라는 가정은 동기화·원격모델·내보내기까지 봐야 진짜다([threat-model.md](threat-model.md)).
 
-- **Model Provider egress 계약**: 원격 모델은 외부 어댑터와 동일한 신뢰 경계로 본다. 기본은
-  로컬이며, 원격 사용 시 전송 범위 고지·동의·식별정보 리댁션을 적용한다.
+- **Model Provider egress 계약**: 기본 text provider는 loopback/local이다. OpenAI-compatible
+  비-loopback endpoint는 `GROWWISE_MODEL_REMOTE_ALLOWED=true`를 명시적으로 켜야만 생성되며,
+  API key를 사용하는 원격 endpoint는 HTTPS만 허용한다. 자료 생성 시 단계·월령·관심사와
+  일반화된 generation guidance가 모델 입력에 포함될 수 있으므로 이 opt-in은 실제 외부 전송 동의
+  경계다. 이름·닉네임·사진 원본은 material prompt에 넣지 않는다.
+- **Embedding endpoint 분리**: text provider URL과 embedding URL을 공유하지 않는다. 원격 text
+  provider를 선택해도 RAG embedding은 `GROWWISE_EMBEDDING_BASE_URL`의 별도 local endpoint를
+  그대로 사용한다.
 - **사진 모델 egress**: 사진 기능의 text/vision provider는 loopback endpoint를 기본으로
   사용한다. 원격 endpoint는 각각 `photo_remote_text_allowed`,
   `photo_remote_vision_allowed`를 명시적으로 켠 경우에만 허용한다.

@@ -252,9 +252,10 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">학습 자료</p>
-          <h2 id="materials-title">만들고, 부모가 확인한 뒤 사용합니다.</h2>
+          <h2 id="materials-title">활동 자료와 학부모 교안을 함께 만들고, 부모가 확인한 뒤 사용합니다.</h2>
           <p className="muted">
-            AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다. 만든 초안은 먼저 저장되고,
+            AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다. 각 자료에는 목표·예상 시간·
+            준비물·힌트·회고·확장 활동과 별도 학부모 교안이 포함됩니다. 만든 초안은 먼저 저장되고,
             사용할 내용은 부모가 확인해 승인합니다. 승인 전 자료는 인쇄하거나 PDF로 내보낼 수 없습니다.
           </p>
         </div>

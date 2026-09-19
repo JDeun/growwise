@@ -50,7 +50,8 @@ def test_model_benchmark_reports_latency_and_reviewable_output() -> None:
     assert report.generator_mode_counts == {"llm_enhanced": 12}
     assert {row.sample for row in report.rows} == {1, 2}
     assert all(row.title == "샘플" for row in report.rows)
-    assert all(row.content_markdown.startswith("# 활동") for row in report.rows)
+    assert all("## 오늘의 목표" in row.content_markdown for row in report.rows)
+    assert all("## 활동 자료" in row.content_markdown for row in report.rows)
     assert all(row.content_chars == len(row.content_markdown) for row in report.rows)
 
 
@@ -96,7 +97,8 @@ def test_model_benchmark_cli_uses_configured_provider(
     assert payload["generator_mode_counts"] == {"llm_enhanced": 12}
     assert len(payload["rows"]) == 12
     assert all(row["title"] == "샘플" for row in payload["rows"])
-    assert all(row["content_markdown"].startswith("# 활동") for row in payload["rows"])
+    assert all("## 오늘의 목표" in row["content_markdown"] for row in payload["rows"])
+    assert all("## 활동 자료" in row["content_markdown"] for row in payload["rows"])
 
 
 def test_model_benchmark_cli_respects_disabled_llm(

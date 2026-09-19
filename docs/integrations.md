@@ -206,9 +206,12 @@ Windows·macOS 공통 동작을 기준으로 고른다.
 ## 5. 콘텐츠 생성 · RAG 내부 스택
 
 - RAG/생성: LangChain, LlamaIndex, LangGraph, Chroma/Qdrant(로컬 임베디드)
-- **모델 실행/공급자(교체 가능)**: 로컬 기본 — llama.cpp/GGUF(MIT), Ollama(MIT), MLX(Apple);
-  원격은 선택(OpenAI/Anthropic 등 호환 API). **Model Provider 추상화**로 언제든 교체·이식
-  ([architecture.md](architecture.md)). 특정 모델/공급자에 종속 금지.
+- **모델 실행/공급자(교체 가능)**: 현재 코드는 Ollama와 OpenAI-compatible Chat Completions
+  adapter를 제공한다. 따라서 llama.cpp/vLLM/LM Studio 같은 local 호환 endpoint와 opt-in remote
+  호환 endpoint를 동일 `ModelProvider` 경계로 사용할 수 있다. 원격은 명시적 privacy opt-in을
+  요구하고 API-key 사용 시 HTTPS만 허용한다. embedding endpoint는 text endpoint와 분리한다.
+  Anthropic/Google 같은 vendor-specific adapter는 필요 시 추가하며 특정 SDK를 Core 필수 의존성으로
+  만들지 않는다([architecture.md](architecture.md)).
 - 저장: SQLite(로컬 인덱스), Markdown 파일(SoT)
 - 앱 셸/패키징: **Tauri + Python 사이드카**(Win/macOS). 상세 [architecture.md](architecture.md)
 

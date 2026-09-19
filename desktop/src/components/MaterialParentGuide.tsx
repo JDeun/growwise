@@ -14,7 +14,7 @@ export function MaterialParentGuide({ material }: { material: GeneratedMaterial 
         <details className="material-parent-guide" open>
           <summary>
             <span>부모용 교안 · 진행 안내</span>
-            <small>준비 · 진행 · 관찰 · 활동 후 기록</small>
+            <small>준비 · 진행 · 힌트 · 관찰 · 난이도 · 안전 · 기록</small>
           </summary>
           <div className="material-parent-guide-content">
             <MaterialContent markdown={guide} />
@@ -33,12 +33,6 @@ export function MaterialParentGuide({ material }: { material: GeneratedMaterial 
           <h3>{presentation.label}</h3>
           <p>{presentation.purpose}</p>
         </header>
-        {guide && (
-          <section className="material-presentation-guide" aria-label="부모용 진행 안내">
-            <strong>진행 안내</strong>
-            <MaterialContent markdown={guide} />
-          </section>
-        )}
         <div className="material-presentation-zones">
           {presentation.zones.map((zone, index) => (
             <section key={zone} className="material-presentation-zone">

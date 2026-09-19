@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from pydantic import Field
+from pydantic import Field, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -26,6 +26,11 @@ class Settings(BaseSettings):
     model_provider: str = "ollama"
     model_id: str = "qwen3.5:9b"
     model_base_url: str = "http://127.0.0.1:11434"
+    model_api_key: SecretStr | None = None
+    # Child learning context may be sent to the configured text endpoint. Non-loopback endpoints
+    # therefore require an explicit privacy opt-in rather than becoming remote by accident.
+    model_remote_allowed: bool = False
+    model_max_output_tokens: int = Field(default=4096, ge=64, le=65_536)
     model_temperature: float = Field(default=0.1, ge=0.0, le=2.0)
     model_timeout_seconds: float = Field(default=12.0, gt=0.0, le=120.0)
     model_circuit_failure_threshold: int = Field(default=3, ge=1, le=20)
@@ -54,7 +59,11 @@ class Settings(BaseSettings):
     photo_job_max_attempts: int = Field(default=3, ge=1, le=10)
     photo_job_poll_interval_seconds: float = Field(default=1.0, ge=0.1, le=30.0)
 
+    # Embeddings remain independently configurable so switching the text provider to an
+    # OpenAI-compatible endpoint cannot silently redirect local RAG embedding traffic.
+    embedding_provider: str = "ollama"
     embedding_model_id: str = "nomic-embed-text"
+    embedding_base_url: str = "http://127.0.0.1:11434"
     embedding_timeout_seconds: float = Field(default=8.0, gt=0.0, le=120.0)
     embedding_features_enabled: bool = True
 
