@@ -161,3 +161,30 @@ def generalize_public_terms(values: Iterable[str], *, limit: int = 12) -> list[s
             if len(result) >= limit:
                 return result
     return result
+
+_PUBLIC_TOPIC_ENGLISH: dict[str, str] = {
+    canonical: next(
+        (alias for alias in aliases if alias.isascii() and " " not in alias),
+        next((alias for alias in aliases if alias.isascii()), canonical),
+    )
+    for canonical, aliases in _PUBLIC_TOPIC_ALIASES
+}
+
+
+def translate_public_terms(
+    terms: Iterable[str],
+    *,
+    language: str,
+    limit: int = 12,
+) -> list[str]:
+    """Translate only already-allow-listed canonical topics for public APIs.
+
+    Callers must pass output from generalize_public_terms. Arbitrary private prose is never
+    machine-translated or transliterated at this boundary.
+    """
+    if limit <= 0:
+        return []
+    normalized = [str(term) for term in terms][:limit]
+    if language.casefold().startswith("en"):
+        return [_PUBLIC_TOPIC_ENGLISH.get(term, term) for term in normalized]
+    return normalized
