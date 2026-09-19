@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import logging
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid5
@@ -15,6 +16,8 @@ from growwise.model import ModelProvider
 from growwise.rag import HybridRagIndex, chunk_resource
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
+
+logger = logging.getLogger(__name__)
 
 _WIKI_VERSION = "v1"
 _MAX_SOURCES = 80
@@ -135,7 +138,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         fingerprint = self._fingerprint(sources)
         existing = self.get(child_id)
         if existing is not None and existing.source_fingerprint == fingerprint and not force:
-            self._sync_rag(existing, replace=False)
+            self._sync_projections(existing, sources, replace_rag=False)
             return existing
 
         allowed_refs = {self._source_ref(payload) for payload in sources}
@@ -195,8 +198,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             rebuilt_at=now,
         )
         self.store.save(wiki, body=markdown)
-        self._sync_source_links(wiki, sources)
-        self._sync_rag(wiki, replace=True)
+        self._sync_projections(wiki, sources, replace_rag=True)
         return wiki
 
     def _sources(self, child_id: str) -> list[dict]:
@@ -489,6 +491,26 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             else:
                 parts.append("- 아직 충분한 기록이 없습니다.")
         return "\n".join(parts).strip()[:80_000]
+
+    def _sync_projections(
+        self,
+        wiki: LearningWiki,
+        sources: list[dict],
+        *,
+        replace_rag: bool,
+    ) -> None:
+        try:
+            self._sync_source_links(wiki, sources)
+        except Exception:
+            logger.exception(
+                "Learning Wiki provenance links unavailable; source_refs remain authoritative"
+            )
+        try:
+            self._sync_rag(wiki, replace=replace_rag)
+        except Exception:
+            logger.exception(
+                "Learning Wiki RAG projection unavailable; direct Wiki retrieval remains available"
+            )
 
     def _sync_rag(self, wiki: LearningWiki, *, replace: bool) -> None:
         if self.rag_index is None:
