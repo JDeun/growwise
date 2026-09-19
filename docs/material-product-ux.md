@@ -7,9 +7,12 @@ The desktop material workflow mirrors Core/API/IPC state rather than inventing a
    durable background job. A parent never waits on model inference to preserve the request.
 3. Every generated material has two outputs: child-facing material and a parent-facing teaching
    guide. The parent guide also exists in deterministic/no-LLM mode.
-4. Parent Review is a visible lane, not a hidden status field.
+4. Parent Review remains a domain safety gate, but the primary user flow does not expose its
+   internal lanes. One explicit **이 활동 사용하기** action advances the material through the allowed
+   review transition.
 5. Draft, review-pending, and revision-requested material cannot expose print/PDF actions.
-6. Only `approved` material is presented as ready to use.
+6. Only `approved` material is presented as ready to use. Detailed workflow management is available
+   under progressive disclosure for users who want to edit, reject, or request a revision.
 7. An approved material is registered as a real `ActivityPlan(status=suggested)` quest, so it appears
    in the global Quest Board as `생성됨` before the activity is started.
 8. Revision and direct parent editing create immutable successors through existing IPC commands.
@@ -45,7 +48,11 @@ scaffold / safety / malformed-output guards
             ↓
 review_pending draft
             ↓
-Parent Review → approve / edit / request revision / reject
+primary UX: "이 활동 사용하기"
+            ↓
+internal Parent Review gate → approved
+            ↓
+advanced disclosure: edit / request revision / reject
             ↓
 approved material → suggested Quest
             ↓
@@ -119,7 +126,8 @@ out for use**.
   quality gate and falls back to the complete template artifact.
 - Presentation templates are desktop-only print metadata. They never change the stored Markdown or
   Parent Review state.
-- The normal review screen keeps the safe Markdown renderer and full parent guide UI.
+- The primary material screen keeps the safe Markdown renderer while parent guide, curriculum, and
+  provenance/source information stay collapsed until requested.
 - Approved print/PDF output is deliberately separated into **activity material → full parent teaching
   guide → writable worksheet** pages. Long teaching guidance is never squeezed into the worksheet.
 - Quest controls and result-entry UI are never included in the printed output.
