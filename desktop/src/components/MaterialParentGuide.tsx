@@ -14,7 +14,7 @@ export function MaterialParentGuide({ material }: { material: GeneratedMaterial 
         <details className="material-parent-guide" open>
           <summary>
             <span>부모용 교안 · 진행 안내</span>
-            <small>준비 · 진행 · 관찰 · 활동 후 기록</small>
+            <small>준비 · 진행 · 힌트 · 관찰 · 난이도 · 안전 · 기록</small>
           </summary>
           <div className="material-parent-guide-content">
             <MaterialContent markdown={guide} />
