@@ -3,6 +3,7 @@ from .book_sources import (
     GlobalDigitalLibraryAdapter,
     GoogleBooksAdapter,
     GutendexAdapter,
+    OpenLibraryAdapter,
     NationalLibraryIsbnAdapter,
 )
 from .cache import CachedPayload, SQLiteExternalCache
@@ -26,6 +27,7 @@ from .knowledge_sources import (
 )
 from .korean_sources import (
     ConfiguredPublicDataAdapter,
+    KbrAdapter,
     KmaForecastAdapter,
     KoreanHeritageAdapter,
     KrdictAdapter,
@@ -58,7 +60,9 @@ __all__ = [
     "GlobalDigitalLibraryAdapter",
     "GoogleBooksAdapter",
     "GutendexAdapter",
+    "OpenLibraryAdapter",
     "JsonHttpClient",
+    "KbrAdapter",
     "KmaForecastAdapter",
     "KoreanHeritageAdapter",
     "KrdictAdapter",
