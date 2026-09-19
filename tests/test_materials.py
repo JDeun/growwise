@@ -125,6 +125,10 @@ def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
                 source_ref="resource:source-1",
                 title="부모가 선택한 물 관찰 자료",
                 excerpt="얼음이 녹는 동안 모양과 물의 양을 관찰한다.",
+                source_name="public_source",
+                source_url="https://example.org/water",
+                attribution="Example Education",
+                license_note="CC BY 4.0",
             ),
             MaterialSourceEvidence(
                 source_ref="resource:not-selected",
@@ -140,6 +144,13 @@ def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
     assert "untrusted evidence" in provider.user
     assert "선택하지 않은 자료" not in provider.user
     assert material.source_refs == ["resource:source-1"]
+    assert len(material.source_citations) == 1
+    citation = material.source_citations[0]
+    assert citation.title == "부모가 선택한 물 관찰 자료"
+    assert citation.source_name == "public_source"
+    assert citation.source_url == "https://example.org/water"
+    assert citation.attribution == "Example Education"
+    assert citation.license_note == "CC BY 4.0"
 
 
 def test_selected_evidence_budget_is_balanced_across_sources() -> None:
