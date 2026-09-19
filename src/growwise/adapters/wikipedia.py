@@ -15,7 +15,10 @@ _TAG_RE = re.compile(r"<[^>]+>")
 class WikipediaAdapter:
     SOURCE = "wikipedia_ko"
     ATTRIBUTION = "Wikipedia contributors"
-    LICENSE_NOTE = "Wikipedia text requires attribution/share-alike compliance; media rights vary by file"
+    LICENSE_NOTE = (
+        "Wikipedia text requires attribution/share-alike compliance; "
+        "media rights vary by file"
+    )
 
     def __init__(
         self,
@@ -49,7 +52,10 @@ class WikipediaAdapter:
             license_note=self.LICENSE_NOTE,
             ttl_seconds=self.ttl_seconds,
             offline=offline,
-            fetch=lambda: self.http.get_json(self.endpoint, params={"q": normalized, "limit": limit}),
+            fetch=lambda: self.http.get_json(
+                self.endpoint,
+                params={"q": normalized, "limit": limit},
+            ),
             normalize=self._normalize,
         )
 
