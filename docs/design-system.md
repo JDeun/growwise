@@ -29,6 +29,18 @@ GrowWise의 시각 언어를 정의한다. 목표는 **따뜻하고 차분하며
 7. **기록 공백 중립성** — 기록이 없는 날/기간을 빨강·경고·실패로 표현하지 않는다.
 8. **관찰과 해석 분리** — AI 요약/추론은 원본 관찰과 시각적으로 구분한다.
 
+## 현재 Desktop shell 계약
+
+GrowWise desktop은 여러 개의 떠 있는 패널이 아니라 **하나의 통합 application frame**으로 구성한다.
+
+- 좌측 고정 sidebar: 대시보드 / 아이 프로필 / 학습 기록 / 자료실 / 사진첩 / 대화하기 / 백업 및 복원
+- sidebar 하단 utility: 설정 / 도움말
+- 공통 topbar: 검색 진입점 → 알림 → 현재 아이 프로필
+- page-local action: 새 기록, 새 사진 기록, 자료 생성 같은 CTA는 해당 화면 header 또는 본문에 둔다.
+- legacy 기능인 관찰/성장/활동/자료 찾기/참고 자료는 별도 sidebar 항목으로 노출하지 않고 관련 상위 workspace의 tab/subview로 배치한다.
+- shell과 feature는 역할을 분리한다. shell은 navigation/chrome을, 각 Hub는 자신의 tab/subview visibility를 책임진다.
+
+
 ## 성장 지도는 점수판이 아니다
 
 방사형 지도는 구현상 숫자 projection을 사용할 수 있지만 **사용자에게 숫자 성취도로
@@ -75,11 +87,12 @@ GrowWise의 시각 언어를 정의한다. 목표는 **따뜻하고 차분하며
 
 ## AI/자연어 인터페이스
 
-GrowWise는 chat-first 제품이 아니므로 메인 화면을 채팅창으로 설계하지 않는다.
+GrowWise 전체 제품은 chat-first가 아니다. 다만 **대화하기 workspace 내부는 대화 이력이 중심인 3-pane 화면**으로 구성한다.
 
-- 자연어 입력은 **검색/명령 팔레트** 성격으로 제공한다.
-- 답변에는 관련 기록·자료·출처로 이동하는 링크를 우선한다.
-- AI가 만든 해석에는 `AI 정리`, `추정`, `근거 부족` 등 provenance/불확실성 표시를 둔다.
+- 전역 검색 진입점과 Ctrl/Cmd + K는 대화하기로 이동한다.
+- 대화하기는 왼쪽 대화 목록, 가운데 질문/응답, 오른쪽 백업 보조 패널로 구성한다.
+- 답변에는 관련 기록·자료·출처를 근거로 유지하고 근거 부족 상태를 숨기지 않는다.
+- AI가 만든 해석에는 provenance/불확실성 표시를 둔다.
 - 사용자가 원본 기록과 AI 요약을 혼동하지 않게 한다.
 - 중요한 추천은 한 번의 버튼으로 자동 실행하지 않고 부모가 선택/검토한다.
 
@@ -121,13 +134,15 @@ GrowWise는 chat-first 제품이 아니므로 메인 화면을 채팅창으로 �
 
 ## 핵심 컴포넌트
 
-- **Child switcher**: 현재 child scope가 명확해야 하며 다른 아이 데이터가 섞이지 않는다.
-- **Growth map**: 질적 상태 우선, 원자료 drill-down 제공, 숫자 등급 없음.
-- **Activity card**: 제안/진행/완료/건너뜀. 미완료는 중립.
-- **Observation/learning log**: 문서형 UI. 원본 관찰과 AI 요약을 분리한다.
-- **Resource library**: 출처/provenance, 사용 기록, 관련 아이 맥락을 탐색 가능하게 한다.
-- **Natural-language search**: chat bubble보다 검색 결과/근거 중심 UI.
-- **Parent review**: 자동 검사 결과와 원문을 함께 보여주고 승인/수정/폐기 결정을 명확히 한다.
+- **WorkspaceShell**: 브랜드, sidebar, topbar, active workspace frame.
+- **WorkspaceNav**: 9개 제품 workspace와 현재 위치를 명확히 표시.
+- **ChildAvatar / child switcher**: 현재 child scope가 명확해야 하며 다른 아이 데이터가 섞이지 않는다.
+- **ProfileWorkspaceHub**: 프로필 요약 + 학습 기록 / 발달 분석 / 성장 리포트.
+- **LearningWorkspaceHub**: 학습 기록 / 관찰 기록.
+- **MaterialsWorkspaceHub**: 활동 자료 / 활동 관리 / 참고 자료 / 자료 찾기.
+- **PhotoActivityWorkspace**: gallery-first archive + filter + detail + create flow.
+- **SearchConversationSection**: history + conversation + backup의 3-pane 구조.
+- **Parent review**: 원문/근거/검토 상태를 함께 보여주고 승인/수정/폐기 결정을 명확히 한다.
 - **Empty/loading/error**: 비난 없이 다음 행동과 복구 방법을 제시한다.
 
 ## 접근성 체크
