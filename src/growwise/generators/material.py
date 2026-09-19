@@ -8,6 +8,7 @@ from typing import Annotated
 from pydantic import BaseModel, Field, ValidationError
 
 from growwise.curriculum import curriculum_targets_for_child
+from growwise.curriculum_versions import effective_curriculum_stage
 from growwise.domain import (
     ChildProfile,
     CurriculumTarget,
@@ -158,7 +159,7 @@ until Parent Review approves it. Return the requested structured schema only."""
         source_evidence: list[MaterialSourceEvidence] | None = None,
         curriculum_targets_override: list[CurriculumTarget] | None = None,
     ) -> GeneratedMaterial:
-        effective_stage = child.stage_on(date.today())
+        effective_stage = effective_curriculum_stage(child, on_date=date.today())
         generation_child = (
             child
             if effective_stage is child.stage
