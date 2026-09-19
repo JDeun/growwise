@@ -72,6 +72,7 @@ _MAX_TITLE_CHARS = 200
 _MAX_CONTENT_CHARS = 20_000
 _MAX_PARENT_GUIDE_CHARS = 12_000
 _MAX_SOURCE_EVIDENCE_CHARS = 12_000
+_MAX_SOURCE_EVIDENCE_ITEMS = 8
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")  # allow \t (\x09) and \n (\x0a)
 
 
@@ -231,16 +232,28 @@ requested schema."""
         *,
         allowed_refs: set[str],
     ) -> list[MaterialSourceEvidence]:
-        bounded: list[MaterialSourceEvidence] = []
+        candidates: list[MaterialSourceEvidence] = []
         seen: set[str] = set()
-        remaining = _MAX_SOURCE_EVIDENCE_CHARS
         for item in evidence:
-            if item.source_ref not in allowed_refs or item.source_ref in seen or remaining <= 0:
+            if item.source_ref not in allowed_refs or item.source_ref in seen:
                 continue
             seen.add(item.source_ref)
-            excerpt = item.excerpt.strip()
-            if len(excerpt) > remaining:
-                excerpt = excerpt[:remaining]
+            candidates.append(item)
+            if len(candidates) >= _MAX_SOURCE_EVIDENCE_ITEMS:
+                break
+
+        if not candidates:
+            return []
+
+        per_source_budget = min(
+            4_000,
+            _MAX_SOURCE_EVIDENCE_CHARS // len(candidates),
+        )
+        remaining = _MAX_SOURCE_EVIDENCE_CHARS
+        bounded: list[MaterialSourceEvidence] = []
+        for item in candidates:
+            excerpt_budget = min(per_source_budget, remaining)
+            excerpt = item.excerpt.strip()[:excerpt_budget]
             remaining -= len(excerpt)
             bounded.append(
                 MaterialSourceEvidence(
