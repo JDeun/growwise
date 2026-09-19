@@ -18,6 +18,8 @@ from growwise.adapters import (
     HeritagePalaceAdapter,
     KmaWeatherAdapter,
     KrDictAdapter,
+    kma_grid_for,
+    kma_observation_base,
     MuseumArtGalleryAdapter,
     NasaImagesAdapter,
     NationalLibraryIsbnAdapter,
@@ -570,4 +572,229 @@ def test_curated_catalog_only_returns_topic_relevant_official_links() -> None:
     ids = {str(record["id"]) for record in result.records}
     assert "nasa-kids-club" in ids
     assert "storyweaver" not in ids
+
+class TextFixtureHttp:
+    def __init__(self, text: str) -> None:
+        self.text = text
+        self.calls: list[tuple[str, dict[str, object]]] = []
+
+    def get_text(self, url: str, *, params):
+        self.calls.append((url, dict(params)))
+        return self.text
+
+
+def test_national_library_search_caches_live_response(tmp_path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "nl.sqlite3")
+    http = FixtureHttp(
+        {
+            "docs": [
+                {
+                    "TITLE": "우주 탐험",
+                    "AUTHOR": "테스트 저자",
+                    "PUBLISHER": "테스트 출판사",
+                    "EA_ISBN": "9780000000099",
+                }
+            ]
+        }
+    )
+    adapter = NationalLibraryIsbnAdapter(
+        api_key="test-key",
+        cache=cache,
+        http=http,  # type: ignore[arg-type]
+    )
+
+    live = adapter.search_books(query="우주", limit=5)
+    fresh = adapter.search_books(query="우주", limit=5)
+
+    assert live.cache_status == "live"
+    assert fresh.cache_status == "fresh"
+    assert live.records[0]["title"] == "우주 탐험"
+    assert len(http.calls) == 1
+    assert http.calls[0][1]["cert_key"] == "test-key"
+
+
+def test_krdict_search_caches_xml_and_supports_offline_cache(tmp_path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "krdict.sqlite3")
+    http = TextFixtureHttp(
+        """
+        <channel>
+          <item>
+            <target_code>200</target_code>
+            <word>우주</word>
+            <pronunciation>우주</pronunciation>
+            <pos>명사</pos>
+            <sense><definition>모든 천체가 존재하는 공간.</definition></sense>
+          </item>
+        </channel>
+        """
+    )
+    adapter = KrDictAdapter(
+        api_key="test-key",
+        cache=cache,
+        http=http,  # type: ignore[arg-type]
+    )
+
+    live = adapter.search(query="우주", limit=10)
+    fresh = adapter.search(query="우주", limit=10)
+    offline = adapter.search(query="우주", limit=10, offline=True)
+
+    assert live.cache_status == "live"
+    assert fresh.cache_status == "fresh"
+    assert offline.cache_status == "fresh"
+    assert live.records[0]["definitions"] == ["모든 천체가 존재하는 공간."]
+    assert len(http.calls) == 1
+
+
+def test_krdict_rejects_invalid_xml() -> None:
+    with pytest.raises(ExternalAdapterError, match="not valid XML"):
+        KrDictAdapter._normalize("<not-closed>")
+
+
+def test_kma_grid_and_observation_base_are_portable() -> None:
+    nx, ny = kma_grid_for(37.5665, 126.978)
+    assert nx > 0
+    assert ny > 0
+    with pytest.raises(ValueError, match="invalid latitude"):
+        kma_grid_for(91.0, 127.0)
+
+    base_date, base_time = kma_observation_base(
+        datetime(2026, 9, 19, 3, 30, tzinfo=UTC)
+    )
+    assert base_date == "20260919"
+    assert base_time == "1100"
+
+
+def test_kma_current_conditions_caches_public_data_response(tmp_path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "kma.sqlite3")
+    http = FixtureHttp(
+        {
+            "response": {
+                "body": {
+                    "items": {
+                        "item": [
+                            {"category": "T1H", "obsrValue": "23.0"},
+                            {"category": "REH", "obsrValue": "48"},
+                            {"category": "WSD", "obsrValue": "1.2"},
+                        ]
+                    }
+                }
+            }
+        }
+    )
+    adapter = KmaWeatherAdapter(
+        service_key="test-service-key",
+        cache=cache,
+        http=http,  # type: ignore[arg-type]
+    )
+    now = datetime(2026, 9, 19, 3, 30, tzinfo=UTC)
+
+    live = adapter.current_conditions(
+        latitude=37.5665,
+        longitude=126.978,
+        now=now,
+    )
+    fresh = adapter.current_conditions(
+        latitude=37.5665,
+        longitude=126.978,
+        now=now,
+    )
+
+    assert live.cache_status == "live"
+    assert fresh.cache_status == "fresh"
+    assert live.records[0]["temperature_c"] == "23.0"
+    assert live.records[0]["wind_speed_ms"] == "1.2"
+    assert len(http.calls) == 1
+    assert http.calls[0][1]["serviceKey"] == "test-service-key"
+
+
+def test_museum_nearby_sorts_facilities_by_distance_and_caches(tmp_path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "museum.sqlite3")
+    http = FixtureHttp(
+        {
+            "response": {
+                "body": {
+                    "items": [
+                        {
+                            "fcltyNm": "먼 박물관",
+                            "rdnmadr": "먼 주소",
+                            "latitude": "37.70",
+                            "longitude": "127.20",
+                        },
+                        {
+                            "fcltyNm": "가까운 박물관",
+                            "rdnmadr": "가까운 주소",
+                            "latitude": "37.57",
+                            "longitude": "126.98",
+                        },
+                    ]
+                }
+            }
+        }
+    )
+    adapter = MuseumArtGalleryAdapter(
+        service_key="test-service-key",
+        cache=cache,
+        http=http,  # type: ignore[arg-type]
+    )
+
+    live = adapter.nearby(latitude=37.5665, longitude=126.978, limit=2)
+    fresh = adapter.nearby(latitude=37.5665, longitude=126.978, limit=2)
+
+    assert live.records[0]["title"] == "가까운 박물관"
+    assert fresh.cache_status == "fresh"
+    assert len(http.calls) == 1
+    with pytest.raises(ValueError, match="invalid latitude"):
+        adapter.nearby(latitude=100.0, longitude=126.978)
+
+
+def test_heritage_search_fetches_palaces_then_uses_cache(tmp_path) -> None:
+    cache = SQLiteExternalCache(tmp_path / "heritage.sqlite3")
+    http = TextFixtureHttp(
+        """
+        <result>
+          <item>
+            <serial_number>1</serial_number>
+            <detail_code>A</detail_code>
+            <contents_kor>근정전</contents_kor>
+            <explanation_kor>조선 궁궐의 중심 건물이다.</explanation_kor>
+          </item>
+        </result>
+        """
+    )
+    adapter = HeritagePalaceAdapter(
+        cache=cache,
+        http=http,  # type: ignore[arg-type]
+    )
+
+    live = adapter.search(query="근정전")
+    fresh = adapter.search(query="근정전")
+
+    assert live.records
+    assert all(record["title"] == "근정전" for record in live.records)
+    assert fresh.cache_status == "fresh"
+    assert len(http.calls) == 5
+
+
+def test_heritage_search_falls_back_to_all_records_when_query_has_no_match(
+    tmp_path,
+) -> None:
+    adapter = HeritagePalaceAdapter(
+        cache=SQLiteExternalCache(tmp_path / "heritage-all.sqlite3"),
+        http=TextFixtureHttp(
+            """
+            <result>
+              <item>
+                <serial_number>2</serial_number>
+                <detail_code>B</detail_code>
+                <contents_kor>경회루</contents_kor>
+                <explanation_kor>연못과 누각을 관찰한다.</explanation_kor>
+              </item>
+            </result>
+            """
+        ),  # type: ignore[arg-type]
+    )
+
+    result = adapter.search(query="검색되지 않는 표현")
+    assert result.records
+    assert result.records[0]["title"] == "경회루"
 
