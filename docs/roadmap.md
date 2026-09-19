@@ -192,6 +192,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] cache TTL / stale fallback
 - [x] offline fixture/회귀 테스트
 - [x] attribution/NOTICE 자동 생성 (`scripts/generate_notice.py` → THIRD_PARTY_NOTICES.md)
+- [x] commercial-source policy enforcement (Open Library live API production 배선 제거 + adapter default-deny + 회귀 테스트)
 
 외부 adapter는 아이 관찰/개인 기록을 전송하지 않고 public query만 사용하며, 장애 시 local core를
 깨뜨리지 않는다.
