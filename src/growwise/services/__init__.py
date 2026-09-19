@@ -12,6 +12,7 @@ from .growth import (
     GrowthMapProjection,
     GrowthMapService,
 )
+from .learning_wiki import LearningWikiDraft, LearningWikiService, WikiItem
 from .infant import (
     ActivitySuggestion,
     BoardBookRecommendation,
@@ -54,6 +55,8 @@ __all__ = [
     "InfantObservationHints",
     "InvalidActivityTransition",
     "InvalidWorkflowTransition",
+    "LearningWikiDraft",
+    "LearningWikiService",
     "NaturalLanguageSearch",
     "ObservationEnricher",
     "ObservationEnrichment",
@@ -61,5 +64,6 @@ __all__ = [
     "SQLiteConversationStore",
     "SearchPlan",
     "WorkflowPolicy",
+    "WikiItem",
     "WorkflowRunService",
 ]
