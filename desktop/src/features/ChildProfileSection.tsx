@@ -28,12 +28,16 @@ interface ChildProfileSectionProps {
   activityCount: number;
   nickname: string;
   childStage: Stage;
+  birthDate: string;
   ageMonths: string;
+  grade: string;
   saving: boolean;
   error: string | null;
   onNicknameChange: (value: string) => void;
   onStageChange: (value: Stage) => void;
+  onBirthDateChange: (value: string) => void;
   onAgeMonthsChange: (value: string) => void;
+  onGradeChange: (value: string) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onSelectChild: (childId: string) => void;
   onAvatarUpdated?: (child: ChildProfile) => void;
@@ -48,12 +52,16 @@ export function ChildProfileSection({
   activityCount,
   nickname,
   childStage,
+  birthDate,
   ageMonths,
+  grade,
   saving,
   error,
   onNicknameChange,
   onStageChange,
+  onBirthDateChange,
   onAgeMonthsChange,
+  onGradeChange,
   onSubmit,
   onSelectChild,
   onAvatarUpdated,
@@ -155,7 +163,7 @@ export function ChildProfileSection({
           <div className="onboarding-heading">
             <div>
               <p className="card-label">빠른 시작</p>
-              <h3>필수 설정은 첫 아이 프로필 하나뿐입니다.</h3>
+              <h3>닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다.</h3>
             </div>
             <span className="onboarding-optional-badge">AI는 선택 사항</span>
           </div>
@@ -240,6 +248,18 @@ export function ChildProfileSection({
             <input value={nickname} onChange={(event) => onNicknameChange(event.target.value)} placeholder="예: 샘플아이" maxLength={40} disabled={!connected || saving} />
           </label>
           <label>
+            <span>생년월일(권장)</span>
+            <input
+              type="date"
+              value={birthDate}
+              onChange={(event) => onBirthDateChange(event.target.value)}
+              disabled={!connected || saving}
+            />
+            <small className="field-help">
+              입력하면 월령과 한국 학년을 날짜에 맞춰 자동 계산합니다.
+            </small>
+          </label>
+          <label>
             <span>교육 단계</span>
             <select value={childStage} onChange={(event) => onStageChange(event.target.value as Stage)} disabled={!connected || saving}>
               <option value="infant_0_2">영아 0~2세</option>
@@ -249,10 +269,20 @@ export function ChildProfileSection({
               <option value="high">고등</option>
             </select>
           </label>
-          <label>
-            <span>월령(선택)</span>
-            <input type="number" min="0" max="240" value={ageMonths} onChange={(event) => onAgeMonthsChange(event.target.value)} placeholder="예: 108" disabled={!connected || saving} />
-          </label>
+          <details className="profile-fallback-fields">
+            <summary>생년월일 없이 직접 입력</summary>
+            <p className="muted">생년월일을 입력했다면 아래 값은 비워 두어도 됩니다.</p>
+            <label>
+              <span>월령(선택)</span>
+              <input type="number" min="0" max="240" value={ageMonths} onChange={(event) => onAgeMonthsChange(event.target.value)} placeholder="예: 108" disabled={!connected || saving || Boolean(birthDate)} />
+            </label>
+            {["elementary", "middle", "high"].includes(childStage) && (
+              <label>
+                <span>현재 학년(선택)</span>
+                <input type="number" min="1" max="12" value={grade} onChange={(event) => onGradeChange(event.target.value)} placeholder="초1=1 · 중1=7 · 고1=10" disabled={!connected || saving || Boolean(birthDate)} />
+              </label>
+            )}
+          </details>
           <button className="primary-button" type="submit" disabled={!connected || saving}>
             {saving ? "저장 중…" : firstRun ? "첫 프로필 저장" : "새 프로필 저장"}
           </button>
