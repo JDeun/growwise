@@ -167,9 +167,17 @@ class GutendexAdapter(CachedSearchAdapter):
                 or self.text(formats.get("application/epub+zip"))
             )
             subjects = item.get("subjects")
-            subject_values = [self.text(v) for v in subjects if self.text(v)] if isinstance(subjects, list) else []
+            subject_values = (
+                [self.text(value) for value in subjects if self.text(value)]
+                if isinstance(subjects, list)
+                else []
+            )
             languages = item.get("languages")
-            language_values = [self.text(v) for v in languages if self.text(v)] if isinstance(languages, list) else []
+            language_values = (
+                [self.text(value) for value in languages if self.text(value)]
+                if isinstance(languages, list)
+                else []
+            )
             records.append(
                 {
                     "source_key": self.text(item.get("id")) or title,
@@ -241,7 +249,11 @@ class GlobalDigitalLibraryAdapter(CachedSearchAdapter):
                             language_names.append(value)
             records.append(
                 {
-                    "source_key": self.text(item.get("postId")) or self.text(item.get("post_name")) or title,
+                    "source_key": (
+                        self.text(item.get("postId"))
+                        or self.text(item.get("post_name"))
+                        or title
+                    ),
                     "title": title,
                     "summary": self.text(item.get("description"))[:4_000] or None,
                     "url": self.text(item.get("postLink")) or None,
@@ -305,7 +317,10 @@ class NationalLibraryIsbnAdapter(CachedSearchAdapter):
                 {
                     "source_key": isbn or title,
                     "title": title,
-                    "summary": self.text(item.get("SERIES_TITLE") or item.get("series_title")) or None,
+                    "summary": self.text(
+                        item.get("SERIES_TITLE") or item.get("series_title")
+                    )
+                    or None,
                     "url": None,
                     "author": self.text(item.get("AUTHOR") or item.get("author")) or None,
                     "resource_kind": "book",
@@ -314,8 +329,12 @@ class NationalLibraryIsbnAdapter(CachedSearchAdapter):
                         key: value
                         for key, value in {
                             "isbn": isbn,
-                            "publisher": self.text(item.get("PUBLISHER") or item.get("publisher")),
-                            "publish_date": self.text(item.get("PUBLISH_PREDATE") or item.get("publish_date")),
+                            "publisher": self.text(
+                                item.get("PUBLISHER") or item.get("publisher")
+                            ),
+                            "publish_date": self.text(
+                                item.get("PUBLISH_PREDATE") or item.get("publish_date")
+                            ),
                             "form": self.text(item.get("FORM") or item.get("form")),
                         }.items()
                         if value
