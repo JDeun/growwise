@@ -6,6 +6,7 @@ import {
   writeRememberedChildId,
 } from "../active-child-context";
 import { deleteChild, updateChild, type BackupItem, type ChildProfile, type Stage } from "../api";
+import { stageForBirthDate } from "../child-stage";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
@@ -281,7 +282,16 @@ export function DataManagementSection({
                 <input
                   type="date"
                   value={profileBirthDate}
-                  onChange={(event) => setProfileBirthDate(event.target.value)}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setProfileBirthDate(value);
+                    const derivedStage = stageForBirthDate(value);
+                    if (derivedStage) setProfileStage(derivedStage);
+                    if (value) {
+                      setProfileAgeMonths("");
+                      setProfileGrade("");
+                    }
+                  }}
                   disabled={!selectedProfileChild || !connected || destructiveBusy}
                 />
                 <span className="field-help">월령과 한국 학년을 기준일에 맞춰 자동 계산합니다.</span>
