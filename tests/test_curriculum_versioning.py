@@ -40,7 +40,7 @@ def test_2026_rollout_resolves_each_school_grade_correctly() -> None:
 
     assert elementary.source_ref == "국가교육위원회고시 제2024-3호"
     assert middle_2.source_ref == "국가교육위원회고시 제2024-3호"
-    assert high_2.source_ref == "국가교육위원회고시 제2024-3호"
+    assert high_2.source_ref == "국가교육위원회고시 제2026-1호"
     assert middle_3.source_ref == "국가교육위원회고시 제2024-1호"
     assert high_3.source_ref == "국가교육위원회고시 제2024-1호"
     assert middle_3.effective_to == date(2027, 2, 28)
@@ -55,8 +55,57 @@ def test_final_transition_happens_on_2027_school_year() -> None:
             _student(grade=grade, stage=stage),
             on_date=reference,
         )
-        assert resolution.source_ref == "국가교육위원회고시 제2024-3호"
-        assert resolution.revision == "2022-rev-2024-3"
+        expected_notice = (
+            "국가교육위원회고시 제2024-3호"
+            if grade == 9
+            else "국가교육위원회고시 제2026-1호"
+        )
+        expected_revision = "2022-rev-2024-3" if grade == 9 else "2022-rev-2026-1"
+        assert resolution.source_ref == expected_notice
+        assert resolution.revision == expected_revision
+
+
+def test_2026_amendment_has_its_own_grade_effective_dates() -> None:
+    high_1 = resolve_curriculum_version(
+        _student(grade=10, stage=Stage.HIGH),
+        on_date=date(2026, 3, 1),
+    )
+    elem_1_before = resolve_curriculum_version(
+        _student(grade=1, stage=Stage.ELEMENTARY),
+        on_date=date(2027, 9, 1),
+    )
+    elem_1_after = resolve_curriculum_version(
+        _student(grade=1, stage=Stage.ELEMENTARY),
+        on_date=date(2028, 3, 1),
+    )
+
+    assert high_1.source_ref == "국가교육위원회고시 제2026-1호"
+    assert elem_1_before.source_ref == "국가교육위원회고시 제2024-3호"
+    assert elem_1_after.source_ref == "국가교육위원회고시 제2026-1호"
+
+
+def test_live_endpoint_cannot_downgrade_newer_bundled_notice() -> None:
+    child = _student(grade=11, stage=Stage.HIGH)
+    records = [
+        {
+            "stage": "high",
+            "framework": "2022 개정 고등학교 교육과정",
+            "revision": "2022-rev-2024-3",
+            "official_notice": "국가교육위원회고시 제2024-3호",
+            "effective_from": "2025-03-01",
+            "grades": [11],
+            "source_url": "https://ncic.re.kr/curriculum/2024-3",
+        }
+    ]
+
+    assert (
+        resolve_external_curriculum_version(
+            records,
+            child,
+            on_date=date(2026, 9, 19),
+        )
+        is None
+    )
 
 
 def test_stage_only_profile_fails_safe_during_mixed_rollout() -> None:
