@@ -1,12 +1,12 @@
 from .base import AdapterResult, ExternalAdapterError, ExternalUnavailable
 from .cache import CachedPayload, SQLiteExternalCache
+from .curated_catalog import CuratedEducationCatalogAdapter
 from .curriculum import CurriculumRecord, PublicCurriculumAdapter
 from .curriculum_resources import (
     curriculum_records_to_resources,
     curriculum_refs,
     curriculum_resource_ref,
 )
-from .curated_catalog import CuratedEducationCatalogAdapter
 from .data4library import Data4LibraryAdapter
 from .gbif import GbifSpeciesAdapter
 from .google_books import GoogleBooksAdapter
