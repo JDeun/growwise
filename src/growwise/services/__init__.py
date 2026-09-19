@@ -12,7 +12,6 @@ from .growth import (
     GrowthMapProjection,
     GrowthMapService,
 )
-from .learning_wiki import LearningWikiDraft, LearningWikiService, WikiItem
 from .infant import (
     ActivitySuggestion,
     BoardBookRecommendation,
@@ -25,6 +24,7 @@ from .infant import (
     InfantObservationHintService,
     ObservationHint,
 )
+from .learning_wiki import LearningWikiDraft, LearningWikiService, WikiItem
 from .observation import ObservationEnricher, ObservationEnrichment
 from .search import NaturalLanguageSearch, SearchPlan
 from .workflow import InvalidWorkflowTransition, WorkflowPolicy, WorkflowRunService
