@@ -395,6 +395,78 @@ class ConfiguredPublicDataAdapter(CachedSearchAdapter):
         return records
 
 
+class KbrAdapter(CachedSearchAdapter):
+    SOURCE = "kbr"
+    ATTRIBUTION = "국가생물다양성 정보공유체계(KBR)"
+    LICENSE_NOTE = (
+        "KBR 분류군 텍스트 메타데이터 중심으로 사용하며 개별 이미지/미디어 재사용 권리는 "
+        "별도 확인할 것"
+    )
+
+    def __init__(self, *, api_key: str, endpoint: str, **kwargs: Any) -> None:
+        if not api_key.strip():
+            raise ValueError("api_key is required")
+        if not endpoint.strip():
+            raise ValueError("endpoint is required")
+        self.api_key = api_key
+        super().__init__(endpoint=endpoint, **kwargs)
+
+    def _params(self, *, query: str, limit: int) -> dict[str, str | int | float]:
+        return {
+            "access_key": self.api_key,
+            "taxon_knm": query,
+            "page_index": 1,
+            "page_size": min(limit, 50),
+        }
+
+    def _normalize(self, payload: dict[str, Any], *, limit: int) -> list[dict[str, Any]]:
+        raw = payload.get("bioList")
+        if not isinstance(raw, list):
+            return []
+        records: list[dict[str, Any]] = []
+        for item in raw[:limit]:
+            if not isinstance(item, dict):
+                continue
+            korean_name = _text(item.get("taxon_knm"))
+            scientific_name = _text(item.get("taxon_nm"))
+            title = korean_name or scientific_name
+            ktsn = _text(item.get("ktsn"))
+            if not title or not ktsn:
+                continue
+            records.append(
+                {
+                    "source_key": ktsn,
+                    "title": title,
+                    "summary": " · ".join(
+                        value
+                        for value in (
+                            scientific_name,
+                            _text(item.get("comm_group_nm")),
+                            _text(item.get("cls_step_nm")),
+                        )
+                        if value
+                    )
+                    or None,
+                    "url": f"https://www.kbr.go.kr/home/rsc/rsc01002v.do?ktsn={ktsn}",
+                    "author": None,
+                    "resource_kind": "web",
+                    "tags": ["과학", "생물", "한국 자생생물"],
+                    "metadata": {
+                        key: value
+                        for key, value in {
+                            "ktsn": ktsn,
+                            "parent_ktsn": _text(item.get("ktsn_p")),
+                            "scientific_name": scientific_name,
+                            "group": _text(item.get("comm_group_nm")),
+                            "taxonomic_step": _text(item.get("cls_step_nm")),
+                        }.items()
+                        if value
+                    },
+                }
+            )
+        return records
+
+
 class KmaForecastAdapter(CachedSearchAdapter):
     SOURCE = "kma_forecast"
     ATTRIBUTION = "기상청 단기예보 조회서비스"
