@@ -32,7 +32,7 @@ describe("product workspace composition contract", () => {
         `activeView === "${workspace}"`,
       );
     }
-    expect(mainSource).toContain("<App activeView={activeView} />");
+    expect(mainSource).toContain("<App activeView={activeView} onNavigate={navigate} />");
   });
 
   it("mounts feature surfaces from App instead of reviving them through shell CSS", () => {

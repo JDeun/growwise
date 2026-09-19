@@ -11,6 +11,6 @@ describe("MaterialWorkspace mutation locking", () => {
   it("disables mutation controls while a material operation is running", () => {
     const html = renderToStaticMarkup(<MaterialWorkspace materials={[material]} resources={[]} materialKind="activity_guide" topic="활동" goal="" selectedResourceRefs={[]} busy error={null} revisionNotes={{ m1: "수정" }} editingMaterialId={null} onKindChange={noop} onTopicChange={noop} onGoalChange={noop} onToggleResource={noop} onGenerate={noop} onReview={noop} onRevisionNoteChange={noop} onRevise={noop} onEditStart={noop} onEdit={noop} onPrint={noop} />);
     expect((html.match(/disabled=""/g) ?? []).length).toBeGreaterThanOrEqual(6);
-    expect(html).toContain("초안 저장 중…");
+    expect(html).toContain("자료 준비 중…");
   });
 });

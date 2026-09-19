@@ -3,7 +3,7 @@ from __future__ import annotations
 import base64
 import binascii
 from contextlib import suppress
-from datetime import UTC, datetime
+from datetime import UTC, date, datetime
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -38,7 +38,9 @@ class ChildAvatarRequest(BaseModel):
 class ChildProfileUpdateRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=120)
     stage: Stage
+    birth_date: date | None = None
     age_months: int | None = Field(default=None, ge=0, le=240)
+    grade: int | None = Field(default=None, ge=1, le=12)
     interests: list[TagText] = Field(default_factory=list, max_length=100)
     primary_language: LanguageCode = "ko-KR"
     additional_languages: list[LanguageCode] = Field(default_factory=list, max_length=20)

@@ -6,7 +6,9 @@ use super::{client, ensure_success, post_idempotent_json, CORE_BASE_URL};
 pub(crate) struct ChildCreateInput {
     nickname: String,
     stage: String,
+    birth_date: Option<String>,
     age_months: Option<u16>,
+    grade: Option<u8>,
     interests: Vec<String>,
 }
 
@@ -21,7 +23,9 @@ pub(crate) struct ChildAvatarInput {
 pub(crate) struct ChildUpdateInput {
     nickname: String,
     stage: String,
+    birth_date: Option<String>,
     age_months: Option<u16>,
+    grade: Option<u8>,
     interests: Vec<String>,
     primary_language: String,
     additional_languages: Vec<String>,
@@ -34,7 +38,11 @@ pub(crate) struct ChildProfileDto {
     id: String,
     nickname: String,
     stage: String,
+    #[serde(default)]
+    birth_date: Option<String>,
     age_months: Option<u16>,
+    #[serde(default)]
+    grade: Option<u8>,
     interests: Vec<String>,
     #[serde(default)]
     primary_language: String,

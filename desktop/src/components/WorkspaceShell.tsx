@@ -72,7 +72,7 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
         const count = materialsResult.value.filter((material) =>
           ["draft", "review_pending", "revision_requested"].includes(material.status),
         ).length;
-        if (count > 0) items.push({ view: "materials", label: "검토할 학습 자료", count });
+        if (count > 0) items.push({ view: "materials", label: "사용 준비할 활동 자료", count });
       }
       if (photosResult.status === "fulfilled") {
         const count = photosResult.value.filter((record) =>

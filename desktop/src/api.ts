@@ -75,7 +75,9 @@ export interface CoreRuntimeStatus { started_by_desktop: boolean; }
 export interface ChildCreateInput {
   nickname: string;
   stage: Stage;
+  birth_date: string | null;
   age_months: number | null;
+  grade: number | null;
   interests: string[];
 }
 export interface ChildUpdateInput extends ChildCreateInput {
@@ -88,7 +90,9 @@ export interface ChildProfile {
   id: string;
   nickname: string;
   stage: Stage;
+  birth_date?: string | null;
   age_months: number | null;
+  grade?: number | null;
   interests: string[];
   primary_language?: string;
   additional_languages?: string[];
@@ -524,6 +528,8 @@ export const listMaterials = (childId: string) =>
   call<GeneratedMaterial[]>("list_materials", { childId });
 export const reviewMaterial = (materialId: string, status: MaterialStatus, note?: string) =>
   call<GeneratedMaterial>("review_material", { materialId, status, note: note ?? null });
+export const useMaterial = (materialId: string) =>
+  call<GeneratedMaterial>("use_material", { materialId });
 export const reviseMaterial = (materialId: string, note?: string) =>
   call<GeneratedMaterial>("revise_material_background", { materialId, note: note ?? null });
 export const editMaterial = (

@@ -360,8 +360,8 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
         <form className="material-result-panel" onSubmit={submit}>
           <div className="material-result-heading">
             <div>
-              <strong>이 자료로 활동한 결과</strong>
-              <small>기록한 내용은 다음 활동과 자료를 준비할 때 참고합니다.</small>
+              <strong>오늘 활동은 어땠나요?</strong>
+              <small>한 줄만 남겨도 다음 활동과 자료를 준비할 때 반영됩니다.</small>
             </div>
             <button
               className="quiet-button"
@@ -376,138 +376,146 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
             </button>
           </div>
 
-          <fieldset className="material-result-outcomes">
-            <legend>이번 기록의 진행 결과</legend>
-            {([
-              ["completed", "완료"],
-              ["partial", "일부 진행"],
-              ["skipped", "이번에는 건너뜀"],
-            ] as const).map(([value, label]) => (
-              <label key={value}>
-                <input
-                  type="radio"
-                  name={`material-outcome-${material.id}`}
-                  value={value}
-                  checked={outcome === value}
-                  onChange={() => setOutcome(value)}
-                  disabled={busy || activity?.status === "completed"}
-                />
-                <span>{label}</span>
-              </label>
-            ))}
-          </fieldset>
-
           <label>
             <span>부모 관찰 *</span>
             <textarea
               value={observation}
               onChange={(event) => setObservation(event.target.value)}
               maxLength={10000}
-              placeholder="예: 얼음이 녹는 모습을 예상보다 오래 지켜보고, 물이 생긴 이유를 물었다."
+              placeholder="예: 얼음이 녹는 모습을 오래 지켜보고 물이 생긴 이유를 물었다."
               disabled={busy}
             />
           </label>
 
-          <label>
-            <span>아이 답변·산출물</span>
-            <textarea
-              value={learnerWork}
-              onChange={(event) => setLearnerWork(event.target.value)}
-              maxLength={10000}
-              placeholder="예: 활동지에 쓴 답, 독서감상문, 풀이 과정, 관찰 기록 등 아이가 실제로 남긴 내용을 옮겨 적습니다."
-              disabled={busy}
-            />
-          </label>
-
-          <div className="material-result-grid">
-            <label>
-              <span>활동 과정</span>
-              <textarea value={process} onChange={(event) => setProcess(event.target.value)} disabled={busy} />
-            </label>
-            <label>
-              <span>아이 질문·반응</span>
-              <textarea value={childQuestion} onChange={(event) => setChildQuestion(event.target.value)} disabled={busy} />
-            </label>
-            <label>
-              <span>흥미를 보인 점</span>
-              <textarea value={interest} onChange={(event) => setInterest(event.target.value)} disabled={busy} />
-            </label>
-            <label>
-              <span>어려워한 점</span>
-              <textarea value={difficulty} onChange={(event) => setDifficulty(event.target.value)} disabled={busy} />
-            </label>
-          </div>
-
-          <label>
-            <span>다음에 해볼 것</span>
-            <input
-              value={nextActivity}
-              onChange={(event) => setNextActivity(event.target.value)}
-              maxLength={1000}
-              placeholder="예: 같은 크기의 얼음을 햇빛과 그늘에서 비교하기"
-              disabled={busy}
-            />
-          </label>
-
-          <fieldset className="material-result-photo-evidence">
-            <legend>사진·산출물 기록(선택)</legend>
-            <p className="muted">
-              사진 기록에서 부모 확인을 마친 항목을 연결합니다. 원본 사진 파일을 중복 저장하지는 않습니다.
-            </p>
-            {photoLoading && <p className="muted">사진 기록 확인 중…</p>}
-            {photoError && <p className="form-error">{photoError}</p>}
-            {!photoLoading && !photoError && availablePhotos.length === 0 && (
-              <p className="muted">연결할 수 있는 확정 사진 기록이 아직 없습니다.</p>
-            )}
-            {availablePhotos.length > 0 && (
-              <div className="material-photo-options">
-                {availablePhotos.map((record) => {
-                  const selected = selectedPhotoRecordIds.includes(record.id);
-                  const photoTimestamp = photoRecordTimestamp(record);
-                  const shared = record.child_id !== material.child_id;
-                  return (
-                    <label className="material-photo-option" key={record.id}>
-                      <input
-                        type="checkbox"
-                        checked={selected}
-                        onChange={() => togglePhotoRecord(record.id)}
-                        disabled={busy}
-                      />
-                      <span>
-                        <strong>{photoRecordSummary(record)}</strong>
-                        <small>
-                          {shared ? "공유 사진 · " : ""}
-                          {photoTimestamp ?? "저장된 사진 기록"}
-                        </small>
-                      </span>
-                    </label>
-                  );
-                })}
-              </div>
-            )}
-          </fieldset>
-
-          <fieldset className="material-result-axes">
-            <legend>경험·학습 축(선택)</legend>
-            <div>
-              {AXIS_OPTIONS.map((option) => (
-                <button
-                  key={option.value}
-                  type="button"
-                  className={`axis-chip ${axes.includes(option.value) ? "active" : ""}`}
-                  aria-pressed={axes.includes(option.value)}
-                  onClick={() => toggleAxis(option.value)}
-                  disabled={busy}
-                >
-                  {option.label}
-                </button>
-              ))}
-            </div>
-          </fieldset>
+          <details className="material-result-more">
+            <summary>더 자세히 기록</summary>
+                      <fieldset className="material-result-outcomes">
+                        <legend>이번 기록의 진행 결과</legend>
+                        {([
+                          ["completed", "완료"],
+                          ["partial", "일부 진행"],
+                          ["skipped", "이번에는 건너뜀"],
+                        ] as const).map(([value, label]) => (
+                          <label key={value}>
+                            <input
+                              type="radio"
+                              name={`material-outcome-${material.id}`}
+                              value={value}
+                              checked={outcome === value}
+                              onChange={() => setOutcome(value)}
+                              disabled={busy || activity?.status === "completed"}
+                            />
+                            <span>{label}</span>
+                          </label>
+                        ))}
+                      </fieldset>
+            
+            
+            
+            
+                      <label>
+                        <span>아이 답변·산출물</span>
+                        <textarea
+                          value={learnerWork}
+                          onChange={(event) => setLearnerWork(event.target.value)}
+                          maxLength={10000}
+                          placeholder="예: 활동지에 쓴 답, 독서감상문, 풀이 과정, 관찰 기록 등 아이가 실제로 남긴 내용을 옮겨 적습니다."
+                          disabled={busy}
+                        />
+                      </label>
+            
+                      <div className="material-result-grid">
+                        <label>
+                          <span>활동 과정</span>
+                          <textarea value={process} onChange={(event) => setProcess(event.target.value)} disabled={busy} />
+                        </label>
+                        <label>
+                          <span>아이 질문·반응</span>
+                          <textarea value={childQuestion} onChange={(event) => setChildQuestion(event.target.value)} disabled={busy} />
+                        </label>
+                        <label>
+                          <span>흥미를 보인 점</span>
+                          <textarea value={interest} onChange={(event) => setInterest(event.target.value)} disabled={busy} />
+                        </label>
+                        <label>
+                          <span>어려워한 점</span>
+                          <textarea value={difficulty} onChange={(event) => setDifficulty(event.target.value)} disabled={busy} />
+                        </label>
+                      </div>
+            
+                      <label>
+                        <span>다음에 해볼 것</span>
+                        <input
+                          value={nextActivity}
+                          onChange={(event) => setNextActivity(event.target.value)}
+                          maxLength={1000}
+                          placeholder="예: 같은 크기의 얼음을 햇빛과 그늘에서 비교하기"
+                          disabled={busy}
+                        />
+                      </label>
+            
+                      <fieldset className="material-result-photo-evidence">
+                        <legend>사진·산출물 기록(선택)</legend>
+                        <p className="muted">
+                          사진 기록에서 부모 확인을 마친 항목을 연결합니다. 원본 사진 파일을 중복 저장하지는 않습니다.
+                        </p>
+                        {photoLoading && <p className="muted">사진 기록 확인 중…</p>}
+                        {photoError && <p className="form-error">{photoError}</p>}
+                        {!photoLoading && !photoError && availablePhotos.length === 0 && (
+                          <p className="muted">연결할 수 있는 확정 사진 기록이 아직 없습니다.</p>
+                        )}
+                        {availablePhotos.length > 0 && (
+                          <div className="material-photo-options">
+                            {availablePhotos.map((record) => {
+                              const selected = selectedPhotoRecordIds.includes(record.id);
+                              const photoTimestamp = photoRecordTimestamp(record);
+                              const shared = record.child_id !== material.child_id;
+                              return (
+                                <label className="material-photo-option" key={record.id}>
+                                  <input
+                                    type="checkbox"
+                                    checked={selected}
+                                    onChange={() => togglePhotoRecord(record.id)}
+                                    disabled={busy}
+                                  />
+                                  <span>
+                                    <strong>{photoRecordSummary(record)}</strong>
+                                    <small>
+                                      {shared ? "공유 사진 · " : ""}
+                                      {photoTimestamp ?? "저장된 사진 기록"}
+                                    </small>
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </fieldset>
+            
+                      <fieldset className="material-result-axes">
+                        <legend>경험·학습 축(선택)</legend>
+                        <div>
+                          {AXIS_OPTIONS.map((option) => (
+                            <button
+                              key={option.value}
+                              type="button"
+                              className={`axis-chip ${axes.includes(option.value) ? "active" : ""}`}
+                              aria-pressed={axes.includes(option.value)}
+                              onClick={() => toggleAxis(option.value)}
+                              disabled={busy}
+                            >
+                              {option.label}
+                            </button>
+                          ))}
+                        </div>
+                      </fieldset>
+            
+            
+          </details>
 
           {error && <p className="form-error" role="alert">{error}</p>}
           <button className="primary-button" type="submit" disabled={busy || !observation.trim()}>
-            {busy ? "결과 저장 중…" : "결과 저장"}
+            {busy ? "저장 중…" : "한 줄 기록 저장"}
           </button>
         </form>
       )}

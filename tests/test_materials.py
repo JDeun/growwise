@@ -290,6 +290,23 @@ def test_revision_note_is_version_metadata_not_learner_visible_goal() -> None:
     assert "개인화 원칙" not in revised.content_markdown
 
 
+def test_explicit_use_action_traverses_review_gate_without_exposing_two_steps() -> None:
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    material = GeneratedMaterial(
+        child_id=child.id,
+        kind=MaterialKind.ACTIVITY_GUIDE,
+        title="산책 활동",
+        content_markdown="# 산책 활동",
+        status=MaterialStatus.DRAFT,
+    )
+    review = MaterialReviewService()
+
+    review.approve_for_use(material)
+
+    assert material.status is MaterialStatus.APPROVED
+    assert review.can_export(material) is True
+
+
 def test_parent_review_gate_enforces_state_machine() -> None:
     child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
     material = GeneratedMaterial(

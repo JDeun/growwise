@@ -316,6 +316,52 @@ def review_material(
     return material
 
 
+@router.post("/v1/materials/{material_id}/use", response_model=GeneratedMaterial)
+def use_material(
+    material_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    """Approve a material for use from one explicit parent action.
+
+    The UI does not expose workflow plumbing, but the domain still traverses the review gate.
+    """
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    if material.status is MaterialStatus.APPROVED:
+        return material
+
+    if material.status in {
+        MaterialStatus.DRAFT,
+        MaterialStatus.REVIEW_PENDING,
+        MaterialStatus.REVISION_REQUESTED,
+    }:
+        config = {"configurable": {"thread_id": f"material-review:{material.id}"}}
+        try:
+            with store.mutation_window():
+                review_state = _material_review_graph().invoke(
+                    Command(resume={"status": MaterialStatus.APPROVED.value, "note": None}),
+                    config=config,
+                )
+            decision = review_state.get("decision_status")
+            if decision not in {None, MaterialStatus.APPROVED.value}:
+                raise HTTPException(status_code=409, detail="review_decision_mismatch")
+        except HTTPException:
+            raise
+        except Exception:
+            logger.exception(
+                "material review projection unavailable; applying explicit use decision directly"
+            )
+
+    try:
+        MaterialReviewService().approve_for_use(material)
+    except InvalidMaterialTransition as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    store.save(material)
+    return material
+
+
 @router.post("/v1/materials/{material_id}/revise", response_model=GeneratedMaterial)
 @serialize_material_successor
 def revise_material(

@@ -33,17 +33,17 @@ createRoot(document.getElementById("root")!).render(
             {activeView === "learning" ? (
               <LearningWorkspaceHub
                 renderRecords={(active) => <LearningRecordWorkspace active={active} embedded />}
-                observationApp={<App activeView={activeView} />}
+                observationApp={<App activeView={activeView} onNavigate={navigate} />}
               />
             ) : activeView === "profile" ? (
               <ProfileWorkspaceHub
-                app={<App activeView={activeView} />}
+                app={<App activeView={activeView} onNavigate={navigate} />}
                 renderLearning={(active) => <LearningRecordWorkspace active={active} embedded />}
                 onNavigate={navigate}
               />
             ) : activeView === "materials" ? (
               <MaterialsWorkspaceHub
-                app={<App activeView={activeView} />}
+                app={<App activeView={activeView} onNavigate={navigate} />}
                 renderDiscovery={(active) => <DiscoveryWorkspace active={active} />}
               />
             ) : (
@@ -51,7 +51,7 @@ createRoot(document.getElementById("root")!).render(
               && activeView !== "photos"
               && activeView !== "discovery"
               && activeView !== "help"
-              && <App activeView={activeView} />
+              && <App activeView={activeView} onNavigate={navigate} />
             )}
             <HomeDashboard active={activeView === "home"} onNavigate={navigate} />
             <PhotoActivityWorkspace active={activeView === "photos"} />

@@ -47,6 +47,25 @@ class MaterialReviewService:
         material.updated_at = datetime.now(UTC)
         return material
 
+    def approve_for_use(
+        self,
+        material: GeneratedMaterial,
+        *,
+        note: str | None = None,
+    ) -> GeneratedMaterial:
+        """Apply one explicit parent 'use this' decision through the existing state machine."""
+        if material.status is MaterialStatus.APPROVED:
+            return material
+        if material.status is MaterialStatus.DRAFT:
+            self.transition(material, MaterialStatus.REVIEW_PENDING)
+        if material.status is MaterialStatus.REVISION_REQUESTED:
+            self.transition(material, MaterialStatus.REVIEW_PENDING)
+        if material.status is not MaterialStatus.REVIEW_PENDING:
+            raise InvalidMaterialTransition(
+                f"material status {material.status.value} cannot be approved for use"
+            )
+        return self.transition(material, MaterialStatus.APPROVED, note=note)
+
     @staticmethod
     def can_export(material: GeneratedMaterial) -> bool:
         return material.status is MaterialStatus.APPROVED

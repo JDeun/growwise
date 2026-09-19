@@ -6,6 +6,7 @@ import {
   writeRememberedChildId,
 } from "../active-child-context";
 import { deleteChild, updateChild, type BackupItem, type ChildProfile, type Stage } from "../api";
+import { stageForBirthDate } from "../child-stage";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
@@ -49,7 +50,9 @@ export function DataManagementSection({
   const [profileChildId, setProfileChildId] = useState(activeChild?.id ?? children[0]?.id ?? "");
   const [profileNickname, setProfileNickname] = useState("");
   const [profileStage, setProfileStage] = useState<Stage>("infant_0_2");
+  const [profileBirthDate, setProfileBirthDate] = useState("");
   const [profileAgeMonths, setProfileAgeMonths] = useState("");
+  const [profileGrade, setProfileGrade] = useState("");
   const [profileInterests, setProfileInterests] = useState("");
   const [profilePrimaryLanguage, setProfilePrimaryLanguage] = useState("ko-KR");
   const [profileAdditionalLanguages, setProfileAdditionalLanguages] = useState("");
@@ -83,7 +86,9 @@ export function DataManagementSection({
     if (!selectedProfileChild) {
       setProfileNickname("");
       setProfileStage("infant_0_2");
+      setProfileBirthDate("");
       setProfileAgeMonths("");
+      setProfileGrade("");
       setProfileInterests("");
       setProfilePrimaryLanguage("ko-KR");
       setProfileAdditionalLanguages("");
@@ -93,8 +98,14 @@ export function DataManagementSection({
     }
     setProfileNickname(selectedProfileChild.nickname);
     setProfileStage(selectedProfileChild.stage);
+    setProfileBirthDate(selectedProfileChild.birth_date ?? "");
     setProfileAgeMonths(
       selectedProfileChild.age_months === null ? "" : String(selectedProfileChild.age_months),
+    );
+    setProfileGrade(
+      selectedProfileChild.grade === null || selectedProfileChild.grade === undefined
+        ? ""
+        : String(selectedProfileChild.grade),
     );
     setProfileInterests(selectedProfileChild.interests.join(", "));
     setProfilePrimaryLanguage(selectedProfileChild.primary_language || "ko-KR");
@@ -123,6 +134,11 @@ export function DataManagementSection({
       return;
     }
 
+    if (profileBirthDate && Number.isNaN(Date.parse(`${profileBirthDate}T00:00:00`))) {
+      setProfileError("생년월일을 확인해 주세요.");
+      return;
+    }
+
     const ageText = profileAgeMonths.trim();
     const ageMonths = ageText === "" ? null : Number(ageText);
     if (
@@ -130,6 +146,16 @@ export function DataManagementSection({
       && (!Number.isInteger(ageMonths) || ageMonths < 0 || ageMonths > 240)
     ) {
       setProfileError("월령은 0~240 사이의 정수로 입력해 주세요.");
+      return;
+    }
+
+    const gradeText = profileGrade.trim();
+    const grade = gradeText === "" ? null : Number(gradeText);
+    if (
+      grade !== null
+      && (!Number.isInteger(grade) || grade < 1 || grade > 12)
+    ) {
+      setProfileError("학년은 1~12 사이의 정수로 입력해 주세요.");
       return;
     }
 
@@ -146,7 +172,9 @@ export function DataManagementSection({
       const updated = await updateChild(selectedProfileChild.id, {
         nickname,
         stage: profileStage,
-        age_months: ageMonths,
+        birth_date: profileBirthDate || null,
+        age_months: profileBirthDate ? null : ageMonths,
+        grade: profileBirthDate ? null : grade,
         interests: parseProfileList(profileInterests),
         primary_language: primaryLanguage,
         additional_languages: parseProfileList(profileAdditionalLanguages),
@@ -250,6 +278,25 @@ export function DataManagementSection({
                 />
               </label>
               <label>
+                생년월일(권장)
+                <input
+                  type="date"
+                  value={profileBirthDate}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    setProfileBirthDate(value);
+                    const derivedStage = stageForBirthDate(value);
+                    if (derivedStage) setProfileStage(derivedStage);
+                    if (value) {
+                      setProfileAgeMonths("");
+                      setProfileGrade("");
+                    }
+                  }}
+                  disabled={!selectedProfileChild || !connected || destructiveBusy}
+                />
+                <span className="field-help">월령과 한국 학년을 기준일에 맞춰 자동 계산합니다.</span>
+              </label>
+              <label>
                 교육 단계
                 <select
                   value={profileStage}
@@ -271,10 +318,24 @@ export function DataManagementSection({
                   max="240"
                   value={profileAgeMonths}
                   onChange={(event) => setProfileAgeMonths(event.target.value)}
-                  placeholder="영유아 중심으로 사용"
-                  disabled={!selectedProfileChild || !connected || destructiveBusy}
+                  placeholder="생년월일을 쓰지 않을 때"
+                  disabled={!selectedProfileChild || !connected || destructiveBusy || Boolean(profileBirthDate)}
                 />
               </label>
+              {["elementary", "middle", "high"].includes(profileStage) && (
+                <label>
+                  현재 학년(선택)
+                  <input
+                    type="number"
+                    min="1"
+                    max="12"
+                    value={profileGrade}
+                    onChange={(event) => setProfileGrade(event.target.value)}
+                    placeholder="초1=1 · 중1=7 · 고1=10"
+                    disabled={!selectedProfileChild || !connected || destructiveBusy || Boolean(profileBirthDate)}
+                  />
+                </label>
+              )}
               <label className="field-span">
                 관심사(선택)
                 <input

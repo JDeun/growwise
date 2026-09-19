@@ -66,6 +66,7 @@ interface MaterialWorkspaceProps {
   onGoalChange: (value: string) => void;
   onToggleResource: (resourceId: string) => void;
   onGenerate: (event: FormEvent<HTMLFormElement>) => void;
+  onUse?: (materialId: string) => void;
   onReview: (materialId: string, status: MaterialStatus) => void;
   onRevisionNoteChange: (materialId: string, note: string) => void;
   onRevise: (materialId: string) => void;
@@ -114,25 +115,31 @@ function MaterialSources({
 function MaterialHeading({
   material,
   onFocus,
+  showWorkflow = true,
 }: {
   material: GeneratedMaterial;
   onFocus?: () => void;
+  showWorkflow?: boolean;
 }) {
   const aiStatus = material.ai_status ?? "not_requested";
   return (
     <div className="material-card-heading">
       <div>
-        <div className="material-heading-statuses">
-          <span className={`material-status status-${material.status}`}>
-            {STATUS_LABELS[material.status]}
-          </span>
-          <span className={`material-ai-status ai-${aiStatus}`}>{AI_STATUS_LABELS[aiStatus]}</span>
-        </div>
+        {showWorkflow && (
+          <div className="material-heading-statuses">
+            <span className={`material-status status-${material.status}`}>
+              {STATUS_LABELS[material.status]}
+            </span>
+            <span className={`material-ai-status ai-${aiStatus}`}>{AI_STATUS_LABELS[aiStatus]}</span>
+          </div>
+        )}
         <h4>{material.title}</h4>
       </div>
       <div className="material-card-heading__aside">
         <small>
-          {material.version}번째 버전 · {materialCatalogItem(material.kind).label}
+          {showWorkflow
+            ? `${material.version}번째 버전 · ${materialCatalogItem(material.kind).label}`
+            : materialCatalogItem(material.kind).label}
         </small>
         {onFocus && (
           <button type="button" className="material-focus-link" onClick={onFocus}>
@@ -165,13 +172,16 @@ function MaterialCore({
 }) {
   return (
     <>
-      <MaterialSources material={material} resources={resources} />
-      <MaterialLinks material={material} />
-      <MaterialCurriculumTargets targets={material.curriculum_targets} />
       <div className={`material-preview${compact ? " compact" : ""}`}>
         <MaterialContent markdown={material.content_markdown} />
       </div>
-      <MaterialParentGuide material={material} />
+      <details className="material-supporting-details">
+        <summary>부모용 안내·근거 보기</summary>
+        <MaterialParentGuide material={material} />
+        <MaterialCurriculumTargets targets={material.curriculum_targets} />
+        <MaterialSources material={material} resources={resources} />
+        <MaterialLinks material={material} />
+      </details>
     </>
   );
 }
@@ -194,6 +204,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     onGoalChange,
     onToggleResource,
     onGenerate,
+    onUse = () => undefined,
     onReview,
     onRevisionNoteChange,
     onRevise,
@@ -252,32 +263,13 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
       <div className="section-heading">
         <div>
           <p className="eyebrow">학습 자료</p>
-          <h2 id="materials-title">활동 자료와 학부모 교안을 함께 만들고, 부모가 확인한 뒤 사용합니다.</h2>
+          <h2 id="materials-title">아이에게 필요한 활동을 만들고 바로 사용합니다.</h2>
           <p className="muted">
-            AI 보조 기능이 없어도 기본 템플릿으로 자료를 만들 수 있습니다. 각 자료에는 목표·예상 시간·
-            준비물·힌트·회고·확장 활동과 별도 학부모 교안이 포함됩니다. 만든 초안은 먼저 저장되고,
-            사용할 내용은 부모가 확인해 승인합니다. 승인 전 자료는 인쇄하거나 PDF로 내보낼 수 없습니다.
+            주제만 정하면 연령과 학습 맥락에 맞춘 자료를 준비합니다. 먼저 활동 내용만 확인하고
+            ‘이 활동 사용하기’를 누르면 됩니다. 부모 가이드·교육과정·출처는 필요할 때만 열어볼 수 있습니다.
           </p>
         </div>
-        <span className="badge">부모 확인</span>
-      </div>
-
-      <div className="material-queue-summary" aria-label="자료 처리 현황">
-        <article>
-          <span>1. 초안</span>
-          <strong>{drafts.length}</strong>
-          <small>생성·편집 중</small>
-        </article>
-        <article>
-          <span>2. 부모 검토</span>
-          <strong>{reviewQueue.length}</strong>
-          <small>승인 또는 수정 결정</small>
-        </article>
-        <article>
-          <span>3. 승인·사용</span>
-          <strong>{approved.length}</strong>
-          <small>인쇄·PDF·결과 기록</small>
-        </article>
+        <span className="badge">바로 시작</span>
       </div>
 
       <div className="material-studio">
@@ -287,7 +279,24 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               <p className="card-label">Document canvas</p>
               <h3>{focusedMaterial?.title ?? "아직 생성한 자료가 없습니다."}</h3>
             </div>
-            {focusedMaterial && <MaterialHeading material={focusedMaterial} />}
+            {focusedMaterial && (
+              <div className="material-primary-actions">
+                <MaterialHeading material={focusedMaterial} showWorkflow={false} />
+                {["draft", "review_pending", "revision_requested"].includes(focusedMaterial.status) && (
+                  <button
+                    type="button"
+                    className="primary-button"
+                    disabled={busy}
+                    onClick={() => onUse(focusedMaterial.id)}
+                  >
+                    {busy ? "준비 중…" : "이 활동 사용하기"}
+                  </button>
+                )}
+                {focusedMaterial.status === "approved" && (
+                  <span className="badge">사용 준비됨</span>
+                )}
+              </div>
+            )}
           </div>
 
           {focusedMaterial ? (
@@ -312,25 +321,29 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               </div>
               <div className="material-studio-pane">
                 {studioTab === "content" && (
-                  <>
-                    <MaterialCurriculumTargets targets={focusedMaterial.curriculum_targets} />
-                    <MaterialContent markdown={focusedMaterial.content_markdown} />
-                  </>
+                  <MaterialContent markdown={focusedMaterial.content_markdown} />
                 )}
                 {studioTab === "guide" && <MaterialParentGuide material={focusedMaterial} />}
                 {studioTab === "sources" && (
                   <>
                     <MaterialSources material={focusedMaterial} resources={resources} />
+                    <MaterialCurriculumTargets targets={focusedMaterial.curriculum_targets} />
                     <MaterialLinks material={focusedMaterial} />
                   </>
                 )}
               </div>
+              {focusedMaterial.status === "approved" && (
+                <MaterialResultPanel
+                  material={focusedMaterial}
+                  onRecorded={onResultRecorded}
+                />
+              )}
             </>
           ) : (
             <div className="material-document-empty">
               <span aria-hidden="true">✦</span>
               <strong>오른쪽에서 첫 학습 자료를 만들어 보세요.</strong>
-              <p>생성한 초안은 이 캔버스에 표시되고 부모 검토 workflow로 이어집니다.</p>
+              <p>주제를 입력하면 이곳에서 바로 활동 내용을 확인할 수 있습니다.</p>
             </div>
           )}
         </section>
@@ -339,9 +352,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           <div className="material-control-panel__heading">
             <span className="material-control-panel__spark" aria-hidden="true">✦</span>
             <div>
-              <p className="card-label">AI & template controls</p>
+              <p className="card-label">활동 만들기</p>
               <h3>새 자료 만들기</h3>
-              <p>AI가 없어도 기본 템플릿으로 생성되며, 모든 결과는 부모 검토를 거칩니다.</p>
+              <p>주제와 목표를 정하면 아이에게 맞는 활동 자료를 준비합니다.</p>
             </div>
           </div>
           <form className="material-composer" onSubmit={onGenerate}>
@@ -418,7 +431,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               </fieldset>
             )}
             <button className="primary-button" type="submit" disabled={busy || !topic.trim()}>
-              {busy ? "초안 저장 중…" : `${selectedCatalogItem.label} 만들기`}
+              {busy ? "자료 준비 중…" : `${selectedCatalogItem.label} 만들기`}
             </button>
             {error && (
               <p className="form-error" role="alert">
@@ -429,173 +442,196 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         </aside>
       </div>
 
-      <div className="material-queue-lanes">
-        <section className="material-lane" aria-labelledby="draft-lane-title">
-          <div className="lane-heading">
-            <div>
-              <span className="material-lane-step">1단계</span>
-              <h3 id="draft-lane-title">초안</h3>
-            </div>
-            <span>{drafts.length}</span>
-          </div>
-          {drafts.length === 0 ? (
-            <EmptyState
-              title="대기 중인 초안이 없습니다."
-              description="새 자료를 만들거나 편집본을 만들면 이 단계에서 내용을 정리할 수 있습니다."
-            />
-          ) : (
-            drafts.map((material) => (
-              <article className="material-card draft-card" key={material.id}>
-                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                <MaterialCore material={material} resources={resources} compact />
-                <div className="material-actions">
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={busy}
-                    onClick={() => onReview(material.id, "review_pending")}
-                  >
-                    부모 검토로 보내기
-                  </button>
-                  <button
-                    type="button"
-                    className="quiet-button"
-                    disabled={busy}
-                    onClick={() => onEditStart(material.id)}
-                  >
-                    직접 편집
-                  </button>
-                  <button
-                    type="button"
-                    className="quiet-button danger-text"
-                    disabled={busy}
-                    onClick={() => onReview(material.id, "rejected")}
-                  >
-                    사용 안 함
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </section>
-
-        <section className="material-lane" aria-labelledby="review-lane-title">
-          <div className="lane-heading">
-            <div>
-              <span className="material-lane-step">2단계</span>
-              <h3 id="review-lane-title">부모 검토</h3>
-            </div>
-            <span>{reviewQueue.length}</span>
-          </div>
-          {reviewQueue.length === 0 ? (
-            <EmptyState
-              title="검토할 자료가 없습니다."
-              description="초안을 검토 단계로 보내면 승인, 편집 또는 수정 요청을 결정할 수 있습니다."
-            />
-          ) : (
-            reviewQueue.map((material) => (
-              <article className="material-card review-card" key={material.id}>
-                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                <MaterialCore material={material} resources={resources} />
-                {material.review_note && (
-                  <p className="review-note">
-                    <strong>검토 메모</strong> {material.review_note}
-                  </p>
-                )}
-                <div className="material-actions">
-                  <button
-                    type="button"
-                    className="primary-button"
-                    disabled={busy}
-                    onClick={() => onReview(material.id, "approved")}
-                  >
-                    승인하고 사용
-                  </button>
-                  <button
-                    type="button"
-                    className="quiet-button"
-                    disabled={busy}
-                    onClick={() => onEditStart(material.id)}
-                  >
-                    직접 편집
-                  </button>
-                  <button
-                    type="button"
-                    className="quiet-button danger-text"
-                    disabled={busy}
-                    onClick={() => onReview(material.id, "rejected")}
-                  >
-                    사용 안 함
-                  </button>
-                </div>
-                <div className="revision-request">
-                  <label>
-                    <span>수정 요청</span>
-                    <textarea
-                      value={revisionNotes[material.id] ?? ""}
-                      onChange={(event) => onRevisionNoteChange(material.id, event.target.value)}
-                      maxLength={1000}
-                      placeholder="예: 질문 수를 줄이고 아이가 직접 관찰할 여백을 늘려 주세요."
-                      disabled={busy}
+      <details className="material-workflow-admin">
+        <summary>자료 수정·검토 관리</summary>
+              <div className="material-queue-summary" aria-label="자료 처리 현황">
+                <article>
+                  <span>1. 초안</span>
+                  <strong>{drafts.length}</strong>
+                  <small>생성·편집 중</small>
+                </article>
+                <article>
+                  <span>2. 부모 검토</span>
+                  <strong>{reviewQueue.length}</strong>
+                  <small>승인 또는 수정 결정</small>
+                </article>
+                <article>
+                  <span>3. 승인·사용</span>
+                  <strong>{approved.length}</strong>
+                  <small>인쇄·PDF·결과 기록</small>
+                </article>
+              </div>
+        
+        
+              <div className="material-queue-lanes">
+                <section className="material-lane" aria-labelledby="draft-lane-title">
+                  <div className="lane-heading">
+                    <div>
+                      <span className="material-lane-step">1단계</span>
+                      <h3 id="draft-lane-title">초안</h3>
+                    </div>
+                    <span>{drafts.length}</span>
+                  </div>
+                  {drafts.length === 0 ? (
+                    <EmptyState
+                      title="대기 중인 초안이 없습니다."
+                      description="새 자료를 만들거나 편집본을 만들면 이 단계에서 내용을 정리할 수 있습니다."
                     />
-                  </label>
-                  <button
-                    type="button"
-                    className="quiet-button"
-                    disabled={busy || !(revisionNotes[material.id] ?? "").trim()}
-                    onClick={() => onRevise(material.id)}
-                  >
-                    새 버전 만들기
-                  </button>
-                </div>
-              </article>
-            ))
-          )}
-        </section>
-
-        <section className="material-lane" aria-labelledby="approved-lane-title">
-          <div className="lane-heading">
-            <div>
-              <span className="material-lane-step">3단계</span>
-              <h3 id="approved-lane-title">승인·사용</h3>
-            </div>
-            <span>{approved.length}</span>
-          </div>
-          {approved.length === 0 ? (
-            <EmptyState
-              title="승인된 자료가 없습니다."
-              description="부모가 내용을 확인하고 승인한 자료만 인쇄하거나 PDF로 내보낼 수 있습니다."
-            />
-          ) : (
-            approved.map((material) => (
-              <article className="material-card approved-card" key={material.id}>
-                <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                <MaterialCore material={material} resources={resources} compact />
-                <div className="material-actions">
-                  <button
-                    className="primary-button"
-                    type="button"
-                    onClick={(event) =>
-                      printApprovedCard(material, event.currentTarget.closest(".approved-card"))
-                    }
-                  >
-                    인쇄 / PDF 내보내기
-                  </button>
-                  <button
-                    className="quiet-button"
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onEditStart(material.id)}
-                  >
-                    새 편집본 만들기
-                  </button>
-                </div>
-                <MaterialResultPanel material={material} onRecorded={onResultRecorded} />
-              </article>
-            ))
-          )}
-        </section>
-      </div>
+                  ) : (
+                    drafts.map((material) => (
+                      <article className="material-card draft-card" key={material.id}>
+                        <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
+                        <MaterialCore material={material} resources={resources} compact />
+                        <div className="material-actions">
+                          <button
+                            type="button"
+                            className="primary-button"
+                            disabled={busy}
+                            onClick={() => onReview(material.id, "review_pending")}
+                          >
+                            부모 검토로 보내기
+                          </button>
+                          <button
+                            type="button"
+                            className="quiet-button"
+                            disabled={busy}
+                            onClick={() => onEditStart(material.id)}
+                          >
+                            직접 편집
+                          </button>
+                          <button
+                            type="button"
+                            className="quiet-button danger-text"
+                            disabled={busy}
+                            onClick={() => onReview(material.id, "rejected")}
+                          >
+                            사용 안 함
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </section>
+        
+                <section className="material-lane" aria-labelledby="review-lane-title">
+                  <div className="lane-heading">
+                    <div>
+                      <span className="material-lane-step">2단계</span>
+                      <h3 id="review-lane-title">부모 검토</h3>
+                    </div>
+                    <span>{reviewQueue.length}</span>
+                  </div>
+                  {reviewQueue.length === 0 ? (
+                    <EmptyState
+                      title="검토할 자료가 없습니다."
+                      description="초안을 검토 단계로 보내면 승인, 편집 또는 수정 요청을 결정할 수 있습니다."
+                    />
+                  ) : (
+                    reviewQueue.map((material) => (
+                      <article className="material-card review-card" key={material.id}>
+                        <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
+                        <MaterialCore material={material} resources={resources} />
+                        {material.review_note && (
+                          <p className="review-note">
+                            <strong>검토 메모</strong> {material.review_note}
+                          </p>
+                        )}
+                        <div className="material-actions">
+                          <button
+                            type="button"
+                            className="primary-button"
+                            disabled={busy}
+                            onClick={() => onReview(material.id, "approved")}
+                          >
+                            승인하고 사용
+                          </button>
+                          <button
+                            type="button"
+                            className="quiet-button"
+                            disabled={busy}
+                            onClick={() => onEditStart(material.id)}
+                          >
+                            직접 편집
+                          </button>
+                          <button
+                            type="button"
+                            className="quiet-button danger-text"
+                            disabled={busy}
+                            onClick={() => onReview(material.id, "rejected")}
+                          >
+                            사용 안 함
+                          </button>
+                        </div>
+                        <div className="revision-request">
+                          <label>
+                            <span>수정 요청</span>
+                            <textarea
+                              value={revisionNotes[material.id] ?? ""}
+                              onChange={(event) => onRevisionNoteChange(material.id, event.target.value)}
+                              maxLength={1000}
+                              placeholder="예: 질문 수를 줄이고 아이가 직접 관찰할 여백을 늘려 주세요."
+                              disabled={busy}
+                            />
+                          </label>
+                          <button
+                            type="button"
+                            className="quiet-button"
+                            disabled={busy || !(revisionNotes[material.id] ?? "").trim()}
+                            onClick={() => onRevise(material.id)}
+                          >
+                            새 버전 만들기
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </section>
+        
+                <section className="material-lane" aria-labelledby="approved-lane-title">
+                  <div className="lane-heading">
+                    <div>
+                      <span className="material-lane-step">3단계</span>
+                      <h3 id="approved-lane-title">승인·사용</h3>
+                    </div>
+                    <span>{approved.length}</span>
+                  </div>
+                  {approved.length === 0 ? (
+                    <EmptyState
+                      title="승인된 자료가 없습니다."
+                      description="부모가 내용을 확인하고 승인한 자료만 인쇄하거나 PDF로 내보낼 수 있습니다."
+                    />
+                  ) : (
+                    approved.map((material) => (
+                      <article className="material-card approved-card" key={material.id}>
+                        <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
+                        <MaterialCore material={material} resources={resources} compact />
+                        <div className="material-actions">
+                          <button
+                            className="primary-button"
+                            type="button"
+                            onClick={(event) =>
+                              printApprovedCard(material, event.currentTarget.closest(".approved-card"))
+                            }
+                          >
+                            인쇄 / PDF 내보내기
+                          </button>
+                          <button
+                            className="quiet-button"
+                            type="button"
+                            disabled={busy}
+                            onClick={() => onEditStart(material.id)}
+                          >
+                            새 편집본 만들기
+                          </button>
+                        </div>
+                      </article>
+                    ))
+                  )}
+                </section>
+              </div>
+        
+        
+      </details>
 
       {inactive.length > 0 && (
         <details className="inactive-materials">

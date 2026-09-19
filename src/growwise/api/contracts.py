@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from typing import Annotated
 from uuid import UUID
 
@@ -23,7 +24,9 @@ _ProvenanceValue = Annotated[str, Field(max_length=4_000)]
 class ChildCreateRequest(BaseModel):
     nickname: str = Field(min_length=1, max_length=120)
     stage: Stage
+    birth_date: date | None = None
     age_months: int | None = Field(default=None, ge=0, le=240)
+    grade: int | None = Field(default=None, ge=1, le=12)
     interests: list[_TagText] = Field(default_factory=list, max_length=100)
 
 
