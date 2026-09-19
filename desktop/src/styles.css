@@ -42,6 +42,14 @@ button:disabled, input:disabled, textarea:disabled, select:disabled { opacity: 0
 .status-grid { display: grid; grid-template-columns: 1.3fr 1fr 1fr; gap: 16px; }
 .status-card, .workspace, .profile-form, .verification-card, .observation-form, .observation-result, .activity-section, .quest-section, .timeline-section, .search-section, .child-switcher, .conversation-section, .resource-section, .material-section { border: 1px solid var(--border); background: rgba(255,255,255,.88); box-shadow: var(--shadow); }
 .status-card { min-height: 180px; padding: 24px; border-radius: 20px; }
+.status-card .quiet-button { margin-top: 14px; margin-right: 8px; }
+.status-card .form-error { margin-top: 12px; }
+.technical-details { margin-top: 16px; }
+.technical-details summary { cursor: pointer; color: var(--ink-soft); font-size: 13px; }
+.technical-details dl { display: grid; gap: 8px; margin: 14px 0 0; }
+.technical-details dl div { display: flex; justify-content: space-between; gap: 16px; font-size: 12px; }
+.technical-details dt { color: var(--ink-soft); }
+.technical-details dd { margin: 0; text-align: right; overflow-wrap: anywhere; }
 .primary-card { background: linear-gradient(145deg,#fff,#f5faf7); }
 .card-heading { display: flex; align-items: center; gap: 10px; }
 .card-heading h2 { margin: 0; font-size: 15px; }
