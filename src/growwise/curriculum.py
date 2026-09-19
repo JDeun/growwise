@@ -6,6 +6,7 @@ from typing import Any
 
 from growwise.curriculum_versions import (
     CurriculumResolution,
+    effective_curriculum_stage,
     resolve_curriculum_version,
     resolve_external_curriculum_version,
 )
@@ -107,7 +108,7 @@ def curriculum_targets_for_child(
 ) -> list[CurriculumTarget]:
     """Resolve the effective curriculum for a learner, date and material family."""
     reference = on_date or date.today()
-    stage = child.stage_on(reference)
+    stage = effective_curriculum_stage(child, on_date=reference)
     resolution = None
     if external_records:
         resolution = resolve_external_curriculum_version(
