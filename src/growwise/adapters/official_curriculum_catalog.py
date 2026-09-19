@@ -105,10 +105,7 @@ class OfficialKoreanCurriculumCatalogAdapter:
             curriculum_id="kr-national-2022-elementary",
             title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="elementary",
-            source_url=(
-                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
-                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
-            ),
+            source_url="https://www.ncic.re.kr/bbs/ncicnotice/list.do",
             metadata={
                 "provider": "교육부·NCIC",
                 "official_notice": "국가교육위원회고시 제2026-1호",
@@ -122,10 +119,7 @@ class OfficialKoreanCurriculumCatalogAdapter:
             curriculum_id="kr-national-2022-middle",
             title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="middle",
-            source_url=(
-                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
-                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
-            ),
+            source_url="https://www.ncic.re.kr/bbs/ncicnotice/list.do",
             metadata={
                 "provider": "교육부·NCIC",
                 "official_notice": "국가교육위원회고시 제2026-1호",
@@ -139,10 +133,7 @@ class OfficialKoreanCurriculumCatalogAdapter:
             curriculum_id="kr-national-2022-high",
             title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="high",
-            source_url=(
-                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
-                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
-            ),
+            source_url="https://www.ncic.re.kr/bbs/ncicnotice/list.do",
             metadata={
                 "provider": "교육부·NCIC",
                 "official_notice": "국가교육위원회고시 제2026-1호",
