@@ -66,6 +66,7 @@ Use-case / Domain Core
         ├─ deterministic path ───────────────┐
         └─ optional LangGraph Workflow      │
              ├─ context builder             │
+             │    ├─ Learning Wiki          │
              │    ├─ Local RAG              │
              │    └─ External Adapters      │
              ├─ optional Model Provider     │
@@ -244,6 +245,33 @@ START
 - duplicate/replayed request
 - child switch 중 stale async response
 - backup restore 후 stale live record
+
+## Learning Wiki 장기 합성
+
+GrowWise는 원본 record와 질의 시점의 RAG 사이에 **재생성 가능한 Learning Wiki**를 둔다.
+
+```text
+authoritative child records
+        ↓
+source fingerprint
+        ↓
+grounded Learning Wiki
+        ├─ 관심/반복 주제
+        ├─ 이어지는 질문
+        ├─ 이미 해본 경험
+        ├─ 열린 흐름
+        └─ 다음 연결
+        ↓
+RAG / graph / conversation / material generation
+```
+
+Learning Wiki는 Source of Truth가 아니다. 기존 Wiki를 다시 evidence로 사용하지 않고, 매 refresh마다
+원본 child-scoped record만 입력으로 사용한다. 모델 출력의 각 항목은 실제 source ref를 가져야 하며
+허용된 source 집합에 없는 ref는 저장 전에 제거한다. LLM이 없거나 실패하면 deterministic projection으로
+강등한다.
+
+Wiki와 원본은 `derived_from` entity link로 연결하고, 원본 변경 여부는 canonical source fingerprint로
+판정한다. 세부 구현 계약은 [learning-wiki.md](learning-wiki.md)를 따른다.
 
 ## RAG 장기 검색
 
