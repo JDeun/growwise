@@ -73,8 +73,14 @@ are not put behind that background lock.
 
 Each kind has multiple deterministic variants. A stable hash of material kind, stage, and topic
 selects a variant, so retrying the same request does not randomly change the basic pedagogical
-shape. Infant templates are separately written as parent-led play/observation guides rather than
-worksheet-style tasks, and all seven material families remain available for the infant stage.
+shape. Deterministic bodies are developmentally separated: infants use parent-led sensory
+play/observation, preschool uses child-led play and oral/gesture/drawing expression, elementary
+uses concrete-to-representation work, and middle/high use evidence/reasoning-oriented secondary
+tasks. Middle and high additionally receive different publication-level rigor and parent-role
+contracts. All seven material families remain available at every stage.
+
+The editorial release criteria and the limits of repository-only validation are documented in
+[material-content-qa.md](material-content-qa.md).
 
 ### Child material vs. parent teaching guide
 
@@ -102,10 +108,12 @@ out for use**.
 - Content templates define the pedagogical sequence, curriculum alignment, source grounding, and
   deterministic fallback text.
 - Every stored child/activity document is wrapped in a deterministic **publication shell**:
-  목표 → 예상 시간 → 준비물 → 활동 자료 → 막힐 때 힌트 → 돌아보기 → 더 해보기.
+  목표 → 예상 시간 → 준비물 → 단계별 활동 기준 → 활동 자료 → 막힐 때 힌트 → 돌아보기 →
+  더 해보기.
 - Every parent guide uses a deterministic **teaching-guide shell**:
-  수업 개요 → 핵심 목표 → 준비 체크리스트 → 진행 시나리오 → 부모 역할 → 질문·힌트 사다리
-  → 관찰 → 난이도 조절 → 안전·중단 기준 → 기록 → 근거·출처 → 사용 전 확인.
+  수업 개요 → 핵심 목표 → 단계별 진행 기준 → 준비 체크리스트 → 진행 시나리오 → 부모 역할 →
+  질문·힌트 사다리 → 관찰 → 난이도 조절 → 안전·중단 기준 → 기록 → 근거·출처 →
+  사용 전 확인.
 - Model output supplies the substantive activity core and optional facilitation notes. It cannot remove
   the publication shell. Weak/placeholder/internal-metadata output is rejected by a deterministic
   quality gate and falls back to the complete template artifact.
