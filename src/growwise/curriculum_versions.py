@@ -58,13 +58,41 @@ class CurriculumResolution:
     transition_note: str | None = None
 
 
+def effective_curriculum_stage(
+    child: ChildProfile,
+    *,
+    on_date: date | None = None,
+) -> Stage:
+    """Resolve learner stage without reinterpreting a static age-month snapshot.
+
+    Birth date and grade can advance with calendar time. A bare age_months value cannot, so when
+    neither birth date nor grade information is present the explicitly stored stage remains the
+    authoritative value.
+    """
+    reference = on_date or date.today()
+    grade = child.grade_on(reference)
+    if grade is not None:
+        if grade <= 6:
+            return Stage.ELEMENTARY
+        if grade <= 9:
+            return Stage.MIDDLE
+        return Stage.HIGH
+    if child.birth_date is not None:
+        months = child.age_months_on(reference)
+        if months is not None and months <= 35:
+            return Stage.INFANT_0_2
+        if months is not None and months <= 83:
+            return Stage.PRESCHOOL_3_5
+    return child.stage
+
+
 def resolve_curriculum_version(
     child: ChildProfile,
     *,
     on_date: date | None = None,
 ) -> CurriculumResolution:
     reference = on_date or date.today()
-    stage = child.stage_on(reference)
+    stage = effective_curriculum_stage(child, on_date=reference)
     grade = child.grade_on(reference)
 
     if stage is Stage.INFANT_0_2:
