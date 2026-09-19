@@ -17,12 +17,12 @@ def _service(tmp_path: Path, **settings_overrides: object) -> tuple[
     EducationDiscoveryService,
     EntityStore,
 ]:
+    settings_overrides.setdefault("public_enrichment_enabled", False)
     settings = Settings(
         data_dir=tmp_path,
         llm_features_enabled=False,
         embedding_features_enabled=False,
         vision_features_enabled=False,
-        public_enrichment_enabled=False,
         **settings_overrides,
     )
     store = EntityStore(settings.records_dir, settings.index_path)
@@ -137,6 +137,8 @@ def test_external_book_search_receives_allowlisted_topics_only(
     seen_keywords: list[str] = []
 
     class FakeData4LibraryAdapter:
+        SOURCE = "data4library"
+
         def __init__(self, **_kwargs: object) -> None:
             pass
 
@@ -209,6 +211,8 @@ def test_explicit_discovery_query_is_generalized_before_external_use(
     seen_keywords: list[str] = []
 
     class FakeData4LibraryAdapter:
+        SOURCE = "data4library"
+
         def __init__(self, **_kwargs: object) -> None:
             pass
 
