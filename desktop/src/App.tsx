@@ -890,6 +890,7 @@ function App({
             connection={connection}
             activeChild={activeChild}
             childrenCount={children.length}
+            onRefresh={() => refresh()}
           />
           <DataManagementSection
             mode="settings"
