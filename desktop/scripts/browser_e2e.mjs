@@ -544,9 +544,23 @@ async function main() {
     console.log("GrowWise browser E2E passed: 9 workspaces, shortcuts, desktop screenshots, responsive overflow.");
   } finally {
     cdp?.close();
-    chrome.kill("SIGTERM");
+    if (chrome.exitCode === null && chrome.signalCode === null) {
+      chrome.kill("SIGTERM");
+      await new Promise((resolveExit) => {
+        const timer = setTimeout(() => resolveExit(), 2_000);
+        chrome.once("exit", () => {
+          clearTimeout(timer);
+          resolveExit();
+        });
+      });
+    }
     server.close();
-    rmSync(userDataDir, { recursive: true, force: true });
+    rmSync(userDataDir, {
+      recursive: true,
+      force: true,
+      maxRetries: 5,
+      retryDelay: 100,
+    });
   }
 }
 
