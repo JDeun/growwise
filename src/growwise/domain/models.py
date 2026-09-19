@@ -328,6 +328,16 @@ class GeneratedMaterial(EntityBase):
     parent_material_id: UUID | None = None
     version_note: str | None = Field(default=None, max_length=10_000)
 
+    @model_validator(mode="after")
+    def validate_source_citations(self) -> Self:
+        refs = set(self.source_refs)
+        citation_refs = [citation.source_ref for citation in self.source_citations]
+        if len(citation_refs) != len(set(citation_refs)):
+            raise ValueError("source_citations must contain unique source_ref values")
+        if any(ref not in refs for ref in citation_refs):
+            raise ValueError("source_citations must reference source_refs")
+        return self
+
 
 class WorkflowRun(EntityBase):
     entity_type: str = "workflow_run"
