@@ -208,7 +208,9 @@ def generate_material(
         learning_wiki = LearningWikiService(store, provider=provider).refresh(str(child.id))
         generation_guidance = learning_wiki.content_markdown[:6_000]
     except Exception:
-        logger.exception("Learning Wiki unavailable; material generation will use direct context only")
+        logger.exception(
+            "Learning Wiki unavailable; material generation will use direct context only"
+        )
 
     try:
         material = MaterialGenerationService(provider=provider).generate(
