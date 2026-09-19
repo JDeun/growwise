@@ -6,6 +6,7 @@ from typing import Protocol
 
 from growwise.adapters import curriculum_records_to_resources
 from growwise.curriculum import curriculum_targets_for_child
+from growwise.curriculum_versions import effective_curriculum_stage
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind, ResourceRecord
 from growwise.generators import MaterialGenerationService
 
@@ -50,7 +51,7 @@ class CurriculumGroundedMaterialService:
         offline: bool = False,
         persist_resource: Callable[[ResourceRecord], None] | None = None,
     ) -> tuple[GeneratedMaterial, list[ResourceRecord]]:
-        effective_stage = child.stage_on(date.today())
+        effective_stage = effective_curriculum_stage(child, on_date=date.today())
         result = self.curriculum.search(
             stage=effective_stage.value,
             subject=subject,
