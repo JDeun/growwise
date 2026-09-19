@@ -39,7 +39,7 @@ def test_docs_do_not_advertise_open_library_live_api_as_connected() -> None:
     curriculum = (_REPO / "docs" / "curriculum-sources.md").read_text(encoding="utf-8")
 
     assert "**Open Library / Google Books**" not in readme
-    assert "Open Library live API를 production discovery에서 호출하지 않는다" in readme
+    assert "live API를 production discovery에서 호출하지 않는다" in readme
     assert "Open Library, Google Books, Wikipedia" not in integrations
     assert "live API는 production에서 호출하지 않음" in integrations
     assert "Open Library API" not in curriculum
