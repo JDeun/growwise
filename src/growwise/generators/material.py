@@ -12,6 +12,7 @@ from growwise.domain import (
     CurriculumTarget,
     GeneratedMaterial,
     MaterialKind,
+    MaterialSourceCitation,
     MaterialStatus,
     Stage,
 )
@@ -31,11 +32,15 @@ class MaterialDraft(BaseModel):
 
 
 class MaterialSourceEvidence(BaseModel):
-    """Bounded, explicitly selected source material supplied as untrusted grounding evidence."""
+    """Bounded source material supplied as untrusted grounding evidence."""
 
     source_ref: str = Field(min_length=1, max_length=500)
     title: str = Field(min_length=1, max_length=500)
     excerpt: str = Field(default="", max_length=4_000)
+    source_name: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=2_048)
+    attribution: str | None = Field(default=None, max_length=2_000)
+    license_note: str | None = Field(default=None, max_length=4_000)
 
 
 _FORBIDDEN_DRAFT_MARKERS = (
@@ -221,6 +226,18 @@ requested schema."""
             parent_guide_markdown=draft.parent_guide_markdown,
             status=MaterialStatus.REVIEW_PENDING,
             source_refs=draft.source_refs,
+            source_citations=[
+                MaterialSourceCitation(
+                    source_ref=item.source_ref,
+                    title=item.title,
+                    source_name=item.source_name,
+                    source_url=item.source_url,
+                    attribution=item.attribution,
+                    license_note=item.license_note,
+                )
+                for item in evidence
+                if item.source_ref in draft.source_refs
+            ],
             curriculum_targets=curriculum_targets,
             generator_mode=generator_mode,
         )
@@ -247,6 +264,10 @@ requested schema."""
                     source_ref=item.source_ref,
                     title=item.title,
                     excerpt=excerpt,
+                    source_name=item.source_name,
+                    source_url=item.source_url,
+                    attribution=item.attribution,
+                    license_note=item.license_note,
                 )
             )
         return bounded
