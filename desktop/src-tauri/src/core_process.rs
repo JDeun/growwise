@@ -119,25 +119,71 @@ impl Drop for CoreProcessManager {
 }
 
 const GIB: u64 = 1024 * 1024 * 1024;
+const MIB: u64 = 1024 * 1024;
 
-fn recommended_text_model_id(total_memory_bytes: u64) -> &'static str {
-    if total_memory_bytes <= 12 * GIB {
-        "qwen3.5:2b"
-    } else if total_memory_bytes <= 20 * GIB {
+fn recommended_multimodal_model_id(
+    total_memory_bytes: u64,
+    accelerator_memory_bytes: Option<u64>,
+    unified_memory: bool,
+) -> &'static str {
+    if unified_memory {
+        // Apple Silicon can use unified memory directly through Ollama's MLX/Metal path. Keep
+        // enough headroom for macOS, GrowWise, KV cache, image tokens and ordinary desktop apps.
+        if total_memory_bytes >= 64 * GIB {
+            "qwen3.5:35b"
+        } else if total_memory_bytes >= 48 * GIB {
+            "qwen3.5:27b"
+        } else if total_memory_bytes >= 24 * GIB {
+            "qwen3.5:9b"
+        } else if total_memory_bytes >= 16 * GIB {
+            "qwen3.5:4b"
+        } else {
+            "qwen3.5:2b"
+        }
+    } else if let Some(accelerator_memory_bytes) = accelerator_memory_bytes {
+        // NVIDIA VRAM is queried when available. Ollama can schedule across multiple GPUs, so the
+        // detector sums visible device memory. Thresholds intentionally leave execution headroom.
+        if accelerator_memory_bytes >= 32 * GIB {
+            "qwen3.5:35b"
+        } else if accelerator_memory_bytes >= 24 * GIB {
+            "qwen3.5:27b"
+        } else if accelerator_memory_bytes >= 10 * GIB {
+            "qwen3.5:9b"
+        } else if accelerator_memory_bytes >= 6 * GIB {
+            "qwen3.5:4b"
+        } else {
+            "qwen3.5:2b"
+        }
+    } else if total_memory_bytes >= 24 * GIB {
+        // Without a positively detected accelerator, avoid automatically choosing very large
+        // models merely because the machine has a lot of system RAM.
+        "qwen3.5:9b"
+    } else if total_memory_bytes >= 16 * GIB {
         "qwen3.5:4b"
     } else {
-        // Desktop defaults prioritize a broadly usable balanced model instead of automatically
-        // downloading the largest model a machine might technically fit.
-        "qwen3.5:9b"
+        "qwen3.5:2b"
     }
 }
 
-fn recommended_vision_model_id(total_memory_bytes: u64) -> &'static str {
-    if total_memory_bytes < 24 * GIB {
-        "gemma4:e2b"
-    } else {
-        "gemma4:e4b"
+fn nvidia_vram_bytes() -> Option<u64> {
+    let output = Command::new("nvidia-smi")
+        .args([
+            "--query-gpu=memory.total",
+            "--format=csv,noheader,nounits",
+        ])
+        .output()
+        .ok()?;
+    if !output.status.success() {
+        return None;
     }
+
+    let total_mib = String::from_utf8(output.stdout)
+        .ok()?
+        .lines()
+        .filter_map(|line| line.trim().parse::<u64>().ok())
+        .sum::<u64>();
+
+    (total_mib > 0).then_some(total_mib * MIB)
 }
 
 fn apply_desktop_ai_defaults(command: &mut Command) {
@@ -145,17 +191,30 @@ fn apply_desktop_ai_defaults(command: &mut Command) {
         return;
     };
 
+    let unified_memory = cfg!(all(target_os = "macos", target_arch = "aarch64"));
+    let accelerator_memory_bytes = if unified_memory {
+        None
+    } else {
+        nvidia_vram_bytes()
+    };
+
+    let selected_model = env::var("GROWWISE_MODEL_ID").unwrap_or_else(|_| {
+        recommended_multimodal_model_id(
+            total_memory_bytes,
+            accelerator_memory_bytes,
+            unified_memory,
+        )
+        .to_string()
+    });
+
     if env::var_os("GROWWISE_MODEL_ID").is_none() {
-        command.env(
-            "GROWWISE_MODEL_ID",
-            recommended_text_model_id(total_memory_bytes),
-        );
+        command.env("GROWWISE_MODEL_ID", &selected_model);
     }
+
+    // Text and vision are separate application roles, but Qwen 3.5 is natively multimodal.
+    // Reuse one model artifact by default to avoid duplicate downloads and model swapping.
     if env::var_os("GROWWISE_VISION_MODEL_ID").is_none() {
-        command.env(
-            "GROWWISE_VISION_MODEL_ID",
-            recommended_vision_model_id(total_memory_bytes),
-        );
+        command.env("GROWWISE_VISION_MODEL_ID", &selected_model);
     }
 }
 
@@ -353,8 +412,8 @@ fn authenticated_handshake(port: u16, session_token: &str) -> bool {
 #[cfg(test)]
 mod tests {
     use super::{
-        core_binary_name, default_python, recommended_text_model_id, recommended_vision_model_id,
-        reserve_loopback_port, secure_session_token, GIB,
+        core_binary_name, default_python, recommended_multimodal_model_id, reserve_loopback_port,
+        secure_session_token, GIB,
     };
 
     #[test]
@@ -369,14 +428,55 @@ mod tests {
     }
 
     #[test]
-    fn desktop_ai_defaults_are_conservative_for_consumer_memory_sizes() {
-        assert_eq!(recommended_text_model_id(8 * GIB), "qwen3.5:2b");
-        assert_eq!(recommended_text_model_id(16 * GIB), "qwen3.5:4b");
-        assert_eq!(recommended_text_model_id(24 * GIB), "qwen3.5:9b");
-        assert_eq!(recommended_text_model_id(64 * GIB), "qwen3.5:9b");
+    fn desktop_ai_defaults_use_apple_unified_memory_when_available() {
+        assert_eq!(
+            recommended_multimodal_model_id(8 * GIB, None, true),
+            "qwen3.5:2b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(16 * GIB, None, true),
+            "qwen3.5:4b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(24 * GIB, None, true),
+            "qwen3.5:9b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(48 * GIB, None, true),
+            "qwen3.5:27b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(64 * GIB, None, true),
+            "qwen3.5:35b"
+        );
+    }
 
-        assert_eq!(recommended_vision_model_id(16 * GIB), "gemma4:e2b");
-        assert_eq!(recommended_vision_model_id(24 * GIB), "gemma4:e4b");
+    #[test]
+    fn desktop_ai_defaults_use_detected_nvidia_vram() {
+        assert_eq!(
+            recommended_multimodal_model_id(32 * GIB, Some(8 * GIB), false),
+            "qwen3.5:4b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(32 * GIB, Some(12 * GIB), false),
+            "qwen3.5:9b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(64 * GIB, Some(24 * GIB), false),
+            "qwen3.5:27b"
+        );
+        assert_eq!(
+            recommended_multimodal_model_id(64 * GIB, Some(32 * GIB), false),
+            "qwen3.5:35b"
+        );
+    }
+
+    #[test]
+    fn desktop_ai_defaults_do_not_assume_large_cpu_only_ram_is_fast() {
+        assert_eq!(
+            recommended_multimodal_model_id(64 * GIB, None, false),
+            "qwen3.5:9b"
+        );
     }
 
     #[test]
