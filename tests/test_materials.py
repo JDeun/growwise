@@ -4,6 +4,7 @@ from growwise.domain import (
     ChildProfile,
     GeneratedMaterial,
     MaterialKind,
+    MaterialSourceCitation,
     MaterialStatus,
     Stage,
 )
@@ -45,6 +46,22 @@ class CapturingProvider:
                 "## 힌트\n막히면 정답 대신 관찰할 한 가지를 다시 제안합니다."
             ),
             source_refs=["resource:source-1"],
+        )
+
+
+def test_material_rejects_citation_without_matching_source_ref() -> None:
+    with pytest.raises(ValueError, match="source_citations must reference source_refs"):
+        GeneratedMaterial(
+            child_id=ChildProfile(nickname="아이", stage=Stage.ELEMENTARY).id,
+            kind=MaterialKind.READING_ACTIVITY,
+            title="읽기 활동",
+            content_markdown="# 읽기",
+            source_citations=[
+                MaterialSourceCitation(
+                    source_ref="resource:missing",
+                    title="고립된 근거",
+                )
+            ],
         )
 
 
