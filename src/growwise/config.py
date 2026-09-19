@@ -72,9 +72,53 @@ class Settings(BaseSettings):
     data4library_api_key: str | None = None
     data4library_endpoint: str = "https://data4library.kr/api/srchBooks"
     data4library_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+
+    # Public no-key enrichment sources are on by default. Each source is independently bounded,
+    # cached, and failure-isolated by EducationDiscoveryService.
+    external_live_sources_enabled: bool = True
+    external_source_timeout_seconds: float = Field(default=6.0, gt=0.0, le=30.0)
+    external_source_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+    discovery_max_parallel_sources: int = Field(default=8, ge=1, le=16)
+
+    google_books_endpoint: str = "https://www.googleapis.com/books/v1/volumes"
+    gutendex_endpoint: str = "https://gutendex.com/books"
+    global_digital_library_endpoint: str = (
+        "https://content.digitallibrary.io/wp-json/content-api/v1/contentsearch"
+    )
+    national_library_api_key: str | None = None
+    national_library_endpoint: str = "https://www.nl.go.kr/seoji/SearchApi.do"
+
+    nasa_images_endpoint: str = "https://images-api.nasa.gov/search"
+    wikidata_endpoint: str = "https://www.wikidata.org/w/api.php"
+    wikipedia_endpoint: str = "https://ko.wikipedia.org/w/api.php"
+    wikimedia_commons_endpoint: str = "https://commons.wikimedia.org/w/api.php"
+    gbif_endpoint: str = "https://api.gbif.org/v1/species/search"
+    tatoeba_endpoint: str = "https://api.tatoeba.org/v1/sentences"
+
     overpass_endpoint: str = "https://overpass-api.de/api/interpreter"
     overpass_cache_ttl_seconds: int = Field(default=86_400, ge=60, le=2_592_000)
+    nominatim_endpoint: str = "https://nominatim.openstreetmap.org/search"
+    opentopodata_endpoint: str = "https://api.opentopodata.org/v1/srtm90m"
     discovery_place_radius_m: int = Field(default=2_000, ge=100, le=20_000)
+
+    korean_heritage_endpoint: str = "https://www.khs.go.kr/cha/SearchKindOpenapiList.do"
+    krdict_api_key: str | None = None
+    krdict_endpoint: str = "https://krdict.korean.go.kr/api/search"
+    opendict_api_key: str | None = None
+    opendict_cert_key_no: str | None = None
+    opendict_endpoint: str = "https://opendict.korean.go.kr/api/search"
+
+    # data.go.kr APIs can share a service key, but endpoints stay explicit because providers
+    # occasionally migrate operation URLs. eMuseum/KBR fail closed until the operator configures
+    # a verified endpoint instead of GrowWise guessing one.
+    public_data_api_key: str | None = None
+    kma_endpoint: str = (
+        "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0/getVilageFcst"
+    )
+    emuseum_endpoint: str | None = None
+    emuseum_query_param: str = "keyword"
+    kbr_endpoint: str | None = None
+    kbr_query_param: str = "searchKeyword"
 
     # Public curriculum enrichment is disabled unless an endpoint is explicitly configured.
     # A bundled official-source metadata catalog remains available without network access.
