@@ -2,7 +2,14 @@ import { invoke } from "@tauri-apps/api/core";
 
 import type { ResourceKind, ResourceRecord } from "./api";
 
-export type DiscoveryCategory = "book" | "curriculum" | "place";
+export type DiscoveryCategory =
+  | "book"
+  | "curriculum"
+  | "place"
+  | "reference"
+  | "science"
+  | "language"
+  | "media";
 
 export interface DiscoverySuggestion {
   candidate_id: string;
@@ -27,6 +34,10 @@ export interface DiscoverySourceState {
   enabled: boolean;
   status: string;
   detail: string | null;
+  label: string | null;
+  domain: string | null;
+  mode: string | null;
+  homepage: string | null;
 }
 
 export interface DiscoveryResponse {
