@@ -7,6 +7,7 @@
 | 문서 | 용도 |
 | --- | --- |
 | [../README.md](../README.md) | 비개발자 중심 제품 소개와 첫 사용 흐름 |
+| [product-tour.md](product-tour.md) | 화면별 사용 예시, 활동지 데모, 챗봇 대화 예시 |
 | [user-guide.md](user-guide.md) | 현재 9-workspace 데스크톱 사용법 |
 | [local-ai-setup.md](local-ai-setup.md) | Ollama 설치, 사양별 오픈 모델 추천, 모델 변경 |
 | [technical-guide.md](technical-guide.md) | 개발·아키텍처·테스트·모델·패키징 기술 진입점 |
