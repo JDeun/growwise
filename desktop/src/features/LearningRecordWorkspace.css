@@ -178,7 +178,7 @@
 .learning-detail-panel {
   min-width: 0;
   border: 1px solid rgba(42, 73, 60, 0.09);
-  border-radius: 20px;
+  border-radius: var(--product-panel-radius);
   background: rgba(255, 255, 255, 0.96);
   box-shadow: 0 10px 28px rgba(47, 66, 58, 0.045);
 }
@@ -562,7 +562,7 @@
   display: none;
 }
 
-@media (max-width: 1120px) {
+@media (max-width: 1180px) {
   .learning-record-product-layout {
     grid-template-columns: minmax(200px, 0.7fr) minmax(250px, 0.9fr) minmax(320px, 1.2fr);
   }

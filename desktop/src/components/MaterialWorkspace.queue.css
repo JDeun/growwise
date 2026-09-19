@@ -177,7 +177,7 @@
 
 .material-studio {
   display: grid;
-  grid-template-columns: minmax(0, 1.72fr) minmax(285px, .66fr);
+  grid-template-columns: minmax(0, 2.04fr) minmax(300px, .96fr);
   gap: 14px;
   margin: 18px 0;
   align-items: start;
@@ -187,7 +187,7 @@
 .material-control-panel {
   min-width: 0;
   border: 1px solid rgba(42, 73, 60, .09);
-  border-radius: 20px;
+  border-radius: var(--product-panel-radius);
   background: rgba(255,255,255,.97);
   box-shadow: 0 10px 30px rgba(47, 66, 58, .05);
 }

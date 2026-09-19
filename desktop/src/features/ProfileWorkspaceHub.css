@@ -46,7 +46,7 @@
 
 .profile-hub-layout {
   display: grid;
-  grid-template-columns: minmax(205px, .54fr) minmax(0, 2.46fr);
+  grid-template-columns: minmax(250px, .80fr) minmax(0, 2.20fr);
   gap: 12px;
   align-items: start;
 }
@@ -55,7 +55,7 @@
 .profile-content-card {
   min-width: 0;
   border: 1px solid rgba(43, 42, 40, .08);
-  border-radius: 17px;
+  border-radius: var(--product-panel-radius);
   background: #fff;
   box-shadow: 0 8px 24px rgba(47, 66, 58, .035);
 }
@@ -72,9 +72,9 @@
 }
 
 .profile-summary-card .child-avatar {
-  width: 88px;
-  height: 88px;
-  font-size: 22px;
+  width: 112px;
+  height: 112px;
+  font-size: 24px;
   box-shadow: 0 12px 28px rgba(47, 86, 68, .10);
 }
 
@@ -292,6 +292,11 @@
     grid-template-columns: auto minmax(0, 1fr);
     justify-items: start;
     text-align: left;
+  }
+
+  .profile-summary-card .child-avatar {
+    width: 88px;
+    height: 88px;
   }
 
   .profile-summary-section,

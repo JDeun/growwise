@@ -59,6 +59,9 @@
 - [x] production-render 기준 horizontal overflow 0
 - [x] production-render 기준 visible text/button clipping 0
 - [x] production-render 기준 page error 0
+- [x] 승인 concept geometry 재대조: shell 1540 / sidebar 232 / topbar 62
+- [x] Dashboard 42:58, Profile 27:73, Learning 24:31:45, Materials 68:32, Conversation 22:41:37 비율 고정
+- [x] `VisualContract.test.ts`가 brand token + shell geometry + workspace split 비율 drift를 차단
 
 CI의 desktop-frontend job은 production desktop/dist를 growwise-frontend-dist artifact로 업로드해 동일 bundle을 시각 검수에 재사용할 수 있다.
 

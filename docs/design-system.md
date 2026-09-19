@@ -40,6 +40,26 @@ GrowWise desktop은 여러 개의 떠 있는 패널이 아니라 **하나의 통
 - legacy 기능인 관찰/성장/활동/자료 찾기/참고 자료는 별도 sidebar 항목으로 노출하지 않고 관련 상위 workspace의 tab/subview로 배치한다.
 - shell과 feature는 역할을 분리한다. shell은 navigation/chrome을, 각 Hub는 자신의 tab/subview visibility를 책임진다.
 
+### 승인 UI 콘셉트 geometry contract
+
+1672×941 GrowWise UI 콘셉트 보드를 desktop visual acceptance baseline으로 사용한다. 절대 픽셀은
+viewport에 따라 반응형으로 변할 수 있지만, 1540px product shell 기준의 핵심 비율은 아래를
+고정한다.
+
+- application shell max-width: 1540px
+- desktop sidebar: 232px
+- common topbar: 62px
+- primary product card/panel radius: 약 17px
+- Dashboard 하단: 최근 활동 : 추천 활동 ≈ 42 : 58
+- Profile: 아이 요약 : 콘텐츠 ≈ 27 : 73
+- Learning Records: profile : master : detail = 24 : 31 : 45
+- Materials: document canvas : generation controls ≈ 68 : 32
+- Conversation: history : chat : utility/backup ≈ 22 : 41 : 37
+
+이 값은 단순 문서 권고가 아니라 `VisualContract.test.ts`에서 CSS 계약으로 회귀 검증한다.
+940px 이하 shell, 각 workspace의 별도 breakpoint에서는 접근성과 clipping 방지를 우선해
+단일/다단 반응형 레이아웃으로 전환할 수 있다.
+
 
 ## 성장 지도는 점수판이 아니다
 
