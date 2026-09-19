@@ -60,10 +60,14 @@ def test_discovery_has_offline_curriculum_baseline_and_deduplicated_save(
     assert str(child.id) not in result.query
     assert "고양이 그림을 오래 바라봤다" not in result.query
     assert {item.category.value for item in result.suggestions} >= {"curriculum"}
-    assert any(
-        state.source == "data4library" and state.status == "not_configured"
-        for state in result.sources
-    )
+    states = {state.source: state.status for state in result.sources}
+    assert states["data4library"] == "not_configured"
+    assert states["national_library_isbn"] == "not_configured"
+    assert states["krdict"] == "not_configured"
+    assert states["curated_education_catalog"] == "live"
+    assert states["korea_museum_standard"] == "not_configured"
+    assert states["kma_weather"] == "not_configured"
+    assert states["korean_heritage_palaces"] == "disabled"
 
     suggestion = result.suggestions[0]
     first = service.save(child=child, suggestion=suggestion)
