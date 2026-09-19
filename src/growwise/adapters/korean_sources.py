@@ -142,7 +142,12 @@ class KoreanHeritageAdapter(_CachedXmlSearchAdapter):
                 {
                     "source_key": ":".join(v for v in (kind, number, province) if v) or name,
                     "title": name,
-                    "summary": " · ".join(v for v in (type_name, province_name, district) if v) or None,
+                    "summary": " · ".join(
+                        value
+                        for value in (type_name, province_name, district)
+                        if value
+                    )
+                    or None,
                     "url": "https://www.heritage.go.kr/heri/cul/culSelectDetail.do",
                     "author": None,
                     "resource_kind": "web",
