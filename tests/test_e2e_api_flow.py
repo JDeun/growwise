@@ -162,6 +162,25 @@ def test_parent_journey_child_to_material_review_to_export(client: TestClient) -
         assert bundle.namelist()
 
 
+def test_parent_can_use_generated_material_with_one_explicit_action(client: TestClient) -> None:
+    child_id = _create_child(client)
+    generated = client.post(
+        f"/v1/children/{child_id}/materials",
+        json={"kind": "activity_guide", "topic": "동네 산책"},
+    )
+    assert generated.status_code == 200, generated.text
+    material_id = generated.json()["id"]
+
+    used = client.post(f"/v1/materials/{material_id}/use")
+
+    assert used.status_code == 200, used.text
+    assert used.json()["status"] == "approved"
+
+    repeated = client.post(f"/v1/materials/{material_id}/use")
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()["status"] == "approved"
+
+
 def test_parent_review_rejection_path(client: TestClient) -> None:
     """A parent rejection transitions the material to rejected and blocks export."""
     child_id = _create_child(client)
