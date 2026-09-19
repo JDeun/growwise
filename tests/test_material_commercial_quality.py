@@ -15,7 +15,10 @@ STAGES = list(Stage)
 
 @pytest.mark.parametrize("stage", STAGES)
 @pytest.mark.parametrize("kind", KINDS)
-def test_deterministic_materials_meet_publication_contract(stage: Stage, kind: MaterialKind) -> None:
+def test_deterministic_materials_meet_publication_contract(
+    stage: Stage,
+    kind: MaterialKind,
+) -> None:
     child = ChildProfile(name="아이", nickname="아이", stage=stage, interests=["자연"])
 
     material = MaterialGenerationService(provider=None).generate(
