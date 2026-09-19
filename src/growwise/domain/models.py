@@ -248,6 +248,24 @@ class LearningLog(EntityBase):
     ai_job_id: UUID | None = None
 
 
+class LearningWiki(EntityBase):
+    """Rebuildable, source-grounded synthesis of one child's longitudinal learning context."""
+
+    entity_type: str = "learning_wiki"
+    child_id: UUID
+    title: str = Field(default="Learning Wiki", min_length=1, max_length=200)
+    summary: str = Field(default="", max_length=8_000)
+    content_markdown: str = Field(default="", max_length=80_000)
+    source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
+    source_fingerprint: str = Field(min_length=64, max_length=64)
+    generator_mode: str = Field(default="deterministic_projection", min_length=1, max_length=120)
+    model_provider: str | None = Field(default=None, max_length=120)
+    model_id: str | None = Field(default=None, max_length=240)
+    revision: int = Field(default=1, ge=1)
+    derived: bool = True
+    rebuilt_at: datetime = Field(default_factory=utc_now)
+
+
 class ResourceRecord(EntityBase):
     entity_type: str = "resource"
     child_id: UUID | None = None
