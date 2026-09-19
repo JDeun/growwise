@@ -23,11 +23,13 @@ class OpenLibraryAdapter:
         http: JsonHttpClient | None = None,
         endpoint: str = "https://openlibrary.org/search.json",
         ttl_seconds: int = 86_400,
+        allow_live_api: bool = False,
     ) -> None:
         self.cache = cache
         self.http = http or JsonHttpClient()
         self.endpoint = endpoint
         self.ttl_seconds = ttl_seconds
+        self.allow_live_api = allow_live_api
 
     def search_books(
         self,
@@ -36,6 +38,11 @@ class OpenLibraryAdapter:
         limit: int = 8,
         offline: bool = False,
     ) -> AdapterResult:
+        if not self.allow_live_api:
+            raise RuntimeError(
+                "Open Library live API is disabled by GrowWise commercial-use policy; "
+                "use commercial-safe offline metadata or another approved source"
+            )
         normalized = " ".join(query.split())
         if not 1 <= len(normalized) <= 200:
             raise ValueError("query must be 1-200 characters")
