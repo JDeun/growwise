@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 from growwise.domain import MaterialKind, Stage
 
-_HEADING_RE = re.compile(r"(?m)^#{2,3}\s+\S")
+_HEADING_RE = re.compile(r"(?m)^#{1,6}\s+\S")
 _PLACEHOLDER_RE = re.compile(
     r"(?i)(?:\bTODO\b|\bTBD\b|\[insert[^\]]*\]|여기에\s*(?:입력|작성)|placeholder)"
 )
@@ -88,7 +88,7 @@ class MaterialQualityGate:
         source_refs: list[str],
     ) -> MaterialQualityResult:
         issues: list[str] = []
-        if len(title.strip()) < 3:
+        if len(title.strip()) < 2:
             issues.append("title_too_short")
 
         for heading in _REQUIRED_CONTENT_HEADINGS:
