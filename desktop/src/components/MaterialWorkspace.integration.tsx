@@ -29,7 +29,7 @@ export interface MaterialWorkspaceController {
   setMaterialGoal: (value: string) => void;
   toggleResourceRef: (resourceId: string) => void;
   handleGenerateMaterial: (event: FormEvent<HTMLFormElement>) => void;
-  handleUseMaterial: (materialId: string) => void;
+  handleUseMaterial?: (materialId: string) => void;
   handleReviewMaterial: (materialId: string, status: MaterialStatus) => void;
   setRevisionNote: (materialId: string, note: string) => void;
   handleReviseMaterial: (materialId: string) => void;
@@ -101,7 +101,7 @@ export function MaterialWorkspaceIntegration({ controller }: { controller: Mater
       onGoalChange={controller.setMaterialGoal}
       onToggleResource={controller.toggleResourceRef}
       onGenerate={controller.handleGenerateMaterial}
-      onUse={controller.handleUseMaterial}
+      onUse={controller.handleUseMaterial ?? (() => undefined)}
       onReview={controller.handleReviewMaterial}
       onRevisionNoteChange={controller.setRevisionNote}
       onRevise={controller.handleReviseMaterial}
