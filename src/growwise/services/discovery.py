@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import hashlib
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from enum import StrEnum
 from typing import Any
 from uuid import uuid5
@@ -9,12 +10,32 @@ from uuid import uuid5
 from pydantic import BaseModel, Field
 
 from growwise.adapters import (
+    EDUCATION_SOURCE_CATALOG,
+    ConfiguredPublicDataAdapter,
     Data4LibraryAdapter,
     ExternalAdapterError,
+    GbifSpeciesAdapter,
+    GlobalDigitalLibraryAdapter,
+    GoogleBooksAdapter,
+    GutendexAdapter,
+    JsonHttpClient,
+    KmaForecastAdapter,
+    KoreanHeritageAdapter,
+    KrdictAdapter,
+    NasaMediaAdapter,
+    NationalLibraryIsbnAdapter,
+    NominatimAdapter,
     OfficialKoreanCurriculumCatalogAdapter,
+    OpenDictAdapter,
+    OpenTopoDataAdapter,
     OverpassAdapter,
     PublicCurriculumAdapter,
     SQLiteExternalCache,
+    SourceIntegrationMode,
+    TatoebaAdapter,
+    WikidataAdapter,
+    WikimediaCommonsAdapter,
+    WikipediaAdapter,
 )
 from growwise.config import Settings
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord
@@ -27,6 +48,10 @@ class DiscoveryCategory(StrEnum):
     BOOK = "book"
     CURRICULUM = "curriculum"
     PLACE = "place"
+    REFERENCE = "reference"
+    SCIENCE = "science"
+    LANGUAGE = "language"
+    MEDIA = "media"
 
 
 class DiscoverySuggestion(BaseModel):
@@ -52,6 +77,10 @@ class DiscoverySourceState(BaseModel):
     enabled: bool
     status: str
     detail: str | None = None
+    label: str | None = None
+    domain: str | None = None
+    mode: str | None = None
+    homepage: str | None = None
 
 
 class DiscoveryResponse(BaseModel):
@@ -124,13 +153,21 @@ class EducationDiscoveryService:
             source_states=source_states,
             offline=offline,
         )
+        self._collect_extended_sources(
+            query=public_query,
+            latitude=latitude,
+            longitude=longitude,
+            suggestions=suggestions,
+            source_states=source_states,
+            offline=offline,
+        )
 
         ranked = self._rank(suggestions, terms=local_terms)
         return DiscoveryResponse(
             query=public_query,
             query_terms=public_terms,
             suggestions=ranked[:limit],
-            sources=source_states,
+            sources=self._finalize_source_states(source_states),
         )
 
     def save(
@@ -545,9 +582,13 @@ class EducationDiscoveryService:
         terms: list[str],
     ) -> list[DiscoverySuggestion]:
         category_priority = {
-            DiscoveryCategory.BOOK: 3,
+            DiscoveryCategory.BOOK: 7,
+            DiscoveryCategory.CURRICULUM: 6,
+            DiscoveryCategory.SCIENCE: 5,
+            DiscoveryCategory.LANGUAGE: 4,
+            DiscoveryCategory.REFERENCE: 3,
             DiscoveryCategory.PLACE: 2,
-            DiscoveryCategory.CURRICULUM: 1,
+            DiscoveryCategory.MEDIA: 1,
         }
 
         def score(item: DiscoverySuggestion) -> tuple[int, int, str]:
