@@ -1,0 +1,157 @@
+from __future__ import annotations
+
+from datetime import date
+
+from growwise.curriculum_versions import (
+    resolve_curriculum_version,
+    resolve_external_curriculum_version,
+    school_transition_start,
+)
+from growwise.domain import ChildProfile, Stage
+
+
+def _student(*, grade: int, stage: Stage) -> ChildProfile:
+    return ChildProfile(name="합성학생", stage=stage, grade=grade)
+
+
+def test_2026_rollout_resolves_each_school_grade_correctly() -> None:
+    reference = date(2026, 9, 19)
+
+    elementary = resolve_curriculum_version(
+        _student(grade=5, stage=Stage.ELEMENTARY),
+        on_date=reference,
+    )
+    middle_2 = resolve_curriculum_version(
+        _student(grade=8, stage=Stage.MIDDLE),
+        on_date=reference,
+    )
+    middle_3 = resolve_curriculum_version(
+        _student(grade=9, stage=Stage.MIDDLE),
+        on_date=reference,
+    )
+    high_2 = resolve_curriculum_version(
+        _student(grade=11, stage=Stage.HIGH),
+        on_date=reference,
+    )
+    high_3 = resolve_curriculum_version(
+        _student(grade=12, stage=Stage.HIGH),
+        on_date=reference,
+    )
+
+    assert elementary.source_ref == "국가교육위원회고시 제2024-3호"
+    assert middle_2.source_ref == "국가교육위원회고시 제2024-3호"
+    assert high_2.source_ref == "국가교육위원회고시 제2024-3호"
+    assert middle_3.source_ref == "국가교육위원회고시 제2024-1호"
+    assert high_3.source_ref == "국가교육위원회고시 제2024-1호"
+    assert middle_3.effective_to == date(2027, 2, 28)
+    assert high_3.effective_to == date(2027, 2, 28)
+
+
+def test_final_transition_happens_on_2027_school_year() -> None:
+    reference = date(2027, 3, 1)
+
+    for grade, stage in ((9, Stage.MIDDLE), (12, Stage.HIGH)):
+        resolution = resolve_curriculum_version(
+            _student(grade=grade, stage=stage),
+            on_date=reference,
+        )
+        assert resolution.source_ref == "국가교육위원회고시 제2024-3호"
+        assert resolution.revision == "2022-rev-2024-3"
+
+
+def test_stage_only_profile_fails_safe_during_mixed_rollout() -> None:
+    child = ChildProfile(name="학년미상", stage=Stage.MIDDLE)
+
+    resolution = resolve_curriculum_version(child, on_date=date(2026, 9, 19))
+
+    assert resolution.revision == "transition-unresolved"
+    assert resolution.precision == "stage_transition"
+    assert resolution.transition_note
+    assert "학년 정보" in resolution.transition_note
+
+
+def test_elementary_stage_is_unambiguous_after_2026_rollout() -> None:
+    child = ChildProfile(name="학년미상", stage=Stage.ELEMENTARY)
+
+    resolution = resolve_curriculum_version(child, on_date=date(2026, 9, 19))
+
+    assert resolution.revision == "2022-rev-2024-3"
+    assert resolution.precision == "stage_common"
+
+
+def test_school_transition_schedule_is_locked() -> None:
+    assert school_transition_start(1) == date(2024, 3, 1)
+    assert school_transition_start(7) == date(2025, 3, 1)
+    assert school_transition_start(8) == date(2026, 3, 1)
+    assert school_transition_start(9) == date(2027, 3, 1)
+    assert school_transition_start(12) == date(2027, 3, 1)
+
+
+def test_trusted_external_revision_can_activate_without_code_release() -> None:
+    child = _student(grade=8, stage=Stage.MIDDLE)
+    records = [
+        {
+            "stage": "middle",
+            "framework": "차기 개정 중학교 교육과정",
+            "revision": "future-2028",
+            "official_notice": "국가교육위원회고시 제2028-7호",
+            "effective_from": "2028-03-01",
+            "grades": [8],
+            "source_url": "https://ncic.go.kr/curriculum/future",
+            "metadata": {},
+        },
+        {
+            "stage": "middle",
+            "framework": "2022 개정 중학교 교육과정 최신 정정",
+            "revision": "2026-correction",
+            "official_notice": "국가교육위원회고시 제2026-9호",
+            "effective_from": "2026-09-01",
+            "grades": [8],
+            "source_url": "https://ncic.go.kr/curriculum/2026-9",
+            "metadata": {},
+        },
+    ]
+
+    resolution = resolve_external_curriculum_version(
+        records,
+        child,
+        on_date=date(2026, 9, 19),
+    )
+
+    assert resolution is not None
+    assert resolution.revision == "2026-correction"
+    assert resolution.source_ref == "국가교육위원회고시 제2026-9호"
+    assert resolution.precision == "external_verified_metadata"
+
+
+def test_untrusted_or_ambiguous_external_revision_is_never_auto_activated() -> None:
+    child = _student(grade=8, stage=Stage.MIDDLE)
+    records = [
+        {
+            "stage": "middle",
+            "framework": "위조 교육과정",
+            "revision": "fake",
+            "official_notice": "국가교육위원회고시 제2026-99호",
+            "effective_from": "2026-03-01",
+            "grades": [8],
+            "source_url": "https://example.invalid/fake",
+        },
+        {
+            "stage": "middle",
+            "framework": "학년 미지정 개정",
+            "revision": "ambiguous",
+            "official_notice": "국가교육위원회고시 제2026-8호",
+            "effective_from": "2026-03-01",
+            "grades": [7],
+            "source_url": "https://ncic.go.kr/curriculum/2026-8",
+        },
+    ]
+
+    assert (
+        resolve_external_curriculum_version(
+            records,
+            child,
+            on_date=date(2026, 9, 19),
+        )
+        is None
+    )
