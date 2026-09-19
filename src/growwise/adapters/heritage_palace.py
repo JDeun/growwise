@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
-from typing import Any
+from typing import Any, Literal
 
 from .base import AdapterResult, ExternalAdapterError
 from .cache import SQLiteExternalCache
@@ -38,7 +38,7 @@ class HeritagePalaceAdapter:
     ) -> AdapterResult:
         normalized = " ".join(query.split()).casefold()
         records: list[dict[str, Any]] = []
-        cache_status = "fresh"
+        cache_status: Literal["live", "fresh", "stale"] = "fresh"
         fetched_at = None
 
         for palace_number in range(1, 6):
@@ -58,6 +58,7 @@ class HeritagePalaceAdapter:
                 f"{item.get('title', '')} {item.get('description', '')}"
             ).casefold()
         ]
+        assert fetched_at is not None
         return AdapterResult(
             source=self.SOURCE,
             records=filtered or records,
