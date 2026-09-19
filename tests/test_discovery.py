@@ -4,7 +4,7 @@ from pathlib import Path
 
 import pytest
 
-from growwise.adapters import AdapterResult
+from growwise.adapters import AdapterResult, ExternalAdapterError
 from growwise.config import Settings
 from growwise.domain import ActivityPlan, ChildProfile, LearningLog, ResourceKind, Stage
 from growwise.rag import HybridRagIndex, ResourceIngestor
@@ -620,4 +620,134 @@ def test_discovery_calls_configured_location_sources_without_persisting_coordina
         and "127.02" not in suggestion.metadata.values()
         for suggestion in result.suggestions
     )
+
+def test_connected_source_collectors_cover_state_boundaries(
+    tmp_path: Path,
+) -> None:
+    service, _store = _service(
+        tmp_path,
+        national_library_api_key="configured",
+        krdict_api_key="configured",
+        data_go_kr_service_key="configured",
+    )
+
+    suggestions: list[DiscoverySuggestion] = []
+    states = []
+    service._collect_national_library(
+        query="",
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+    service._collect_krdict(
+        query="",
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+    service._collect_curated_catalog(
+        public_terms=[],
+        suggestions=suggestions,
+        source_states=states,
+    )
+    service._collect_museums(
+        latitude=None,
+        longitude=None,
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+    service._collect_weather(
+        public_terms=["독서"],
+        latitude=37.5,
+        longitude=127.0,
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+    service._collect_weather(
+        public_terms=["날씨"],
+        latitude=None,
+        longitude=None,
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+
+    status_by_source = {state.source: state.status for state in states}
+    assert status_by_source["national_library_isbn"] == "needs_query"
+    assert status_by_source["krdict"] == "needs_query"
+    assert status_by_source["curated_education_catalog"] == "needs_query"
+    assert status_by_source["korea_museum_standard"] == "needs_location"
+    assert status_by_source["kma_weather"] == "needs_location"
+
+
+def test_heritage_collector_surfaces_results_and_isolates_failures(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeHeritage:
+        SOURCE = "korean_heritage_palaces"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search(self, *, query: str, offline: bool) -> AdapterResult:
+            assert query == "역사"
+            assert offline is False
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[
+                    {
+                        "id": "1:1:A",
+                        "title": "근정전",
+                        "description": "조선 궁궐의 중심 건물",
+                        "palace_number": "1",
+                        "image_url": "https://example.org/image.jpg",
+                        "source_url": "https://www.heritage.go.kr/",
+                    }
+                ],
+                attribution="국가유산청",
+                license_note="test",
+                cache_status="live",
+            )
+
+    monkeypatch.setattr(
+        "growwise.services.discovery.HeritagePalaceAdapter",
+        FakeHeritage,
+    )
+    service, _store = _service(tmp_path, public_enrichment_enabled=True)
+    suggestions: list[DiscoverySuggestion] = []
+    states = []
+    service._collect_heritage(
+        query="역사",
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+
+    assert suggestions[0].title == "근정전"
+    assert suggestions[0].metadata["palace_number"] == "1"
+    assert states[0].status == "live"
+
+    class FailingHeritage(FakeHeritage):
+        def search(self, *, query: str, offline: bool) -> AdapterResult:
+            del query, offline
+            raise ExternalAdapterError("heritage unavailable")
+
+    monkeypatch.setattr(
+        "growwise.services.discovery.HeritagePalaceAdapter",
+        FailingHeritage,
+    )
+    suggestions = []
+    states = []
+    service._collect_heritage(
+        query="역사",
+        suggestions=suggestions,
+        source_states=states,
+        offline=False,
+    )
+    assert suggestions == []
+    assert states[0].status == "unavailable"
+    assert states[0].detail == "heritage unavailable"
 
