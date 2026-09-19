@@ -88,6 +88,7 @@ from growwise.services import (
     NaturalLanguageSearch,
     ObservationEnricher,
 )
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
 from growwise.storage import EntityStore
 
@@ -441,6 +442,11 @@ def ask_child_context(
 ) -> dict:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
+    try:
+        LearningWikiService(store, provider=get_model_provider()).refresh(str(child_id))
+    except Exception:
+        logger.exception("Learning Wiki refresh failed; answering from raw records and RAG")
+
     return (
         build_child_context_service(store)
         .ask(
