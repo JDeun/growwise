@@ -29,8 +29,12 @@ def test_curriculum_adapter_normalizes_and_caches(tmp_path: Path) -> None:
                     "subject": "science",
                     "domain": "life",
                     "competency": "inquiry",
-                    "url": "https://example.invalid/curriculum/SCI-01",
-                    "revision": "2022",
+                    "url": "https://ncic.go.kr/curriculum/SCI-01",
+                    "framework": "2022 개정 초등학교 교육과정",
+                    "revision": "2022-rev-2024-3",
+                    "official_notice": "국가교육위원회고시 제2024-3호",
+                    "effective_from": "2026-03-01",
+                    "grades": [5, 6],
                 }
             ]
         }
@@ -44,7 +48,11 @@ def test_curriculum_adapter_normalizes_and_caches(tmp_path: Path) -> None:
     assert result.cache_status == "live"
     assert result.records[0]["curriculum_id"] == "SCI-01"
     assert result.records[0]["domain"] == "life"
-    assert result.records[0]["metadata"] == {"revision": "2022"}
+    assert result.records[0]["revision"] == "2022-rev-2024-3"
+    assert result.records[0]["official_notice"] == "국가교육위원회고시 제2024-3호"
+    assert result.records[0]["effective_from"] == "2026-03-01"
+    assert result.records[0]["grades"] == [5, 6]
+    assert result.records[0]["metadata"] == {}
     assert http.calls == [{"stage": "elementary", "subject": "science", "query": "생물"}]
 
     cached = adapter.search(stage="elementary", subject="science", query="생물", offline=True)
