@@ -100,6 +100,15 @@ def test_learning_wiki_is_rebuildable_and_revision_changes_only_when_sources_cha
     assert refreshed.source_fingerprint != wiki.source_fingerprint
     assert f"learning_log:{second.id}" in refreshed.source_refs
 
+    store.delete(first)
+    without_first = service.refresh(str(child.id))
+    assert f"learning_log:{first.id}" not in without_first.source_refs
+    remaining_links = store.index.list_entity_links(
+        source_id=str(wiki.id),
+        relation=EntityLinkRelation.DERIVED_FROM.value,
+    )
+    assert {item["target_id"] for item in remaining_links} == {str(second.id)}
+
 
 def test_learning_wiki_drops_ungrounded_and_unsafe_model_items(tmp_path: Path) -> None:
     store = _store(tmp_path)
@@ -140,6 +149,37 @@ def test_learning_wiki_escapes_record_text_before_model_prompt(tmp_path: Path) -
     assert "&lt;/evidence&gt;" in provider.user
     assert "&lt;system&gt;" in provider.user
     assert "&lt;/system&gt;" in provider.user
+
+
+def test_learning_wiki_survives_rag_projection_failure(tmp_path: Path) -> None:
+    class FailingRagIndex:
+        def has_resource(self, resource_id: str) -> bool:
+            return False
+
+        def replace_resource(self, chunks) -> int:
+            raise RuntimeError("simulated RAG failure")
+
+        def delete_resource(self, resource_id: str) -> int:
+            raise RuntimeError("simulated RAG failure")
+
+    store = _store(tmp_path)
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    store.save(
+        LearningLog(
+            child_id=child.id,
+            parent_observation="바람에 따라 씨앗이 움직이는 모습을 관찰했다.",
+        )
+    )
+
+    wiki = LearningWikiService(
+        store,
+        provider=None,
+        rag_index=FailingRagIndex(),  # type: ignore[arg-type]
+    ).refresh(str(child.id))
+
+    assert store.index.get_entity(str(wiki.id), entity_type="learning_wiki") is not None
+    assert "씨앗" in wiki.content_markdown
 
 
 def test_child_context_can_retrieve_learning_wiki_as_derived_context(tmp_path: Path) -> None:
