@@ -291,6 +291,19 @@ class CurriculumTarget(BaseModel):
     )
 
 
+class MaterialSourceCitation(BaseModel):
+    """Immutable provenance snapshot captured when a material is generated."""
+
+    source_ref: SourceRef
+    title: str = Field(min_length=1, max_length=500)
+    excerpt: str = Field(default="", max_length=4_000)
+    source_name: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=2_048)
+    author: str | None = Field(default=None, max_length=500)
+    attribution: str | None = Field(default=None, max_length=2_000)
+    license_note: str | None = Field(default=None, max_length=4_000)
+
+
 class GeneratedMaterial(EntityBase):
     entity_type: str = "generated_material"
     child_id: UUID
@@ -300,6 +313,10 @@ class GeneratedMaterial(EntityBase):
     parent_guide_markdown: str = Field(default="", max_length=50_000)
     status: MaterialStatus = MaterialStatus.DRAFT
     source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
+    source_citations: list[MaterialSourceCitation] = Field(
+        default_factory=list,
+        max_length=100,
+    )
     curriculum_targets: list[CurriculumTarget] = Field(default_factory=list, max_length=100)
     generator_mode: str = Field(default="template", min_length=1, max_length=120)
     ai_status: AiEnhancementStatus = AiEnhancementStatus.NOT_REQUESTED
@@ -310,6 +327,16 @@ class GeneratedMaterial(EntityBase):
     version: int = Field(default=1, ge=1)
     parent_material_id: UUID | None = None
     version_note: str | None = Field(default=None, max_length=10_000)
+
+    @model_validator(mode="after")
+    def validate_source_citations(self) -> Self:
+        refs = set(self.source_refs)
+        citation_refs = [citation.source_ref for citation in self.source_citations]
+        if len(citation_refs) != len(set(citation_refs)):
+            raise ValueError("source_citations must contain unique source_ref values")
+        if any(ref not in refs for ref in citation_refs):
+            raise ValueError("source_citations must reference source_refs")
+        return self
 
 
 class WorkflowRun(EntityBase):

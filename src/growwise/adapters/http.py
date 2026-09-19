@@ -46,10 +46,11 @@ class _SameOriginHttpsRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 class JsonHttpClient:
-    """Minimal bounded HTTP client for public-data adapters.
+    """Minimal bounded HTTPS client for public-data adapters.
 
     The adapter layer intentionally accepts only explicit public query parameters. Child records,
-    observations, and other private GrowWise entities are never passed to this client.
+    observations, and other private GrowWise entities are never passed to this client. The client
+    can return JSON or bounded UTF-8 text/XML while enforcing the same HTTPS and redirect boundary.
     """
 
     def __init__(
@@ -68,15 +69,33 @@ class JsonHttpClient:
         self.user_agent = user_agent
         self._opener = urllib.request.build_opener(_SameOriginHttpsRedirectHandler())
 
-    def get_json(self, url: str, *, params: Mapping[str, str | int | float]) -> dict[str, Any]:
-        _https_origin(url)
-        parsed = urllib.parse.urlsplit(url)
-        encoded = urllib.parse.urlencode(params)
-        query = "&".join(part for part in (parsed.query, encoded) if part)
-        request_url = urllib.parse.urlunsplit(
-            (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
-        )
+    def get_json(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, str | int | float],
+    ) -> dict[str, Any]:
+        request_url = self._url_with_params(url, params)
         return self._request_json(request_url)
+
+    def get_text(
+        self,
+        url: str,
+        *,
+        params: Mapping[str, str | int | float],
+        accept: str = "application/xml,text/xml,text/plain;q=0.9",
+    ) -> str:
+        request_url = self._url_with_params(url, params)
+        request = urllib.request.Request(
+            request_url,
+            headers={"User-Agent": self.user_agent, "Accept": accept},
+            method="GET",
+        )
+        raw = self._open_bytes(request)
+        try:
+            return raw.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise ExternalAdapterError("external response is not valid UTF-8 text") from exc
 
     def post_form_json(
         self,
@@ -98,6 +117,19 @@ class JsonHttpClient:
         )
         return self._open_json(request)
 
+    @staticmethod
+    def _url_with_params(
+        url: str,
+        params: Mapping[str, str | int | float],
+    ) -> str:
+        _https_origin(url)
+        parsed = urllib.parse.urlsplit(url)
+        encoded = urllib.parse.urlencode(params)
+        query = "&".join(part for part in (parsed.query, encoded) if part)
+        return urllib.parse.urlunsplit(
+            (parsed.scheme, parsed.netloc, parsed.path, query, parsed.fragment)
+        )
+
     def _request_json(self, url: str) -> dict[str, Any]:
         request = urllib.request.Request(
             url,
@@ -106,7 +138,7 @@ class JsonHttpClient:
         )
         return self._open_json(request)
 
-    def _open_json(self, request: urllib.request.Request) -> dict[str, Any]:
+    def _open_bytes(self, request: urllib.request.Request) -> bytes:
         try:
             with self._opener.open(request, timeout=self.timeout_seconds) as response:
                 length = response.headers.get("Content-Length")
@@ -115,11 +147,14 @@ class JsonHttpClient:
                 raw = response.read(self.max_response_bytes + 1)
                 if len(raw) > self.max_response_bytes:
                     raise ExternalAdapterError("external response exceeds configured size limit")
+                return raw
         except (OSError, urllib.error.URLError, ValueError) as exc:
             if isinstance(exc, ExternalAdapterError):
                 raise
             raise ExternalAdapterError(f"external request failed: {exc}") from exc
 
+    def _open_json(self, request: urllib.request.Request) -> dict[str, Any]:
+        raw = self._open_bytes(request)
         try:
             payload = json.loads(raw.decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as exc:

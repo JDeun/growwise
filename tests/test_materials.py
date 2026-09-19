@@ -4,6 +4,7 @@ from growwise.domain import (
     ChildProfile,
     GeneratedMaterial,
     MaterialKind,
+    MaterialSourceCitation,
     MaterialStatus,
     Stage,
 )
@@ -45,6 +46,22 @@ class CapturingProvider:
                 "## 힌트\n막히면 정답 대신 관찰할 한 가지를 다시 제안합니다."
             ),
             source_refs=["resource:source-1"],
+        )
+
+
+def test_material_rejects_citation_without_matching_source_ref() -> None:
+    with pytest.raises(ValueError, match="source_citations must reference source_refs"):
+        GeneratedMaterial(
+            child_id=ChildProfile(nickname="아이", stage=Stage.ELEMENTARY).id,
+            kind=MaterialKind.READING_ACTIVITY,
+            title="읽기 활동",
+            content_markdown="# 읽기",
+            source_citations=[
+                MaterialSourceCitation(
+                    source_ref="resource:missing",
+                    title="고립된 근거",
+                )
+            ],
         )
 
 
@@ -125,6 +142,10 @@ def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
                 source_ref="resource:source-1",
                 title="부모가 선택한 물 관찰 자료",
                 excerpt="얼음이 녹는 동안 모양과 물의 양을 관찰한다.",
+                source_name="public_source",
+                source_url="https://example.org/water",
+                attribution="Example Education",
+                license_note="CC BY 4.0",
             ),
             MaterialSourceEvidence(
                 source_ref="resource:not-selected",
@@ -140,6 +161,38 @@ def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:
     assert "untrusted evidence" in provider.user
     assert "선택하지 않은 자료" not in provider.user
     assert material.source_refs == ["resource:source-1"]
+    assert len(material.source_citations) == 1
+    citation = material.source_citations[0]
+    assert citation.title == "부모가 선택한 물 관찰 자료"
+    assert citation.source_name == "public_source"
+    assert citation.source_url == "https://example.org/water"
+    assert citation.attribution == "Example Education"
+    assert citation.license_note == "CC BY 4.0"
+
+
+def test_selected_evidence_budget_is_balanced_across_sources() -> None:
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    provider = CapturingProvider()
+    refs = [f"resource:source-{index}" for index in range(1, 5)]
+    evidence = [
+        MaterialSourceEvidence(
+            source_ref=ref,
+            title=f"근거 자료 {index}",
+            excerpt=(f"source-{index} evidence " + ("가" * 3_980)),
+        )
+        for index, ref in enumerate(refs, start=1)
+    ]
+
+    MaterialGenerationService(provider=provider).generate(
+        child=child,
+        kind=MaterialKind.SCIENCE_INQUIRY,
+        topic="여러 근거 비교",
+        source_refs=refs,
+        source_evidence=evidence,
+    )
+
+    for index in range(1, 5):
+        assert f"source-{index} evidence" in provider.user
 
 
 def test_source_evidence_cannot_break_prompt_delimiters() -> None:

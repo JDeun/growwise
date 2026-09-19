@@ -272,6 +272,16 @@ export interface CurriculumTarget {
   source_ref: string;
   standard_codes: string[];
 }
+export interface MaterialSourceCitation {
+  source_ref: string;
+  title: string;
+  excerpt: string;
+  source_name: string | null;
+  source_url: string | null;
+  author: string | null;
+  attribution: string | null;
+  license_note: string | null;
+}
 export interface GeneratedMaterial {
   id: string;
   child_id: string;
@@ -280,6 +290,7 @@ export interface GeneratedMaterial {
   content_markdown: string;
   status: MaterialStatus;
   source_refs: string[];
+  source_citations?: MaterialSourceCitation[];
   generator_mode: string;
   review_note: string | null;
   request_topic: string | null;

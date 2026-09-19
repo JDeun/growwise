@@ -135,11 +135,23 @@ LearningLog 확정
 | Source | 역할 | 네트워크/키 |
 | --- | --- | --- |
 | **공식 한국 교육과정 카탈로그** | 단계별 교육부·NCIC·i-누리 공식 출처 메타데이터 | 앱 번들, 오프라인 가능 |
+| **공식 교육 콘텐츠 링크 카탈로그** | StoryWeaver·PhET·OpenStax 등 공식 사이트 후보 | 앱 번들, 오프라인 가능 |
 | **Public Curriculum Adapter** | 설정된 공공 교육과정 endpoint 검색 | 선택적 endpoint |
-| **도서관 정보나루** | 관심 주제의 도서 후보 검색 | 무료 API key 필요 |
-| **OpenStreetMap Overpass** | 부모가 지정한 위치 주변 도서관·박물관·문화시설 탐색 | key 불필요, 위치를 명시한 요청만 |
+| **도서관 정보나루** | 관심 주제의 국내 도서 후보 검색 | API key 필요 |
+| **국립중앙도서관 ISBN 서지** | 국내 ISBN·저자·출판사 메타데이터 | API key 필요 |
+| **Open Library / Google Books** | 국제 도서·서지 후보 | 공개 API, 선택적 Google key |
+| **한국어기초사전** | 쉬운 뜻풀이·발음·품사 참고 | API key 필요 |
+| **Wikipedia / Wikidata** | 개념 설명과 구조화 지식 | 공개 API |
+| **Wikimedia Commons** | 재사용 조건을 통과한 공개 이미지 후보 | 공개 API |
+| **NASA Images / GBIF** | 우주·과학·생물 분류 자료 | 공개 API |
+| **국가유산청 궁궐·문화유산** | 한국사·문화 탐구 자료 | 공개 API |
+| **OpenStreetMap Overpass** | 부모 지정 위치 주변 공공 탐방 장소 | key 불필요, 위치 입력 시 |
+| **전국 박물관·미술관 표준데이터** | 부모 지정 위치 주변 박물관·미술관 | 공공데이터 service key + 위치 |
+| **기상청 현재 날씨** | 날씨·계절 관찰 활동용 현황 | 공공데이터 service key + 위치 |
 
-외부 결과는 자동으로 장기 기록에 들어가지 않는다. 부모가 `참고 자료에 저장`을 선택하면 그때
+`GROWWISE_PUBLIC_ENRICHMENT_ENABLED=false`이면 무키 공개 웹 소스의 라이브 조회는 하지
+않고 로컬 카탈로그·저장 자료·명시적으로 설정한 keyed source 중심으로 동작한다. 외부 결과는
+자동으로 장기 기록에 들어가지 않는다. 부모가 `참고 자료에 저장`을 선택하면 그때
 `ResourceRecord`를 만들고 attribution, license note, provenance를 함께 보존한 뒤 RAG에 편입한다.
 
 ### Discovery 설정
@@ -148,8 +160,18 @@ LearningLog 확정
 # 선택: 도서관 정보나루
 GROWWISE_DATA4LIBRARY_API_KEY=...
 
+# 선택: 국립중앙도서관 / 한국어기초사전
+GROWWISE_NATIONAL_LIBRARY_API_KEY=...
+GROWWISE_KRDICT_API_KEY=...
+
+# 선택: 기상청 + 전국 박물관·미술관 공공데이터
+GROWWISE_DATA_GO_KR_SERVICE_KEY=...
+
 # 선택: 별도 공공 교육과정 endpoint
 GROWWISE_CURRICULUM_ENDPOINT=https://example.org/curriculum/search
+
+# 선택: 무키 공개 소스(Open Library/Wikipedia/NASA/GBIF 등) 라이브 보강
+GROWWISE_PUBLIC_ENRICHMENT_ENABLED=true
 ```
 
 실제 API key를 저장소 `.env`, README, issue, 로그에 커밋하지 않는다. 현재 pre-1.0 개발 환경은 환경변수
