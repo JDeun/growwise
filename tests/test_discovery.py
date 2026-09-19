@@ -17,13 +17,15 @@ def _service(tmp_path: Path, **settings_overrides: object) -> tuple[
     EducationDiscoveryService,
     EntityStore,
 ]:
-    settings = Settings(
-        data_dir=tmp_path,
-        llm_features_enabled=False,
-        embedding_features_enabled=False,
-        vision_features_enabled=False,
-        **settings_overrides,
-    )
+    values: dict[str, object] = {
+        "data_dir": tmp_path,
+        "llm_features_enabled": False,
+        "embedding_features_enabled": False,
+        "vision_features_enabled": False,
+        "external_live_sources_enabled": False,
+    }
+    values.update(settings_overrides)
+    settings = Settings(**values)
     store = EntityStore(settings.records_dir, settings.index_path)
     service = EducationDiscoveryService(
         settings=settings,
@@ -252,3 +254,49 @@ def test_explicit_discovery_query_is_generalized_before_external_use(
 def test_public_topic_projection_does_not_treat_nickname_fragment_as_topic() -> None:
     assert generalize_public_terms(["별이와 공룡을 함께 보기"]) == ["공룡"]
     assert generalize_public_terms(["PRIVATE_ONLY_MARKER"]) == []
+
+
+def test_discovery_reports_original_source_catalog_without_network(tmp_path: Path) -> None:
+    service, store = _service(tmp_path)
+    child = ChildProfile(
+        name="테스트",
+        nickname="테스트",
+        stage=Stage.ELEMENTARY,
+        interests=["우주"],
+    )
+    store.save(child)
+
+    result = service.discover(child=child, query="우주")
+    states = {state.source: state for state in result.sources}
+
+    expected = {
+        "data4library",
+        "national_library_isbn",
+        "google_books",
+        "gutendex",
+        "storyweaver",
+        "krdict",
+        "opendict",
+        "tatoeba",
+        "openstreetmap_nominatim",
+        "openstreetmap_overpass",
+        "opentopodata",
+        "wikidata",
+        "wikipedia_ko",
+        "wikimedia_commons",
+        "korean_heritage",
+        "emuseum",
+        "nasa_images",
+        "gbif_species",
+        "kma_forecast",
+        "kbr",
+        "phet",
+        "sympy",
+        "openstax",
+    }
+    assert expected <= states.keys()
+    assert states["nasa_images"].status == "disabled"
+    assert states["storyweaver"].status == "catalog_link"
+    assert states["sympy"].status == "local_optional"
+    assert states["open_library"].status == "offline_dataset"
+    assert states["wikimedia_commons"].homepage == "https://commons.wikimedia.org"
