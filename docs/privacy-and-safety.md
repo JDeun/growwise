@@ -94,6 +94,19 @@ LLM이 장기 기록을 요약할 때는 다음을 지킨다.
   보여준다.
 - "최근 기록상", "관찰된 범위에서는"처럼 데이터 범위를 명시한다.
 
+## Learning Wiki 안전 경계
+
+장기 기록을 연결하는 Learning Wiki는 **AI가 아이에 대해 만든 새로운 사실 저장소**로 취급하지
+않는다.
+
+- Wiki는 원본 child record의 파생 문서이며 언제든 원본만으로 rebuild할 수 있어야 한다.
+- 각 합성 항목은 실제 원본 source ref를 유지한다.
+- 기존 Wiki를 다시 evidence로 사용하지 않아 잘못된 추론의 자기강화 loop를 만들지 않는다.
+- 단일 사건을 고정된 흥미·능력·성격으로 일반화하지 않는다.
+- 진단, 정상/비정상, 또래 비교와 같은 문구는 model output validation에서 제거한다.
+- 대화/자료 생성이 Wiki를 사용해도 원본 record와 parent judgment가 우선한다.
+- 아이 삭제 시 Wiki도 child-owned live data로 함께 제거한다.
+
 ## 저장소(repo) 규칙
 
 공개 저장소에는 **실제 아동 데이터를 절대 커밋하지 않는다.**
