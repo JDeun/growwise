@@ -51,9 +51,15 @@ export function SystemStatusSection({
       && health.llm_reachable
       && (!basicModelsReady || health.embedding_model_available === false),
   );
+  const sharesMultimodalModel = Boolean(
+    health?.llm_model_id
+      && health?.vision_model_id
+      && health.llm_model_id === health.vision_model_id,
+  );
   const canPrepareVision = Boolean(
     connected
       && ollama
+      && !sharesMultimodalModel
       && health.vision_reachable
       && health.vision_model_available === false,
   );
@@ -63,7 +69,7 @@ export function SystemStatusSection({
   if (connected) {
     if (aiReady) {
       aiStatus = "사용 가능";
-      aiDescription = "필요할 때 기록 정리와 검색, 자료 만들기를 보조합니다.";
+      aiDescription = "한 로컬 멀티모달 모델로 기록 정리, 검색, 자료 만들기와 사진 이해를 보조합니다.";
     } else if (ollama && health.llm_reachable && health.llm_model_available === false) {
       aiStatus = "모델 준비 필요";
       aiDescription = "로컬 AI는 실행 중입니다. 필요한 모델만 준비하면 바로 사용할 수 있습니다.";
