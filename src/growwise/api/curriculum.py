@@ -1,6 +1,10 @@
 from __future__ import annotations
 
-from growwise.adapters import PublicCurriculumAdapter, SQLiteExternalCache
+from growwise.adapters import (
+    OfficialKoreanCurriculumCatalogAdapter,
+    PublicCurriculumAdapter,
+    SQLiteExternalCache,
+)
 from growwise.config import Settings
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind, ResourceRecord
 from growwise.generators import MaterialGenerationService
@@ -23,14 +27,14 @@ def generate_curriculum_grounded_material(
     materials: MaterialGenerationService,
 ) -> GeneratedMaterial:
     """Generate material grounded in public curriculum resources."""
-    if not settings.curriculum_endpoint:
-        raise ValueError("curriculum_endpoint_not_configured")
-
-    curriculum = PublicCurriculumAdapter(
-        endpoint=settings.curriculum_endpoint,
-        cache=SQLiteExternalCache(settings.external_cache_path),
-        ttl_seconds=settings.curriculum_cache_ttl_seconds,
-    )
+    if settings.curriculum_endpoint:
+        curriculum = PublicCurriculumAdapter(
+            endpoint=settings.curriculum_endpoint,
+            cache=SQLiteExternalCache(settings.external_cache_path),
+            ttl_seconds=settings.curriculum_cache_ttl_seconds,
+        )
+    else:
+        curriculum = OfficialKoreanCurriculumCatalogAdapter()
     service = CurriculumGroundedMaterialService(
         curriculum=curriculum,
         materials=materials,
