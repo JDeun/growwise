@@ -16,23 +16,37 @@ GrowWise는 AI 없이도 사용할 수 있습니다. 로컬 AI는 기록 검색,
 2. GrowWise를 엽니다.
 3. **설정 → AI 보조 기능**으로 이동합니다.
 4. 상태가 **모델 준비 필요**라면 **기본 AI 준비**를 선택합니다.
-5. 사진 자동 기록 보조까지 필요할 때만 **사진 AI 준비**를 추가로 선택합니다.
+5. 기본 Qwen 3.5 모델 하나가 텍스트 생성과 사진 이해를 함께 담당합니다.
 
 GrowWise는 단순히 Ollama 포트가 열렸는지만 확인하지 않습니다. **현재 설정된 모델이 실제로 설치되어 있는지까지 확인**한 뒤 AI 사용 가능 여부를 표시합니다.
 
-기본 AI 준비는 텍스트 모델과 검색용 임베딩 모델을 준비합니다. 사진 모델은 다운로드 용량이 더 크기 때문에 별도 선택으로 분리합니다.
+기본 AI 준비는 **텍스트+이미지 입력을 모두 지원하는 Qwen 3.5 모델 하나**와 검색용 임베딩 모델을 준비합니다. text/vision 처리는 애플리케이션 내부에서 별도 역할로 유지하지만, 기본 설치에서는 같은 모델 파일을 공유해 중복 다운로드와 모델 교체 비용을 줄입니다.
 
-Desktop은 전체 시스템 메모리를 보고 보수적으로 텍스트/사진 모델을 선택합니다.
+Desktop은 하드웨어에 따라 다음처럼 자동 선택합니다.
 
-| 시스템 메모리 | 텍스트 모델 | 사진 모델* |
-| --- | --- | --- |
-| 12 GB 이하 | `qwen3.5:2b` | `gemma4:e2b` |
-| 12 GB 초과~20 GB | `qwen3.5:4b` | `gemma4:e2b` |
-| 20 GB 초과 | `qwen3.5:9b` | `gemma4:e4b` |
+### Apple Silicon
 
-\* 사진 AI는 **사진 AI 준비**를 선택할 때만 다운로드합니다. 검색용 임베딩은 `nomic-embed-text`를 사용합니다.
+| 통합 메모리 | 기본 멀티모달 모델 |
+| --- | --- |
+| 16 GB 미만 | `qwen3.5:2b` |
+| 16 GB 이상 | `qwen3.5:4b` |
+| 24 GB 이상 | `qwen3.5:9b` |
+| 48 GB 이상 | `qwen3.5:27b` |
+| 64 GB 이상 | `qwen3.5:35b` |
 
-Desktop은 48 GB 이상 시스템에서도 자동으로 27B/35B 모델을 선택하지 않습니다. 기본 설치는 속도·메모리·다운로드 크기의 균형을 우선하고, 대형 모델은 고급 사용자가 명시적으로 선택합니다.
+### NVIDIA GPU가 감지되는 Windows/Linux
+
+| 감지된 총 VRAM | 기본 멀티모달 모델 |
+| --- | --- |
+| 6 GB 미만 | `qwen3.5:2b` |
+| 6 GB 이상 | `qwen3.5:4b` |
+| 10 GB 이상 | `qwen3.5:9b` |
+| 24 GB 이상 | `qwen3.5:27b` |
+| 32 GB 이상 | `qwen3.5:35b` |
+
+여러 NVIDIA GPU가 보이면 감지 가능한 VRAM을 합산합니다. Apple Silicon은 GPU와 CPU가 공유하는 통합 메모리를 기준으로 봅니다. AMD/Intel GPU나 감지가 불확실한 환경에서는 시스템 메모리를 보수적으로 참고하며 자동 선택은 최대 9B로 제한합니다.
+
+검색용 임베딩은 `nomic-embed-text`를 별도로 사용합니다.
 
 일반 사용자는 GrowWise 설정 화면의 **사용 가능 / 모델 준비 필요 / Ollama 준비 필요** 상태만 확인하면 됩니다.
 
@@ -47,7 +61,6 @@ GrowWise가 자동으로 모델을 준비하도록 두지 않고 직접 관리�
 ```bash
 ollama pull qwen3.5:9b
 ollama pull nomic-embed-text
-ollama pull gemma4:e4b
 ```
 
 설치 확인:
@@ -219,21 +232,15 @@ launchctl setenv GROWWISE_MODEL_ID qwen3.5:9b
 
 ## 사진 AI
 
-GrowWise의 현재 기본 사진 모델은 `gemma4:e4b`입니다.
+GrowWise의 기본 사진 이해도 텍스트와 같은 Qwen 3.5 모델을 사용합니다. Qwen 3.5의 현재 Ollama 배포는 2B, 4B, 9B, 27B, 35B 모두 Text+Image 입력을 지원하므로 별도 비전 모델이 필수는 아닙니다.
 
-```bash
-ollama pull gemma4:e4b
-```
+애플리케이션 내부에서는 vision provider와 timeout을 독립적으로 유지합니다. 따라서 향후 특정 비전 모델이 더 적합한 경우에만 `GROWWISE_VISION_MODEL_ID`로 다른 모델을 지정할 수 있습니다.
 
-Gemma 4 E4B는 Ollama에서 이미지 입력을 지원하며 약 9.6 GB 크기의 edge-oriented 멀티모달 모델입니다. 더 낮은 메모리 환경에서는 `gemma4:e2b`(약 7.2 GB)를 사용할 수 있습니다.
-
-메모리가 부족하다면 사진 AI를 끄고 부모가 직접 사진 기록을 남길 수 있습니다.
+메모리가 부족하거나 사진 분석을 원하지 않으면 기능만 끌 수 있습니다.
 
 ```bash
 GROWWISE_VISION_FEATURES_ENABLED=false
 ```
-
-Qwen 3.5도 멀티모달 모델이므로 고급 설정에서는 텍스트와 사진 모델을 같은 Qwen 3.5 모델 ID로 맞출 수 있습니다. 다만 GrowWise의 현재 기본 검증 조합은 `qwen3.5:9b` + `gemma4:e4b`입니다.
 
 ---
 
@@ -348,7 +355,6 @@ uv run python scripts/benchmark_model.py --warmup-rounds 1 --repeats 3
 ## 공식 모델 정보
 
 - [Ollama Qwen 3.5](https://ollama.com/library/qwen3.5)
-- [Ollama Gemma 4](https://ollama.com/library/gemma4)
 - [Ollama Qwen3 Embedding](https://ollama.com/library/qwen3-embedding)
 - [Ollama nomic-embed-text](https://ollama.com/library/nomic-embed-text)
 - [Ollama 다운로드](https://ollama.com/download)
