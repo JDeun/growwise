@@ -291,6 +291,19 @@ class CurriculumTarget(BaseModel):
     )
 
 
+class MaterialSourceCitation(BaseModel):
+    """Immutable provenance snapshot captured when a material is generated."""
+
+    source_ref: SourceRef
+    title: str = Field(min_length=1, max_length=500)
+    excerpt: str = Field(default="", max_length=4_000)
+    source_name: str | None = Field(default=None, max_length=500)
+    source_url: str | None = Field(default=None, max_length=2_048)
+    author: str | None = Field(default=None, max_length=500)
+    attribution: str | None = Field(default=None, max_length=2_000)
+    license_note: str | None = Field(default=None, max_length=4_000)
+
+
 class GeneratedMaterial(EntityBase):
     entity_type: str = "generated_material"
     child_id: UUID
@@ -300,6 +313,10 @@ class GeneratedMaterial(EntityBase):
     parent_guide_markdown: str = Field(default="", max_length=50_000)
     status: MaterialStatus = MaterialStatus.DRAFT
     source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
+    source_citations: list[MaterialSourceCitation] = Field(
+        default_factory=list,
+        max_length=100,
+    )
     curriculum_targets: list[CurriculumTarget] = Field(default_factory=list, max_length=100)
     generator_mode: str = Field(default="template", min_length=1, max_length=120)
     ai_status: AiEnhancementStatus = AiEnhancementStatus.NOT_REQUESTED
