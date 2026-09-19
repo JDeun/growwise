@@ -71,7 +71,13 @@ type ConnectionState =
 
 type WriteNotice = { id: number; message: string };
 
-function App({ activeView }: { activeView: WorkspaceViewName }) {
+function App({
+  activeView,
+  onNavigate,
+}: {
+  activeView: WorkspaceViewName;
+  onNavigate?: (view: WorkspaceViewName) => void;
+}) {
   const {
     selectChild: selectSharedChild,
     upsertChild: upsertSharedChild,
@@ -109,7 +115,9 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
 
   const [nickname, setNickname] = useState("");
   const [childStage, setChildStage] = useState<Stage>("infant_0_2");
+  const [birthDate, setBirthDate] = useState("");
   const [ageMonths, setAgeMonths] = useState("9");
+  const [grade, setGrade] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
@@ -422,10 +430,22 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
     event.preventDefault();
     const trimmedNickname = nickname.trim();
     const trimmedAge = ageMonths.trim();
+    const trimmedGrade = grade.trim();
     const parsedAge = trimmedAge ? Number.parseInt(trimmedAge, 10) : null;
+    const parsedGrade = trimmedGrade ? Number.parseInt(trimmedGrade, 10) : null;
+    const firstProfile = children.length === 0;
     if (!trimmedNickname) return setFormError("아이를 구분할 닉네임을 입력해 주세요.");
+    if (birthDate && Number.isNaN(Date.parse(`${birthDate}T00:00:00`))) {
+      return setFormError("생년월일을 확인해 주세요.");
+    }
     if (parsedAge !== null && (!Number.isFinite(parsedAge) || parsedAge < 0 || parsedAge > 240)) {
       return setFormError("월령은 비워 두거나 0~240개월로 입력해 주세요.");
+    }
+    if (
+      parsedGrade !== null
+      && (!Number.isInteger(parsedGrade) || parsedGrade < 1 || parsedGrade > 12)
+    ) {
+      return setFormError("학년은 비워 두거나 1~12 사이로 입력해 주세요.");
     }
     setSaving(true);
     setFormError(null);
@@ -433,15 +453,24 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
       const child = await createChild({
         nickname: trimmedNickname,
         stage: childStage,
-        age_months: parsedAge,
+        birth_date: birthDate || null,
+        age_months: birthDate ? null : parsedAge,
+        grade: birthDate ? null : parsedGrade,
         interests: [],
       });
       upsertSharedChild(child, { select: true });
       setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
       await loadChildContext(child);
       setNickname("");
+      setBirthDate("");
       setAgeMonths("");
-      announceWrite("아이 프로필을 저장했습니다.");
+      setGrade("");
+      announceWrite(
+        firstProfile
+          ? "첫 프로필을 저장했습니다. 바로 첫 활동을 만들어 보세요."
+          : "아이 프로필을 저장했습니다.",
+      );
+      if (firstProfile) onNavigate?.("materials");
     } catch (error) {
       setFormError(errorMessage(error, "프로필 저장에 실패했습니다."));
     } finally {
@@ -658,12 +687,16 @@ function App({ activeView }: { activeView: WorkspaceViewName }) {
               activityCount={activityPlans.length}
               nickname={nickname}
               childStage={childStage}
+              birthDate={birthDate}
               ageMonths={ageMonths}
+              grade={grade}
               saving={saving}
               error={formError}
               onNicknameChange={setNickname}
               onStageChange={setChildStage}
+              onBirthDateChange={setBirthDate}
               onAgeMonthsChange={setAgeMonths}
+              onGradeChange={setGrade}
               onSubmit={handleCreateChild}
               onSelectChild={(childId) => void handleSelectChild(childId)}
               onAvatarUpdated={handleAvatarUpdated}
