@@ -27,6 +27,7 @@
 - [technical-guide.md](technical-guide.md) — 개발/운영 기술 진입점
 - [architecture.md](architecture.md) — Tauri/React/Python/LangGraph 구조와 Desktop composition
 - [data-model.md](data-model.md) — Markdown SoT, SQLite projection, 상태 모델
+- [learning-wiki.md](learning-wiki.md) — 원본 기반 지속 합성, provenance, RAG/Graph 연결
 - [hardening-contracts.md](hardening-contracts.md) — crash/retry/purge/race/RAG invariant
 - [integrations.md](integrations.md) — 외부 데이터와 model provider 경계
 - [evaluation.md](evaluation.md) — 생성/RAG/안전 평가
