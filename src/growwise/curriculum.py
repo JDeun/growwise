@@ -1,31 +1,16 @@
 from __future__ import annotations
 
-from growwise.domain import CurriculumTarget, MaterialKind, Stage
+from collections.abc import Mapping, Sequence
+from datetime import date
+from typing import Any
 
-_INFANT_FRAMEWORK = "2024 개정 표준보육과정(0~2세)"
-_INFANT_SOURCE = "교육부고시 제2024-23호"
-_PRESCHOOL_FRAMEWORK = "2019 개정 누리과정"
-_PRESCHOOL_SOURCE = "교육부고시 제2019-189호·보건복지부고시 제2019-152호"
-_NATIONAL_FRAMEWORK = "2022 개정 초·중등학교 교육과정"
-_NATIONAL_SOURCE = "교육부고시 제2022-33호"
-
-
-def _target(
-    *,
-    mapping_id: str,
-    framework: str,
-    domain: str,
-    description: str,
-    source_ref: str,
-) -> CurriculumTarget:
-    return CurriculumTarget(
-        mapping_id=mapping_id,
-        framework=framework,
-        domain=domain,
-        description=description,
-        source_ref=source_ref,
-    )
-
+from growwise.curriculum_versions import (
+    CurriculumResolution,
+    effective_curriculum_stage,
+    resolve_curriculum_version,
+    resolve_external_curriculum_version,
+)
+from growwise.domain import ChildProfile, CurriculumTarget, MaterialKind, Stage
 
 _EARLY_AREAS: dict[str, tuple[str, str]] = {
     "physical_health": (
@@ -99,27 +84,63 @@ _SCHOOL_KIND_DOMAINS: dict[MaterialKind, tuple[str, str, str]] = {
 }
 
 
-def curriculum_targets_for(stage: Stage, kind: MaterialKind) -> list[CurriculumTarget]:
-    """Return deterministic, copyright-safe curriculum alignment metadata.
+def curriculum_targets_for(
+    stage: Stage,
+    kind: MaterialKind,
+    *,
+    on_date: date | None = None,
+) -> list[CurriculumTarget]:
+    """Return conservative stage-only curriculum metadata.
 
-    This function maps only to official framework/area or subject families and GrowWise-authored
-    paraphrases. It deliberately does not invent achievement-standard codes. Verified official
-    codes can later be attached through ``standard_codes`` by curated data or an adapter.
+    School stages can span two curriculum families during a phased rollout. Call
+    curriculum_targets_for_child when learner grade or birth-date information is available.
     """
+    placeholder = ChildProfile(name="curriculum-resolution", stage=stage, age_months=None)
+    return curriculum_targets_for_child(placeholder, kind, on_date=on_date)
+
+
+def curriculum_targets_for_child(
+    child: ChildProfile,
+    kind: MaterialKind,
+    *,
+    on_date: date | None = None,
+    external_records: Sequence[Mapping[str, Any]] | None = None,
+) -> list[CurriculumTarget]:
+    """Resolve the effective curriculum for a learner, date and material family."""
+    reference = on_date or date.today()
+    stage = effective_curriculum_stage(child, on_date=reference)
+    resolution = None
+    if external_records:
+        resolution = resolve_external_curriculum_version(
+            external_records,
+            child,
+            on_date=reference,
+        )
+    if resolution is None:
+        resolution = resolve_curriculum_version(child, on_date=reference)
+    return _targets_for_resolution(stage=stage, kind=kind, resolution=resolution)
+
+
+def _targets_for_resolution(
+    *,
+    stage: Stage,
+    kind: MaterialKind,
+    resolution: CurriculumResolution,
+) -> list[CurriculumTarget]:
+    namespace = _mapping_namespace(resolution.revision)
+
     if stage in {Stage.INFANT_0_2, Stage.PRESCHOOL_3_5}:
-        framework = _INFANT_FRAMEWORK if stage is Stage.INFANT_0_2 else _PRESCHOOL_FRAMEWORK
-        source = _INFANT_SOURCE if stage is Stage.INFANT_0_2 else _PRESCHOOL_SOURCE
-        namespace = "2024-childcare" if stage is Stage.INFANT_0_2 else "2019-nuri"
         targets: list[CurriculumTarget] = []
         for area_key in _EARLY_KIND_AREAS[kind]:
             domain, description = _EARLY_AREAS[area_key]
             targets.append(
                 _target(
                     mapping_id=f"gw:kr:{namespace}:{area_key}",
-                    framework=framework,
+                    framework=resolution.framework,
                     domain=domain,
                     description=description,
-                    source_ref=source,
+                    source_ref=resolution.source_ref,
+                    resolution=resolution,
                 )
             )
         return targets
@@ -132,10 +153,43 @@ def curriculum_targets_for(stage: Stage, kind: MaterialKind) -> list[CurriculumT
     }[stage]
     return [
         _target(
-            mapping_id=f"gw:kr:2022:{stage_key}:{domain_key}",
-            framework=_NATIONAL_FRAMEWORK,
+            mapping_id=f"gw:kr:{namespace}:{stage_key}:{domain_key}",
+            framework=resolution.framework,
             domain=domain,
             description=description,
-            source_ref=_NATIONAL_SOURCE,
+            source_ref=resolution.source_ref,
+            resolution=resolution,
         )
     ]
+
+
+def _target(
+    *,
+    mapping_id: str,
+    framework: str,
+    domain: str,
+    description: str,
+    source_ref: str,
+    resolution: CurriculumResolution,
+) -> CurriculumTarget:
+    return CurriculumTarget(
+        mapping_id=mapping_id,
+        framework=framework,
+        domain=domain,
+        description=description,
+        source_ref=source_ref,
+        revision=resolution.revision,
+        effective_from=resolution.effective_from,
+        effective_to=resolution.effective_to,
+        grade=resolution.grade,
+        resolution_precision=resolution.precision,
+        transition_note=resolution.transition_note,
+    )
+
+
+def _mapping_namespace(revision: str) -> str:
+    normalized = "".join(
+        char.lower() if char.isalnum() else "-"
+        for char in revision
+    )
+    return "-".join(part for part in normalized.split("-") if part)[:50] or "unknown"

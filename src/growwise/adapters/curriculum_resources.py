@@ -48,6 +48,16 @@ def curriculum_records_to_resources(result: AdapterResult) -> list[ResourceRecor
                 "cache_status": result.cache_status,
                 "attribution": result.attribution,
                 "license_note": result.license_note,
+                **({"framework": record.framework} if record.framework else {}),
+                **({"revision": record.revision} if record.revision else {}),
+                **({"official_notice": record.official_notice} if record.official_notice else {}),
+                **({"effective_from": record.effective_from} if record.effective_from else {}),
+                **({"effective_to": record.effective_to} if record.effective_to else {}),
+                **(
+                    {"grades": ",".join(str(grade) for grade in record.grades)}
+                    if record.grades
+                    else {}
+                ),
             },
         ))
     return resources
@@ -85,6 +95,12 @@ def _tags(record: CurriculumRecord) -> list[str]:
 
 def _content(record: CurriculumRecord) -> str:
     fields: list[tuple[str, Any]] = [
+        ("교육과정", record.framework),
+        ("개정", record.revision),
+        ("고시", record.official_notice),
+        ("적용 시작", record.effective_from),
+        ("적용 종료", record.effective_to),
+        ("적용 학년", ", ".join(str(grade) for grade in record.grades) or None),
         ("교과", record.subject),
         ("영역", record.domain),
         ("역량", record.competency),

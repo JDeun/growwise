@@ -72,3 +72,55 @@ def test_grounded_material_persists_canonical_resource_without_child_identity(
     assert child.name not in serialized_calls
     assert str(child.id) not in serialized_calls
     assert "곤충" in serialized_calls
+
+
+class TrustedRevisionHttp:
+    def get_json(self, endpoint: str, *, params: dict[str, str]) -> dict[str, object]:
+        del endpoint, params
+        return {
+            "records": [
+                {
+                    "code": "MID-NEW-01",
+                    "title": "중학교 최신 개정 메타데이터",
+                    "stage": "middle",
+                    "subject": "science",
+                    "framework": "검증된 최신 중학교 교육과정",
+                    "revision": "2026-correction",
+                    "official_notice": "국가교육위원회고시 제2026-9호",
+                    "effective_from": "2026-09-01",
+                    "grades": [8],
+                    "source_url": "https://ncic.go.kr/curriculum/2026-9",
+                }
+            ]
+        }
+
+
+def test_grounded_material_auto_activates_trusted_effective_revision(tmp_path) -> None:
+    curriculum = PublicCurriculumAdapter(
+        endpoint="https://example.invalid/curriculum",
+        cache=SQLiteExternalCache(tmp_path / "external.sqlite3"),
+        http=TrustedRevisionHttp(),
+    )
+    service = CurriculumGroundedMaterialService(
+        curriculum=curriculum,
+        materials=MaterialGenerationService(),
+    )
+    child = ChildProfile(
+        name="private-child-name",
+        stage=Stage.MIDDLE,
+        grade=8,
+    )
+
+    material, _resources = service.generate(
+        child=child,
+        kind=MaterialKind.SCIENCE_INQUIRY,
+        topic="증거 비교",
+        subject="science",
+    )
+
+    target = material.curriculum_targets[0]
+    assert target.framework == "검증된 최신 중학교 교육과정"
+    assert target.revision == "2026-correction"
+    assert target.source_ref == "국가교육위원회고시 제2026-9호"
+    assert target.resolution_precision == "external_verified_metadata"
+    assert "검증된 최신 중학교 교육과정" in material.content_markdown

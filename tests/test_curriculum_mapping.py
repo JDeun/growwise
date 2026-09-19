@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from growwise.curriculum import curriculum_targets_for
+from datetime import date
+
+from growwise.curriculum import curriculum_targets_for, curriculum_targets_for_child
 from growwise.domain import ChildProfile, GeneratedMaterial, MaterialKind, Stage
 from growwise.generators import MaterialEditService, MaterialGenerationService
 
@@ -21,18 +23,50 @@ def test_early_years_mapping_uses_current_frameworks_without_fake_standard_codes
     assert all(target.mapping_id.startswith("gw:kr:") for target in [*infant, *preschool])
 
 
-def test_school_mapping_is_distinct_by_material_kind_and_stage() -> None:
-    math = curriculum_targets_for(Stage.ELEMENTARY, MaterialKind.MATH_ACTIVITY)
-    science = curriculum_targets_for(Stage.ELEMENTARY, MaterialKind.SCIENCE_INQUIRY)
-    field_trip = curriculum_targets_for(Stage.MIDDLE, MaterialKind.FIELD_TRIP)
+def test_school_mapping_is_distinct_by_material_kind_and_effective_grade() -> None:
+    reference = date(2026, 9, 19)
+    elementary = ChildProfile(name="초등", stage=Stage.ELEMENTARY, grade=5)
+    middle = ChildProfile(name="중등", stage=Stage.MIDDLE, grade=8)
+    math = curriculum_targets_for_child(
+        elementary,
+        MaterialKind.MATH_ACTIVITY,
+        on_date=reference,
+    )
+    science = curriculum_targets_for_child(
+        elementary,
+        MaterialKind.SCIENCE_INQUIRY,
+        on_date=reference,
+    )
+    field_trip = curriculum_targets_for_child(
+        middle,
+        MaterialKind.FIELD_TRIP,
+        on_date=reference,
+    )
 
     assert math[0].domain == "수학"
     assert science[0].domain == "과학"
     assert field_trip[0].domain == "사회·통합"
-    assert math[0].mapping_id == "gw:kr:2022:elementary:math-problem-solving"
-    assert field_trip[0].mapping_id == "gw:kr:2022:middle:social-place-inquiry"
+    assert "2022-rev-2024-3" in math[0].mapping_id
+    assert "2022-rev-2024-3" in field_trip[0].mapping_id
     school_targets = [*math, *science, *field_trip]
-    assert all(target.source_ref == "교육부고시 제2022-33호" for target in school_targets)
+    assert all(
+        target.source_ref == "국가교육위원회고시 제2024-3호"
+        for target in school_targets
+    )
+    assert {target.grade for target in math} == {5}
+    assert {target.grade for target in field_trip} == {8}
+
+
+def test_stage_only_middle_mapping_marks_transition_uncertainty() -> None:
+    targets = curriculum_targets_for(
+        Stage.MIDDLE,
+        MaterialKind.READING_ACTIVITY,
+        on_date=date(2026, 9, 19),
+    )
+
+    assert targets[0].revision == "transition-unresolved"
+    assert targets[0].resolution_precision == "stage_transition"
+    assert targets[0].transition_note
 
 
 def test_generation_embeds_and_persists_curriculum_alignment() -> None:
@@ -44,6 +78,8 @@ def test_generation_embeds_and_persists_curriculum_alignment() -> None:
 
     assert [target.domain for target in material.curriculum_targets] == ["자연탐구"]
     assert "교육과정 연결: 자연탐구" in material.content_markdown
+    assert "적용 교육과정:" in material.content_markdown
+    assert "기준 고시:" in material.content_markdown
 
 
 def test_parent_edit_preserves_curriculum_targets() -> None:

@@ -67,7 +67,8 @@ GrowWise continues to use copyright-safe paraphrased alignment rather than copyi
 
 - 2024 revised Standard Childcare Curriculum for ages 0-2;
 - 2019 revised Nuri Curriculum for ages 3-5;
-- 2022 revised national elementary/middle/high curriculum for school stages.
+- 2015/2022 revised national elementary/middle/high curricula selected by grade and date,
+  including the 2024 and 2026 partial amendments when their grade-specific effective dates apply.
 
 The preschool implementation deliberately preserves child-led, play-centered activity rather than turning curriculum alignment into teacher-directed worksheets. School-stage materials increase representation, reasoning, evidence use, and learner independence instead of merely changing the stage label.
 

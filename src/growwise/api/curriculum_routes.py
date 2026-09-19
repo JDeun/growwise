@@ -138,7 +138,7 @@ def generate_curriculum_material(
                 resource_id=claim.record.resource_id,
             )
         return material
-    except ValueError as exc:
+    except ValueError:
         if claim is not None and claim.acquired:
             assert idempotency_store is not None
             existing = store.index.get_entity(
@@ -151,8 +151,6 @@ def generate_curriculum_material(
                     request_hash=claim.record.request_hash,
                     resource_id=claim.record.resource_id,
                 )
-        if str(exc) == "curriculum_endpoint_not_configured":
-            raise HTTPException(status_code=503, detail=str(exc)) from exc
         raise
     except Exception:
         if claim is not None and claim.acquired:

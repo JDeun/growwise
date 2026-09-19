@@ -7,6 +7,7 @@ from .curriculum_resources import (
     curriculum_refs,
     curriculum_resource_ref,
 )
+from .curriculum_watch import CurriculumUpdateCandidate, OfficialCurriculumUpdateWatcher
 from .data4library import Data4LibraryAdapter
 from .gbif import GbifSpeciesAdapter
 from .google_books import GoogleBooksAdapter
@@ -29,6 +30,7 @@ __all__ = [
     "AdapterResult",
     "CachedPayload",
     "CurriculumRecord",
+    "CurriculumUpdateCandidate",
     "Data4LibraryAdapter",
     "ExternalAdapterError",
     "ExternalUnavailable",
@@ -37,6 +39,7 @@ __all__ = [
     "JsonHttpClient",
     "NasaImagesAdapter",
     "OfficialKoreanCurriculumCatalogAdapter",
+    "OfficialCurriculumUpdateWatcher",
     "OpenLibraryAdapter",
     "OverpassAdapter",
     "PublicCurriculumAdapter",

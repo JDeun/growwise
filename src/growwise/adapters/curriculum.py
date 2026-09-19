@@ -21,6 +21,12 @@ class CurriculumRecord(BaseModel):
     domain: str | None = None
     competency: str | None = None
     achievement_standard: str | None = None
+    framework: str | None = None
+    revision: str | None = None
+    official_notice: str | None = None
+    effective_from: str | None = None
+    effective_to: str | None = None
+    grades: list[int] = Field(default_factory=list)
     source_url: str | None = None
     metadata: dict[str, Any] = Field(default_factory=dict)
 
@@ -154,6 +160,13 @@ class PublicCurriculumAdapter:
                 "domain",
                 "competency",
                 "achievement_standard",
+                "framework",
+                "revision",
+                "official_notice",
+                "effective_from",
+                "effective_to",
+                "grades",
+                "grade",
                 "source_url",
                 "url",
             }
@@ -166,11 +179,40 @@ class PublicCurriculumAdapter:
                     domain=cls._optional_text(item.get("domain")),
                     competency=cls._optional_text(item.get("competency")),
                     achievement_standard=cls._optional_text(item.get("achievement_standard")),
+                    framework=cls._optional_text(item.get("framework")),
+                    revision=cls._optional_text(item.get("revision")),
+                    official_notice=cls._optional_text(item.get("official_notice")),
+                    effective_from=cls._optional_text(item.get("effective_from")),
+                    effective_to=cls._optional_text(item.get("effective_to")),
+                    grades=cls._grades(item.get("grades") or item.get("grade")),
                     source_url=cls._optional_text(item.get("source_url") or item.get("url")),
                     metadata={str(k): v for k, v in item.items() if k not in known},
                 )
             )
         return records
+
+    @staticmethod
+    def _grades(value: object) -> list[int]:
+        if isinstance(value, int):
+            return [value] if 1 <= value <= 12 else []
+        if isinstance(value, str):
+            raw_values: list[object] = [
+                part for part in value.replace(";", ",").split(",") if part.strip()
+            ]
+        elif isinstance(value, list):
+            raw_values = value
+        else:
+            return []
+
+        grades: list[int] = []
+        for raw in raw_values:
+            try:
+                grade = int(str(raw).strip())
+            except ValueError:
+                continue
+            if 1 <= grade <= 12 and grade not in grades:
+                grades.append(grade)
+        return grades
 
     @staticmethod
     def _text(value: object) -> str:
