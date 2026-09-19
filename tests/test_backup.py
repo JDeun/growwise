@@ -11,8 +11,8 @@ import pytest
 
 from growwise.backup import BackupService, InvalidBackup
 from growwise.domain import ChildProfile, LearningLog, Stage
-from growwise.services.learning_wiki import LearningWikiService
 from growwise.services import ConversationSession, SQLiteConversationStore
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.storage import EntityStore, SQLiteProjection
 
 
