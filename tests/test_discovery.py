@@ -437,3 +437,187 @@ def test_public_source_fanout_receives_only_allowlisted_queries(
     assert child.name not in outbound
     assert str(child.id) not in outbound
     assert ("nasa_images", "space dinosaurs observation") in seen
+
+def test_discovery_calls_configured_korean_book_and_dictionary_sources(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class FakeNationalLibrary:
+        SOURCE = "national_library_isbn"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search_books(self, *, query: str, limit: int, offline: bool) -> AdapterResult:
+            assert query == "독서 언어"
+            assert limit > 0
+            assert offline is False
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[
+                    {
+                        "id": "isbn-1",
+                        "title": "읽기와 언어",
+                        "author": "저자",
+                        "isbn13": "9780000000003",
+                        "source_url": "https://www.nl.go.kr/",
+                    }
+                ],
+                attribution="국립중앙도서관",
+                license_note="test",
+                cache_status="live",
+            )
+
+    class FakeKrDict:
+        SOURCE = "krdict"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def search(self, *, query: str, limit: int, offline: bool) -> AdapterResult:
+            assert query == "독서 언어"
+            assert limit > 0
+            assert offline is False
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[
+                    {
+                        "id": "word-1",
+                        "title": "언어",
+                        "definitions": ["생각을 나타내고 전달하는 수단."],
+                        "source_url": "https://krdict.korean.go.kr/",
+                    }
+                ],
+                attribution="한국어기초사전",
+                license_note="test",
+                cache_status="live",
+            )
+
+    monkeypatch.setattr(
+        "growwise.services.discovery.NationalLibraryIsbnAdapter",
+        FakeNationalLibrary,
+    )
+    monkeypatch.setattr("growwise.services.discovery.KrDictAdapter", FakeKrDict)
+
+    service, store = _service(
+        tmp_path,
+        national_library_api_key="test-national-key",
+        krdict_api_key="test-krdict-key",
+    )
+    child = ChildProfile(
+        name="테스트",
+        stage=Stage.ELEMENTARY,
+        interests=["독서", "언어"],
+    )
+    store.save(child)
+
+    result = service.discover(child=child, query="독서 언어")
+    sources = {item.source_name for item in result.suggestions}
+    states = {state.source: state.status for state in result.sources}
+
+    assert "national_library_isbn" in sources
+    assert "krdict" in sources
+    assert states["national_library_isbn"] == "live"
+    assert states["krdict"] == "live"
+
+
+def test_discovery_calls_configured_location_sources_without_persisting_coordinates(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    seen: dict[str, tuple[float, float]] = {}
+
+    class FakeMuseum:
+        SOURCE = "korea_museum_standard"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def nearby(
+            self,
+            *,
+            latitude: float,
+            longitude: float,
+            limit: int,
+            offline: bool,
+        ) -> AdapterResult:
+            seen["museum"] = (latitude, longitude)
+            assert limit > 0
+            assert offline is False
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[
+                    {
+                        "id": "museum-1",
+                        "title": "어린이 박물관",
+                        "address": "테스트 주소",
+                        "latitude": latitude,
+                        "longitude": longitude,
+                    }
+                ],
+                attribution="공공데이터포털",
+                license_note="test",
+                cache_status="live",
+            )
+
+    class FakeWeather:
+        SOURCE = "kma_weather"
+
+        def __init__(self, **_kwargs: object) -> None:
+            pass
+
+        def current_conditions(
+            self,
+            *,
+            latitude: float,
+            longitude: float,
+            offline: bool,
+        ) -> AdapterResult:
+            seen["weather"] = (latitude, longitude)
+            assert offline is False
+            return AdapterResult(
+                source=self.SOURCE,
+                records=[
+                    {
+                        "id": "weather-1",
+                        "temperature_c": "23",
+                        "humidity_pct": "50",
+                        "rainfall_mm": "0",
+                    }
+                ],
+                attribution="기상청",
+                license_note="test",
+                cache_status="live",
+            )
+
+    monkeypatch.setattr("growwise.services.discovery.MuseumArtGalleryAdapter", FakeMuseum)
+    monkeypatch.setattr("growwise.services.discovery.KmaWeatherAdapter", FakeWeather)
+
+    service, store = _service(
+        tmp_path,
+        data_go_kr_service_key="test-service-key",
+    )
+    child = ChildProfile(
+        name="테스트",
+        stage=Stage.ELEMENTARY,
+        interests=["날씨", "박물관"],
+    )
+    store.save(child)
+
+    result = service.discover(
+        child=child,
+        query="날씨 박물관",
+        latitude=37.25,
+        longitude=127.02,
+    )
+
+    assert seen == {
+        "museum": (37.25, 127.02),
+        "weather": (37.25, 127.02),
+    }
+    assert all(
+        "37.25" not in suggestion.metadata.values()
+        and "127.02" not in suggestion.metadata.values()
+        for suggestion in result.suggestions
+    )
+
