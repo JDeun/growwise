@@ -138,7 +138,7 @@ def generate_curriculum_material(
                 resource_id=claim.record.resource_id,
             )
         return material
-    except ValueError as exc:
+    except ValueError:
         if claim is not None and claim.acquired:
             assert idempotency_store is not None
             existing = store.index.get_entity(
