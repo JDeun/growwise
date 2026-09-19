@@ -227,6 +227,7 @@ until Parent Review approves it. Return the requested structured schema only."""
                         kind=kind,
                         stage=child.stage,
                         content_markdown=candidate.content_markdown,
+                        parent_guide_markdown=candidate.parent_guide_markdown,
                     )
                     if not core_quality.ready:
                         draft = fallback
@@ -498,7 +499,7 @@ until Parent Review approves it. Return the requested structured schema only."""
         }[kind]
 
     @staticmethod
-    def _normalize_core_markdown(content: str, *, max_chars: int = 14_000) -> str:
+    def _normalize_core_markdown(content: str, *, max_chars: int = 10_000) -> str:
         normalized: list[str] = []
         skipped_title = False
         for raw_line in content.strip().splitlines():
