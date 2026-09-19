@@ -1,6 +1,6 @@
 .conversation-workspace-grid {
   display: grid;
-  grid-template-columns: minmax(190px, .66fr) minmax(420px, 1.72fr) minmax(250px, .76fr);
+  grid-template-columns: minmax(190px, .67fr) minmax(420px, 1.22fr) minmax(320px, 1.11fr);
   gap: 12px;
   align-items: start;
 }
