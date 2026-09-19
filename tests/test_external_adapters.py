@@ -16,8 +16,6 @@ from growwise.adapters import (
     GbifSpeciesAdapter,
     GoogleBooksAdapter,
     HeritagePalaceAdapter,
-    kma_grid_for,
-    kma_observation_base,
     KmaWeatherAdapter,
     KrDictAdapter,
     MuseumArtGalleryAdapter,
@@ -29,6 +27,8 @@ from growwise.adapters import (
     WikidataAdapter,
     WikimediaCommonsAdapter,
     WikipediaAdapter,
+    kma_grid_for,
+    kma_observation_base,
 )
 
 FIXTURES = Path(__file__).parent / "fixtures" / "external"
