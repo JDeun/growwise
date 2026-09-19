@@ -13,7 +13,7 @@ use std::fmt;
 use std::fs;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::OnceLock;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use background_write_commands::{
     create_observation_background, generate_material_background, revise_material_background,
@@ -67,8 +67,20 @@ struct CoreHealth {
     core_requires_llm: bool,
     llm_configured: bool,
     llm_reachable: bool,
+    llm_model_id: Option<String>,
+    llm_model_available: Option<bool>,
+    llm_base_url: Option<String>,
     llm_features_enabled: bool,
+    embedding_reachable: Option<bool>,
+    embedding_model_id: Option<String>,
+    embedding_model_available: Option<bool>,
+    embedding_base_url: Option<String>,
     embedding_features_enabled: bool,
+    vision_reachable: Option<bool>,
+    vision_model_id: Option<String>,
+    vision_model_available: Option<bool>,
+    vision_base_url: Option<String>,
+    vision_features_enabled: Option<bool>,
     model_provider: String,
 }
 
@@ -233,6 +245,96 @@ fn core_runtime_status(manager: tauri::State<'_, CoreProcessManager>) -> CoreRun
     CoreRuntimeStatus {
         started_by_desktop: manager.started_by_desktop(),
     }
+}
+
+fn is_loopback_url(url: &reqwest::Url) -> bool {
+    if !matches!(url.scheme(), "http" | "https") {
+        return false;
+    }
+    match url.host_str().map(|host| host.trim_matches(['[', ']']).to_ascii_lowercase()) {
+        Some(host) if host == "localhost" || host.ends_with(".localhost") => true,
+        Some(host) => host
+            .parse::<std::net::IpAddr>()
+            .map(|address| address.is_loopback())
+            .unwrap_or(false),
+        None => false,
+    }
+}
+
+async fn pull_ollama_model(base_url: &str, model_id: &str) -> Result<(), String> {
+    let endpoint = reqwest::Url::parse(&format!("{}/api/pull", base_url.trim_end_matches('/')))
+        .map_err(|error| format!("로컬 AI 주소가 올바르지 않습니다: {error}"))?;
+    if !is_loopback_url(&endpoint) {
+        return Err("GrowWise는 자동 모델 준비를 로컬 Ollama에서만 허용합니다.".to_string());
+    }
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60 * 60))
+        .build()
+        .map_err(|error| error.to_string())?;
+    let response = client
+        .post(endpoint)
+        .json(&serde_json::json!({"model": model_id, "stream": false}))
+        .send()
+        .await
+        .map_err(|error| format!("AI 모델 준비 요청에 실패했습니다: {error}"))?;
+
+    if response.status().is_success() {
+        Ok(())
+    } else {
+        let status = response.status();
+        let body = response.text().await.unwrap_or_default();
+        let bounded: String = body.chars().take(1024).collect();
+        Err(format!("AI 모델 준비에 실패했습니다 ({status}): {bounded}"))
+    }
+}
+
+#[tauri::command]
+async fn prepare_local_ai(component: String) -> Result<String, String> {
+    let health = core_health().await?;
+    if health.model_provider.casefold() != "ollama" {
+        return Err("자동 준비는 로컬 Ollama 구성에서만 사용할 수 있습니다.".to_string());
+    }
+
+    let mut targets: Vec<(String, String)> = Vec::new();
+    match component.as_str() {
+        "basic" => {
+            if health.llm_model_available != Some(true) {
+                if let (Some(base_url), Some(model_id)) =
+                    (health.llm_base_url.clone(), health.llm_model_id.clone())
+                {
+                    targets.push((base_url, model_id));
+                }
+            }
+            if health.embedding_model_available != Some(true) {
+                if let (Some(base_url), Some(model_id)) = (
+                    health.embedding_base_url.clone(),
+                    health.embedding_model_id.clone(),
+                ) {
+                    targets.push((base_url, model_id));
+                }
+            }
+        }
+        "vision" => {
+            if health.vision_model_available != Some(true) {
+                if let (Some(base_url), Some(model_id)) =
+                    (health.vision_base_url.clone(), health.vision_model_id.clone())
+                {
+                    targets.push((base_url, model_id));
+                }
+            }
+        }
+        _ => return Err("지원하지 않는 AI 준비 항목입니다.".to_string()),
+    }
+
+    if targets.is_empty() {
+        return Ok("already_ready".to_string());
+    }
+
+    for (base_url, model_id) in targets {
+        pull_ollama_model(&base_url, &model_id).await?;
+    }
+    Ok("prepared".to_string())
 }
 #[tauri::command]
 async fn create_observation(request: ObservationCreateInput) -> Result<LearningLogDto, String> {
@@ -661,6 +763,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             core_health,
             core_runtime_status,
+            prepare_local_ai,
             create_child,
             update_child,
             set_child_avatar,
