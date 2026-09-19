@@ -244,11 +244,14 @@ Desktop은 하드웨어를 보고 기본 모델을 자동 선택합니다.
 | --- | --- |
 | 저사양 PC / 8 GB급 메모리 | `qwen3.5:2b` |
 | 16 GB급 일반 PC | `qwen3.5:4b` |
-| 24–32 GB Apple Silicon 또는 충분한 GPU | `qwen3.5:9b` |
-| 48 GB Apple Silicon 또는 24 GB급 NVIDIA VRAM | `qwen3.5:27b` |
-| 64 GB Apple Silicon 또는 32 GB급 NVIDIA VRAM | `qwen3.5:35b` |
+| 24–32 GB Apple Silicon | `qwen3.5:9b-mlx` |
+| 48 GB Apple Silicon | `qwen3.5:27b-mlx` |
+| 64 GB+ Apple Silicon | `qwen3.5:35b-mlx` |
+| 10–23 GB NVIDIA VRAM | `qwen3.5:9b` |
+| 24–31 GB NVIDIA VRAM | `qwen3.5:27b` |
+| 32 GB+ NVIDIA VRAM | `qwen3.5:35b` |
 
-Apple Silicon에서는 통합 메모리를, NVIDIA 환경에서는 감지 가능한 VRAM을 우선 참고합니다. 가속기를 확실히 감지하지 못한 PC에서는 시스템 RAM만 크다고 27B/35B를 자동으로 선택하지 않습니다. 검색 보강에는 `nomic-embed-text`를 사용합니다.
+Apple Silicon에서는 통합 메모리와 MLX용 모델을, NVIDIA 환경에서는 감지 가능한 VRAM을 우선 참고합니다. 가속기를 확실히 감지하지 못한 PC에서는 시스템 RAM만 크다고 27B/35B를 자동으로 선택하지 않습니다. 검색 보강에는 `nomic-embed-text`를 사용합니다.
 
 일반 사용자는 **설정 → AI 보조 기능**에서 준비 상태를 확인하는 것을 권장합니다. 명령줄로 직접 설치하려는 고급 사용자는 [로컬 AI 설정 가이드](docs/local-ai-setup.md)를 참고하세요.
 
