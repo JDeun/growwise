@@ -12,7 +12,8 @@ class OpenLibraryAdapter:
     SOURCE = "open_library"
     ATTRIBUTION = "Open Library (Internet Archive)"
     LICENSE_NOTE = (
-        "Open Library catalog metadata/API terms apply; verify edition text/cover rights before reuse"
+        "Open Library catalog metadata/API terms apply; "
+        "verify edition text/cover rights before reuse"
     )
 
     def __init__(
@@ -83,9 +84,17 @@ class OpenLibraryAdapter:
                 {
                     "id": key,
                     "title": title,
-                    "authors": ", ".join(str(v) for v in authors[:5]) if isinstance(authors, list) else "",
+                    "authors": (
+                        ", ".join(str(v) for v in authors[:5])
+                        if isinstance(authors, list)
+                        else ""
+                    ),
                     "first_publish_year": str(doc.get("first_publish_year") or ""),
-                    "subjects": [str(v) for v in subjects[:12]] if isinstance(subjects, list) else [],
+                    "subjects": (
+                        [str(v) for v in subjects[:12]]
+                        if isinstance(subjects, list)
+                        else []
+                    ),
                     "isbn": str(isbns[0]) if isinstance(isbns, list) and isbns else "",
                     "edition_count": int(doc.get("edition_count") or 0),
                     "source_url": f"https://openlibrary.org{key}",
