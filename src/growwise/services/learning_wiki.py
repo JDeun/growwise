@@ -12,6 +12,7 @@ from pydantic import BaseModel, Field
 from growwise.domain import LearningWiki
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.model import ModelProvider
+from growwise.rag import HybridRagIndex, chunk_resource
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
@@ -105,9 +106,15 @@ Distinguish an observed question/interest from an interpretation. next_connectio
 continuations supported by an explicit next_step/next_activity/open_question or by a repeated topic
 visible in the evidence; do not invent curriculum facts. Return the requested structured schema."""
 
-    def __init__(self, store: EntityStore, provider: ModelProvider | None = None) -> None:
+    def __init__(
+        self,
+        store: EntityStore,
+        provider: ModelProvider | None = None,
+        rag_index: HybridRagIndex | None = None,
+    ) -> None:
         self.store = store
         self.provider = provider
+        self.rag_index = rag_index
 
     @staticmethod
     def wiki_id(child_id: str) -> UUID:
@@ -128,6 +135,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         fingerprint = self._fingerprint(sources)
         existing = self.get(child_id)
         if existing is not None and existing.source_fingerprint == fingerprint and not force:
+            self._sync_rag(existing)
             return existing
 
         allowed_refs = {self._source_ref(payload) for payload in sources}
@@ -164,7 +172,11 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             if self.provider is not None
             else None
         )
-        provider_name = self.provider.__class__.__name__[:120] if self.provider is not None else None
+        provider_name = (
+            self.provider.__class__.__name__[:120]
+            if self.provider is not None
+            else None
+        )
         now = datetime.now(UTC)
 
         wiki = LearningWiki(
@@ -184,6 +196,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         )
         self.store.save(wiki, body=markdown)
         self._sync_source_links(wiki, sources)
+        self._sync_rag(wiki)
         return wiki
 
     def _sources(self, child_id: str) -> list[dict]:
@@ -320,7 +333,11 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         )
 
     @staticmethod
-    def _merge_items(primary: list[WikiItem], fallback: list[WikiItem], limit: int) -> list[WikiItem]:
+    def _merge_items(
+        primary: list[WikiItem],
+        fallback: list[WikiItem],
+        limit: int,
+    ) -> list[WikiItem]:
         merged: list[WikiItem] = []
         seen: set[str] = set()
         for item in [*primary, *fallback]:
@@ -472,6 +489,24 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             else:
                 parts.append("- 아직 충분한 기록이 없습니다.")
         return "\n".join(parts).strip()[:80_000]
+
+    def _sync_rag(self, wiki: LearningWiki) -> None:
+        if self.rag_index is None:
+            return
+        chunks = chunk_resource(
+            resource_id=str(wiki.id),
+            child_id=str(wiki.child_id),
+            title=wiki.title,
+            text=wiki.content_markdown,
+            source_url=None,
+            source_name="GrowWise Learning Wiki",
+            tags=["learning-wiki", "derived-context"],
+            recorded_at=wiki.rebuilt_at.isoformat(),
+        )
+        if chunks:
+            self.rag_index.replace_resource(chunks)
+        else:
+            self.rag_index.delete_resource(str(wiki.id))
 
     def _sync_source_links(self, wiki: LearningWiki, sources: list[dict]) -> None:
         service = EntityLinkService(self.store)
