@@ -37,6 +37,21 @@ def test_curriculum_watcher_ignores_known_official_revisions() -> None:
     assert watcher.check() == []
 
 
+def test_curriculum_watcher_recognizes_current_2026_school_notice() -> None:
+    watcher = OfficialCurriculumUpdateWatcher(
+        http=StubHtmlClient(  # type: ignore[arg-type]
+            ncic=(
+                '<a href="/bbs/current">'
+                "국가교육위원회 고시 제2026-1호 초중등학교 교육과정 고시"
+                "</a>"
+            ),
+            moe="",
+        )
+    )
+
+    assert watcher.check() == []
+
+
 def test_curriculum_watcher_surfaces_unknown_revision_candidates() -> None:
     watcher = OfficialCurriculumUpdateWatcher(
         http=StubHtmlClient(  # type: ignore[arg-type]
