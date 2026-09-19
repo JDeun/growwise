@@ -8,8 +8,6 @@ from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
 from urllib.request import Request, urlopen
 
-from pydantic import BaseModel
-
 from .provider import ModelProvider, T
 from .resilience import FailureCircuit
 
