@@ -88,6 +88,13 @@ _NATURE_TERMS = {
     "꽃",
 }
 _SPACE_TERMS = {"우주", "별", "달", "지구"}
+_NASA_TERMS = {
+    *_SPACE_TERMS,
+    "환경",
+    "날씨",
+    "계절",
+    "과학",
+}
 _SCIENCE_TERMS = {
     *_SPACE_TERMS,
     *_NATURE_TERMS,
@@ -166,71 +173,103 @@ class EducationDiscoveryService:
             source_states=source_states,
             offline=offline,
         )
-        self._collect_open_library(
-            query=english_query or public_query,
-            suggestions=suggestions,
-            source_states=source_states,
-            offline=offline,
-        )
-        self._collect_google_books(
-            query=public_query or english_query,
-            suggestions=suggestions,
-            source_states=source_states,
-            offline=offline,
-        )
+        if self.settings.public_enrichment_enabled:
+            self._collect_open_library(
+                query=english_query or public_query,
+                suggestions=suggestions,
+                source_states=source_states,
+                offline=offline,
+            )
+            self._collect_google_books(
+                query=public_query or english_query,
+                suggestions=suggestions,
+                source_states=source_states,
+                offline=offline,
+            )
+        else:
+            source_states.extend(
+                [
+                    DiscoverySourceState(
+                        source=OpenLibraryAdapter.SOURCE,
+                        enabled=False,
+                        status="disabled",
+                    ),
+                    DiscoverySourceState(
+                        source=GoogleBooksAdapter.SOURCE,
+                        enabled=False,
+                        status="disabled",
+                    ),
+                ]
+            )
 
         # General factual/reference enrichment.
-        self._collect_wikipedia(
-            query=public_query,
-            suggestions=suggestions,
-            source_states=source_states,
-            offline=offline,
-        )
-        self._collect_wikidata(
-            query=public_query,
-            suggestions=suggestions,
-            source_states=source_states,
-            offline=offline,
-        )
-        self._collect_commons(
-            query=english_query or public_query,
-            suggestions=suggestions,
-            source_states=source_states,
-            offline=offline,
-        )
-
-        # Science/nature sources are called only when the allow-listed topic warrants them.
-        if set(public_terms) & _SCIENCE_TERMS:
-            self._collect_nasa(
+        if self.settings.public_enrichment_enabled:
+            self._collect_wikipedia(
+                query=public_query,
+                suggestions=suggestions,
+                source_states=source_states,
+                offline=offline,
+            )
+            self._collect_wikidata(
+                query=public_query,
+                suggestions=suggestions,
+                source_states=source_states,
+                offline=offline,
+            )
+            self._collect_commons(
                 query=english_query or public_query,
                 suggestions=suggestions,
                 source_states=source_states,
                 offline=offline,
             )
-        else:
-            source_states.append(
-                DiscoverySourceState(
-                    source=NasaImagesAdapter.SOURCE,
-                    enabled=True,
-                    status="not_relevant",
-                )
-            )
 
-        if set(public_terms) & _NATURE_TERMS:
-            self._collect_gbif(
-                query=english_query or public_query,
-                suggestions=suggestions,
-                source_states=source_states,
-                offline=offline,
-            )
-        else:
-            source_states.append(
-                DiscoverySourceState(
-                    source=GbifSpeciesAdapter.SOURCE,
-                    enabled=True,
-                    status="not_relevant",
+            # Science/nature sources are called only when the allow-listed topic warrants them.
+            if set(public_terms) & _NASA_TERMS:
+                self._collect_nasa(
+                    query=english_query or public_query,
+                    suggestions=suggestions,
+                    source_states=source_states,
+                    offline=offline,
                 )
-            )
+            else:
+                source_states.append(
+                    DiscoverySourceState(
+                        source=NasaImagesAdapter.SOURCE,
+                        enabled=True,
+                        status="not_relevant",
+                    )
+                )
+
+            if set(public_terms) & _NATURE_TERMS:
+                self._collect_gbif(
+                    query=english_query or public_query,
+                    suggestions=suggestions,
+                    source_states=source_states,
+                    offline=offline,
+                )
+            else:
+                source_states.append(
+                    DiscoverySourceState(
+                        source=GbifSpeciesAdapter.SOURCE,
+                        enabled=True,
+                        status="not_relevant",
+                    )
+                )
+        else:
+            for source in (
+                WikipediaAdapter.SOURCE,
+                WikidataAdapter.SOURCE,
+                WikimediaCommonsAdapter.SOURCE,
+                NasaImagesAdapter.SOURCE,
+                GbifSpeciesAdapter.SOURCE,
+            ):
+                source_states.append(
+                    DiscoverySourceState(
+                        source=source,
+                        enabled=False,
+                        status="disabled",
+                    )
+                )
 
         self._collect_places(
             latitude=latitude,
