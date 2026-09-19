@@ -110,6 +110,8 @@ def resolve_external_curriculum_version(
     grade = child.grade_on(reference)
     candidates: list[tuple[date, CurriculumResolution]] = []
     builtin = resolve_curriculum_version(child, on_date=reference)
+    if grade is None and stage in {Stage.ELEMENTARY, Stage.MIDDLE, Stage.HIGH}:
+        return None
     builtin_notice_order = _notice_order(builtin.source_ref)
 
     for record in records:
@@ -273,6 +275,7 @@ def _amendment_2026_start_for_grade(grade: int) -> date | None:
         return date(2028, 3, 1)
     return None
 
+
 def _school_resolution_for_stage(stage: Stage, reference: date) -> CurriculumResolution:
     grades = tuple(
         {
@@ -293,9 +296,9 @@ def _school_resolution_for_stage(stage: Stage, reference: date) -> CurriculumRes
             revision=common.revision,
             source_ref=common.source_ref,
             effective_from=min(
-                item.effective_from
+                effective
                 for item in resolved
-                if item.effective_from is not None
+                if (effective := item.effective_from) is not None
             ),
             precision="stage_common",
             transition_note=(
@@ -315,6 +318,7 @@ def _school_resolution_for_stage(stage: Stage, reference: date) -> CurriculumRes
             "정확한 적용을 위해 생년월일 또는 학년 정보를 입력해야 합니다."
         ),
     )
+
 
 def _trusted_source_url(value: str) -> bool:
     if not value:
