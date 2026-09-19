@@ -83,10 +83,7 @@ class MuseumArtGalleryAdapter:
         response = payload.get("response")
         body = response.get("body") if isinstance(response, dict) else None
         items = body.get("items") if isinstance(body, dict) else None
-        if isinstance(items, dict):
-            raw = items.get("item")
-        else:
-            raw = items
+        raw = items.get("item") if isinstance(items, dict) else items
         if not isinstance(raw, list):
             return []
 
@@ -118,7 +115,11 @@ class MuseumArtGalleryAdapter:
                     "introduction": str(item.get("fcltyIntrcn") or "")[:8_000],
                     "closed_days": str(item.get("rstdeInfo") or ""),
                     "child_fee": str(item.get("childChrge") or ""),
-                    "institution": str(item.get("operInstitutionNm") or item.get("institutionNm") or ""),
+                    "institution": str(
+                        item.get("operInstitutionNm")
+                        or item.get("institutionNm")
+                        or ""
+                    ),
                 }
             )
         return records
