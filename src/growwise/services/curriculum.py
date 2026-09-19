@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import date
 from typing import Protocol
 
 from growwise.adapters import curriculum_records_to_resources
@@ -49,8 +50,9 @@ class CurriculumGroundedMaterialService:
         offline: bool = False,
         persist_resource: Callable[[ResourceRecord], None] | None = None,
     ) -> tuple[GeneratedMaterial, list[ResourceRecord]]:
+        effective_stage = child.stage_on(date.today())
         result = self.curriculum.search(
-            stage=child.stage.value,
+            stage=effective_stage.value,
             subject=subject,
             query=topic,
             offline=offline,
