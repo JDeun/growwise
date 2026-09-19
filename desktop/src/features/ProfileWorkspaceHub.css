@@ -55,7 +55,7 @@
 .profile-content-card {
   min-width: 0;
   border: 1px solid rgba(43, 42, 40, .08);
-  border-radius: 17px;
+  border-radius: var(--product-panel-radius);
   background: #fff;
   box-shadow: 0 8px 24px rgba(47, 66, 58, .035);
 }
