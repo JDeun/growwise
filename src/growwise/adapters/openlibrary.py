@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any
 
-from .base import AdapterResult
+from .base import AdapterResult, ExternalUnavailable
 from .cache import SQLiteExternalCache
 from .cached_search import cached_search, stable_cache_key
 from .http import JsonHttpClient
 
 
 class OpenLibraryAdapter:
-    SOURCE = "open_library"
+    """Quarantined live adapter; production discovery does not wire this source.\n\n    Live calls are default-denied because GrowWise's commercial-safe policy permits only\n    separately reviewed offline metadata/dumps from Open Library. The explicit opt-in exists\n    for migration tests and non-production diagnostics only.\n    """\n    SOURCE = "open_library"
     ATTRIBUTION = "Open Library (Internet Archive)"
     LICENSE_NOTE = (
         "Open Library catalog metadata/API terms apply; "
@@ -39,7 +39,7 @@ class OpenLibraryAdapter:
         offline: bool = False,
     ) -> AdapterResult:
         if not self.allow_live_api:
-            raise RuntimeError(
+            raise ExternalUnavailable(
                 "Open Library live API is disabled by GrowWise commercial-use policy; "
                 "use commercial-safe offline metadata or another approved source"
             )
