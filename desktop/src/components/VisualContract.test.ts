@@ -88,6 +88,9 @@ describe("visual accessibility contracts", () => {
       "grid-template-columns: var(--product-sidebar-width) minmax(0, 1fr)",
     );
     expect(shellCss).toContain("min-height: var(--product-topbar-height)");
+    expect(shellCss).toContain("width: min(420px, 42vw)");
+    expect(shellCss).toContain("border-radius: 999px");
+    expect(shellCss).toContain("width: 42px");
   });
 
   it("locks concept-derived desktop workspace proportions", () => {
@@ -97,6 +100,8 @@ describe("visual accessibility contracts", () => {
     expect(profileCss).toContain(
       "grid-template-columns: minmax(250px, .80fr) minmax(0, 2.20fr)",
     );
+    expect(profileCss).toContain("width: 112px");
+    expect(profileCss).toContain("height: 112px");
     expect(learningCss).toContain(
       "grid-template-columns: minmax(210px, 0.72fr) minmax(260px, 0.92fr) minmax(360px, 1.36fr)",
     );
