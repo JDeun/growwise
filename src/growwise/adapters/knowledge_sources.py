@@ -44,14 +44,21 @@ class NasaMediaAdapter(CachedSearchAdapter):
             links = self.list_of_dicts(item.get("links"))
             preview = self.text(links[0].get("href")) if links else ""
             keywords = meta.get("keywords")
-            keyword_values = [self.text(v) for v in keywords if self.text(v)] if isinstance(keywords, list) else []
+            keyword_values = (
+                [self.text(value) for value in keywords if self.text(value)]
+                if isinstance(keywords, list)
+                else []
+            )
             records.append(
                 {
                     "source_key": self.text(meta.get("nasa_id")) or title,
                     "title": title,
                     "summary": self.text(meta.get("description"))[:4_000] or None,
                     "url": self.text(item.get("href")) or preview or None,
-                    "author": self.text(meta.get("photographer") or meta.get("secondary_creator")) or None,
+                    "author": self.text(
+                        meta.get("photographer") or meta.get("secondary_creator")
+                    )
+                    or None,
                     "resource_kind": "web",
                     "tags": ["과학", "우주", "NASA", *keyword_values[:4]],
                     "metadata": {
@@ -381,7 +388,7 @@ class NominatimAdapter(CachedSearchAdapter):
                 continue
             normalized.append(
                 {
-                    "source_key": f"{self.text(item.get('osm_type'))}:{osm_id}" or title,
+                    "source_key": f"{self.text(item.get('osm_type'))}:{osm_id}",
                     "title": title,
                     "summary": self.text(item.get("type")) or None,
                     "url": None,
