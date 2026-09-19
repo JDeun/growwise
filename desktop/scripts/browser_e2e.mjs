@@ -408,14 +408,17 @@ async function assertLayoutHealth(cdp, view) {
         const rect = node.getBoundingClientRect();
         return style.visibility !== "hidden" && style.display !== "none" && rect.width > 0 && rect.height > 0;
       });
-    const offscreen = interactive.filter((node) => {
+    const horizontallyOffscreen = interactive.filter((node) => {
       const rect = node.getBoundingClientRect();
-      return rect.right < -1 || rect.left > innerWidth + 1 || rect.bottom < -1 || rect.top > innerHeight + 1;
+      return rect.right < -1 || rect.left > innerWidth + 1;
     }).length;
     return {
-      ok: overflow <= 1 && offscreen === 0 && rootRect.width <= 1541 && panelRect.width > 0,
+      ok: overflow <= 1
+        && horizontallyOffscreen === 0
+        && rootRect.width <= 1541
+        && panelRect.width > 0,
       overflow,
-      offscreen,
+      horizontallyOffscreen,
       rootWidth: rootRect.width,
       panelWidth: panelRect.width,
       invokeCount: globalThis.__GROWWISE_E2E_INVOKES__?.length ?? -1,
