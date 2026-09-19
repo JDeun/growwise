@@ -87,7 +87,9 @@ jobs:
       - name: Python vulnerability audit
         run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-runtime.txt
       - name: Python license inventory
-        run: uv run --locked --extra hygiene pip-licenses --format=markdown --with-urls
+        run: uv run --locked --extra hygiene pip-licenses --format=json --with-urls > /tmp/growwise-python-licenses.json
+      - name: Enforce Python license policy
+        run: python scripts/check_license_policy.py --ecosystem python --input /tmp/growwise-python-licenses.json
 
   desktop-frontend:
     runs-on: ubuntu-latest
@@ -105,6 +107,8 @@ jobs:
         run: npm ci --no-audit --no-fund
       - name: Node vulnerability audit
         run: npm audit --audit-level=high
+      - name: Enforce Node license policy
+        run: python ../scripts/check_license_policy.py --ecosystem node-lock --input package-lock.json
       - name: Lint
         run: npm run lint
       - name: Test
@@ -138,7 +142,9 @@ jobs:
         run: cargo fmt --all -- --check
       - name: Verify locked Rust dependency graph
         working-directory: desktop/src-tauri
-        run: cargo metadata --locked --format-version=1 --no-deps > /dev/null
+        run: cargo metadata --locked --format-version=1 > /tmp/growwise-cargo-metadata.json
+      - name: Enforce Rust license policy
+        run: python scripts/check_license_policy.py --ecosystem cargo --input /tmp/growwise-cargo-metadata.json
       - name: Install pinned cargo-audit
         run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Rust vulnerability audit
