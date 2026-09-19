@@ -103,39 +103,51 @@ class OfficialKoreanCurriculumCatalogAdapter:
         ),
         CurriculumRecord(
             curriculum_id="kr-national-2022-elementary",
-            title="2022 개정 초·중등학교 교육과정(2024 일부개정) 고시 안내",
+            title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="elementary",
-            source_url="https://ncic.go.kr/board/B0033.cs?act=read&bwrId=2116&pageIndex=1&pageUnit=10",
+            source_url=(
+                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
+                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
+            ),
             metadata={
                 "provider": "교육부·NCIC",
-                "official_notice": "국가교육위원회고시 제2024-3호",
-                "base_notice": "교육부고시 제2022-33호",
+                "official_notice": "국가교육위원회고시 제2026-1호",
+                "base_notice": "국가교육위원회고시 제2024-3호",
+                "activation_policy": "grade_resolver",
                 "document_type": "notice",
                 "content_policy": "link_only",
             },
         ),
         CurriculumRecord(
             curriculum_id="kr-national-2022-middle",
-            title="2022 개정 초·중등학교 교육과정(2024 일부개정) 고시 안내",
+            title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="middle",
-            source_url="https://ncic.go.kr/board/B0033.cs?act=read&bwrId=2116&pageIndex=1&pageUnit=10",
+            source_url=(
+                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
+                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
+            ),
             metadata={
                 "provider": "교육부·NCIC",
-                "official_notice": "국가교육위원회고시 제2024-3호",
-                "base_notice": "교육부고시 제2022-33호",
+                "official_notice": "국가교육위원회고시 제2026-1호",
+                "base_notice": "국가교육위원회고시 제2024-3호",
+                "activation_policy": "grade_resolver",
                 "document_type": "notice",
                 "content_policy": "link_only",
             },
         ),
         CurriculumRecord(
             curriculum_id="kr-national-2022-high",
-            title="2022 개정 초·중등학교 교육과정(2024 일부개정) 고시 안내",
+            title="초·중등학교 교육과정 2026 일부개정 고시 안내",
             stage="high",
-            source_url="https://ncic.go.kr/board/B0033.cs?act=read&bwrId=2116&pageIndex=1&pageUnit=10",
+            source_url=(
+                "https://www.ne.go.kr/user/bbs/BD_selectBbs.do?"
+                "q_bbsDocNo=20260121102419070&q_bbsSn=1016"
+            ),
             metadata={
                 "provider": "교육부·NCIC",
-                "official_notice": "국가교육위원회고시 제2024-3호",
-                "base_notice": "교육부고시 제2022-33호",
+                "official_notice": "국가교육위원회고시 제2026-1호",
+                "base_notice": "국가교육위원회고시 제2024-3호",
+                "activation_policy": "grade_resolver",
                 "document_type": "notice",
                 "content_policy": "link_only",
             },
