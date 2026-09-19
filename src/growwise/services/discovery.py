@@ -1187,7 +1187,10 @@ class EducationDiscoveryService:
                     category=DiscoveryCategory.MEDIA,
                     resource_kind=ResourceKind.WEB,
                     title=title,
-                    summary=description[:1_500] or "상업적 재사용 조건을 통과한 Wikimedia Commons 이미지",
+                    summary=(
+                        description[:1_500]
+                        or "상업적 재사용 조건을 통과한 Wikimedia Commons 이미지"
+                    ),
                     content=description or None,
                     source_url=self._optional_text(record.get("source_url")),
                     author=self._optional_text(record.get("artist")),
@@ -1267,7 +1270,9 @@ class EducationDiscoveryService:
                     attribution=result.attribution,
                     license_note=result.license_note,
                     cache_status=result.cache_status,
-                    rationale="실제 NASA 이미지·설명으로 관찰과 과학 질문을 만들 수 있는 후보입니다.",
+                    rationale=(
+                        "실제 NASA 이미지·설명으로 관찰과 과학 질문을 만들 수 있는 후보입니다."
+                    ),
                     query=query,
                     tags=["NASA", "과학", *keyword_list[:5]],
                     metadata={
