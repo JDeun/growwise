@@ -65,7 +65,12 @@ class GbifSpeciesAdapter:
             if not isinstance(item, dict):
                 continue
             key = item.get("key") or item.get("nubKey")
-            title = str(item.get("vernacularName") or item.get("canonicalName") or item.get("scientificName") or "").strip()
+            title = str(
+                item.get("vernacularName")
+                or item.get("canonicalName")
+                or item.get("scientificName")
+                or ""
+            ).strip()
             if key is None or not title:
                 continue
             records.append(
