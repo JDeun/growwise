@@ -624,7 +624,6 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                             새 편집본 만들기
                           </button>
                         </div>
-                        <MaterialResultPanel material={material} onRecorded={onResultRecorded} />
                       </article>
                     ))
                   )}
