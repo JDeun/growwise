@@ -9,12 +9,18 @@ from typing import Any
 import pytest
 
 from growwise.adapters import (
+    CuratedEducationCatalogAdapter,
     Data4LibraryAdapter,
     ExternalAdapterError,
     ExternalUnavailable,
     GbifSpeciesAdapter,
     GoogleBooksAdapter,
+    HeritagePalaceAdapter,
+    KmaWeatherAdapter,
+    KrDictAdapter,
+    MuseumArtGalleryAdapter,
     NasaImagesAdapter,
+    NationalLibraryIsbnAdapter,
     OpenLibraryAdapter,
     OverpassAdapter,
     SQLiteExternalCache,
@@ -443,3 +449,125 @@ def test_commons_drops_noncommercial_and_unknown_media(tmp_path: Path) -> None:
     result = adapter.search_images(query="moon")
     assert [item["title"] for item in result.records] == ["Safe.jpg"]
     assert result.records[0]["license"] == "cc-by"
+
+def test_national_library_normalizes_bibliographic_payload() -> None:
+    records = NationalLibraryIsbnAdapter._normalize(
+        {
+            "docs": [
+                {
+                    "TITLE": "별과 우주",
+                    "AUTHOR": "테스트 저자",
+                    "PUBLISHER": "테스트 출판사",
+                    "EA_ISBN": "9780000000002",
+                    "PUBLISH_DATE": "2026",
+                }
+            ]
+        }
+    )
+    assert records == [
+        {
+            "id": "9780000000002",
+            "title": "별과 우주",
+            "author": "테스트 저자",
+            "publisher": "테스트 출판사",
+            "isbn13": "9780000000002",
+            "publish_date": "2026",
+            "keywords": "",
+            "language": "",
+            "source_url": "https://www.nl.go.kr/",
+        }
+    ]
+
+
+def test_krdict_normalizes_dictionary_xml() -> None:
+    records = KrDictAdapter._normalize(
+        """
+        <channel>
+          <item>
+            <target_code>100</target_code>
+            <word>별</word>
+            <pronunciation>별</pronunciation>
+            <pos>명사</pos>
+            <sense><definition>밤하늘에 빛나는 천체.</definition></sense>
+            <link>https://krdict.korean.go.kr/example</link>
+          </item>
+        </channel>
+        """
+    )
+    assert records[0]["id"] == "100"
+    assert records[0]["title"] == "별"
+    assert records[0]["definitions"] == ["밤하늘에 빛나는 천체."]
+
+
+def test_kma_weather_normalizes_current_conditions() -> None:
+    records = KmaWeatherAdapter._normalize(
+        {
+            "response": {
+                "body": {
+                    "items": {
+                        "item": [
+                            {"category": "T1H", "obsrValue": "24.5"},
+                            {"category": "REH", "obsrValue": "55"},
+                            {"category": "RN1", "obsrValue": "0"},
+                        ]
+                    }
+                }
+            }
+        },
+        base_date="20260919",
+        base_time="1100",
+        nx=60,
+        ny=121,
+    )
+    assert records[0]["temperature_c"] == "24.5"
+    assert records[0]["humidity_pct"] == "55"
+    assert records[0]["rainfall_mm"] == "0"
+
+
+def test_museum_standard_normalizes_geocoded_facilities() -> None:
+    records = MuseumArtGalleryAdapter._normalize(
+        {
+            "response": {
+                "body": {
+                    "items": [
+                        {
+                            "fcltyNm": "어린이 박물관",
+                            "rdnmadr": "경기도 테스트시 1",
+                            "latitude": "37.1",
+                            "longitude": "127.1",
+                            "fcltyIntrcn": "관찰 활동을 할 수 있는 박물관",
+                        }
+                    ]
+                }
+            }
+        }
+    )
+    assert records[0]["title"] == "어린이 박물관"
+    assert records[0]["latitude"] == 37.1
+    assert records[0]["longitude"] == 127.1
+
+
+def test_heritage_palace_normalizes_public_xml() -> None:
+    records = HeritagePalaceAdapter._normalize(
+        """
+        <result>
+          <item>
+            <serial_number>1</serial_number>
+            <detail_code>A</detail_code>
+            <contents_kor>근정전</contents_kor>
+            <explanation_kor>궁궐 건축을 관찰할 수 있다.</explanation_kor>
+          </item>
+        </result>
+        """,
+        palace_number=1,
+    )
+    assert records[0]["id"] == "1:1:A"
+    assert records[0]["title"] == "근정전"
+
+
+def test_curated_catalog_only_returns_topic_relevant_official_links() -> None:
+    result = CuratedEducationCatalogAdapter().search(terms=["우주"])
+    ids = {str(record["id"]) for record in result.records}
+    assert "nasa-kids-club" in ids
+    assert "storyweaver" not in ids
+
