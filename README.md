@@ -440,6 +440,7 @@ GET    /health
 
 | 문서 | 내용 |
 | --- | --- |
+| **[docs/README.md](docs/README.md)** | **문서 전체 인덱스와 현재 IA 문서화 규칙** |
 | **[docs/user-guide.md](docs/user-guide.md)** | **화면별 사용법과 대표 사용자 시나리오** |
 | **[docs/pedagogy.md](docs/pedagogy.md)** | **교육 원칙과 제품 철학** |
 | [docs/vision.md](docs/vision.md) | 제품 비전·LLM 역할·성공 기준 |
