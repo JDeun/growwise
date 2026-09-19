@@ -624,7 +624,7 @@ until Parent Review approves it. Return the requested structured schema only."""
             MaterialKind.WRITING_PROMPT: "맞춤법보다 먼저 아이가 자신의 생각을 끝까지 표현하도록 돕습니다.",
             MaterialKind.FIELD_TRIP: "모든 문항을 채우기보다 실제로 관심을 보인 대상과 질문을 우선합니다.",
         }
-        domains = ", ".join(dict.fromkeys(target.domain for target in curriculum_targets)) or "일반 탐구"
+        domains = (\n            ", ".join(dict.fromkeys(target.domain for target in curriculum_targets))\n            or "일반 탐구"\n        )
         materials = "\n".join(f"- [ ] {item}" for item in cls._preparation_items(kind))
         source_lines = cls._source_reference_lines(
             source_refs=source_refs,
