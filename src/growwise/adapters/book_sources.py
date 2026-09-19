@@ -29,7 +29,11 @@ class GoogleBooksAdapter(CachedSearchAdapter):
             if not title:
                 continue
             authors = info.get("authors")
-            author_text = ", ".join(str(v).strip() for v in authors if str(v).strip()) if isinstance(authors, list) else ""
+            author_text = (
+                ", ".join(str(value).strip() for value in authors if str(value).strip())
+                if isinstance(authors, list)
+                else ""
+            )
             identifiers = self.list_of_dicts(info.get("industryIdentifiers"))
             isbn = ""
             for identifier in identifiers:
