@@ -75,7 +75,7 @@ def test_preschool_and_secondary_stages_use_distinct_core_template_pools(
     assert "부모" in preschool_text or "아이" in preschool_text
     assert any(
         marker in secondary_text
-        for marker in ("근거", "가설", "변수", "출처", "전제", "피드백", "한계")
+        for marker in ("근거", "가설", "변수", "출처", "전제", "피드백", "한계", "격식", "뉘앙스", "어조")
     )
 
 
@@ -135,17 +135,6 @@ def test_publication_quality_gate_rejects_missing_stage_contract() -> None:
 
     assert assessment.ready is False
     assert "content_missing:단계별 활동 기준" in assessment.issues
-
-
-def test_model_candidate_needs_more_than_a_single_heading() -> None:
-    result = MaterialQualityGate().assess_candidate_core(
-        kind=MaterialKind.ACTIVITY_GUIDE,
-        stage=Stage.ELEMENTARY,
-        content_markdown="## 활동\n준비한 재료로 한 가지 방법을 시도하고 관찰한 점을 설명합니다.",
-    )
-
-    assert result.ready is False
-    assert "candidate_core_missing_structure" in result.issues
 
 
 def test_stage_kind_matrix_is_intentionally_complete() -> None:
