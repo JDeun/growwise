@@ -18,6 +18,10 @@ _TRUSTED_CURRICULUM_HOSTS = frozenset(
         "www.moe.go.kr",
         "ncic.go.kr",
         "www.ncic.go.kr",
+        "ncic.re.kr",
+        "www.ncic.re.kr",
+        "law.go.kr",
+        "www.law.go.kr",
         "ne.go.kr",
         "www.ne.go.kr",
         "i-nuri.go.kr",
@@ -105,6 +109,8 @@ def resolve_external_curriculum_version(
     stage = child.stage_on(reference)
     grade = child.grade_on(reference)
     candidates: list[tuple[date, CurriculumResolution]] = []
+    builtin = resolve_curriculum_version(child, on_date=reference)
+    builtin_notice_order = _notice_order(builtin.source_ref)
 
     for record in records:
         if str(record.get("stage", "")).strip() != stage.value:
@@ -139,6 +145,14 @@ def resolve_external_curriculum_version(
             continue
         if grade is None and grades:
             # Grade-scoped updates cannot safely activate when the profile only tells us a stage.
+            continue
+        notice_order = _notice_order(notice)
+        if (
+            builtin_notice_order is not None
+            and notice_order is not None
+            and notice_order < builtin_notice_order
+        ):
+            # A live endpoint may be stale. Never let it downgrade a newer bundled official notice.
             continue
 
         candidates.append(
@@ -176,22 +190,15 @@ def school_transition_start(grade: int) -> date:
 def _school_resolution_for_grade(grade: int, reference: date) -> CurriculumResolution:
     transition = school_transition_start(grade)
     if reference >= transition:
-        if reference >= date(2025, 3, 1):
-            return CurriculumResolution(
-                framework="2022 개정 초·중등학교 교육과정(2024 일부개정)",
-                revision="2022-rev-2024-3",
-                source_ref="국가교육위원회고시 제2024-3호",
-                effective_from=max(transition, date(2025, 3, 1)),
-                grade=grade,
-                precision="grade",
-            )
+        latest = _latest_2022_revision_for_grade(grade, reference, transition)
         return CurriculumResolution(
-            framework="2022 개정 초·중등학교 교육과정",
-            revision="2022",
-            source_ref="교육부고시 제2022-33호",
-            effective_from=transition,
+            framework=latest.framework,
+            revision=latest.revision,
+            source_ref=latest.source_ref,
+            effective_from=latest.effective_from,
             grade=grade,
             precision="grade",
+            transition_note=latest.transition_note,
         )
 
     source_ref = (
@@ -218,45 +225,96 @@ def _school_resolution_for_grade(grade: int, reference: date) -> CurriculumResol
     )
 
 
-def _school_resolution_for_stage(stage: Stage, reference: date) -> CurriculumResolution:
-    grades = {
-        Stage.ELEMENTARY: range(1, 7),
-        Stage.MIDDLE: range(7, 10),
-        Stage.HIGH: range(10, 13),
-    }[stage]
-    families = {
-        "2022" if reference >= school_transition_start(grade) else "2015"
-        for grade in grades
-    }
-    if len(families) == 1:
-        family = next(iter(families))
-        representative = min(grades) if family == "2022" else max(grades)
-        resolved = _school_resolution_for_grade(representative, reference)
+def _latest_2022_revision_for_grade(
+    grade: int,
+    reference: date,
+    transition: date,
+) -> CurriculumResolution:
+    amendment_2026_start = _amendment_2026_start_for_grade(grade)
+    if amendment_2026_start is not None and reference >= amendment_2026_start:
         return CurriculumResolution(
-            framework=resolved.framework,
-            revision=resolved.revision,
-            source_ref=resolved.source_ref,
-            effective_from=resolved.effective_from,
-            effective_to=resolved.effective_to,
+            framework="2022 개정 초·중등학교 교육과정(2026 일부개정)",
+            revision="2022-rev-2026-1",
+            source_ref="국가교육위원회고시 제2026-1호",
+            effective_from=amendment_2026_start,
+            grade=grade,
+            precision="grade",
+            transition_note=(
+                "국가교육위원회고시 제2026-1호의 학년별 시행일을 적용했습니다."
+            ),
+        )
+
+    if reference >= date(2025, 3, 1):
+        return CurriculumResolution(
+            framework="2022 개정 초·중등학교 교육과정(2024 일부개정)",
+            revision="2022-rev-2024-3",
+            source_ref="국가교육위원회고시 제2024-3호",
+            effective_from=max(transition, date(2025, 3, 1)),
+            grade=grade,
+            precision="grade",
+        )
+
+    return CurriculumResolution(
+        framework="2022 개정 초·중등학교 교육과정",
+        revision="2022",
+        source_ref="교육부고시 제2022-33호",
+        effective_from=transition,
+        grade=grade,
+        precision="grade",
+    )
+
+
+def _amendment_2026_start_for_grade(grade: int) -> date | None:
+    if grade in {10, 11}:
+        return date(2026, 3, 1)
+    if grade == 12:
+        return date(2027, 3, 1)
+    if grade in {1, 2}:
+        return date(2028, 3, 1)
+    return None
+
+def _school_resolution_for_stage(stage: Stage, reference: date) -> CurriculumResolution:
+    grades = tuple(
+        {
+            Stage.ELEMENTARY: range(1, 7),
+            Stage.MIDDLE: range(7, 10),
+            Stage.HIGH: range(10, 13),
+        }[stage]
+    )
+    resolved = [_school_resolution_for_grade(grade, reference) for grade in grades]
+    signatures = {
+        (item.revision, item.source_ref, item.framework)
+        for item in resolved
+    }
+    if len(signatures) == 1:
+        common = resolved[0]
+        return CurriculumResolution(
+            framework=common.framework,
+            revision=common.revision,
+            source_ref=common.source_ref,
+            effective_from=min(
+                item.effective_from
+                for item in resolved
+                if item.effective_from is not None
+            ),
             precision="stage_common",
             transition_note=(
-                "학년 정보는 없지만 이 학교급의 모든 학년에 같은 교육과정 계열이 "
+                "학년 정보는 없지만 이 학교급의 모든 학년에 같은 교육과정 개정본이 "
                 "적용되는 시점입니다."
             ),
         )
 
     return CurriculumResolution(
-        framework="2015·2022 개정 초·중등학교 교육과정 전환기",
+        framework="학년별 교육과정 전환·개정 적용이 다른 학교급",
         revision="transition-unresolved",
-        source_ref="국가교육위원회고시 제2024-1호·제2024-3호",
+        source_ref="공식 교육과정 학년별 적용 확인 필요",
         effective_from=None,
         precision="stage_transition",
         transition_note=(
-            "현재 학교급은 학년별 교육과정 전환기입니다. 정확한 교육과정 적용을 위해 "
-            "생년월일 또는 학년 정보를 입력해야 합니다."
+            "현재 학교급은 학년별 교육과정 계열 또는 개정본의 적용 시점이 다릅니다. "
+            "정확한 적용을 위해 생년월일 또는 학년 정보를 입력해야 합니다."
         ),
     )
-
 
 def _trusted_source_url(value: str) -> bool:
     if not value:
@@ -272,9 +330,21 @@ def _trusted_source_url(value: str) -> bool:
 
 def _normalize_notice(value: str) -> str:
     normalized = " ".join(value.split()).replace("제 ", "제")
+    normalized = normalized.replace("국가교육위원회 고시", "국가교육위원회고시")
+    normalized = normalized.replace("교육부 고시", "교육부고시")
     if not _NOTICE_RE.fullmatch(normalized):
         return ""
     return normalized
+
+
+def _notice_order(value: str) -> tuple[int, int] | None:
+    normalized = _normalize_notice(value)
+    if not normalized:
+        return None
+    match = re.search(r"제(\d{4})-(\d+)호$", normalized)
+    if match is None:
+        return None
+    return int(match.group(1)), int(match.group(2))
 
 
 def _date_value(value: object) -> date | None:
