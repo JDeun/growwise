@@ -40,6 +40,7 @@ _FORBIDDEN_ANSWER_MARKERS = (
 _ENTITY_TEXT_LIMIT = 12_000
 _CONTEXT_ENTITY_TYPES = (
     "learning_log",
+    "learning_wiki",
     "activity_plan",
     "study_unit_progress",
     "mistake_record",
