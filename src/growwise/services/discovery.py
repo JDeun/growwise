@@ -9,11 +9,17 @@ from uuid import uuid5
 from pydantic import BaseModel, Field
 
 from growwise.adapters import (
+    CuratedEducationCatalogAdapter,
     Data4LibraryAdapter,
     ExternalAdapterError,
     GbifSpeciesAdapter,
     GoogleBooksAdapter,
+    HeritagePalaceAdapter,
+    KmaWeatherAdapter,
+    KrDictAdapter,
+    MuseumArtGalleryAdapter,
     NasaImagesAdapter,
+    NationalLibraryIsbnAdapter,
     OfficialKoreanCurriculumCatalogAdapter,
     OpenLibraryAdapter,
     OverpassAdapter,
@@ -110,6 +116,9 @@ _SCIENCE_TERMS = {
     "실험",
     "관찰",
 }
+_HERITAGE_TERMS = {"역사", "한국사", "문화", "박물관"}
+_WEATHER_TERMS = {"날씨", "계절", "환경", "과학", "관찰"}
+
 
 
 class EducationDiscoveryService:
@@ -173,6 +182,23 @@ class EducationDiscoveryService:
             source_states=source_states,
             offline=offline,
         )
+        self._collect_national_library(
+            query=public_query,
+            suggestions=suggestions,
+            source_states=source_states,
+            offline=offline,
+        )
+        self._collect_krdict(
+            query=public_query,
+            suggestions=suggestions,
+            source_states=source_states,
+            offline=offline,
+        )
+        self._collect_curated_catalog(
+            public_terms=public_terms,
+            suggestions=suggestions,
+            source_states=source_states,
+        )
         if self.settings.public_enrichment_enabled:
             self._collect_open_library(
                 query=english_query or public_query,
@@ -223,6 +249,22 @@ class EducationDiscoveryService:
                 offline=offline,
             )
 
+            if set(public_terms) & _HERITAGE_TERMS:
+                self._collect_heritage(
+                    query=public_query,
+                    suggestions=suggestions,
+                    source_states=source_states,
+                    offline=offline,
+                )
+            else:
+                source_states.append(
+                    DiscoverySourceState(
+                        source=HeritagePalaceAdapter.SOURCE,
+                        enabled=True,
+                        status="not_relevant",
+                    )
+                )
+
             # Science/nature sources are called only when the allow-listed topic warrants them.
             if set(public_terms) & _NASA_TERMS:
                 self._collect_nasa(
@@ -262,6 +304,7 @@ class EducationDiscoveryService:
                 WikimediaCommonsAdapter.SOURCE,
                 NasaImagesAdapter.SOURCE,
                 GbifSpeciesAdapter.SOURCE,
+                HeritagePalaceAdapter.SOURCE,
             ):
                 source_states.append(
                     DiscoverySourceState(
@@ -272,6 +315,21 @@ class EducationDiscoveryService:
                 )
 
         self._collect_places(
+            latitude=latitude,
+            longitude=longitude,
+            suggestions=suggestions,
+            source_states=source_states,
+            offline=offline,
+        )
+        self._collect_museums(
+            latitude=latitude,
+            longitude=longitude,
+            suggestions=suggestions,
+            source_states=source_states,
+            offline=offline,
+        )
+        self._collect_weather(
+            public_terms=public_terms,
             latitude=latitude,
             longitude=longitude,
             suggestions=suggestions,
@@ -574,6 +632,236 @@ class EducationDiscoveryService:
                         "publication_year": self._text(record.get("publication_year")),
                         "class_name": self._text(record.get("class_name")),
                     },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
+
+    def _collect_national_library(
+        self,
+        *,
+        query: str,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        api_key = (self.settings.national_library_api_key or "").strip()
+        if not api_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source=NationalLibraryIsbnAdapter.SOURCE,
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        if self._needs_query(
+            source=NationalLibraryIsbnAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
+            return
+        adapter = NationalLibraryIsbnAdapter(
+            api_key=api_key,
+            cache=self.cache,
+            endpoint=self.settings.national_library_isbn_endpoint,
+            ttl_seconds=self.settings.public_enrichment_cache_ttl_seconds,
+        )
+        try:
+            result = adapter.search_books(
+                query=query,
+                limit=self.settings.discovery_source_result_limit,
+                offline=offline,
+            )
+        except ExternalAdapterError as exc:
+            self._failed_source(
+                source=NationalLibraryIsbnAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
+            return
+        for record in result.records:
+            title = self._text(record.get("title"))
+            if not title:
+                continue
+            author = self._text(record.get("author"))
+            publisher = self._text(record.get("publisher"))
+            publish_date = self._text(record.get("publish_date"))
+            summary = " · ".join(
+                part for part in (author, publisher, publish_date) if part
+            )
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=self._text(record.get("id")) or title,
+                    category=DiscoveryCategory.BOOK,
+                    resource_kind=ResourceKind.BOOK,
+                    title=title,
+                    summary=summary or None,
+                    content=None,
+                    source_url=self._optional_text(record.get("source_url")),
+                    author=author or None,
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale="국립중앙도서관 서지정보에서 확인한 국내 도서 후보입니다.",
+                    query=query,
+                    tags=["도서", "국립중앙도서관"],
+                    metadata={
+                        "publisher": publisher,
+                        "publish_date": publish_date,
+                        "isbn13": self._text(record.get("isbn13")),
+                        "keywords": self._text(record.get("keywords")),
+                        "language": self._text(record.get("language")),
+                    },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
+
+    def _collect_krdict(
+        self,
+        *,
+        query: str,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        api_key = (self.settings.krdict_api_key or "").strip()
+        if not api_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source=KrDictAdapter.SOURCE,
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        if self._needs_query(
+            source=KrDictAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
+            return
+        adapter = KrDictAdapter(
+            api_key=api_key,
+            cache=self.cache,
+            endpoint=self.settings.krdict_endpoint,
+            ttl_seconds=self.settings.public_enrichment_cache_ttl_seconds,
+        )
+        try:
+            result = adapter.search(
+                query=query,
+                limit=self.settings.discovery_source_result_limit,
+                offline=offline,
+            )
+        except ExternalAdapterError as exc:
+            self._failed_source(
+                source=KrDictAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
+            return
+        for record in result.records:
+            title = self._text(record.get("title"))
+            if not title:
+                continue
+            raw_definitions = record.get("definitions")
+            definitions = (
+                [str(value) for value in raw_definitions[:4]]
+                if isinstance(raw_definitions, list)
+                else []
+            )
+            definition_text = "\n".join(definitions)
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=self._text(record.get("id")) or title,
+                    category=DiscoveryCategory.REFERENCE,
+                    resource_kind=ResourceKind.WEB,
+                    title=title,
+                    summary=" · ".join(definitions[:2]) or None,
+                    content=definition_text or None,
+                    source_url=self._optional_text(record.get("source_url")),
+                    author=None,
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale="국립국어원 사전에서 확인한 어휘·뜻풀이 후보입니다.",
+                    query=query,
+                    tags=["언어", "사전", title],
+                    metadata={
+                        "pronunciation": self._text(record.get("pronunciation")),
+                        "word_grade": self._text(record.get("word_grade")),
+                        "part_of_speech": self._text(record.get("part_of_speech")),
+                    },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
+
+    def _collect_curated_catalog(
+        self,
+        *,
+        public_terms: list[str],
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+    ) -> None:
+        if not public_terms:
+            source_states.append(
+                DiscoverySourceState(
+                    source=CuratedEducationCatalogAdapter.SOURCE,
+                    enabled=True,
+                    status="needs_query",
+                )
+            )
+            return
+        result = CuratedEducationCatalogAdapter().search(terms=public_terms)
+        science_ids = {"phet", "openstax", "nasa-kids-club"}
+        book_ids = {"storyweaver", "global-digital-library"}
+        for record in result.records:
+            title = self._text(record.get("title"))
+            source_key = self._text(record.get("id"))
+            if not title or not source_key:
+                continue
+            if source_key in science_ids:
+                category = DiscoveryCategory.SCIENCE
+            elif source_key in book_ids:
+                category = DiscoveryCategory.BOOK
+            else:
+                category = DiscoveryCategory.REFERENCE
+            raw_tags = record.get("tags")
+            tags = [str(value) for value in raw_tags[:8]] if isinstance(raw_tags, list) else []
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=source_key,
+                    category=category,
+                    resource_kind=ResourceKind.WEB,
+                    title=title,
+                    summary=self._optional_text(record.get("summary")),
+                    content=None,
+                    source_url=self._optional_text(record.get("source_url")),
+                    author=None,
+                    attribution=result.attribution,
+                    license_note=(
+                        self._text(record.get("license_note"))
+                        or result.license_note
+                    ),
+                    cache_status=result.cache_status,
+                    rationale="공식 교육 콘텐츠 카탈로그에서 확인할 수 있는 후보입니다.",
+                    query=" ".join(public_terms[:3]),
+                    tags=tags,
+                    metadata={"catalog_id": source_key},
                 )
             )
         self._source_ready(
@@ -1293,6 +1581,254 @@ class EducationDiscoveryService:
     def _candidate_id(source: str, source_key: str) -> str:
         digest = hashlib.sha256(f"{source}\x1f{source_key}".encode()).hexdigest()[:24]
         return f"{source}:{digest}"
+
+    def _collect_heritage(
+        self,
+        *,
+        query: str,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        if self._needs_query(
+            source=HeritagePalaceAdapter.SOURCE,
+            query=query,
+            source_states=source_states,
+        ):
+            return
+        adapter = HeritagePalaceAdapter(
+            cache=self.cache,
+            endpoint=self.settings.heritage_palace_endpoint,
+            ttl_seconds=self.settings.public_enrichment_cache_ttl_seconds,
+        )
+        try:
+            result = adapter.search(query=query, offline=offline)
+        except ExternalAdapterError as exc:
+            self._failed_source(
+                source=HeritagePalaceAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
+            return
+        for record in result.records[: self.settings.discovery_source_result_limit]:
+            title = self._text(record.get("title"))
+            if not title:
+                continue
+            description = self._text(record.get("description"))
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=self._text(record.get("id")) or title,
+                    category=DiscoveryCategory.REFERENCE,
+                    resource_kind=ResourceKind.WEB,
+                    title=title,
+                    summary=description[:1_500] or None,
+                    content=description or None,
+                    source_url=self._optional_text(record.get("source_url")),
+                    author=None,
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale="한국사·문화 탐구에 연결할 국가유산청 공개 자료입니다.",
+                    query=query,
+                    tags=["역사", "문화", "국가유산"],
+                    metadata={
+                        "palace_number": self._text(record.get("palace_number")),
+                        "image_url": self._text(record.get("image_url")),
+                    },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
+
+    def _collect_museums(
+        self,
+        *,
+        latitude: float | None,
+        longitude: float | None,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        service_key = (self.settings.data_go_kr_service_key or "").strip()
+        if not service_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source=MuseumArtGalleryAdapter.SOURCE,
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        if latitude is None or longitude is None:
+            source_states.append(
+                DiscoverySourceState(
+                    source=MuseumArtGalleryAdapter.SOURCE,
+                    enabled=True,
+                    status="needs_location",
+                )
+            )
+            return
+        adapter = MuseumArtGalleryAdapter(
+            service_key=service_key,
+            cache=self.cache,
+            endpoint=self.settings.museum_standard_endpoint,
+            ttl_seconds=self.settings.public_enrichment_cache_ttl_seconds,
+        )
+        try:
+            result = adapter.nearby(
+                latitude=latitude,
+                longitude=longitude,
+                limit=self.settings.discovery_source_result_limit,
+                offline=offline,
+            )
+        except ExternalAdapterError as exc:
+            self._failed_source(
+                source=MuseumArtGalleryAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
+            return
+        for record in result.records:
+            title = self._text(record.get("title"))
+            if not title:
+                continue
+            introduction = self._text(record.get("introduction"))
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=self._text(record.get("id")) or title,
+                    category=DiscoveryCategory.PLACE,
+                    resource_kind=ResourceKind.WEB,
+                    title=title,
+                    summary=introduction[:1_500] or self._optional_text(record.get("address")),
+                    content=introduction or None,
+                    source_url=self._optional_text(record.get("homepage_url")),
+                    author=None,
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale="부모가 지정한 위치 주변의 박물관·미술관 탐방 후보입니다.",
+                    query="",
+                    tags=["탐방", "박물관", "미술관"],
+                    metadata={
+                        "address": self._text(record.get("address")),
+                        "facility_type": self._text(record.get("facility_type")),
+                        "closed_days": self._text(record.get("closed_days")),
+                        "child_fee": self._text(record.get("child_fee")),
+                        "institution": self._text(record.get("institution")),
+                    },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
+
+    def _collect_weather(
+        self,
+        *,
+        public_terms: list[str],
+        latitude: float | None,
+        longitude: float | None,
+        suggestions: list[DiscoverySuggestion],
+        source_states: list[DiscoverySourceState],
+        offline: bool,
+    ) -> None:
+        service_key = (self.settings.data_go_kr_service_key or "").strip()
+        if not service_key:
+            source_states.append(
+                DiscoverySourceState(
+                    source=KmaWeatherAdapter.SOURCE,
+                    enabled=False,
+                    status="not_configured",
+                )
+            )
+            return
+        if not set(public_terms) & _WEATHER_TERMS:
+            source_states.append(
+                DiscoverySourceState(
+                    source=KmaWeatherAdapter.SOURCE,
+                    enabled=True,
+                    status="not_relevant",
+                )
+            )
+            return
+        if latitude is None or longitude is None:
+            source_states.append(
+                DiscoverySourceState(
+                    source=KmaWeatherAdapter.SOURCE,
+                    enabled=True,
+                    status="needs_location",
+                )
+            )
+            return
+        adapter = KmaWeatherAdapter(
+            service_key=service_key,
+            cache=self.cache,
+            endpoint=self.settings.kma_weather_endpoint,
+            ttl_seconds=1_800,
+        )
+        try:
+            result = adapter.current_conditions(
+                latitude=latitude,
+                longitude=longitude,
+                offline=offline,
+            )
+        except ExternalAdapterError as exc:
+            self._failed_source(
+                source=KmaWeatherAdapter.SOURCE,
+                exc=exc,
+                source_states=source_states,
+            )
+            return
+        for record in result.records[:1]:
+            temperature = self._text(record.get("temperature_c"))
+            humidity = self._text(record.get("humidity_pct"))
+            rainfall = self._text(record.get("rainfall_mm"))
+            details = [
+                f"기온 {temperature}°C" if temperature else "",
+                f"습도 {humidity}%" if humidity else "",
+                f"1시간 강수량 {rainfall}mm" if rainfall else "",
+            ]
+            summary = " · ".join(value for value in details if value)
+            suggestions.append(
+                self._suggestion(
+                    source=result.source,
+                    source_key=self._text(record.get("id")),
+                    category=DiscoveryCategory.SCIENCE,
+                    resource_kind=ResourceKind.WEB,
+                    title="현재 날씨 관찰 기록",
+                    summary=summary or None,
+                    content=summary or None,
+                    source_url=None,
+                    author=None,
+                    attribution=result.attribution,
+                    license_note=result.license_note,
+                    cache_status=result.cache_status,
+                    rationale="현재 날씨를 관찰·측정 활동과 연결할 수 있는 공공데이터입니다.",
+                    query=" ".join(public_terms[:3]),
+                    tags=["날씨", "과학", "관찰"],
+                    metadata={
+                        "temperature_c": temperature,
+                        "humidity_pct": humidity,
+                        "rainfall_mm": rainfall,
+                        "precipitation_type": self._text(
+                            record.get("precipitation_type")
+                        ),
+                        "wind_speed_ms": self._text(record.get("wind_speed_ms")),
+                    },
+                )
+            )
+        self._source_ready(
+            result_source=result.source,
+            cache_status=result.cache_status,
+            source_states=source_states,
+        )
 
     @staticmethod
     def _text(value: object) -> str:
