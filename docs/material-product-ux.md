@@ -191,15 +191,23 @@ create → review → print/use → structured result / independent learning rec
 
 ### Curriculum alignment
 
-The template receives deterministic curriculum targets before any model call:
+The template receives deterministic curriculum targets before any model call. The resolver uses the
+learner's birth date/grade plus the reference date rather than assuming that one school-stage label
+always maps to one curriculum revision.
 
 - 0–2: 2024 개정 표준보육과정
 - 3–5: 2019 개정 누리과정
-- elementary / middle / high: 2022 개정 초·중등학교 교육과정 subject families
+- elementary / middle / high: 2015/2022 curriculum families and later partial amendments are selected
+  by their grade-specific effective dates
+- during a mixed rollout, missing grade/birth-date data fails closed as `transition-unresolved`
+  instead of silently choosing a curriculum
+- a structured external curriculum record can supersede the bundled mapping only when official-host,
+  notice-number, effective-date, and grade metadata all validate; stale external data cannot
+  downgrade a newer bundled official notice
 
-GrowWise stores framework/domain mappings and its own paraphrased alignment description. It does not
-invent official achievement-standard codes; `standard_codes` remains empty until a code is verified
-from curated or official-source data.
+GrowWise stores framework, revision, official notice, effective dates, grade and resolution precision
+alongside its own paraphrased alignment description. It does not invent official achievement-standard
+codes; `standard_codes` remains empty until a code is verified from curated or official-source data.
 
 ### Selected source grounding
 
