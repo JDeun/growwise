@@ -27,6 +27,7 @@ def generate_curriculum_grounded_material(
     materials: MaterialGenerationService,
 ) -> GeneratedMaterial:
     """Generate material grounded in public curriculum resources."""
+    curriculum: PublicCurriculumAdapter | OfficialKoreanCurriculumCatalogAdapter
     if settings.curriculum_endpoint:
         curriculum = PublicCurriculumAdapter(
             endpoint=settings.curriculum_endpoint,
