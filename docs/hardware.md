@@ -50,15 +50,15 @@ GrowWise 자체의 Core 기능 요구사항으로 간주하지 않는다.
 
 기본 설치는 텍스트와 사진에 **하나의 Qwen 3.5 멀티모달 모델**을 공유한다. 별도 vision 모델을 동시에 상주시킬 필요가 없으므로 저장 공간과 모델 전환 비용을 줄인다.
 
-Apple Silicon은 통합 메모리를 직접 활용할 수 있으므로 다음 기준을 사용한다.
+Apple Silicon은 통합 메모리를 직접 활용할 수 있으므로 MLX용 Qwen 태그를 우선 선택한다.
 
 | Apple Silicon 통합 메모리 | 기본 모델 |
 | --- | --- |
-| <16 GB | `qwen3.5:2b` |
-| 16 GB+ | `qwen3.5:4b` |
-| 24 GB+ | `qwen3.5:9b` |
-| 48 GB+ | `qwen3.5:27b` |
-| 64 GB+ | `qwen3.5:35b` |
+| <16 GB | `qwen3.5:2b-mlx` |
+| 16 GB+ | `qwen3.5:4b-mlx` |
+| 24 GB+ | `qwen3.5:9b-mlx` |
+| 48 GB+ | `qwen3.5:27b-mlx` |
+| 64 GB+ | `qwen3.5:35b-mlx` |
 
 Windows/Linux에서 NVIDIA GPU가 감지되면 VRAM을 우선 사용한다.
 
