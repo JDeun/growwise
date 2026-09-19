@@ -141,8 +141,12 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                     user=self._evidence_prompt(sources),
                     schema=LearningWikiDraft,
                 )
-                draft = self._ground_draft(candidate, allowed_refs=allowed_refs)
-                if self._item_count(draft) > 0:
+                grounded = self._ground_draft(candidate, allowed_refs=allowed_refs)
+                if self._item_count(grounded) > 0:
+                    draft = self._merge_drafts(
+                        grounded,
+                        self._deterministic_draft(sources),
+                    )
                     generator_mode = "llm_wiki"
                 else:
                     draft = None
@@ -313,6 +317,45 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             next_connections=cls._ground_items(
                 draft.next_connections, allowed_refs=allowed_refs
             )[:12],
+        )
+
+    @staticmethod
+    def _merge_items(primary: list[WikiItem], fallback: list[WikiItem], limit: int) -> list[WikiItem]:
+        merged: list[WikiItem] = []
+        seen: set[str] = set()
+        for item in [*primary, *fallback]:
+            key = item.text.casefold()
+            if key in seen:
+                continue
+            seen.add(key)
+            merged.append(item)
+            if len(merged) >= limit:
+                break
+        return merged
+
+    @classmethod
+    def _merge_drafts(
+        cls,
+        primary: LearningWikiDraft,
+        fallback: LearningWikiDraft,
+    ) -> LearningWikiDraft:
+        """Keep grounded model synthesis while retaining explicit facts the model omitted."""
+
+        return LearningWikiDraft(
+            summary=cls._merge_items(primary.summary, fallback.summary, 6),
+            current_interests=cls._merge_items(
+                primary.current_interests, fallback.current_interests, 12
+            ),
+            recurring_questions=cls._merge_items(
+                primary.recurring_questions, fallback.recurring_questions, 12
+            ),
+            explored_experiences=cls._merge_items(
+                primary.explored_experiences, fallback.explored_experiences, 16
+            ),
+            open_threads=cls._merge_items(primary.open_threads, fallback.open_threads, 12),
+            next_connections=cls._merge_items(
+                primary.next_connections, fallback.next_connections, 12
+            ),
         )
 
     @staticmethod
