@@ -116,7 +116,7 @@ function App({
   const [nickname, setNickname] = useState("");
   const [childStage, setChildStage] = useState<Stage>("infant_0_2");
   const [birthDate, setBirthDate] = useState("");
-  const [ageMonths, setAgeMonths] = useState("9");
+  const [ageMonths, setAgeMonths] = useState("");
   const [grade, setGrade] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
