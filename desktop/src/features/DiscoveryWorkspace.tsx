@@ -22,17 +22,23 @@ const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
 };
 
 const SOURCE_LABEL: Record<string, string> = {
+  curated_education_catalog: "공식 교육 콘텐츠 링크",
   data4library: "도서관 정보나루",
+  national_library_isbn: "국립중앙도서관 ISBN 서지",
   open_library: "Open Library",
   google_books: "Google Books",
   kr_official_curriculum_catalog: "공식 교육과정",
   public_curriculum: "공공 교육과정 API",
+  krdict: "한국어기초사전",
   wikipedia_ko: "한국어 Wikipedia",
   wikidata: "Wikidata",
   wikimedia_commons: "Wikimedia Commons",
   nasa_images: "NASA Images",
   gbif_species: "GBIF 생물 분류",
+  korean_heritage_palaces: "국가유산청 궁궐·문화유산",
   openstreetmap_overpass: "OpenStreetMap 탐방 장소",
+  korea_museum_standard: "전국 박물관·미술관",
+  kma_weather: "기상청 현재 날씨",
 };
 
 function errorMessage(error: unknown): string {
@@ -44,6 +50,8 @@ function sourceStatusText(status: string): string {
   switch (status) {
     case "live":
       return "새로 조회함";
+    case "ready":
+      return "사용 가능";
     case "fresh":
       return "저장된 최신 결과";
     case "stale":
