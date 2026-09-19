@@ -114,7 +114,28 @@ Desktop UX는 삭제할 child를 선택하고 해당 nickname을 다시 입력�
 8. RAG/외부 cache/SQLite projection은 disposable state이므로 손상 row 또는 malformed DB를
    정본/재조회 가능한 상태에서 self-heal한다.
 
-## 7. Model provider failure policy
+## 7. Learning Wiki provenance와 자기참조 방지
+
+Learning Wiki는 장기 맥락을 누적하지만 원본 기록보다 높은 신뢰도의 정본이 아니다.
+
+- Wiki refresh 입력은 child-scoped authoritative record로 제한한다.
+- 기존 `learning_wiki` 자체를 다음 Wiki synthesis의 evidence로 넣지 않는다.
+- canonical source payload SHA-256 fingerprint가 같으면 불필요한 regenerate를 하지 않는다.
+- LLM item은 현재 허용 source set의 `source_ref`를 최소 하나 가져야 한다.
+- 존재하지 않는 source ref, 진단/또래비교 marker가 있는 item은 persist 전에 제거한다.
+- persisted Wiki와 원본은 `derived_from` first-class link로 연결한다.
+- raw evidence는 prompt delimiter를 탈출하지 못하도록 escape한다.
+- provider 실패/부재 시 deterministic projection으로 강등한다.
+- LLM synthesis가 원본의 명시적 next step/open question을 누락하면 deterministic facts로 보완한다.
+- child purge는 Wiki Markdown/backup/projection와 Wiki provenance links도 함께 제거한다.
+
+회귀 증거:
+
+- `src/growwise/services/learning_wiki.py`
+- `tests/test_learning_wiki.py`
+- [learning-wiki.md](learning-wiki.md)
+
+## 8. Model provider failure policy
 
 AI는 optional dependency다.
 
@@ -135,7 +156,7 @@ AI는 optional dependency다.
 - `GROWWISE_MODEL_CIRCUIT_RECOVERY_SECONDS`
 - `GROWWISE_EMBEDDING_TIMEOUT_SECONDS`
 
-## 8. 입력/저장 위생
+## 9. 입력/저장 위생
 
 저장 가능한 도메인 모델이 API DTO보다 강한 마지막 경계다.
 
@@ -151,7 +172,7 @@ AI는 optional dependency다.
 
 목표는 메모리/디스크 폭주, pathological prompt, 거대한 local IPC payload가 장기 데이터베이스에 들어가는 것을 입구에서 차단하는 것이다.
 
-## 9. 공급망과 재현성
+## 10. 공급망과 재현성
 
 - Python: `uv.lock`, `uv sync --locked`, `uv lock --check`, uv version pin.
 - Node: `package-lock.json`, `npm ci`, npm version pin, `npm audit`.
@@ -164,7 +185,7 @@ AI는 optional dependency다.
 - CodeQL은 security-extended query를 실행한다.
 - packaging workflow는 SBOM을 생성하고 build 후 authenticated runtime smoke를 통과해야 한다.
 
-## 10. Definition of Done
+## 11. Definition of Done
 
 하드닝 변경은 코드가 존재하는 것으로 끝나지 않는다. 최종 merge 전 다음이 모두 green이어야 한다.
 
