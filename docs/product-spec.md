@@ -72,7 +72,11 @@ LLM은 이 기능을 지원하는 **백그라운드 지능 계층**이다. 메�
 
 ### Parent Review
 
-생성 자료의 기본 상태 흐름:
+Parent Review는 사용자에게 상태 머신을 학습시키기 위한 화면이 아니라 내부 안전·감사 경계다.
+기본 화면에서는 활동 내용을 확인한 뒤 **이 활동 사용하기** 한 번으로 사용 결정을 내린다.
+직접 편집·수정 요청·사용 안 함과 세부 상태는 필요할 때만 고급 관리 영역에서 노출한다.
+
+생성 자료의 내부 상태 흐름:
 
 ```text
 DRAFT → REVIEW_PENDING
@@ -184,8 +188,9 @@ repository/RAG query scope 자체를 바꾼다. 형제 데이터 혼합은 안�
 
 ## 유아·초등 자료 생성
 
-입력 → 관련 child context → 교육과정/자료 RAG → 생성 → 자동 평가 → Parent Review → 승인
-→ 저장/export의 LangGraph workflow를 사용한다.
+입력 → 관련 child context → 교육과정/자료 RAG → 생성 → 자동 평가 → 내부 Parent Review gate
+→ 저장/export의 LangGraph workflow를 사용한다. Primary UX에서는 이 상태 머신 대신
+**이 활동 사용하기**라는 한 번의 명시적 사용자 결정을 제공한다.
 
 ## 중·고 학습 트래킹
 

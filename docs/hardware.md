@@ -46,6 +46,22 @@ Core-only 기능 중심, 또는 원격/별도 모델 구성을 사용하는 경�
 더 큰 로컬 모델이나 여러 모델을 함께 보관하려면 32 GB+ RAM과 추가 SSD 여유가 유리하지만,
 GrowWise 자체의 Core 기능 요구사항으로 간주하지 않는다.
 
+### 로컬 모델 권장 출발점
+
+현재 Ollama 모델 크기와 GrowWise 동시 실행 여유를 고려한 문서상 출발점은 다음과 같다.
+
+| 메모리 | 텍스트 모델 |
+| --- | --- |
+| 8 GB | `qwen3.5:2b` |
+| 16 GB | `qwen3.5:4b` |
+| 24–32 GB | `qwen3.5:9b` |
+| 48 GB | `qwen3.5:27b` |
+| 64 GB+ | `qwen3.5:35b` |
+
+이 표는 실기기 benchmark를 대체하지 않는다. 모델 파일 외에 KV cache, runtime, OS, GrowWise,
+vision model이 추가 메모리를 사용한다. 설치 명령과 GPU/Apple Silicon별 가이드는
+[local-ai-setup.md](local-ai-setup.md)를 따른다.
+
 ## 구성 요소별 부하
 
 | 구성 | 상대 부하 | 현재 동작 |
