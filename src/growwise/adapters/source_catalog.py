@@ -29,7 +29,7 @@ EDUCATION_SOURCE_CATALOG: tuple[EducationSourceSpec, ...] = (
     EducationSourceSpec("data4library", "도서관 정보나루", "books", SourceIntegrationMode.KEYED_API, "https://data4library.kr", "Open API terms", "data4library_api_key"),
     EducationSourceSpec("national_library_isbn", "국립중앙도서관 ISBN 서지", "books", SourceIntegrationMode.KEYED_API, "https://www.nl.go.kr", "bibliographic metadata", "national_library_api_key"),
     EducationSourceSpec("google_books", "Google Books", "books", SourceIntegrationMode.LIVE_API, "https://books.google.com", "Google Books API terms"),
-    EducationSourceSpec("open_library", "Open Library", "books", SourceIntegrationMode.OFFLINE_DATASET, "https://openlibrary.org", "use CC0 data dump rather than live API for commercial-safe ingestion"),
+    EducationSourceSpec("open_library", "Open Library", "books", SourceIntegrationMode.LIVE_API, "https://openlibrary.org", "low-volume human-facing API; cache results and retain source links"),
     EducationSourceSpec("gutendex", "Project Gutenberg / Gutendex", "books", SourceIntegrationMode.LIVE_API, "https://gutendex.com", "public-domain works; jurisdiction check"),
     EducationSourceSpec("storyweaver", "Pratham StoryWeaver", "books", SourceIntegrationMode.CURATED_LINK, "https://storyweaver.org.in", "CC BY 4.0 content; no stable public search API assumed"),
     EducationSourceSpec("global_digital_library", "Global Digital Library", "books", SourceIntegrationMode.LIVE_API, "https://digitallibrary.io", "item-level Creative Commons license"),
@@ -63,7 +63,7 @@ EDUCATION_SOURCE_CATALOG: tuple[EducationSourceSpec, ...] = (
     EducationSourceSpec("bioclip", "BioCLIP", "science", SourceIntegrationMode.LOCAL_ENGINE, "https://huggingface.co/imageomics/bioclip", "model MIT; dataset licenses separate"),
     EducationSourceSpec("gbif_species", "GBIF Species", "science", SourceIntegrationMode.LIVE_API, "https://www.gbif.org", "taxonomy metadata; media licenses separate"),
     EducationSourceSpec("kma_forecast", "기상청 단기예보", "science", SourceIntegrationMode.KEYED_API, "https://www.data.go.kr/data/15084084/openapi.do", "KOGL Type 1 attribution", "public_data_api_key"),
-    EducationSourceSpec("kbr", "국립생물자원관 KBR", "science", SourceIntegrationMode.KEYED_API, "https://kbr.go.kr", "text metadata preferred; media reuse requires separate verification", "public_data_api_key"),
+    EducationSourceSpec("kbr", "국립생물자원관 KBR", "science", SourceIntegrationMode.KEYED_API, "https://kbr.go.kr", "text metadata preferred; media reuse requires separate verification", "kbr_api_key"),
     # Math
     EducationSourceSpec("sympy", "SymPy", "math", SourceIntegrationMode.LOCAL_ENGINE, "https://www.sympy.org", "BSD"),
     EducationSourceSpec("manim", "Manim Community", "math", SourceIntegrationMode.LOCAL_ENGINE, "https://www.manim.community", "MIT"),
