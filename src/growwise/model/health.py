@@ -4,7 +4,6 @@ import json
 import socket
 from dataclasses import dataclass
 from ipaddress import ip_address
-from urllib.error import URLError
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
@@ -79,7 +78,7 @@ def _ollama_model_available(
     try:
         with urlopen(request, timeout=timeout_seconds) as response:  # noqa: S310 - loopback only
             payload = json.load(response)
-    except (URLError, OSError, TimeoutError, ValueError, json.JSONDecodeError):
+    except (OSError, ValueError):
         return False
 
     models = payload.get("models") if isinstance(payload, dict) else None
