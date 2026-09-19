@@ -343,12 +343,13 @@ until Parent Review approves it. Return the requested structured schema only."""
         curriculum_targets: list[CurriculumTarget],
     ) -> MaterialDraft:
         goal_text = goal or "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        display_topic = self._inline_text(topic, max_chars=200)
         content = self._commercial_content(
             kind=kind,
-            topic=topic,
+            topic=display_topic,
             goal_text=goal_text,
             stage=child.stage,
-            core_body=select_body(kind=kind, topic=topic, stage=child.stage),
+            core_body=select_body(kind=kind, topic=display_topic, stage=child.stage),
         )
         content = self._append_sources(
             content=content,
@@ -361,7 +362,7 @@ until Parent Review approves it. Return the requested structured schema only."""
             parent_guide_markdown=self._parent_guide_template(
                 child=child,
                 kind=kind,
-                topic=topic,
+                topic=display_topic,
                 goal_text=goal_text,
                 source_refs=source_refs,
                 source_evidence=source_evidence,
@@ -382,9 +383,10 @@ until Parent Review approves it. Return the requested structured schema only."""
         curriculum_targets: list[CurriculumTarget],
     ) -> MaterialDraft:
         goal_text = goal or "주제를 함께 탐색하고 아이의 반응과 사고 과정을 관찰한다."
+        display_topic = self._inline_text(topic, max_chars=200)
         content = self._commercial_content(
             kind=kind,
-            topic=topic,
+            topic=display_topic,
             goal_text=goal_text,
             stage=child.stage,
             core_body=candidate.content_markdown,
@@ -395,12 +397,12 @@ until Parent Review approves it. Return the requested structured schema only."""
             source_evidence=source_evidence,
         )
         return MaterialDraft(
-            title=candidate.title.strip(),
+            title=self._inline_text(candidate.title, max_chars=200),
             content_markdown=content,
             parent_guide_markdown=self._parent_guide_template(
                 child=child,
                 kind=kind,
-                topic=topic,
+                topic=display_topic,
                 goal_text=goal_text,
                 source_refs=candidate.source_refs,
                 source_evidence=source_evidence,
@@ -411,7 +413,11 @@ until Parent Review approves it. Return the requested structured schema only."""
         )
 
     @staticmethod
-    def _title(kind: MaterialKind, topic: str) -> str:
+    def _inline_text(value: str, *, max_chars: int) -> str:
+        return " ".join(value.split()).replace("|", "｜")[:max_chars]
+
+    @classmethod
+    def _title(cls, kind: MaterialKind, topic: str) -> str:
         labels = {
             MaterialKind.ACTIVITY_GUIDE: "활동 가이드",
             MaterialKind.READING_ACTIVITY: "독서 활동",
@@ -421,7 +427,7 @@ until Parent Review approves it. Return the requested structured schema only."""
             MaterialKind.WRITING_PROMPT: "글쓰기·말하기",
             MaterialKind.FIELD_TRIP: "탐방 활동",
         }
-        return f"{topic} {labels[kind]}"
+        return f"{cls._inline_text(topic, max_chars=200)} {labels[kind]}"
 
     @staticmethod
     def _stage_label(stage: Stage) -> str:
@@ -518,6 +524,7 @@ until Parent Review approves it. Return the requested structured schema only."""
         core_body: str,
     ) -> str:
         materials = "\n".join(f"- {item}" for item in cls._preparation_items(kind))
+        goal_display = cls._inline_text(goal_text, max_chars=1_000)
         if stage is Stage.INFANT_0_2:
             reflection = (
                 "- 아이가 오래 바라보거나 반복한 행동은 무엇이었나요?\n"
@@ -553,7 +560,7 @@ until Parent Review approves it. Return the requested structured schema only."""
             f"# {cls._title(kind, topic)}\n\n"
             "> GrowWise 활동 자료 · 부모가 내용을 확인한 뒤 사용합니다.\n\n"
             "## 오늘의 목표\n"
-            f"- 목표: {goal_text}\n"
+            f"- 목표: {goal_display}\n"
             "- 결과를 빨리 맞히는 것보다 관찰·시도·설명 과정에 집중합니다.\n\n"
             "## 예상 시간\n"
             f"- {cls._duration_label(kind, stage)} · 아이의 상태와 몰입에 따라 더 짧게 끝내도 됩니다.\n\n"
@@ -582,8 +589,24 @@ until Parent Review approves it. Return the requested structured schema only."""
             if item is None:
                 lines.append(f"- `{ref}`")
                 continue
-            title = " ".join(item.title.split())[:180]
-            lines.append(f"- {title} (`{ref}`)")
+            title = MaterialGenerationService._inline_text(item.title, max_chars=180)
+            details: list[str] = []
+            if item.author:
+                details.append(
+                    f"저자: {MaterialGenerationService._inline_text(item.author, max_chars=60)}"
+                )
+            if item.source_name:
+                details.append(
+                    "출처: "
+                    + MaterialGenerationService._inline_text(item.source_name, max_chars=60)
+                )
+            if item.license_note:
+                details.append(
+                    "라이선스: "
+                    + MaterialGenerationService._inline_text(item.license_note, max_chars=100)
+                )
+            suffix = f" · {' · '.join(details)}" if details else ""
+            lines.append(f"- {title} (`{ref}`){suffix}")
         return lines
 
     @classmethod
@@ -628,6 +651,8 @@ until Parent Review approves it. Return the requested structured schema only."""
             ", ".join(dict.fromkeys(target.domain for target in curriculum_targets))
             or "일반 탐구"
         )
+        topic_display = cls._inline_text(topic, max_chars=200)
+        goal_display = cls._inline_text(goal_text, max_chars=1_000)
         materials = "\n".join(f"- [ ] {item}" for item in cls._preparation_items(kind))
         source_lines = cls._source_reference_lines(
             source_refs=source_refs,
@@ -644,12 +669,12 @@ until Parent Review approves it. Return the requested structured schema only."""
             "## 수업 개요\n"
             "| 항목 | 내용 |\n"
             "| --- | --- |\n"
-            f"| 주제 | {topic} |\n"
+            f"| 주제 | {topic_display} |\n"
             f"| 대상 | {cls._stage_label(child.stage)} |\n"
             f"| 예상 시간 | {cls._duration_label(kind, child.stage)} |\n"
             f"| 교육과정 연결 | {domains} |\n\n"
             "## 핵심 목표\n"
-            f"- {goal_text}\n"
+            f"- {goal_display}\n"
             "- 아이가 자신의 방식으로 관찰·시도·설명하도록 돕고, 결과보다 사고 과정을 기록합니다.\n"
             f"- 진행 원칙: {kind_tips[kind]}\n\n"
             "## 준비 체크리스트\n"
