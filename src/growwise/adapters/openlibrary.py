@@ -9,7 +9,14 @@ from .http import JsonHttpClient
 
 
 class OpenLibraryAdapter:
-    """Quarantined live adapter; production discovery does not wire this source.\n\n    Live calls are default-denied because GrowWise's commercial-safe policy permits only\n    separately reviewed offline metadata/dumps from Open Library. The explicit opt-in exists\n    for migration tests and non-production diagnostics only.\n    """\n    SOURCE = "open_library"
+    """Quarantined live adapter; production discovery does not wire this source.
+
+    Live calls are default-denied because GrowWise's commercial-safe policy permits only
+    separately reviewed offline metadata/dumps from Open Library. The explicit opt-in exists
+    for migration tests and non-production diagnostics only.
+    """
+
+    SOURCE = "open_library"
     ATTRIBUTION = "Open Library (Internet Archive)"
     LICENSE_NOTE = (
         "Open Library catalog metadata/API terms apply; "
