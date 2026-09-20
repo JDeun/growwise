@@ -41,15 +41,13 @@ export function SystemStatusSection({
   const health = connected ? connection.health : null;
   const ollama = health?.model_provider.toLowerCase() === "ollama";
   const aiReady = Boolean(health?.llm_features_enabled);
-  const basicModelsReady = Boolean(
-    health?.llm_model_available === true
-      && (health?.embedding_model_available === true || !health?.embedding_reachable),
-  );
   const canPrepareBasic = Boolean(
     connected
       && ollama
-      && health.llm_reachable
-      && (!basicModelsReady || health.embedding_model_available === false),
+      && (
+        (health.llm_reachable && health.llm_model_available === false)
+        || (health.embedding_reachable && health.embedding_model_available === false)
+      ),
   );
   const sharesMultimodalModel = Boolean(
     health?.llm_model_id
