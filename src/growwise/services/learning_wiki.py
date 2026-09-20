@@ -4,6 +4,7 @@ import hashlib
 import html
 import json
 import logging
+import threading
 from datetime import UTC, datetime
 from typing import Annotated
 from uuid import UUID, uuid5
@@ -94,6 +95,9 @@ class LearningWikiDraft(BaseModel):
 
 
 class LearningWikiService:
+    _LOCK_STRIPES = 64
+    _refresh_locks = tuple(threading.Lock() for _ in range(_LOCK_STRIPES))
+
     """Maintain a rebuildable, source-grounded longitudinal synthesis for one child.
 
     The wiki is deliberately derived data. Authoritative records remain untouched and the wiki can
@@ -132,20 +136,53 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         return LearningWiki.model_validate(payload) if payload is not None else None
 
     def refresh(self, child_id: str, *, force: bool = False) -> LearningWiki:
+        lock = self._refresh_locks[hash(child_id) % self._LOCK_STRIPES]
+        with lock:
+            return self._refresh_locked(child_id, force=force)
+
+    def _refresh_locked(self, child_id: str, *, force: bool) -> LearningWiki:
         if self.store.index.get_entity(child_id, entity_type="child_profile") is None:
             raise KeyError("child_not_found")
 
+        # A local model may take seconds or minutes. Re-read the source snapshot after inference so
+        # a record written during that time cannot be overwritten by a stale Wiki refresh.
+        for _attempt in range(3):
+            sources = self._sources(child_id)
+            fingerprint = self._fingerprint(sources)
+            existing = self.get(child_id)
+            if existing is not None and existing.source_fingerprint == fingerprint and not force:
+                self._sync_projections(existing, sources, replace_rag=False)
+                return existing
+
+            draft, generator_mode = self._build_draft(sources)
+            if self._fingerprint(self._sources(child_id)) != fingerprint:
+                continue
+            return self._persist(
+                child_id=child_id,
+                sources=sources,
+                fingerprint=fingerprint,
+                existing=existing,
+                draft=draft,
+                generator_mode=generator_mode,
+            )
+
+        # Under sustained writes, stop spending model time and converge quickly to the newest
+        # authoritative snapshot. A later access will refresh again if another write lands after
+        # this final read.
         sources = self._sources(child_id)
         fingerprint = self._fingerprint(sources)
         existing = self.get(child_id)
-        if existing is not None and existing.source_fingerprint == fingerprint and not force:
-            self._sync_projections(existing, sources, replace_rag=False)
-            return existing
+        return self._persist(
+            child_id=child_id,
+            sources=sources,
+            fingerprint=fingerprint,
+            existing=existing,
+            draft=self._deterministic_draft(sources),
+            generator_mode="deterministic_projection",
+        )
 
+    def _build_draft(self, sources: list[dict]) -> tuple[LearningWikiDraft, str]:
         allowed_refs = {self._source_ref(payload) for payload in sources}
-        draft: LearningWikiDraft | None = None
-        generator_mode = "deterministic_projection"
-
         if provider_is_loopback(self.provider) and sources:
             try:
                 candidate = self.provider.generate_structured(
@@ -155,30 +192,36 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 )
                 grounded = self._ground_draft(candidate, allowed_refs=allowed_refs)
                 if self._item_count(grounded) > 0:
-                    draft = self._merge_drafts(
-                        grounded,
-                        self._deterministic_draft(sources),
+                    return (
+                        self._merge_drafts(grounded, self._deterministic_draft(sources)),
+                        "llm_wiki",
                     )
-                    generator_mode = "llm_wiki"
-                else:
-                    draft = None
             except Exception:
-                draft = None
+                pass
+        return self._deterministic_draft(sources), "deterministic_projection"
 
-        if draft is None:
-            draft = self._deterministic_draft(sources)
-
+    def _persist(
+        self,
+        *,
+        child_id: str,
+        sources: list[dict],
+        fingerprint: str,
+        existing: LearningWiki | None,
+        draft: LearningWikiDraft,
+        generator_mode: str,
+    ) -> LearningWiki:
         source_refs = [self._source_ref(payload) for payload in sources]
         markdown = self._render(draft)
         summary = " ".join(item.text for item in draft.summary)[:8_000]
+        used_model = generator_mode == "llm_wiki"
         model_id = (
             str(getattr(self.provider, "model", ""))[:240] or None
-            if self.provider is not None
+            if used_model and self.provider is not None
             else None
         )
         provider_name = (
             self.provider.__class__.__name__[:120]
-            if self.provider is not None
+            if used_model and self.provider is not None
             else None
         )
         now = datetime.now(UTC)
