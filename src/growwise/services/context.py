@@ -39,9 +39,8 @@ _FORBIDDEN_ANSWER_MARKERS = (
     "퍼센타일",
 )
 _ENTITY_TEXT_LIMIT = 12_000
-_CONTEXT_ENTITY_TYPES = (
+_RAW_CONTEXT_ENTITY_TYPES = (
     "learning_log",
-    "learning_wiki",
     "activity_plan",
     "study_unit_progress",
     "mistake_record",
@@ -177,9 +176,17 @@ concise Korean for Korean questions."""
         records = self.entity_index.search_entities(
             child_id=child_id,
             query_text=query,
-            entity_types=_CONTEXT_ENTITY_TYPES,
+            entity_types=_RAW_CONTEXT_ENTITY_TYPES,
             limit=limit,
         )
+        wiki_records = self.entity_index.search_entities(
+            child_id=child_id,
+            query_text=query,
+            entity_types=("learning_wiki",),
+            limit=1,
+        )
+        records.extend(wiki_records)
+
         chunks = self.rag_index.search(
             query=query,
             child_id=child_id,
