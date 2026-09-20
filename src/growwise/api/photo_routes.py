@@ -3,8 +3,6 @@ from __future__ import annotations
 import base64
 import binascii
 import hashlib
-import ipaddress
-import urllib.parse
 from functools import lru_cache
 from typing import Annotated
 from uuid import UUID
@@ -23,7 +21,7 @@ from growwise.idempotency import (
 )
 from growwise.jobs import Job, SQLiteJobQueue
 from growwise.model.factory import create_model_provider
-from growwise.model.ollama import OllamaProvider
+from growwise.model.privacy import is_loopback_endpoint
 from growwise.model.provider import ModelProvider
 from growwise.model.vision import OllamaVisionProvider
 from growwise.services.entity_links import EntityLinkError, EntityLinkService
@@ -77,50 +75,29 @@ def get_photo_store(
     return EntityStore(settings.records_dir, settings.index_path)
 
 
-def _model_endpoint_is_loopback(url: str) -> bool:
-    try:
-        parsed = urllib.parse.urlsplit(url)
-        host = parsed.hostname
-    except ValueError:
-        return False
-    if host is None:
-        return False
-    if host.casefold() == "localhost":
-        return True
-    try:
-        return ipaddress.ip_address(host).is_loopback
-    except ValueError:
-        return False
-
-
 @lru_cache
 def get_photo_text_provider() -> ModelProvider | None:
     settings = get_photo_settings()
     if not settings.llm_features_enabled:
         return None
-    if settings.model_provider.casefold() == "ollama":
-        if (
-            not _model_endpoint_is_loopback(settings.model_base_url)
-            and not settings.photo_remote_text_allowed
-        ):
-            return None
-        try:
-            return OllamaProvider(
-                model=settings.model_id,
-                base_url=settings.model_base_url,
-                temperature=settings.model_temperature,
-                timeout_seconds=settings.photo_text_timeout_seconds,
-                failure_threshold=settings.model_circuit_failure_threshold,
-                recovery_seconds=settings.model_circuit_recovery_seconds,
-            )
-        except Exception:
-            return None
-    if not settings.photo_remote_text_allowed:
+    if (
+        not is_loopback_endpoint(settings.model_base_url)
+        and not settings.photo_remote_text_allowed
+    ):
         return None
     try:
-        return create_model_provider(settings)
+        provider = create_model_provider(
+            settings,
+            allow_remote=settings.photo_remote_text_allowed,
+        )
     except Exception:
         return None
+
+    # Photo processing can take substantially longer than ordinary text generation. Preserve the
+    # dedicated timeout for the Ollama implementation without weakening the endpoint consent gate.
+    if hasattr(provider, "timeout_seconds"):
+        provider.timeout_seconds = settings.photo_text_timeout_seconds
+    return provider
 
 
 @lru_cache
@@ -129,7 +106,7 @@ def get_photo_vision_provider() -> OllamaVisionProvider | None:
     if not settings.vision_features_enabled or settings.vision_provider.casefold() != "ollama":
         return None
     if (
-        not _model_endpoint_is_loopback(settings.vision_base_url)
+        not is_loopback_endpoint(settings.vision_base_url)
         and not settings.photo_remote_vision_allowed
     ):
         return None
@@ -137,6 +114,7 @@ def get_photo_vision_provider() -> OllamaVisionProvider | None:
         return OllamaVisionProvider(
             model=settings.vision_model_id,
             base_url=settings.vision_base_url,
+            allow_remote=settings.photo_remote_vision_allowed,
             timeout_seconds=settings.vision_timeout_seconds,
             failure_threshold=settings.model_circuit_failure_threshold,
             recovery_seconds=settings.model_circuit_recovery_seconds,
