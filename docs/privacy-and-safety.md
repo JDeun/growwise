@@ -56,14 +56,19 @@ GrowWise는 육아 ERP나 상시 감시 시스템을 목표로 하지 않는다.
 
 "로컬=비공개"라는 가정은 동기화·원격모델·내보내기까지 봐야 진짜다([threat-model.md](threat-model.md)).
 
-- **Model Provider egress 계약**: 기본 text provider는 loopback/local이다. OpenAI-compatible
-  비-loopback endpoint는 `GROWWISE_MODEL_REMOTE_ALLOWED=true`를 명시적으로 켜야만 생성되며,
-  API key를 사용하는 원격 endpoint는 HTTPS만 허용한다. 자료 생성 시 단계·월령·관심사와
-  일반화된 generation guidance가 모델 입력에 포함될 수 있으므로 이 opt-in은 실제 외부 전송 동의
-  경계다. 이름·닉네임·사진 원본은 material prompt에 넣지 않는다.
-- **Embedding endpoint 분리**: text provider URL과 embedding URL을 공유하지 않는다. 원격 text
+- **Model Provider egress 계약**: 기본 text provider는 loopback/local이다. Ollama와
+  OpenAI-compatible 모두 비-loopback endpoint를 사용하려면
+  `GROWWISE_MODEL_REMOTE_ALLOWED=true`를 명시적으로 켜야 한다. API key를 사용하는 원격
+  OpenAI-compatible endpoint는 HTTPS만 허용한다. 이 opt-in은 일반 text-model 요청의 실제 외부
+  전송 동의 경계다.
+- **Learning Wiki local-only 계약**: 장기 관찰·질문을 합성하는 Learning Wiki는 일반 text
+  provider가 원격으로 설정되어 있어도 그 provider로 원문을 보내지 않는다. 원격 provider만
+  가능한 경우 Wiki는 deterministic projection으로 유지한다. Wiki 본문은 원격 자료 생성 prompt의
+  generation guidance로도 전달하지 않는다.
+- **Embedding endpoint 분리**: text provider URL과 embedding URL을 공유하지 않는다.
+  아동 기록의 vector embedding은 provider 경계에서 loopback endpoint만 허용한다. 원격 text
   provider를 선택해도 RAG embedding은 `GROWWISE_EMBEDDING_BASE_URL`의 별도 local endpoint를
-  그대로 사용한다.
+  사용한다.
 - **사진 모델 egress**: 사진 기능의 text/vision provider는 loopback endpoint를 기본으로
   사용한다. 원격 endpoint는 각각 `photo_remote_text_allowed`,
   `photo_remote_vision_allowed`를 명시적으로 켠 경우에만 허용한다.
@@ -76,8 +81,9 @@ GrowWise는 육아 ERP나 상시 감시 시스템을 목표로 하지 않는다.
 - **탐방 위치**: 집 주변 좌표는 식별정보로 취급한다. 좌표 coarsening 또는 사용자 입력
   장소를 우선한다.
 - **API 키**: OS 키체인/자격증명 저장소를 사용하고 저장소에 커밋하지 않는다.
-- **외부 콘텐츠**: 웹·도서·지도 텍스트는 데이터로만 취급하고 명령으로 실행하지 않는다.
-  prompt injection과 malicious document를 별도 threat로 다룬다.
+- **외부·파생 콘텐츠**: 웹·도서·지도 텍스트뿐 아니라 Learning Wiki와 검색 결과도 데이터로만
+  취급한다. XML-like prompt delimiter를 escape하고, prompt injection과 malicious document를 별도
+  threat로 다룬다.
 - **Public HTTP trust boundary**: public-data adapter는 HTTPS만 허용하고 redirect가 원래 HTTPS
   origin을 벗어나거나 downgrade되면 요청을 중단한다. credential이 포함된 요청을 다른 origin으로
   따라가지 않는다.
