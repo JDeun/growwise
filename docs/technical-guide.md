@@ -198,6 +198,7 @@ GROWWISE_MODEL_BASE_URL=http://127.0.0.1:8080/v1
 ```
 
 비-loopback endpoint는 아동 학습 맥락이 외부로 전달될 수 있으므로 명시적 opt-in이 필요합니다.
+이 경계는 OpenAI-compatible뿐 아니라 원격 Ollama text endpoint에도 동일하게 적용됩니다.
 
 ```bash
 GROWWISE_MODEL_REMOTE_ALLOWED=true
