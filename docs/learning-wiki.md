@@ -65,7 +65,8 @@ RAG / graph context / conversation / material generation
 ## 업데이트 방식
 
 `LearningWikiService.refresh(child_id)`는 child-scoped 원본을 모아 canonical JSON fingerprint를
-계산한다.
+계산한다. LLM synthesis는 loopback model provider일 때만 수행하며, 일반 text provider가 원격이면
+원본 장기 기록을 외부로 보내지 않고 deterministic projection을 사용한다.
 
 - fingerprint가 기존 Wiki와 같으면 재생성하지 않는다.
 - 원본이 추가·수정·삭제되면 fingerprint가 달라져 새 revision을 만든다.
@@ -104,10 +105,12 @@ Wiki는 검색 비용을 줄이고 장기 흐름을 보존하는 보조 context�
 
 ## Material generation integration
 
-자료 생성 직전에 Wiki를 refresh하고 최대 6,000자의 Wiki context를
-`generation_guidance`로 전달한다.
+자료 생성 직전에 Wiki를 refresh한다. **실제 generation provider가 loopback일 때만** 최대
+6,000자의 Wiki context를 `generation_guidance`로 전달한다. 원격 provider에는 Wiki 본문을
+전달하지 않는다.
 
-이 guidance는 learner-facing 산출물의 메타데이터로 출력하지 않는다. 기존 자료 생성기의
+이 guidance는 untrusted private context로 escape된 delimiter 안에 들어가며 learner-facing 산출물의
+메타데이터로 출력하지 않는다. 기존 자료 생성기의
 prompt-injection/scaffold/quality gate와 동일하게 private generation context로 취급한다.
 
 ## 개인정보와 삭제
