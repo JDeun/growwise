@@ -5,6 +5,7 @@ from typing import Any
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 
+from .privacy import is_loopback_endpoint
 from .resilience import FailureCircuit
 
 
@@ -23,18 +24,24 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
         *,
         model: str,
         base_url: str,
+        allow_remote: bool = False,
         timeout_seconds: float = 12.0,
         failure_threshold: int = 3,
         recovery_seconds: float = 30.0,
     ) -> None:
         self.model = model
+        self.base_url = base_url.strip()
+        if not is_loopback_endpoint(self.base_url) and not allow_remote:
+            raise ValueError(
+                "remote vision endpoint requires explicit photo remote opt-in"
+            )
         self._circuit = FailureCircuit(
             failure_threshold=failure_threshold,
             recovery_seconds=recovery_seconds,
         )
         self._chat = ChatOllama(
             model=model,
-            base_url=base_url,
+            base_url=self.base_url,
             temperature=0.0,
             client_kwargs={"timeout": timeout_seconds},
         )
