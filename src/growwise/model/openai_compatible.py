@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import json
 import re
-from ipaddress import ip_address
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
 from urllib.request import Request, urlopen
 
+from .privacy import is_loopback_endpoint
 from .provider import ModelProvider, T
 from .resilience import FailureCircuit
 
@@ -20,18 +20,6 @@ class OpenAICompatibleError(RuntimeError):
     def __init__(self, message: str, *, status_code: int | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
-
-
-def _is_loopback(host: str | None) -> bool:
-    if not host:
-        return False
-    normalized = host.strip().strip("[]").casefold()
-    if normalized == "localhost" or normalized.endswith(".localhost"):
-        return True
-    try:
-        return ip_address(normalized).is_loopback
-    except ValueError:
-        return False
 
 
 def _chat_completions_url(base_url: str) -> str:
@@ -93,7 +81,7 @@ class OpenAICompatibleProvider(ModelProvider):
         self.max_output_tokens = max_output_tokens
 
         parsed = urlparse(self.endpoint)
-        loopback = _is_loopback(parsed.hostname)
+        loopback = is_loopback_endpoint(self.endpoint)
         if not loopback and not allow_remote:
             raise ValueError(
                 "remote OpenAI-compatible endpoint requires GROWWISE_MODEL_REMOTE_ALLOWED=true"
