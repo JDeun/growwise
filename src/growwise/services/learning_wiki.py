@@ -13,6 +13,7 @@ from pydantic import BaseModel, Field
 from growwise.domain import LearningWiki
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.model import ModelProvider
+from growwise.model.privacy import provider_is_loopback
 from growwise.rag import HybridRagIndex, chunk_resource
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
@@ -145,7 +146,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
         draft: LearningWikiDraft | None = None
         generator_mode = "deterministic_projection"
 
-        if self.provider is not None and sources:
+        if provider_is_loopback(self.provider) and sources:
             try:
                 candidate = self.provider.generate_structured(
                     system=self.SYSTEM,
