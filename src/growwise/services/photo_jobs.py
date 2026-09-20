@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import threading
-from collections.abc import Callable
-from contextlib import suppress
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager, suppress
 from pathlib import Path
 from time import sleep
 
@@ -32,6 +32,13 @@ class _ClaimFencedEntityStore(EntityStore):
     def _require_claim(self) -> None:
         if not self._claim_guard():
             raise _StalePhotoJobClaim("photo job claim is stale")
+
+    @contextmanager
+    def mutation_window(self) -> Iterator[None]:
+        self._require_claim()
+        with self._delegate.mutation_window():
+            self._require_claim()
+            yield
 
     def save(self, entity: EntityBase, body: str = "") -> Path:
         self._require_claim()
