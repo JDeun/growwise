@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from growwise.config import Settings
-from growwise.domain import ChildProfile, LearningLog, LearningWiki, Stage
+from growwise.domain import ActivityPlan, ActivityStatus, ChildProfile, LearningLog, LearningWiki, Stage
 from growwise.domain.links import EntityLinkRelation
 from growwise.rag import HybridRagIndex
 from growwise.services.context import ChildContextService
@@ -228,6 +228,40 @@ def test_learning_wiki_rechecks_sources_after_slow_model_inference(tmp_path: Pat
     wiki = service.get(str(child.id))
     assert wiki is not None
     assert f"learning_log:{second.id}" in wiki.source_refs
+
+
+def test_deterministic_wiki_uses_only_completed_activity_as_experience(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    active = ActivityPlan(
+        child_id=child.id,
+        title="아직 진행 중인 바람 실험",
+        status=ActivityStatus.ACTIVE,
+    )
+    completed = ActivityPlan(
+        child_id=child.id,
+        title="완료한 씨앗 관찰",
+        status=ActivityStatus.COMPLETED,
+    )
+    store.save(active)
+    store.save(completed)
+    store.save(
+        LearningLog(
+            child_id=child.id,
+            parent_observation="ADHD 진단이 필요하다고 단정한 잘못된 원문 예시",
+            next_activity="자폐 진단 검사를 해본다",
+        )
+    )
+
+    wiki = LearningWikiService(store, provider=None).refresh(str(child.id))
+
+    assert "완료한 씨앗 관찰" in wiki.content_markdown
+    assert "아직 진행 중인 바람 실험" not in wiki.content_markdown
+    assert "ADHD" not in wiki.content_markdown
+    assert "자폐" not in wiki.content_markdown
 
 
 def test_learning_wiki_drops_ungrounded_and_unsafe_model_items(tmp_path: Path) -> None:
