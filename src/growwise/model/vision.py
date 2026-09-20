@@ -29,7 +29,11 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
         failure_threshold: int = 3,
         recovery_seconds: float = 30.0,
     ) -> None:
-        self.model = model
+        if not model.strip():
+            raise ValueError("model must not be empty")
+        if timeout_seconds <= 0:
+            raise ValueError("timeout_seconds must be positive")
+        self.model = model.strip()
         self.base_url = base_url.strip()
         if not is_loopback_endpoint(self.base_url) and not allow_remote:
             raise ValueError(
@@ -40,7 +44,7 @@ Return concise Korean prose suitable as evidence for a parent-reviewed activity 
             recovery_seconds=recovery_seconds,
         )
         self._chat = ChatOllama(
-            model=model,
+            model=self.model,
             base_url=self.base_url,
             temperature=0.0,
             client_kwargs={"timeout": timeout_seconds},
