@@ -6,6 +6,7 @@ import pytest
 
 from growwise.api import photo_routes
 from growwise.config import Settings
+from growwise.model.privacy import is_loopback_endpoint
 
 
 @pytest.mark.parametrize(
@@ -19,7 +20,7 @@ from growwise.config import Settings
     ],
 )
 def test_photo_model_loopback_detection(url: str) -> None:
-    assert photo_routes._model_endpoint_is_loopback(url) is True
+    assert is_loopback_endpoint(url) is True
 
 
 @pytest.mark.parametrize(
@@ -31,7 +32,7 @@ def test_photo_model_loopback_detection(url: str) -> None:
     ],
 )
 def test_photo_model_remote_detection(url: str) -> None:
-    assert photo_routes._model_endpoint_is_loopback(url) is False
+    assert is_loopback_endpoint(url) is False
 
 
 def test_remote_photo_model_endpoints_are_blocked_without_opt_in(
@@ -54,8 +55,8 @@ def test_remote_photo_model_endpoints_are_blocked_without_opt_in(
     monkeypatch.setattr(photo_routes, "get_photo_settings", lambda: settings)
     monkeypatch.setattr(
         photo_routes,
-        "OllamaProvider",
-        lambda **_kwargs: calls.append("text") or object(),
+        "create_model_provider",
+        lambda *_args, **_kwargs: calls.append("text") or object(),
     )
     monkeypatch.setattr(
         photo_routes,
@@ -93,8 +94,8 @@ def test_remote_photo_model_endpoints_require_explicit_opt_in(
     monkeypatch.setattr(photo_routes, "get_photo_settings", lambda: settings)
     monkeypatch.setattr(
         photo_routes,
-        "OllamaProvider",
-        lambda **_kwargs: calls.append("text") or object(),
+        "create_model_provider",
+        lambda *_args, **_kwargs: calls.append("text") or object(),
     )
     monkeypatch.setattr(
         photo_routes,
