@@ -40,9 +40,7 @@ def _model_name_matches(configured: str, candidate: str) -> bool:
         return True
     if ":" not in configured_name and candidate_name == f"{configured_name}:latest":
         return True
-    if ":" not in candidate_name and configured_name == f"{candidate_name}:latest":
-        return True
-    return False
+    return ":" not in candidate_name and configured_name == f"{candidate_name}:latest"
 
 
 def _ollama_model_available(
