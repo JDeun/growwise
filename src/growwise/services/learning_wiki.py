@@ -183,9 +183,10 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
 
     def _build_draft(self, sources: list[dict]) -> tuple[LearningWikiDraft, str]:
         allowed_refs = {self._source_ref(payload) for payload in sources}
-        if provider_is_loopback(self.provider) and sources:
+        provider = self.provider
+        if provider is not None and provider_is_loopback(provider) and sources:
             try:
-                candidate = self.provider.generate_structured(
+                candidate = provider.generate_structured(
                     system=self.SYSTEM,
                     user=self._evidence_prompt(sources),
                     schema=LearningWikiDraft,
