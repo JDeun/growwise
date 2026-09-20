@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from collections.abc import Iterable
 import html
+from collections.abc import Iterable
 from typing import Annotated
 
 from pydantic import BaseModel, Field
