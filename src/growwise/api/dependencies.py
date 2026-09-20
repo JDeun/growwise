@@ -58,6 +58,9 @@ def _get_rag_index(generation: int) -> HybridRagIndex:
                 embedding = OllamaEmbeddingProvider(
                     model=settings.embedding_model_id,
                     base_url=settings.embedding_base_url,
+                    timeout_seconds=settings.embedding_timeout_seconds,
+                    failure_threshold=settings.model_circuit_failure_threshold,
+                    recovery_seconds=settings.model_circuit_recovery_seconds,
                 )
             except Exception:
                 logger.exception("embedding provider unavailable; RAG will use lexical search")
