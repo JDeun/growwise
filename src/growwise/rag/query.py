@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+import html
 from typing import Annotated
 
 from pydantic import BaseModel, Field
@@ -90,13 +91,12 @@ Return concise Korean when the question is Korean."""
             )
 
         context = "\n\n".join(
-            "<retrieved_chunk id=\"{chunk_id}\">\n"
-            "title: {title}\n"
-            "content:\n{text}\n"
-            "</retrieved_chunk>".format(
-                chunk_id=hit["chunk_id"],
-                title=hit["title"],
-                text=hit["text"],
+            (
+                f'<retrieved_chunk id="{html.escape(str(hit["chunk_id"]), quote=True)}">\n'
+                f"title: {html.escape(str(hit['title']))}\n"
+                "content:\n"
+                f"{html.escape(str(hit['text']))}\n"
+                "</retrieved_chunk>"
             )
             for hit in hits
         )
@@ -125,7 +125,7 @@ Return concise Korean when the question is Korean."""
             return answer
         except Exception:
             return GroundedAnswer(
-                answer="관련 자료는 찾았지만 로컬 모델로 답변을 생성하지 못했습니다.",
+                answer="관련 자료는 찾았지만 AI 모델로 답변을 생성하지 못했습니다.",
                 source_chunk_ids=[hit["chunk_id"] for hit in hits],
                 insufficient_evidence=False,
             )
