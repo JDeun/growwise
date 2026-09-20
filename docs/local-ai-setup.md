@@ -232,7 +232,9 @@ launchctl setenv GROWWISE_MODEL_ID qwen3.5:9b
 
 ## 사진 AI
 
-GrowWise의 기본 사진 이해도 텍스트와 같은 Qwen 3.5 모델을 사용합니다. Qwen 3.5의 현재 Ollama 배포는 2B, 4B, 9B, 27B, 35B 모두 Text+Image 입력을 지원하므로 별도 비전 모델이 필수는 아닙니다.
+GrowWise의 기본 사진 이해도 텍스트와 같은 Qwen 3.5 모델을 사용합니다. 기본 설치에서는
+text/vision 역할이 같은 모델 artifact를 공유하므로 별도 비전 모델을 추가로 다운로드하지 않습니다.
+Qwen 3.5의 현재 Ollama 배포는 2B, 4B, 9B, 27B, 35B 모두 Text+Image 입력을 지원합니다.
 
 애플리케이션 내부에서는 vision provider와 timeout을 독립적으로 유지합니다. 따라서 향후 특정 비전 모델이 더 적합한 경우에만 `GROWWISE_VISION_MODEL_ID`로 다른 모델을 지정할 수 있습니다.
 
@@ -294,8 +296,7 @@ GrowWise의 기본 설정:
 
 ```text
 Ollama 주소       http://127.0.0.1:11434
-텍스트 모델       qwen3.5:9b
-사진 모델         gemma4:e4b
+텍스트·사진 모델  qwen3.5:9b
 임베딩 모델       nomic-embed-text
 ```
 
@@ -358,3 +359,21 @@ uv run python scripts/benchmark_model.py --warmup-rounds 1 --repeats 3
 - [Ollama Qwen3 Embedding](https://ollama.com/library/qwen3-embedding)
 - [Ollama nomic-embed-text](https://ollama.com/library/nomic-embed-text)
 - [Ollama 다운로드](https://ollama.com/download)
+
+
+## 원격 모델 고급 설정과 개인정보
+
+GrowWise의 일반 사용자 경로는 loopback Ollama를 전제로 합니다.
+
+- text 모델을 다른 PC나 서버의 Ollama/OpenAI-compatible endpoint로 바꾸려면
+  `GROWWISE_MODEL_REMOTE_ALLOWED=true`라는 별도 opt-in이 필요합니다.
+- 사진 원본이 들어가는 vision 경로는 별도
+  `GROWWISE_PHOTO_REMOTE_VISION_ALLOWED=true` 동의 경계를 사용합니다.
+- 사진 처리의 text 경로도 `GROWWISE_PHOTO_REMOTE_TEXT_ALLOWED=true`가 별도로 필요합니다.
+- 검색용 embedding은 아동 기록을 벡터화하므로 현재 provider 구현에서는 **loopback 전용**입니다.
+- Learning Wiki의 장기 기록 합성은 원격 text provider로 보내지 않습니다. 원격 모델만 사용
+  가능한 경우에도 Wiki는 로컬 deterministic projection으로 유지됩니다.
+
+Desktop의 **기본 AI 준비**는 모델 존재 여부가 로컬 Ollama에서 명시적으로 "없음"으로 확인된
+경우에만 다운로드를 시도합니다. 원격 endpoint나 확인 불가능한 endpoint에는 자동 pull을 보내지
+않습니다.
