@@ -21,3 +21,10 @@ def is_loopback_endpoint(base_url: str) -> bool:
         return ip_address(normalized).is_loopback
     except ValueError:
         return False
+
+
+def provider_is_loopback(provider: object | None) -> bool:
+    if provider is None:
+        return False
+    base_url = getattr(provider, "base_url", None)
+    return isinstance(base_url, str) and is_loopback_endpoint(base_url)
