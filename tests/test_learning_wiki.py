@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-from pathlib import Path
 import threading
+from pathlib import Path
 
 from growwise.config import Settings
 from growwise.domain import ChildProfile, LearningLog, Stage
@@ -188,12 +188,12 @@ def test_learning_wiki_rechecks_sources_after_slow_model_inference(tmp_path: Pat
     store.save(first)
     provider = BlockingWikiProvider()
     service = LearningWikiService(store, provider=provider)
-    errors: list[BaseException] = []
+    errors: list[Exception] = []
 
     def refresh() -> None:
         try:
             service.refresh(str(child.id))
-        except BaseException as exc:  # pragma: no cover - surfaced by assertion below
+        except Exception as exc:  # pragma: no cover - surfaced by assertion below
             errors.append(exc)
 
     worker = threading.Thread(target=refresh)
