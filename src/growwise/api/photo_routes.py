@@ -85,19 +85,16 @@ def get_photo_text_provider() -> ModelProvider | None:
         and not settings.photo_remote_text_allowed
     ):
         return None
+    photo_settings = settings.model_copy(
+        update={"model_timeout_seconds": settings.photo_text_timeout_seconds}
+    )
     try:
-        provider = create_model_provider(
-            settings,
+        return create_model_provider(
+            photo_settings,
             allow_remote=settings.photo_remote_text_allowed,
         )
     except Exception:
         return None
-
-    # Photo processing can take substantially longer than ordinary text generation. Preserve the
-    # dedicated timeout for the Ollama implementation without weakening the endpoint consent gate.
-    if hasattr(provider, "timeout_seconds"):
-        provider.timeout_seconds = settings.photo_text_timeout_seconds
-    return provider
 
 
 @lru_cache
