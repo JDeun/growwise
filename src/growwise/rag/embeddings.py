@@ -5,6 +5,7 @@ from typing import Protocol
 from langchain_ollama import OllamaEmbeddings
 
 from growwise.config import Settings
+from growwise.model.privacy import is_loopback_endpoint
 from growwise.model.resilience import FailureCircuit
 
 
@@ -40,6 +41,8 @@ class OllamaEmbeddingProvider:
         )
         if effective_timeout <= 0:
             raise ValueError("timeout_seconds must be positive")
+        if not is_loopback_endpoint(base_url):
+            raise ValueError("embedding endpoint must be loopback")
         self._circuit = FailureCircuit(
             failure_threshold=effective_threshold,
             recovery_seconds=effective_recovery,
