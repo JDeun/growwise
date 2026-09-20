@@ -3,8 +3,10 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+import pytest
+
 from growwise.config import Settings
-from growwise.domain import ChildProfile, LearningLog, Stage
+from growwise.domain import ChildProfile, LearningLog, LearningWiki, Stage
 from growwise.domain.links import EntityLinkRelation
 from growwise.rag import HybridRagIndex
 from growwise.services.context import ChildContextService
@@ -42,6 +44,17 @@ class CapturingWikiProvider:
                     "source_refs": [source_ref],
                 }
             ],
+        )
+
+
+def test_learning_wiki_domain_enforces_derived_sha256_metadata() -> None:
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+
+    with pytest.raises(ValueError):
+        LearningWiki(
+            child_id=child.id,
+            source_fingerprint="z" * 64,
+            derived=False,
         )
 
 
