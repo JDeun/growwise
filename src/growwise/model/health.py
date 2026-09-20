@@ -3,11 +3,11 @@ from __future__ import annotations
 import json
 import socket
 from dataclasses import dataclass
-from ipaddress import ip_address
 from urllib.parse import urlparse
 from urllib.request import Request, urlopen
 
 from growwise.config import Settings
+from growwise.model.privacy import is_loopback_endpoint
 
 
 @dataclass(frozen=True, slots=True)
@@ -17,18 +17,6 @@ class ModelRuntimeHealth:
     provider: str
     model_id: str | None = None
     model_available: bool | None = None
-
-
-def _loopback_host(host: str | None) -> bool:
-    if not host:
-        return False
-    normalized = host.strip().strip("[]").casefold()
-    if normalized == "localhost" or normalized.endswith(".localhost"):
-        return True
-    try:
-        return ip_address(normalized).is_loopback
-    except ValueError:
-        return False
 
 
 def _tcp_reachable(url: str, *, timeout_seconds: float) -> bool:
@@ -70,7 +58,7 @@ def _ollama_model_available(
     """
 
     parsed = urlparse(base_url)
-    if parsed.scheme not in {"http", "https"} or not _loopback_host(parsed.hostname):
+    if parsed.scheme not in {"http", "https"} or not is_loopback_endpoint(base_url):
         return False
 
     endpoint = f"{base_url.rstrip('/')}/api/tags"
@@ -114,12 +102,8 @@ def probe_model_runtime(settings: Settings, *, timeout_seconds: float = 0.15) ->
             model_id=settings.model_id,
         )
 
-    parsed = urlparse(settings.model_base_url)
-    if (
-        provider == "openai_compatible"
-        and not _loopback_host(parsed.hostname)
-        and not settings.model_remote_allowed
-    ):
+    local_endpoint = is_loopback_endpoint(settings.model_base_url)
+    if not local_endpoint and not settings.model_remote_allowed:
         return ModelRuntimeHealth(
             configured=False,
             reachable=False,
@@ -134,7 +118,7 @@ def probe_model_runtime(settings: Settings, *, timeout_seconds: float = 0.15) ->
             settings.model_id,
             timeout_seconds=max(timeout_seconds, 0.25),
         )
-        if provider == "ollama" and reachable
+        if provider == "ollama" and reachable and local_endpoint
         else None
     )
     return ModelRuntimeHealth(
@@ -160,7 +144,7 @@ def probe_embedding_runtime(
             model_id=settings.embedding_model_id,
         )
     provider = settings.embedding_provider.casefold().replace("-", "_")
-    if provider != "ollama":
+    if provider != "ollama" or not is_loopback_endpoint(settings.embedding_base_url):
         return ModelRuntimeHealth(
             configured=False,
             reachable=False,
@@ -199,7 +183,10 @@ def probe_vision_runtime(
             model_id=settings.vision_model_id,
         )
     provider = settings.vision_provider.casefold().replace("-", "_")
-    if provider != "ollama":
+    local_endpoint = is_loopback_endpoint(settings.vision_base_url)
+    if provider != "ollama" or (
+        not local_endpoint and not settings.photo_remote_vision_allowed
+    ):
         return ModelRuntimeHealth(
             configured=False,
             reachable=False,
@@ -218,7 +205,7 @@ def probe_vision_runtime(
                 settings.vision_model_id,
                 timeout_seconds=max(timeout_seconds, 0.25),
             )
-            if reachable
+            if reachable and local_endpoint
             else None
         ),
     )
