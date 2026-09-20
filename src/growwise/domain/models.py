@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import UTC, date, datetime
 from enum import StrEnum
-from typing import Annotated, Any, Self
+from typing import Annotated, Any, Literal, Self
 from uuid import UUID
 
 from pydantic import BaseModel, Field, model_validator
@@ -262,7 +262,7 @@ class LearningWiki(EntityBase):
     model_provider: str | None = Field(default=None, max_length=120)
     model_id: str | None = Field(default=None, max_length=240)
     revision: int = Field(default=1, ge=1)
-    derived: bool = True
+    derived: Literal[True] = True
     rebuilt_at: datetime = Field(default_factory=utc_now)
 
 
