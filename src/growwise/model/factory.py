@@ -13,6 +13,7 @@ def create_model_provider(settings: Settings) -> ModelProvider:
         return OllamaProvider(
             model=settings.model_id,
             base_url=settings.model_base_url,
+            allow_remote=settings.model_remote_allowed,
             temperature=settings.model_temperature,
             timeout_seconds=settings.model_timeout_seconds,
             failure_threshold=settings.model_circuit_failure_threshold,
