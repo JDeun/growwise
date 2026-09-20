@@ -308,7 +308,7 @@ def record_material_result(
     reserved_log_id: UUID = uuid7()
     claim = None
 
-    with child_operation_lock(str(material.child_id)):
+    with store.mutation_window(), child_operation_lock(str(material.child_id)):
         if store.index.get_entity(str(material.child_id), entity_type="child_profile") is None:
             raise HTTPException(status_code=404, detail="child_not_found")
         material = _approved_material(store, material_id)
