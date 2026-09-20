@@ -258,7 +258,11 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 child_id=child_id,
                 limit=_MAX_SOURCES,
             ):
-                if entity_type == "activity_plan" and payload.get("status") == "suggested":
+                if entity_type == "activity_plan" and payload.get("status") in {
+                    "suggested",
+                    "skipped",
+                    "archived",
+                }:
                     continue
                 candidates[str(payload["id"])] = payload
 
@@ -469,25 +473,41 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             interest = payload.get("interest")
             if isinstance(interest, str) and interest.strip():
                 normalized = " ".join(interest.split())[:1_500]
-                if normalized.casefold() not in seen_interest:
+                if (
+                    not cls._unsafe_text(normalized)
+                    and normalized.casefold() not in seen_interest
+                ):
                     seen_interest.add(normalized.casefold())
                     interests.append(WikiItem(text=normalized, source_refs=[ref]))
 
             question = payload.get("child_question") or payload.get("open_question")
             if isinstance(question, str) and question.strip():
                 normalized = " ".join(question.split())[:1_500]
-                if normalized.casefold() not in seen_question:
+                if (
+                    not cls._unsafe_text(normalized)
+                    and normalized.casefold() not in seen_question
+                ):
                     seen_question.add(normalized.casefold())
                     questions.append(WikiItem(text=normalized, source_refs=[ref]))
 
-            experience = (
-                payload.get("parent_observation")
-                or payload.get("title")
-                or payload.get("worked_well")
-            )
+            if payload.get("entity_type") == "activity_plan":
+                experience = (
+                    payload.get("title")
+                    if payload.get("status") == "completed"
+                    else None
+                )
+            else:
+                experience = (
+                    payload.get("parent_observation")
+                    or payload.get("worked_well")
+                    or payload.get("title")
+                )
             if isinstance(experience, str) and experience.strip():
                 normalized = " ".join(experience.split())[:1_500]
-                if normalized.casefold() not in seen_experience:
+                if (
+                    not cls._unsafe_text(normalized)
+                    and normalized.casefold() not in seen_experience
+                ):
                     seen_experience.add(normalized.casefold())
                     experiences.append(WikiItem(text=normalized, source_refs=[ref]))
 
@@ -496,7 +516,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 if not isinstance(value, str) or not value.strip():
                     continue
                 normalized = " ".join(value.split())[:1_500]
-                if normalized.casefold() in seen_open:
+                if cls._unsafe_text(normalized) or normalized.casefold() in seen_open:
                     continue
                 seen_open.add(normalized.casefold())
                 open_threads.append(WikiItem(text=normalized, source_refs=[ref]))
