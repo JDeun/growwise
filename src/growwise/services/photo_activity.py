@@ -323,7 +323,7 @@ LearningLog."""
         if not uploads or len(uploads) > self.max_images:
             raise PhotoValidationError("invalid_photo_count")
 
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             draft_id = record_id or uuid7()
             assets: list[PhotoAsset] = []
@@ -372,7 +372,7 @@ LearningLog."""
     def attach_job(self, *, record_id: str, job_id: UUID) -> PhotoActivityRecord:
         record = self.get_record(record_id)
         child_id = str(record.child_id)
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             record = self.get_record(record_id)
             if record.status in {PhotoRecordStatus.COMMITTED, PhotoRecordStatus.DISCARDED}:
@@ -402,7 +402,7 @@ LearningLog."""
         record = self.get_record(record_id)
         child_id = str(record.child_id)
 
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             record = self.get_record(record_id)
             if record.status in {PhotoRecordStatus.DRAFT, PhotoRecordStatus.COMMITTED}:
@@ -439,7 +439,7 @@ LearningLog."""
             asset.caption = caption
             asset.caption_model = self.vision_provider.model
             asset.updated_at = datetime.now(UTC)
-            with child_operation_lock(child_id):
+            with self.store.mutation_window(), child_operation_lock(child_id):
                 self._require_child(child_id)
                 self.store.save(asset)
 
@@ -448,7 +448,7 @@ LearningLog."""
         record.generation_mode = mode
         self._enrich_record(record, observation)
 
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             current = self.get_record(record_id)
             if current.status is PhotoRecordStatus.COMMITTED:
@@ -484,7 +484,7 @@ LearningLog."""
     def mark_queued(self, record_id: str, *, error: str | None = None) -> None:
         record = self.get_record(record_id)
         child_id = str(record.child_id)
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             record = self.get_record(record_id)
             if record.status is PhotoRecordStatus.COMMITTED:
@@ -498,7 +498,7 @@ LearningLog."""
     def mark_failed(self, record_id: str, error: str) -> None:
         record = self.get_record(record_id)
         child_id = str(record.child_id)
-        with child_operation_lock(child_id):
+        with self.store.mutation_window(), child_operation_lock(child_id):
             self._require_child(child_id)
             record = self.get_record(record_id)
             if record.status is PhotoRecordStatus.COMMITTED:
@@ -572,7 +572,7 @@ LearningLog."""
         with _commit_lock(record_id):
             record = self.get_record(record_id)
             child_id = str(record.child_id)
-            with child_operation_lock(child_id):
+            with self.store.mutation_window(), child_operation_lock(child_id):
                 self._require_child(child_id)
                 return self._commit_locked(record_id=record_id, observation=observation)
 
