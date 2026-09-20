@@ -24,6 +24,8 @@ class OllamaEmbeddingProvider:
         failure_threshold: int = 3,
         recovery_seconds: float = 30.0,
     ) -> None:
+        if not model.strip():
+            raise ValueError("model must not be empty")
         if timeout_seconds <= 0:
             raise ValueError("timeout_seconds must be positive")
         if not is_loopback_endpoint(base_url):
@@ -33,7 +35,7 @@ class OllamaEmbeddingProvider:
             recovery_seconds=recovery_seconds,
         )
         self._embedding = OllamaEmbeddings(
-            model=model,
+            model=model.strip(),
             base_url=base_url,
             client_kwargs={"timeout": timeout_seconds},
         )
