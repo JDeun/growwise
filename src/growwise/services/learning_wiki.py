@@ -16,6 +16,7 @@ from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.model import ModelProvider
 from growwise.model.privacy import provider_is_loopback
 from growwise.rag import HybridRagIndex, chunk_resource
+from growwise.services.child_lock import child_operation_lock
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
 
@@ -155,31 +156,37 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 return existing
 
             draft, generator_mode = self._build_draft(sources)
-            if self._fingerprint(self._sources(child_id)) != fingerprint:
-                continue
+            with child_operation_lock(child_id):
+                if self.store.index.get_entity(child_id, entity_type="child_profile") is None:
+                    raise KeyError("child_not_found")
+                if self._fingerprint(self._sources(child_id)) != fingerprint:
+                    continue
+                return self._persist(
+                    child_id=child_id,
+                    sources=sources,
+                    fingerprint=fingerprint,
+                    existing=existing,
+                    draft=draft,
+                    generator_mode=generator_mode,
+                )
+
+        # Under sustained writes, stop spending model time and converge quickly to the newest
+        # authoritative snapshot. A later access will refresh again if another write lands after
+        # this final read.
+        with child_operation_lock(child_id):
+            if self.store.index.get_entity(child_id, entity_type="child_profile") is None:
+                raise KeyError("child_not_found")
+            sources = self._sources(child_id)
+            fingerprint = self._fingerprint(sources)
+            existing = self.get(child_id)
             return self._persist(
                 child_id=child_id,
                 sources=sources,
                 fingerprint=fingerprint,
                 existing=existing,
-                draft=draft,
-                generator_mode=generator_mode,
+                draft=self._deterministic_draft(sources),
+                generator_mode="deterministic_projection",
             )
-
-        # Under sustained writes, stop spending model time and converge quickly to the newest
-        # authoritative snapshot. A later access will refresh again if another write lands after
-        # this final read.
-        sources = self._sources(child_id)
-        fingerprint = self._fingerprint(sources)
-        existing = self.get(child_id)
-        return self._persist(
-            child_id=child_id,
-            sources=sources,
-            fingerprint=fingerprint,
-            existing=existing,
-            draft=self._deterministic_draft(sources),
-            generator_mode="deterministic_projection",
-        )
 
     def _build_draft(self, sources: list[dict]) -> tuple[LearningWikiDraft, str]:
         allowed_refs = {self._source_ref(payload) for payload in sources}
