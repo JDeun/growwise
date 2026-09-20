@@ -16,13 +16,14 @@ from growwise.backup.cli import (
     validate_archive_name,
 )
 from growwise.config import Settings
-from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.domain import ChildProfile, LearningLog, ResourceKind, ResourceRecord, Stage
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.jobs import SQLiteJobQueue
 from growwise.maintenance import StaleDataGeneration
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services import ConversationSession, ConversationTurn, SQLiteConversationStore
 from growwise.services.background_ai import OBSERVATION_ENRICHMENT_JOB
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
 from growwise.storage import EntityStore
 from growwise.workflows import build_material_review_graph
@@ -212,6 +213,36 @@ def test_managed_backup_roundtrips_conversations_at_snapshot_boundary(tmp_path: 
     assert [turn.content for turn in restored_baseline.turns] == ["백업 전 질문"]
     assert reopened.get(later.id) is None
 
+
+
+def test_restore_rag_rebuild_includes_learning_wiki(tmp_path: Path) -> None:
+    settings = Settings(
+        data_dir=tmp_path,
+        embedding_features_enabled=False,
+    )
+    store = EntityStore(settings.records_dir, settings.index_path)
+    child = ChildProfile(nickname="위키복원", stage=Stage.ELEMENTARY)
+    store.save(child)
+    store.save(
+        LearningLog(
+            child_id=child.id,
+            parent_observation="민들레 씨앗이 바람에 날아가는 모습을 관찰했다.",
+            interest="민들레",
+        )
+    )
+    wiki = LearningWikiService(store, provider=None).refresh(str(child.id))
+    create_backup(settings, "wiki.zip")
+
+    HybridRagIndex(settings.rag_index_path).reset()
+    restored = restore_backup(settings, "wiki.zip", confirmed=True)
+
+    assert restored["rag_status"] == "ready"
+    hits = HybridRagIndex(settings.rag_index_path).search(
+        query="민들레",
+        child_id=str(child.id),
+        limit=10,
+    )
+    assert any(hit["resource_id"] == str(wiki.id) for hit in hits)
 
 
 def test_restore_rag_rehydrates_embeddings_when_enabled(
