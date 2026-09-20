@@ -39,6 +39,9 @@
 - preflight와 실제 restore는 같은 immutable snapshot을 사용해 archive 교체 TOCTOU를 허용하지 않는다.
 - restore 전 pre-restore jobs/idempotency/checkpoint projection을 제거해 이전 generation 실행 상태를 남기지 않는다.
 - restore 성공 후 archive에 존재하지 않는 이전 live record/conversation/RAG projection을 남기지 않는다.
+- restore 후 RAG rebuild는 authoritative `resource`뿐 아니라 저장된 `learning_wiki`도 다시
+  색인하며, embedding provider는 text-model URL이 아니라
+  `GROWWISE_EMBEDDING_BASE_URL`을 사용한다.
 - RAG rebuild 실패는 정본 restore를 되돌리지 않고 명시적 degraded 상태로 보고한다.
 
 ## 3. Idempotency와 crash recovery
@@ -128,6 +131,10 @@ Learning Wiki는 장기 맥락을 누적하지만 원본 기록보다 높은 신
 - provider 실패/부재 시 deterministic projection으로 강등한다.
 - LLM synthesis가 원본의 명시적 next step/open question을 누락하면 deterministic facts로 보완한다.
 - child purge는 Wiki Markdown/backup/projection와 Wiki provenance links도 함께 제거한다.
+- Wiki LLM synthesis는 loopback provider에서만 실행한다. 원격 text provider가 활성화되어 있어도
+  장기 원문 기록을 보내지 않고 deterministic projection으로 강등한다.
+- Wiki를 material generation guidance로 재사용하는 것도 loopback provider에 한정한다.
+- raw/Wiki/RAG evidence와 generation guidance는 prompt delimiter를 escape한다.
 
 회귀 증거:
 
@@ -146,8 +153,11 @@ AI는 optional dependency다.
 - cooldown 뒤 첫 요청은 half-open probe처럼 동작한다.
 - 성공하면 failure count와 open state를 reset한다.
 - caller는 provider exception을 데이터 손실로 연결하지 않고 deterministic/template/lexical fallback을 사용한다.
+- 일반 text Ollama/OpenAI-compatible provider는 loopback을 기본 경계로 사용하고, 비-loopback
+  endpoint는 `GROWWISE_MODEL_REMOTE_ALLOWED=true` 없이는 생성하지 않는다.
+- embedding provider는 child-context vectorization이므로 loopback-only다.
 - 사진 text/vision 모델은 loopback endpoint를 기본 경계로 사용하고, 원격 endpoint는 각각 명시적
-  opt-in 설정이 없으면 생성하지 않는다.
+  photo opt-in 설정이 없으면 생성하지 않는다.
 
 관련 설정:
 
@@ -172,7 +182,27 @@ AI는 optional dependency다.
 
 목표는 메모리/디스크 폭주, pathological prompt, 거대한 local IPC payload가 장기 데이터베이스에 들어가는 것을 입구에서 차단하는 것이다.
 
-## 10. 공급망과 재현성
+## 10. Lock ordering과 destructive maintenance
+
+child purge/restore와 일반 child-scoped writer는 lock acquisition order를 뒤집지 않는다.
+
+- destructive purge는 `DATA_MAINTENANCE.maintenance → child_operation_lock` 순서다.
+- child lock과 SoT mutation을 함께 쓰는 일반 writer는 반드시
+  `DATA_MAINTENANCE.mutation → child_operation_lock` 순서로 등록한다.
+- `child_operation_lock → EntityStore.save()/mutation` 순서는 금지한다. purge와 AB-BA
+  deadlock을 만들 수 있기 때문이다.
+- 느린 local-model inference는 child lock 밖에서 실행하고, 최종 write 직전에 최신 child/source
+  존재 여부를 다시 확인한다.
+- destructive generation이 바뀌면 pre-purge/pre-restore `EntityStore`는
+  `StaleDataGeneration`으로 late write를 거부한다.
+
+회귀 증거:
+
+- `src/growwise/services/photo_activity.py`
+- `tests/test_photo_purge_lock_order.py`
+- `src/growwise/maintenance.py`
+
+## 11. 공급망과 재현성
 
 - Python: `uv.lock`, `uv sync --locked`, `uv lock --check`, uv version pin.
 - Node: `package-lock.json`, `npm ci`, npm version pin, `npm audit`.
@@ -185,7 +215,7 @@ AI는 optional dependency다.
 - CodeQL은 security-extended query를 실행한다.
 - packaging workflow는 SBOM을 생성하고 build 후 authenticated runtime smoke를 통과해야 한다.
 
-## 11. Definition of Done
+## 12. Definition of Done
 
 하드닝 변경은 코드가 존재하는 것으로 끝나지 않는다. 최종 merge 전 다음이 모두 green이어야 한다.
 
