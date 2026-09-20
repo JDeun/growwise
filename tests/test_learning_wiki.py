@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+import threading
 
 from growwise.config import Settings
 from growwise.domain import ChildProfile, LearningLog, Stage
@@ -109,6 +110,111 @@ def test_learning_wiki_is_rebuildable_and_revision_changes_only_when_sources_cha
         relation=EntityLinkRelation.DERIVED_FROM.value,
     )
     assert {item["target_id"] for item in remaining_links} == {str(second.id)}
+
+
+class RemoteWikiProvider:
+    def __init__(self) -> None:
+        self.base_url = "https://example.com/v1"
+        self.model = "remote-model"
+        self.called = False
+
+    def generate_text(self, *, system: str, user: str) -> str:
+        raise AssertionError("Learning Wiki should not call a remote provider")
+
+    def generate_structured(self, *, system: str, user: str, schema):
+        self.called = True
+        raise AssertionError("Learning Wiki should not call a remote provider")
+
+
+class BlockingWikiProvider:
+    def __init__(self) -> None:
+        self.base_url = "http://127.0.0.1:11434"
+        self.model = "test-local"
+        self.calls = 0
+        self.started = threading.Event()
+        self.release = threading.Event()
+
+    def generate_text(self, *, system: str, user: str) -> str:
+        raise AssertionError("Learning Wiki must use structured output")
+
+    def generate_structured(self, *, system: str, user: str, schema):
+        self.calls += 1
+        if self.calls == 1:
+            self.started.set()
+            if not self.release.wait(timeout=5):
+                raise RuntimeError("test timed out waiting to release provider")
+        source_ref = user.split('source_ref="', 1)[1].split('"', 1)[0]
+        return schema(
+            summary=[
+                {
+                    "text": f"합성 {self.calls}",
+                    "source_refs": [source_ref],
+                }
+            ]
+        )
+
+
+def test_learning_wiki_never_sends_longitudinal_records_to_remote_provider(
+    tmp_path: Path,
+) -> None:
+    store = _store(tmp_path)
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    store.save(
+        LearningLog(
+            child_id=child.id,
+            parent_observation="원격으로 보내면 안 되는 장기 관찰 원문",
+        )
+    )
+    provider = RemoteWikiProvider()
+
+    wiki = LearningWikiService(store, provider=provider).refresh(str(child.id))
+
+    assert provider.called is False
+    assert wiki.generator_mode == "deterministic_projection"
+    assert wiki.model_provider is None
+    assert wiki.model_id is None
+
+
+def test_learning_wiki_rechecks_sources_after_slow_model_inference(tmp_path: Path) -> None:
+    store = _store(tmp_path)
+    child = ChildProfile(nickname="아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    first = LearningLog(
+        child_id=child.id,
+        parent_observation="첫 번째 기록",
+        interest="씨앗",
+    )
+    store.save(first)
+    provider = BlockingWikiProvider()
+    service = LearningWikiService(store, provider=provider)
+    errors: list[BaseException] = []
+
+    def refresh() -> None:
+        try:
+            service.refresh(str(child.id))
+        except BaseException as exc:  # pragma: no cover - surfaced by assertion below
+            errors.append(exc)
+
+    worker = threading.Thread(target=refresh)
+    worker.start()
+    assert provider.started.wait(timeout=5)
+
+    second = LearningLog(
+        child_id=child.id,
+        parent_observation="모델 추론 중 추가된 최신 기록",
+        interest="바람",
+    )
+    store.save(second)
+    provider.release.set()
+    worker.join(timeout=10)
+
+    assert not worker.is_alive()
+    assert errors == []
+    assert provider.calls >= 2
+    wiki = service.get(str(child.id))
+    assert wiki is not None
+    assert f"learning_log:{second.id}" in wiki.source_refs
 
 
 def test_learning_wiki_drops_ungrounded_and_unsafe_model_items(tmp_path: Path) -> None:
