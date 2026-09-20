@@ -6,6 +6,7 @@ from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_ollama import ChatOllama
 from pydantic import BaseModel
 
+from .privacy import is_loopback_endpoint
 from .provider import ModelProvider, T
 from .resilience import FailureCircuit
 
@@ -16,6 +17,7 @@ class OllamaProvider(ModelProvider):
         *,
         model: str,
         base_url: str = "http://127.0.0.1:11434",
+        allow_remote: bool = False,
         temperature: float = 0.1,
         timeout_seconds: float = 12.0,
         failure_threshold: int = 3,
@@ -25,7 +27,11 @@ class OllamaProvider(ModelProvider):
             raise ValueError("timeout_seconds must be positive")
 
         self.model = model
-        self.base_url = base_url
+        self.base_url = base_url.strip()
+        if not is_loopback_endpoint(self.base_url) and not allow_remote:
+            raise ValueError(
+                "remote Ollama endpoint requires GROWWISE_MODEL_REMOTE_ALLOWED=true"
+            )
         self.timeout_seconds = timeout_seconds
         self._circuit = FailureCircuit(
             failure_threshold=failure_threshold,
@@ -33,7 +39,7 @@ class OllamaProvider(ModelProvider):
         )
         self._chat = ChatOllama(
             model=model,
-            base_url=base_url,
+            base_url=self.base_url,
             temperature=temperature,
             client_kwargs={"timeout": timeout_seconds},
         )
