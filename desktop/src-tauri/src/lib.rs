@@ -320,9 +320,10 @@ async fn prepare_local_ai(component: String) -> Result<String, String> {
         }
         "vision" => {
             if health.vision_model_available == Some(false) {
-                if let (Some(base_url), Some(model_id)) =
-                    (health.vision_base_url.clone(), health.vision_model_id.clone())
-                {
+                if let (Some(base_url), Some(model_id)) = (
+                    health.vision_base_url.clone(),
+                    health.vision_model_id.clone(),
+                ) {
                     targets.push((base_url, model_id));
                 }
             }
