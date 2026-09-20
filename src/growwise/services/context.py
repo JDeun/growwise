@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 from typing import Annotated
 
 from pydantic import BaseModel, Field
@@ -247,7 +248,11 @@ concise Korean for Korean questions."""
             )
 
         context = "\n\n".join(
-            f'<evidence id="{source_id}">\n{text}\n</evidence>'
+            (
+                f'<evidence id="{html.escape(source_id, quote=True)}">\n'
+                f"{html.escape(text)}\n"
+                "</evidence>"
+            )
             for source_id, text in sources
         )
         try:
