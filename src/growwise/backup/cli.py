@@ -17,10 +17,15 @@ from growwise.backup import BackupService
 from growwise.backup.naming import unique_backup_token
 from growwise.backup.restore_journal import RestoreJournalManager
 from growwise.config import Settings
-from growwise.domain import ResourceRecord
+from growwise.domain import LearningWiki, ResourceRecord
 from growwise.idempotency import SQLiteIdempotencyStore
 from growwise.maintenance import DATA_MAINTENANCE, MaintenanceAwareJobQueue
-from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngestor
+from growwise.rag import (
+    HybridRagIndex,
+    OllamaEmbeddingProvider,
+    ResourceIngestor,
+    chunk_resource,
+)
 from growwise.runtime_lock import DataDirectoryLock
 from growwise.services.background_ai import MATERIAL_ENHANCEMENT_JOB, OBSERVATION_ENRICHMENT_JOB
 from growwise.services.photo_jobs import PHOTO_ANALYSIS_JOB
@@ -200,7 +205,7 @@ def rebuild_rag_projection(settings: Settings) -> int:
         try:
             embedding = OllamaEmbeddingProvider(
                 model=settings.embedding_model_id,
-                base_url=settings.model_base_url,
+                base_url=settings.embedding_base_url,
             )
         except Exception:
             logger.exception(
@@ -212,6 +217,20 @@ def rebuild_rag_projection(settings: Settings) -> int:
     count = 0
     for payload in store.index.list_entities(entity_type="resource"):
         count += ingestor.ingest(ResourceRecord.model_validate(payload))
+
+    for payload in store.index.list_entities(entity_type="learning_wiki"):
+        wiki = LearningWiki.model_validate(payload)
+        chunks = chunk_resource(
+            resource_id=str(wiki.id),
+            child_id=str(wiki.child_id),
+            title=wiki.title,
+            text=wiki.content_markdown,
+            source_url=None,
+            source_name="GrowWise Learning Wiki",
+            tags=["learning-wiki", "derived-context"],
+            recorded_at=None,
+        )
+        count += index.replace_resource(chunks)
     return count
 
 
