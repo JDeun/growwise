@@ -16,5 +16,5 @@ def test_current_local_model_defaults(
     settings = Settings(data_dir=tmp_path)
 
     assert settings.model_id == "qwen3.5:9b"
-    assert settings.vision_model_id == "gemma4:e4b"
+    assert settings.vision_model_id == "qwen3.5:9b"
     assert settings.embedding_model_id == "nomic-embed-text"
