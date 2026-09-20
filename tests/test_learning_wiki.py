@@ -6,7 +6,14 @@ from pathlib import Path
 import pytest
 
 from growwise.config import Settings
-from growwise.domain import ActivityPlan, ActivityStatus, ChildProfile, LearningLog, LearningWiki, Stage
+from growwise.domain import (
+    ActivityPlan,
+    ActivityStatus,
+    ChildProfile,
+    LearningLog,
+    LearningWiki,
+    Stage,
+)
 from growwise.domain.links import EntityLinkRelation
 from growwise.rag import HybridRagIndex
 from growwise.services.context import ChildContextService
