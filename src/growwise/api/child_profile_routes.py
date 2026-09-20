@@ -120,7 +120,7 @@ def update_child_avatar(
         max_file_bytes=settings.photo_max_file_bytes,
     )
 
-    with child_operation_lock(child_key):
+    with store.mutation_window(), child_operation_lock(child_key):
         payload = store.index.get_entity(child_key, entity_type="child_profile")
         if payload is None:
             raise HTTPException(status_code=404, detail="child_not_found")
