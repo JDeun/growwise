@@ -570,7 +570,7 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
             source_url=None,
             source_name="GrowWise Learning Wiki",
             tags=["learning-wiki", "derived-context"],
-            recorded_at=wiki.rebuilt_at.isoformat(),
+            recorded_at=None,
         )
         if chunks:
             self.rag_index.replace_resource(chunks)
