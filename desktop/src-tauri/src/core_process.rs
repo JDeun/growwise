@@ -167,10 +167,7 @@ fn recommended_multimodal_model_id(
 
 fn nvidia_vram_bytes() -> Option<u64> {
     let output = Command::new("nvidia-smi")
-        .args([
-            "--query-gpu=memory.total",
-            "--format=csv,noheader,nounits",
-        ])
+        .args(["--query-gpu=memory.total", "--format=csv,noheader,nounits"])
         .output()
         .ok()?;
     if !output.status.success() {
@@ -237,7 +234,9 @@ fn total_memory_bytes() -> Option<u64> {
 #[cfg(target_os = "linux")]
 fn total_memory_bytes() -> Option<u64> {
     let contents = std::fs::read_to_string("/proc/meminfo").ok()?;
-    let line = contents.lines().find(|line| line.starts_with("MemTotal:"))?;
+    let line = contents
+        .lines()
+        .find(|line| line.starts_with("MemTotal:"))?;
     let kib = line.split_whitespace().nth(1)?.parse::<u64>().ok()?;
     Some(kib * 1024)
 }
