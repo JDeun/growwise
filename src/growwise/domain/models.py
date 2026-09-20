@@ -257,7 +257,7 @@ class LearningWiki(EntityBase):
     summary: str = Field(default="", max_length=8_000)
     content_markdown: str = Field(default="", max_length=80_000)
     source_refs: list[SourceRef] = Field(default_factory=list, max_length=100)
-    source_fingerprint: str = Field(min_length=64, max_length=64)
+    source_fingerprint: str = Field(pattern=r"^[0-9a-f]{64}$")
     generator_mode: str = Field(default="deterministic_projection", min_length=1, max_length=120)
     model_provider: str | None = Field(default=None, max_length=120)
     model_id: str | None = Field(default=None, max_length=240)
