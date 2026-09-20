@@ -36,6 +36,7 @@ from growwise.idempotency import (
     request_fingerprint,
 )
 from growwise.material_versions import serialize_material_successor
+from growwise.model.privacy import provider_is_loopback
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.visibility import entity_visible_to_child, shared_source_ids
@@ -206,7 +207,8 @@ def generate_material(
     generation_guidance: str | None = None
     try:
         learning_wiki = LearningWikiService(store, provider=provider).refresh(str(child.id))
-        generation_guidance = learning_wiki.content_markdown[:6_000]
+        if provider_is_loopback(provider):
+            generation_guidance = learning_wiki.content_markdown[:6_000]
     except Exception:
         logger.exception(
             "Learning Wiki unavailable; material generation will use direct context only"
