@@ -14,6 +14,7 @@ from growwise.storage import EntityStore
 class CapturingWikiProvider:
     def __init__(self) -> None:
         self.user = ""
+        self.base_url = "http://127.0.0.1:11434"
 
     def generate_text(self, *, system: str, user: str) -> str:
         raise AssertionError("Learning Wiki must use structured output")
