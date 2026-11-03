@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib.util
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -37,3 +38,20 @@ def test_dumpbin_imports_preserve_exact_dll_and_entrypoint_names() -> None:
 def test_unrecognized_dumpbin_output_fails_instead_of_claiming_no_missing_exports() -> None:
     with pytest.raises(RuntimeError, match="No DLL imports"):
         probe.parse_imports("fatal error LNK1107: invalid or corrupt file")
+
+
+def test_library_test_manifest_activates_common_controls_without_elevation() -> None:
+    manifest = ET.parse(SCRIPT.with_name("windows-rust-test.manifest")).getroot()
+    controls = manifest.find(".//{urn:schemas-microsoft-com:asm.v1}assemblyIdentity")
+    assert controls is not None
+    assert controls.attrib == {
+        "type": "win32",
+        "name": "Microsoft.Windows.Common-Controls",
+        "version": "6.0.0.0",
+        "processorArchitecture": "*",
+        "publicKeyToken": "6595b64144ccf1df",
+        "language": "*",
+    }
+    level = manifest.find(".//{urn:schemas-microsoft-com:asm.v3}requestedExecutionLevel")
+    assert level is not None
+    assert level.attrib == {"level": "asInvoker", "uiAccess": "false"}

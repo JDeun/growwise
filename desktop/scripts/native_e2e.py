@@ -262,6 +262,59 @@ def is_medium_integrity(sid: str) -> bool:
     return bool(match and 8192 <= int(match[1]) < 12288)
 
 
+def elevation_state() -> dict[str, bool]:
+    """An IL change alone does not remove an enabled Administrators SID/elevated token."""
+    if sys.platform != "win32":
+        raise RuntimeError("Token elevation inspection requires Windows")
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    security = ctypes.WinDLL("advapi32", use_last_error=True)
+    shell = ctypes.WinDLL("shell32", use_last_error=True)
+    kernel.GetCurrentProcess.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    security.OpenProcessToken.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    security.GetTokenInformation.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong),
+    ]
+    shell.IsUserAnAdmin.argtypes = []
+    shell.IsUserAnAdmin.restype = ctypes.c_int
+    token = ctypes.c_void_p()
+    if not security.OpenProcessToken(kernel.GetCurrentProcess(), 8, ctypes.byref(token)):
+        raise ctypes.WinError()
+    try:
+        elevated, needed = ctypes.c_ulong(), ctypes.c_ulong()
+        if not security.GetTokenInformation(
+            token,
+            20,
+            ctypes.byref(elevated),
+            ctypes.sizeof(elevated),
+            ctypes.byref(needed),
+        ):
+            raise ctypes.WinError()
+        return {
+            "token_is_elevated": bool(elevated.value),
+            # IsUserAnAdmin is the documented CheckTokenMembership wrapper for this SID.
+            "administrator_group_enabled": bool(shell.IsUserAnAdmin()),
+        }
+    finally:
+        kernel.CloseHandle(token)
+
+
+def is_standard_medium_token(sid: str, elevation: dict[str, bool]) -> bool:
+    return (
+        is_medium_integrity(sid)
+        and not elevation["token_is_elevated"]
+        and not elevation["administrator_group_enabled"]
+    )
+
+
 def write_png(path: Path) -> bytes:
     def chunk(name: bytes, data: bytes) -> bytes:
         return (
@@ -547,8 +600,12 @@ def main() -> int:
     if os.name != "nt":
         parser.error("Actual native WebDriver execution is supported here only on Windows")
     integrity = integrity_level()
-    if not is_medium_integrity(integrity):
-        parser.error(f"Run via run_native_e2e.ps1 with Medium integrity; actual SID={integrity}")
+    elevation = elevation_state()
+    if not is_standard_medium_token(integrity, elevation):
+        parser.error(
+            "Run via run_native_e2e.ps1 with a non-elevated Medium token and disabled "
+            f"Administrators membership; actual SID={integrity}, state={elevation}"
+        )
     application = args.app.resolve(strict=True)
     native_driver = args.native_driver.resolve(strict=True)
     driver_path = shutil.which("tauri-driver")
@@ -564,6 +621,7 @@ def main() -> int:
         "ai_enabled": False,
         "commit": os.environ.get("GITHUB_SHA"),
         "integrity_level": integrity,
+        "token_elevation": elevation,
     }
     with application.open("rb") as binary:
         report["application_sha256"] = hashlib.file_digest(binary, "sha256").hexdigest()

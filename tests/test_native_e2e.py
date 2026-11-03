@@ -118,6 +118,84 @@ def test_native_integrity_check_requires_a_real_medium_integrity_sid(
         assert not native.is_medium_integrity(sid)
 
 
+@pytest.mark.parametrize(
+    ("sid", "elevated", "admin", "expected"),
+    [
+        ("S-1-16-8192", False, False, True),
+        ("S-1-16-8448", False, False, True),
+        ("S-1-16-8192", True, False, False),
+        ("S-1-16-8192", False, True, False),
+        ("S-1-16-8192", True, True, False),
+        ("S-1-16-12288", False, False, False),
+        ("S-1-16-4096", False, False, False),
+    ],
+)
+def test_medium_integrity_alone_does_not_prove_a_non_admin_token(sid, elevated, admin, expected):
+    assert (
+        native.is_standard_medium_token(
+            sid,
+            {
+                "token_is_elevated": elevated,
+                "administrator_group_enabled": admin,
+            },
+        )
+        is expected
+    )
+
+
+@pytest.mark.parametrize(("elevated", "admin"), [(0, 0), (1, 0), (0, 1)])
+def test_elevation_inspects_this_process_and_enabled_admin_membership(
+    monkeypatch: pytest.MonkeyPatch,
+    elevated,
+    admin,
+) -> None:
+    import ctypes
+
+    kernel, security, shell = Mock(), Mock(), Mock()
+    kernel.GetCurrentProcess.return_value = 123
+    shell.IsUserAnAdmin.return_value = admin
+
+    def open_token(process, access, token):
+        assert process == 123 and access == 8
+        ctypes.cast(token, ctypes.POINTER(ctypes.c_void_p))[0] = 456
+        return 1
+
+    def query_token(token, kind, data, size, needed):
+        assert token.value == 456 and kind == 20
+        ctypes.cast(data, ctypes.POINTER(ctypes.c_ulong))[0] = elevated
+        ctypes.cast(needed, ctypes.POINTER(ctypes.c_ulong))[0] = size
+        return 1
+
+    security.OpenProcessToken.side_effect = open_token
+    security.GetTokenInformation.side_effect = query_token
+    monkeypatch.setattr(native.sys, "platform", "win32")
+    monkeypatch.setattr(
+        ctypes,
+        "WinDLL",
+        lambda name, **_kwargs: {
+            "kernel32": kernel,
+            "advapi32": security,
+            "shell32": shell,
+        }[name],
+        raising=False,
+    )
+    assert native.elevation_state() == {
+        "token_is_elevated": bool(elevated),
+        "administrator_group_enabled": bool(admin),
+    }
+    shell.IsUserAnAdmin.assert_called_once()
+    kernel.CloseHandle.assert_called_once()
+
+
+def test_interactive_worker_uses_a_filtered_child_and_keeps_os_security_policies():
+    source = (SCRIPT.parent / "run_native_e2e.ps1").read_text(encoding="utf-8")
+    assert "windows_filtered_process.cs" in source
+    assert "LaunchFiltered" in source and "-FilteredWorker" in source
+    assert "-not $token.IsElevated -and -not $token.AdministratorsEnabled" in source
+    assert "LowerToMedium" not in source
+    assert "--no-sandbox" not in source
+
+
 def test_integrity_reads_this_process_token_and_releases_handles(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

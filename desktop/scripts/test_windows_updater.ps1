@@ -10,6 +10,23 @@ $artifacts = @($build | ForEach-Object {
 } | Where-Object { $_.reason -eq 'compiler-artifact' -and $_.target.name -eq 'growwise_desktop_lib' -and $_.executable })
 if ($artifacts.Count -ne 1) { throw 'Expected one updater-feature Rust test executable.' }
 $binary = $artifacts[0].executable
+# Tauri embeds its Common Controls v6 manifest in the application, but Cargo's
+# separate library-test executable has no .rsrc section. The updater feature
+# retains rfd's TaskDialogIndirect import, which does not exist in comctl32 v5.
+# Give only this generated test executable the same v6 activation dependency.
+# Microsoft SDK post-link embedding: https://learn.microsoft.com/windows/win32/sbscs/mt-exe
+$manifestTool = Get-ChildItem "${env:ProgramFiles(x86)}/Windows Kits/10/bin/*/x64/mt.exe" |
+    Sort-Object FullName -Descending | Select-Object -First 1
+if (-not $manifestTool) { throw 'Windows SDK manifest tool is unavailable.' }
+$testManifest = 'desktop/scripts/windows-rust-test.manifest'
+& $manifestTool.FullName -nologo -manifest $testManifest "-outputresource:$binary;#1"
+if ($LASTEXITCODE -ne 0) { throw 'Cannot embed the library-test activation manifest.' }
+$embeddedManifest = "$directory/test-manifest.xml"
+& $manifestTool.FullName -nologo "-inputresource:$binary;#1" "-out:$embeddedManifest"
+if ($LASTEXITCODE -ne 0) { throw 'Cannot verify the embedded library-test manifest.' }
+[xml]$verifiedManifest = Get-Content -Raw $embeddedManifest
+$commonControls = $verifiedManifest.SelectSingleNode("//*[local-name()='assemblyIdentity' and @name='Microsoft.Windows.Common-Controls' and @version='6.0.0.0']")
+if (-not $commonControls) { throw 'The library-test executable is missing Common Controls v6.' }
 & cargo @arguments
 $testResult = $LASTEXITCODE
 if ($testResult -eq 0) { exit 0 }

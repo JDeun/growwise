@@ -12,12 +12,23 @@ Python 표준 라이브러리 HTTP 클라이언트가 W3C WebDriver 명령을 �
 [W3C 프로토콜](https://www.w3.org/TR/webdriver/).
 
 WebView2 150 이후에는 관리자 권한 host의 디버깅 환경 변수가 무시된다. GitHub Windows runner는
-관리자 권한으로 시작하므로 `run_native_e2e.ps1`이 Windows Task Scheduler의 현재 로그인 사용자
-`Interactive / RunLevel Limited`로 테스트 프로세스를 실행한다. runner 계정에서 High label이
-남으면 실행기는 자신의 worker token만 Win32 API로 Medium으로 낮추고 전후 RID를 기록한다.
-Python harness는 자신의 process token에서 실제 Medium 범위(8192 이상, High 12288 미만)의
-integrity SID를 직접 읽어 검사하고 보고서에 남긴다. 머신 정책이나 앱의 배포 설정을 변경하지
-않으며, 테스트 디렉터리 접근이 필요하면 현재 사용자 SID에만 권한을 부여한다.
+관리자 권한으로 시작하므로 `run_native_e2e.ps1`은 현재 로그인 사용자의 `Interactive / RunLevel
+Limited` task를 데스크톱 bootstrap으로 사용한다. Medium label만으로는 관리자 권한이 제거되지
+않는다. bootstrap이 여전히 상승 토큰/활성 Administrators 그룹을 갖고 있으면
+`windows_filtered_process.cs`가 linked token, SAFER NormalUser, 제한된 LUA token 순서로
+검증 가능한 토큰을 선택하고 실제 테스트를 별도 자식 프로세스로 실행한다.
+
+실행 전에는 같은 사용자, Medium 범위(8192 이상, High 12288 미만), `TokenElevation=0`,
+Administrators 그룹 비활성화를 검사한다. 자식은 suspended 상태에서 다시 검사한 뒤 시작하며,
+Python harness도 자신의 토큰에서 이 조건을 독립적으로 확인한다. artifact에는 토큰 출처와
+무결성/권한 상태를 기록하고 사용자 SID나 환경 변수 전체를 출력하지 않는다. 머신 정책,
+계정, 앱 배포 설정, 브라우저 sandbox는 변경하지 않는다. 테스트 파일 접근은 현재 사용자에게만
+부여한다.
+
+이전 Windows 실행은 Medium SID 확인 뒤 WebView 생성 중 `0x80010108`로 중단되어 실제 UI
+단계에 진입하지 못했다. 필터링된 토큰 방식은 로컬 C# 컴파일·8개 순수 권한 조건 검사와
+Python harness 회귀 검사를 통과했으며, 실제 Win32 토큰 생성과 GUI 성공은 다음 Windows CI로
+검증해야 한다. 권한 보강만으로 이전 HRESULT의 원인이 확정되거나 해결이 입증된 것은 아니다.
 근거: [Microsoft의 권한 권고](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security#recommended-privilege-level-for-webview2-host-applications),
 [Tauri Wry 추적 이슈](https://github.com/tauri-apps/wry/issues/1782),
 [Windows 제한 권한 task principal](https://learn.microsoft.com/powershell/module/scheduledtasks/new-scheduledtaskprincipal).
@@ -44,6 +55,8 @@ Windows에 WebView2·Rust 1.98.1·Node 22·Python 3.12가 준비된 환경에서
 
 ```powershell
 python -m pip install uv==0.12.13
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $env:TEMP 'growwise-native-python'
+uv python install --no-bin --no-registry --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
 uv sync --locked --no-dev --managed-python --python 3.12.13
 npm ci --prefix desktop
 cargo install tauri-driver --version 2.1.0 --locked

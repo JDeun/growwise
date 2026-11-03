@@ -79,6 +79,10 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           npm run tauri -- build --debug --no-bundle --config src-tauri/tauri.e2e.conf.json -- --locked
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Verify filtered-token launch policy
+        shell: pwsh
+        run: ./desktop/scripts/test_windows_filtered_process.ps1
+
       - name: Exercise real WebView Rust IPC and authenticated Core
         timeout-minutes: 5
         run: |

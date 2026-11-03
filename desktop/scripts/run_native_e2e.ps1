@@ -7,83 +7,65 @@ param(
     [string]$NativeDriver,
     [string]$Artifacts,
     [string]$Parameters,
-    [switch]$Worker
+    [switch]$Worker,
+    [switch]$FilteredWorker
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 if ($Worker) {
     $payload = Get-Content -Raw -LiteralPath $Parameters | ConvertFrom-Json
     $result = 1
+    $ownsResult = $true
+    $launched = $null
     try {
-        # Some hosted runner accounts keep a High label even with RunLevel Limited.
-        # Lower only this owned worker's token; do not change machine/WebView policies.
-        Add-Type -TypeDefinition @'
-using System;
-using System.ComponentModel;
-using System.Runtime.InteropServices;
-public static class GrowWiseWorkerIntegrity {
-    [StructLayout(LayoutKind.Sequential)] struct Label { public IntPtr Sid; public uint Attributes; }
-    [DllImport("kernel32.dll")] static extern IntPtr GetCurrentProcess();
-    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr value);
-    [DllImport("kernel32.dll")] static extern IntPtr LocalFree(IntPtr value);
-    [DllImport("advapi32.dll", SetLastError=true)] static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
-    [DllImport("advapi32.dll", SetLastError=true)] static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr data, uint size, out uint needed);
-    [DllImport("advapi32.dll", SetLastError=true)] static extern bool SetTokenInformation(IntPtr token, int kind, ref Label data, uint size);
-    [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] static extern bool ConvertStringSidToSid(string text, out IntPtr sid);
-    [DllImport("advapi32.dll")] static extern uint GetLengthSid(IntPtr sid);
-    [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthorityCount(IntPtr sid);
-    [DllImport("advapi32.dll")] static extern IntPtr GetSidSubAuthority(IntPtr sid, uint index);
-    static IntPtr Open(uint access) {
-        IntPtr token;
-        if(!OpenProcessToken(GetCurrentProcess(), access, out token)) throw new Win32Exception();
-        return token;
-    }
-    public static uint Current() {
-        IntPtr token=Open(8), data=IntPtr.Zero;
-        try {
-            uint size;
-            GetTokenInformation(token,25,IntPtr.Zero,0,out size);
-            if(size==0) throw new Win32Exception();
-            data=Marshal.AllocHGlobal((int)size);
-            if(!GetTokenInformation(token,25,data,size,out size)) throw new Win32Exception();
-            Label label=Marshal.PtrToStructure<Label>(data);
-            byte count=Marshal.ReadByte(GetSidSubAuthorityCount(label.Sid));
-            if(count==0) throw new InvalidOperationException("Integrity SID has no RID");
-            return (uint)Marshal.ReadInt32(GetSidSubAuthority(label.Sid,(uint)(count-1)));
-        } finally { if(data!=IntPtr.Zero) Marshal.FreeHGlobal(data); CloseHandle(token); }
-    }
-    public static void LowerToMedium() {
-        IntPtr token=Open(0x88), sid=IntPtr.Zero;
-        try {
-            if(!ConvertStringSidToSid("S-1-16-8192",out sid)) throw new Win32Exception();
-            Label label=new Label { Sid=sid, Attributes=0x20 };
-            if(!SetTokenInformation(token,25,ref label,(uint)Marshal.SizeOf<Label>()+GetLengthSid(sid))) throw new Win32Exception();
-        } finally { if(sid!=IntPtr.Zero) LocalFree(sid); CloseHandle(token); }
-    }
-}
-'@
-        $initialIntegrity = [GrowWiseWorkerIntegrity]::Current()
-        if ($initialIntegrity -ge 12288) { [GrowWiseWorkerIntegrity]::LowerToMedium() }
-        $finalIntegrity = [GrowWiseWorkerIntegrity]::Current()
-        @{
-            initial_integrity_sid = "S-1-16-$initialIntegrity"
-            final_integrity_sid = "S-1-16-$finalIntegrity"
-            requested_task_runlevel = 'Limited'
-        } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.integrity.json')
-        if ($finalIntegrity -lt 8192 -or $finalIntegrity -ge 12288) { throw "Worker must use Medium integrity; actual RID=$finalIntegrity" }
-        Set-Location -LiteralPath $payload.cwd
-        foreach ($entry in $payload.environment.psobject.Properties) {
-            [Environment]::SetEnvironmentVariable($entry.Name, [string]$entry.Value, 'Process')
+        Add-Type -Path (Join-Path $PSScriptRoot 'windows_filtered_process.cs')
+        $token = [GrowWiseNativeToken.FilteredProcess]::InspectCurrent()
+        $standard = -not $token.IsElevated -and -not $token.AdministratorsEnabled -and $token.IntegrityRid -ge 8192 -and $token.IntegrityRid -lt 12288
+        if (-not $standard) {
+            if ($FilteredWorker) { throw 'Filtered worker did not receive a standard Medium token.' }
+            # Task Scheduler supplies the interactive desktop; this bootstrap obtains a genuinely
+            # filtered token. Changing its integrity label alone leaves Administrators enabled.
+            $shell = (Get-Process -Id $PID).Path
+            $command = '"{0}" -NoProfile -NonInteractive -File "{1}" -Worker -FilteredWorker -Parameters "{2}"' -f $shell, $PSCommandPath, $Parameters
+            $launched = [GrowWiseNativeToken.FilteredProcess]::LaunchFiltered($shell, $command, $payload.cwd)
+            @{
+                initial_integrity_sid = $token.IntegritySid
+                initial_token_is_elevated = $token.IsElevated
+                initial_administrators_enabled = $token.AdministratorsEnabled
+                source = $launched.Source
+                filtered_integrity_sid = $launched.Token.IntegritySid
+                filtered_token_is_elevated = $launched.Token.IsElevated
+                filtered_administrators_enabled = $launched.Token.AdministratorsEnabled
+            } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.token-launch.json')
+            $ownsResult = $false
+            $result = $launched.WaitForExit()
+        } else {
+            @{
+                final_integrity_sid = $token.IntegritySid
+                token_is_elevated = $token.IsElevated
+                administrators_enabled = $token.AdministratorsEnabled
+                elevation_type = $token.ElevationType
+                filtered_worker = [bool]$FilteredWorker
+                requested_task_runlevel = 'Limited'
+            } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.integrity.json')
+            Set-Location -LiteralPath $payload.cwd
+            foreach ($entry in $payload.environment.psobject.Properties) {
+                [Environment]::SetEnvironmentVariable($entry.Name, [string]$entry.Value, 'Process')
+            }
+            $arguments = @($payload.arguments)
+            & $payload.python @arguments > $payload.log 2>&1
+            $result = $LASTEXITCODE
         }
-        $arguments = @($payload.arguments)
-        & $payload.python @arguments > $payload.log 2>&1
-        $result = $LASTEXITCODE
     } catch {
+        $ownsResult = $true
         $_ | Out-String | Set-Content -Encoding utf8 -LiteralPath $payload.log
     } finally {
-        $pendingStatus = $payload.status + '.new'
-        [string]$result | Set-Content -Encoding ascii -LiteralPath $pendingStatus
-        Move-Item -LiteralPath $pendingStatus -Destination $payload.status
+        if ($null -ne $launched) { $launched.Dispose() }
+        if ($ownsResult) {
+            $pendingStatus = $payload.status + '.new'
+            [string]$result | Set-Content -Encoding ascii -LiteralPath $pendingStatus
+            Move-Item -Force -LiteralPath $pendingStatus -Destination $payload.status
+        }
     }
     exit $result
 }
