@@ -6,6 +6,7 @@ import importlib.util
 import io
 import json
 from pathlib import Path
+from unittest.mock import Mock
 from urllib.error import HTTPError
 
 import pytest
@@ -110,14 +111,50 @@ def test_core_python_keeps_the_virtual_environment_entry_point(
 def test_native_integrity_check_requires_a_real_medium_integrity_sid(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    assert native.is_medium_integrity("S-1-16-8192")
+    assert native.is_medium_integrity("S-1-16-8208")
+    assert native.is_medium_integrity("S-1-16-8448")
+    for sid in ["S-1-16-4096", "S-1-16-12288", "S-1-16-16384", "8192"]:
+        assert not native.is_medium_integrity(sid)
+
+
+def test_integrity_reads_this_process_token_and_releases_handles(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import ctypes
+
+    kernel, security = Mock(), Mock()
+    kernel.GetCurrentProcess.return_value = 123
+    sid_text = ctypes.create_unicode_buffer("S-1-16-8192")
+
+    def open_token(process, access, token):
+        assert process == 123 and access == 8
+        ctypes.cast(token, ctypes.POINTER(ctypes.c_void_p))[0] = 456
+        return 1
+
+    def query_token(token, kind, data, size, needed):
+        assert token.value == 456 and kind == 25
+        ctypes.cast(needed, ctypes.POINTER(ctypes.c_ulong))[0] = 32
+        if data is not None:
+            ctypes.cast(data, ctypes.POINTER(ctypes.c_void_p))[0] = 789
+            return 1
+        return 0
+
+    def stringify(sid, text):
+        assert sid == 789
+        ctypes.cast(text, ctypes.POINTER(ctypes.c_void_p))[0] = ctypes.addressof(sid_text)
+        return 1
+
+    security.OpenProcessToken.side_effect = open_token
+    security.GetTokenInformation.side_effect = query_token
+    security.ConvertSidToStringSidW.side_effect = stringify
+    monkeypatch.setattr(native.sys, "platform", "win32")
     monkeypatch.setattr(
-        native.subprocess,
-        "check_output",
-        lambda *args, **kwargs: '"Mandatory Label\\Medium Mandatory Level","Label","S-1-16-8192"',
+        ctypes,
+        "WinDLL",
+        lambda name, **kwargs: kernel if name == "kernel32" else security,
+        raising=False,
     )
     assert native.integrity_level() == "S-1-16-8192"
-    monkeypatch.setattr(
-        native.subprocess, "check_output", lambda *args, **kwargs: "no integrity SID"
-    )
-    with pytest.raises(RuntimeError, match="integrity level"):
-        native.integrity_level()
+    kernel.CloseHandle.assert_called_once()
+    kernel.LocalFree.assert_called_once()

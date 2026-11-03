@@ -65,5 +65,7 @@
       "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
     }
   ],
-  "scope": "Distributor-provided notices for native components of the pinned interpreter; conservative cross-platform superset, not a claim that every component is loaded."
+  "scope": "Distributor-provided notices for native components of the pinned interpreter; conservative cross-platform superset, not a claim that every component is loaded.",
+  "download_metadata_url": "https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json",
+  "download_metadata_revision": "901092ee11a89ba287f274e3c6e3a2e18ec2fba2"
 }

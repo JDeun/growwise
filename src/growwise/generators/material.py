@@ -93,7 +93,7 @@ _MAX_PARENT_GUIDE_CHARS = 12_000
 _MAX_SOURCE_EVIDENCE_CHARS = 12_000
 _MAX_SOURCE_EVIDENCE_ITEMS = 8
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")  # allow \t (\x09) and \n (\x0a)
-MATERIAL_GENERATOR_VERSION = "growwise.material.v6"
+MATERIAL_GENERATOR_VERSION = "growwise.material.v7"
 
 
 def _malformed_draft(draft: MaterialDraft) -> bool:
@@ -450,13 +450,30 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
     ) -> MaterialDraft:
         goal_text = goal or self._default_goal(child.stage)
         display_topic = self._inline_text(topic, max_chars=200)
+        core_body = select_body(kind=kind, topic=display_topic, stage=child.stage)
+        if (kind is MaterialKind.SCIENCE_INQUIRY
+                and child.stage in {Stage.PRESCHOOL_3_5, Stage.ELEMENTARY}
+                and not re.search(r"예상|예측|가설", core_body)):
+            # The deterministic observation variant must itself deliver the declared sequence.
+            # Keep model examples/prompts and accepted model-authored cores unchanged.
+            core_body = (
+                "## 관찰 전에 예상하기\n"
+                "1. 보호자와 안전한 대상을 고르고, 관찰하거나 조건을 바꾸기 전에 "
+                "무엇을 보게 될지 예상합니다.\n"
+                "2. 왜 그렇게 생각했는지 말·그림·짧은 글 중 편한 방식으로 남깁니다.\n\n"
+                f"{core_body}\n"
+                "## 예상과 비교하기\n"
+                "1. 처음 예상과 실제 관찰 기록을 나란히 보고 같은 점과 다른 점을 찾습니다.\n"
+                "2. 변화가 없어도 그대로 기록하고 다음에 확인할 질문을 아이가 고릅니다.\n"
+                "예상했던 것과 실제로 관찰한 것은 어떻게 같거나 달랐나요?\n"
+            )
         content = self._commercial_content(
             kind=kind,
             topic=display_topic,
             goal_text=goal_text,
             stage=child.stage,
             curriculum_targets=curriculum_targets,
-            core_body=select_body(kind=kind, topic=display_topic, stage=child.stage),
+            core_body=core_body,
         )
         content = self._append_sources(
             content=content,

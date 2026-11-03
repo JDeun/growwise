@@ -22,6 +22,21 @@ _CANDIDATE_INTERNAL_MARKERS = (
     "infant_0_2",
     "preschool_3_5",
 )
+# Fixed-width lookarounds and a bounded run: no unbounded Korean-prefix backtracking.
+_MIXED_WORD = re.compile(r"(?<=[가-힣])[\u3400-\u4dbf\u4e00-\u9fff]{1,8}(?=[가-힣])")
+
+
+def _unexpected_mixed_word(text: str, grounding_context: str) -> bool:
+    if re.search(r"한자|한문|중국어|일본어", grounding_context):
+        return False
+    for match in _MIXED_WORD.finditer(text):
+        start = match.start()
+        # Preserve a supplied literal spelling or mixed-script proper name, with Korean particles.
+        while start > 0 and match.start() - start < 40 and "가" <= text[start - 1] <= "힣":
+            start -= 1
+        if text[start:match.end()] not in grounding_context:
+            return True
+    return False
 
 _REQUIRED_CONTENT_HEADINGS = (
     "오늘의 목표",
@@ -91,6 +106,8 @@ class MaterialQualityGate:
             issues.append("candidate_core_missing_target_language")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
+        if _unexpected_mixed_word(generated_text, grounding_context):
+            issues.append("candidate_core_unexpected_mixed_script_word")
         folded = generated_text.casefold()
         if any(marker in folded for marker in _CANDIDATE_INTERNAL_MARKERS):
             issues.append("candidate_core_exposes_internal_metadata")

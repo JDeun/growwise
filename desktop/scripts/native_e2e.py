@@ -215,13 +215,51 @@ def runtime_python() -> str:
 
 
 def integrity_level() -> str:
-    groups = subprocess.check_output(
-        ["whoami.exe", "/groups", "/fo", "csv", "/nh"], encoding="utf-8", errors="replace"
-    )
-    found = re.search(r"S-1-16-\d+", groups)
-    if found is None:
-        raise RuntimeError("Cannot determine the native WebView host integrity level")
-    return found.group()
+    if sys.platform != "win32":
+        raise RuntimeError("Token integrity inspection requires Windows")
+    kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+    security = ctypes.WinDLL("advapi32", use_last_error=True)
+    kernel.GetCurrentProcess.restype = ctypes.c_void_p
+    kernel.CloseHandle.argtypes = [ctypes.c_void_p]
+    kernel.LocalFree.argtypes = [ctypes.c_void_p]
+    security.OpenProcessToken.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_void_p),
+    ]
+    security.GetTokenInformation.argtypes = [
+        ctypes.c_void_p,
+        ctypes.c_int,
+        ctypes.c_void_p,
+        ctypes.c_ulong,
+        ctypes.POINTER(ctypes.c_ulong),
+    ]
+    security.ConvertSidToStringSidW.argtypes = [ctypes.c_void_p, ctypes.POINTER(ctypes.c_void_p)]
+    token, text = ctypes.c_void_p(), ctypes.c_void_p()
+    if not security.OpenProcessToken(kernel.GetCurrentProcess(), 8, ctypes.byref(token)):
+        raise ctypes.WinError()
+    try:
+        size = ctypes.c_ulong()
+        security.GetTokenInformation(token, 25, None, 0, ctypes.byref(size))
+        if not size.value:
+            raise ctypes.WinError()
+        data = ctypes.create_string_buffer(size.value)
+        if not security.GetTokenInformation(token, 25, data, size, ctypes.byref(size)):
+            raise ctypes.WinError()
+        sid = ctypes.cast(data, ctypes.POINTER(ctypes.c_void_p))[0]
+        if not security.ConvertSidToStringSidW(sid, ctypes.byref(text)):
+            raise ctypes.WinError()
+        return ctypes.wstring_at(text)
+    finally:
+        if text.value:
+            kernel.LocalFree(text)
+        kernel.CloseHandle(token)
+
+
+def is_medium_integrity(sid: str) -> bool:
+    # Microsoft defines the entire [Medium, High) range, including Medium+ and UIAccess.
+    match = re.fullmatch(r"S-1-16-(\d+)", sid)
+    return bool(match and 8192 <= int(match[1]) < 12288)
 
 
 def write_png(path: Path) -> bytes:
@@ -509,8 +547,8 @@ def main() -> int:
     if os.name != "nt":
         parser.error("Actual native WebDriver execution is supported here only on Windows")
     integrity = integrity_level()
-    if integrity != "S-1-16-8192":
-        parser.error("Run this journey with a Medium-integrity user via run_native_e2e.ps1")
+    if not is_medium_integrity(integrity):
+        parser.error(f"Run via run_native_e2e.ps1 with Medium integrity; actual SID={integrity}")
     application = args.app.resolve(strict=True)
     native_driver = args.native_driver.resolve(strict=True)
     driver_path = shutil.which("tauri-driver")

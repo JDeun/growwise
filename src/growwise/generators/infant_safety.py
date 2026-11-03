@@ -20,9 +20,29 @@ _HAZARD = re.compile(
     r"작은\s*(?:공(?!간)|구슬|물건|부품)|분리\s*부품|단추|동전|배터리|자석|풍선|비닐봉지|끈|리본"
 )
 _PROTECTIVE_USE = re.compile(
-    r"(?:사용|제공)하지\s*(?:않|말|못)|쓰지\s*(?:않|말|못)|"
+    r"(?:사용|제공|준비)하지\s*(?:않|말|못)|(?:쓰지|두지|놓지)\s*(?:않|말|못)|"
     r"피하|피합|치우|치워|치웁|제거|금지|닿지\s*않|없도록|사용\s*불가"
 )
+_LOOSE_SOUND_PART = re.compile(r"(?<!물)방울|구슬")
+_PART_USE = re.compile(r"쥐여|건네|만지|흔들|놓아|둡|두(?:어|고|며|면|지)|준비하|제공하")
+
+
+def _uses_loose_sound_part(clause: str) -> bool:
+    for part in _LOOSE_SOUND_PART.finditer(clause):
+        tail = clause[part.end():part.end() + 80]
+        use = _PART_USE.search(tail)
+        if use is None:
+            continue
+        protection = _PROTECTIVE_USE.search(tail)
+        if protection and protection.start() <= use.start():
+            continue
+        # Enclosure wording does not certify a toy; age, whole construction and sealed contents
+        # must all be explicit before this narrow textual warning is suppressed.
+        if (re.search(r"연령|영아용", clause) and re.search(r"일체형|분리되지", clause)
+                and re.search(r"봉인|밀폐|내장", clause)):
+            continue
+        return True
+    return False
 _ENGLISH_MOUTH = re.compile(
     r"(?:put|place).{0,35}(?:in|into)\s+.{0,20}?\bmouth\b|"
     r"(?:chew|suck)\s+(?:on\s+)?(?:the\s+)?(?:object|toy|block|material)", re.I,
@@ -31,6 +51,8 @@ _ENGLISH_MOUTH = re.compile(
 
 def unsafe_infant_directions(text: str) -> bool:
     for clause in _CLAUSES.split(text):
+        if _uses_loose_sound_part(clause):
+            return True
         for match in _MOUTH_ACTION.finditer(clause):
             if not _PROTECTIVE_MOUTH_TAIL.match(clause[match.end():]):
                 return True

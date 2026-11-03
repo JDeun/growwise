@@ -1,5 +1,6 @@
 # Release readiness
 
+The current public scope is an unsigned GitHub prerelease (`0.1.0-alpha.0`) and source.
 GrowWise can validate and package Windows and macOS installers in CI without production credentials.
 Public **stable** distribution has an additional trust boundary enforced by
 `.github/workflows/package.yml`.
@@ -88,7 +89,8 @@ The [contract trace](FEATURE_TRACE_AUDIT.md) closes the original nine missing be
 later findings separately. Selective child/date raw-record export is implemented and regression-tested;
 its [actual production UI ZIP-saving check](knowledge/experiments/live-core-browser-20261103-verified.md) now passes, including scope/hash checks and rejection by full restore. Infant parent-guide print and worksheet exclusion also pass. The bounded contract trace has no remaining confirmed implementation gap; this does not assert universal absence of defects.
 
-Other remaining work is operator-owned evidence: production signing/notarization on a real stable
+Build, package, Windows execution and Linux memory-regression failures remain repository work until
+their corrected CI runs pass. Later operator-owned evidence includes production signing/notarization on a real stable
 release, updater trust-root activation and packaged-client update testing, representative model and
 hardware measurements, and household dogfooding. See `docs/operator-handoff.md` for the exact handoff.
 
@@ -96,7 +98,9 @@ hardware measurements, and household dogfooding. See `docs/operator-handoff.md` 
 ## Current release gate (2026-11-03)
 
 The repository remains on `0.1.0-alpha.0`; its updater overlay is intentionally disabled until an
-operator supplies a durable public trust root. Missing signing credentials/updater activation are
-release blockers, not completed operator evidence. No production private key was generated to make
-validation green. See [the dated readiness assessment](release-readiness-20261103.md) for audit
+operator supplies a durable public trust root. The user authorized unsigned prerelease installers
+and source; absent certificates or updater activation do not block that initial scope. They remain
+requirements for a later signed stable release. No production private key was generated to make
+validation green. Corrected package/native-Windows/Linux-soak CI still needs to pass before the
+prerelease is called ready. See [the dated readiness assessment](release-readiness-20261103.md) for audit
 resolutions, evidence scope and outstanding physical Windows/signed-update verification.

@@ -161,7 +161,8 @@ def interpreter_components(output: Path) -> dict:
     ):
         raise RuntimeError(
             "interpreter notices require uv-managed Python 3.12.13 build 20260623; "
-            "review native component notices before changing the packaging interpreter"
+            "review native component notices before changing the packaging interpreter; "
+            f"actual interpreter: {build_description}"
         )
     files = []
     for entry in metadata["files"]:

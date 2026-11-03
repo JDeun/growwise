@@ -13,8 +13,10 @@ Python 표준 라이브러리 HTTP 클라이언트가 W3C WebDriver 명령을 �
 
 WebView2 150 이후에는 관리자 권한 host의 디버깅 환경 변수가 무시된다. GitHub Windows runner는
 관리자 권한으로 시작하므로 `run_native_e2e.ps1`이 Windows Task Scheduler의 현재 로그인 사용자
-`Interactive / RunLevel Limited`로 테스트 프로세스를 실행한다. Python harness는 실제 Medium
-integrity SID(`S-1-16-8192`)를 검사하고 보고서에 남긴다. 머신 정책이나 앱의 배포 설정을 변경하지
+`Interactive / RunLevel Limited`로 테스트 프로세스를 실행한다. runner 계정에서 High label이
+남으면 실행기는 자신의 worker token만 Win32 API로 Medium으로 낮추고 전후 RID를 기록한다.
+Python harness는 자신의 process token에서 실제 Medium 범위(8192 이상, High 12288 미만)의
+integrity SID를 직접 읽어 검사하고 보고서에 남긴다. 머신 정책이나 앱의 배포 설정을 변경하지
 않으며, 테스트 디렉터리 접근이 필요하면 현재 사용자 SID에만 권한을 부여한다.
 근거: [Microsoft의 권한 권고](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security#recommended-privilege-level-for-webview2-host-applications),
 [Tauri Wry 추적 이슈](https://github.com/tauri-apps/wry/issues/1782),

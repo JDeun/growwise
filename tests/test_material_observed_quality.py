@@ -302,3 +302,52 @@ def test_observed_coordinated_sensory_predicate_also_requires_revision():
         "\n얼음이 녹으면서 눈에 보이거나, 손에 느껴지거나, 들리는 소리가 있나요?"
     ))
     assert "candidate_science_mismatched_sensory_verb" in result.issues
+
+
+@pytest.mark.parametrize("text", ["예측을 기록纸에 남깁니다.", "종이纸를 준비합니다."])
+def test_unexpected_intraword_cjk_in_korean_instruction_gets_quality_fallback(text):
+    row = next(row for row in _GOOD if row["kind"] == "science_inquiry")
+    draft = _candidate(row)
+    draft.content_markdown += "\n" + text
+    result = _check(MaterialKind.SCIENCE_INQUIRY, draft.content_markdown)
+    assert "candidate_core_unexpected_mixed_script_word" in result.issues
+    class MixedWordProvider:
+        def generate_structured(self, **_kwargs):
+            return draft
+    result_material = MaterialGenerationService(MixedWordProvider()).generate(
+        child=ChildProfile(nickname="합성아이", stage=Stage.ELEMENTARY),
+        kind=MaterialKind.SCIENCE_INQUIRY, topic="얼음이 녹는 관찰",
+    )
+    assert result_material.generator_mode == "template_quality_fallback"
+    assert "纸" not in result_material.content_markdown
+
+
+@pytest.mark.parametrize("text,context", [
+    ("물(水)의 상태를 살핍니다.", ""),
+    ("김정호(金正浩)와 孔子의 표기를 보고 東京의 위치를 찾습니다.", ""),
+    ("日本語の文です。 我喜欢读书。", ""),
+    ("원문의 기록纸에라는 표현을 그대로 인용합니다.", "원문: 기록纸에"),
+    ("이토博文의 이름 표기를 살핍니다.", "이토博文"),
+    ("기록纸에의 혼용을 학습자가 살펴봅니다.", "중국어와 한국어 표기 비교 학습"),
+    ("기록纸에라는 혼용을 고칩니다.", "일본어 학습"),
+    ("기록纸에의 표기를 비교합니다.", "한자 학습"),
+])
+def test_explicit_script_learning_source_literals_and_normal_names_are_preserved(text, context):
+    row = next(row for row in _GOOD if row["kind"] == "science_inquiry")
+    result = _check(MaterialKind.SCIENCE_INQUIRY,
+                    _candidate(row).content_markdown + "\n" + text, context=context)
+    assert result.ready, result.issues
+
+
+@pytest.mark.parametrize("stage", [Stage.PRESCHOOL_3_5, Stage.ELEMENTARY])
+def test_science_fallback_delivers_prediction_before_observation_and_result_comparison(stage):
+    material = MaterialGenerationService().generate(
+        child=ChildProfile(nickname="합성아이", stage=stage),
+        kind=MaterialKind.SCIENCE_INQUIRY, topic="얼음이 녹는 관찰",
+    )
+    core = material.content_markdown.split("## 활동 자료\n", 1)[1].split("## 막힐 때 힌트", 1)[0]
+    result = _check(MaterialKind.SCIENCE_INQUIRY, core, stage=stage)
+    assert result.ready, result.issues
+    assert "예상" in core
+    assert "비교" in core or "달라진" in core
+    assert material.generator_mode == "template"

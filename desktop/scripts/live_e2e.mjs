@@ -9,6 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Cdp, evaluate, evaluateWithArguments, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
+import { assessRssPlateau, parseLinuxMemoryStatus, RSS_WARMUP } from "./soak_metrics.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 function fingerprintCoreSource() {
@@ -22,6 +23,7 @@ const coreSourceSha256 = fingerprintCoreSource();
 const desktopVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url))).version;
 const scriptSha256 = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex");
 const browserHelperSha256 = createHash("sha256").update(readFileSync(new URL("./browser_e2e.mjs", import.meta.url))).digest("hex");
+const soakMetricsSha256 = createHash("sha256").update(readFileSync(new URL("./soak_metrics.mjs", import.meta.url))).digest("hex");
 const nativeCsp = JSON.parse(readFileSync(join(root,"desktop/src-tauri/tauri.conf.json"),"utf8")).app.security.csp;
 const temporary = mkdtempSync(join(tmpdir(), "growwise-live-e2e-"));
 const dataDir = join(temporary, "data");
@@ -252,34 +254,64 @@ async function verifyNavigationSoak(childId) {
       await waitFor(() => evaluate(cdp, "(globalThis.__LIVE_INFLIGHT__ ?? 0) === 0"), {label:`settled ${view} requests`});
     }
     await navigate("home");
+    await waitFor(() => evaluate(cdp, "(globalThis.__LIVE_INFLIGHT__ ?? 0) === 0"), {label:"settled home requests"});
   };
-  // Warm all mounted workspaces and caches before measuring growth.
+  // Exercise every route first, then separately observe whether Core RSS has actually settled.
   for (let index = 0; index < 3; index += 1) await cycle();
   await cdp.send("Performance.enable", {});
   const samples = [];
-  const started = Date.now();
+  const warmup = {policy:RSS_WARMUP, cycles:0, samples:[], assessment:{stable:false}};
+  const warmupStarted = Date.now();
+  const report = () => ({measurementVersion:2, requestedSeconds:seconds, seededRecords, views,
+    warmup, coldBaseline:warmup.samples[0],
+    earlyCoreRssGrowthBytes:warmup.samples.length
+      ? warmup.samples.at(-1).coreRssBytes - warmup.samples[0].coreRssBytes : null,
+    totalElapsedSeconds:Math.round((Date.now()-warmupStarted)/1000), samples});
   let cycles = 0;
-  const sample = async () => {
+  const sample = async (target, started, completedCycles) => {
     await cdp.send("HeapProfiler.collectGarbage", {});
     const heap = await cdp.send("Runtime.getHeapUsage", {});
     const {metrics} = await cdp.send("Performance.getMetrics", {});
     const rss = spawnSync("ps", ["-o", "rss=", "-p", String(core.pid)], {encoding:"utf8", timeout:2000});
     const coreRssBytes = rss.status === 0 ? Number(rss.stdout.trim()) * 1024 : null;
-    samples.push({elapsedSeconds:Math.round((Date.now()-started)/1000), cycles,
+    let linuxMemory = {};
+    if (process.platform === "linux") {
+      try { linuxMemory = parseLinuxMemoryStatus(readFileSync(`/proc/${core.pid}/status`,"utf8")); }
+      catch { /* RSS availability is checked independently; optional Linux detail may be absent. */ }
+    }
+    target.push({elapsedSeconds:Math.round((Date.now()-started)/1000), cycles:completedCycles,
       heapUsedBytes:heap.usedSize, coreRssBytes,
+      ...linuxMemory,
       ...Object.fromEntries(metrics.filter(item=>["Nodes","Documents","JSEventListeners"].includes(item.name)).map(item=>[item.name,item.value]))});
-    writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify({requestedSeconds:seconds, seededRecords, views, samples},null,2));
+    writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify(report(),null,2));
   };
-  await sample();
+  await sample(warmup.samples,warmupStarted,0);
+  assert(warmup.samples[0].coreRssBytes > 0, "Core RSS unavailable; cannot validate memory soak");
+  while (!warmup.assessment.stable) {
+    assert(Date.now()-warmupStarted < RSS_WARMUP.maximumSeconds * 1000,
+      "Core RSS did not reach an observed plateau within the bounded warmup");
+    await cycle();
+    warmup.cycles += 1;
+    if (Date.now()-warmupStarted >= warmup.samples.at(-1).elapsedSeconds * 1000
+        + RSS_WARMUP.sampleIntervalSeconds * 1000) {
+      await sample(warmup.samples,warmupStarted,warmup.cycles);
+      warmup.assessment = assessRssPlateau(warmup.samples);
+      writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify(report(),null,2));
+      console.log(`RSS stability warmup: ${warmup.samples.at(-1).elapsedSeconds}s, plateau=${warmup.assessment.stable}`);
+    }
+  }
+  // Keep the full requested steady interval and the original growth limits after the plateau.
+  const started = Date.now();
+  await sample(samples,started,0);
   while (Date.now() - started < seconds * 1000) {
     await cycle();
     cycles += 1;
     if (Date.now() - started >= samples.at(-1).elapsedSeconds * 1000 + 30_000) {
-      await sample();
+      await sample(samples,started,cycles);
       console.log(`Navigation soak: ${cycles} cycles, ${samples.at(-1).elapsedSeconds}s`);
     }
   }
-  await sample();
+  await sample(samples,started,cycles);
   assert(cycles > 0);
   assert(samples.at(-1).heapUsedBytes < samples[0].heapUsedBytes + 8 * 1024 * 1024,
     "post-GC browser heap grew beyond the bounded smoke allowance");
@@ -287,8 +319,8 @@ async function verifyNavigationSoak(childId) {
   if (rss.length > 1) assert(rss.at(-1).coreRssBytes < rss[0].coreRssBytes + 32 * 1024 * 1024,
     "Core RSS grew beyond the bounded smoke allowance");
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
-  steps.push(`actual Core/UI navigation soak: ${seededRecords} added records, ${cycles} cycles across ${views.length} workspaces, ${samples.at(-1).elapsedSeconds}s, bounded post-GC heap and Core RSS`);
-  return {requestedSeconds:seconds, seededRecords, views, cycles, samples};
+  steps.push(`actual Core/UI navigation soak: ${seededRecords} added records, observed RSS plateau after ${warmup.samples.at(-1).elapsedSeconds}s, then ${cycles} cycles across ${views.length} workspaces for ${samples.at(-1).elapsedSeconds}s, bounded post-GC heap and Core RSS`);
+  return {...report(), cycles};
 }
 
 async function capture(name, selector) {
@@ -770,10 +802,11 @@ else: raise AssertionError('selected export must not be accepted as a whole-app 
   assert.equal(fingerprintCoreSource(),coreSourceSha256,"Core source changed during the run; repeat against frozen source");
   assert.equal(createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex"),scriptSha256,"live script changed during the run");
   assert.equal(createHash("sha256").update(readFileSync(new URL("./browser_e2e.mjs",import.meta.url))).digest("hex"),browserHelperSha256,"browser helper changed during the run");
+  assert.equal(createHash("sha256").update(readFileSync(new URL("./soak_metrics.mjs",import.meta.url))).digest("hex"),soakMetricsSha256,"soak metrics changed during the run");
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
   assert.deepEqual(errors,[]);
   const buildAssets=await evaluate(cdp,'[...document.querySelectorAll("script[src],link[rel=stylesheet]")].map(element=>element.getAttribute("src")??element.getAttribute("href"))');
-  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",scriptSha256,browserHelperSha256,coreSourceSha256,nativeCsp,buildAssets,steps,artifacts,navigationSoak};
+  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",scriptSha256,browserHelperSha256,soakMetricsSha256,coreSourceSha256,nativeCsp,buildAssets,steps,artifacts,navigationSoak};
   writeFileSync(join(artifacts,"report.json"),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
 } catch(error) {

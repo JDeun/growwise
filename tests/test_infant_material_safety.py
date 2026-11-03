@@ -100,3 +100,29 @@ def test_every_deterministic_infant_kind_has_concrete_safety_preparation(kind):
     )
     assert "작은 물건·분리 부품·끈은 치우고" in material.content_markdown
     assert "물건 없는 소리·표정 놀이" in material.parent_guide_markdown
+
+
+@pytest.mark.parametrize("direction", [
+    "부드러운 천이나 가벼운 방울을 아이의 손이 닿는 곳에 둡니다.",
+    "구슬을 아이에게 건네고 흔들어 봅니다.",
+    "방울을 놓아 주고 동전은 사용하지 않습니다.",
+])
+def test_loose_sound_parts_cannot_be_justified_by_generic_final_safety_shell(direction):
+    assert unsafe_infant_directions(direction)
+    class LoosePartProvider(SafeProvider):
+        def generate_structured(self, **kwargs):
+            result = super().generate_structured(**kwargs)
+            result.content_markdown += "\n3. " + direction
+            return result
+    assert _generate(LoosePartProvider()).generator_mode == "template_safety_fallback"
+
+
+@pytest.mark.parametrize("direction", [
+    "방울과 구슬은 아이에게 제공하지 않습니다.",
+    "가벼운 방울을 준비하지 않습니다.",
+    "물방울 그림을 아이와 함께 봅니다.",
+    "방울 소리를 보호자가 목소리로 흉내 냅니다.",
+    "연령 표시를 확인한 큰 일체형 딸랑이에 밀폐된 방울이 들어 있어 보호자가 흔들어 줍니다.",
+])
+def test_protection_pictures_voice_imitation_and_explicitly_enclosed_toy_remain_valid(direction):
+    assert not unsafe_infant_directions(direction)

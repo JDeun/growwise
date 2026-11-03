@@ -5,6 +5,8 @@
 실행 파일 자체는 저장소에 커밋하지 않는다. 플랫폼별 빌드에서 다음 명령으로 생성한다.
 
 ```bash
+export UV_PYTHON_INSTALL_DIR=/path/to/empty/managed-python
+uv python install --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
 uv sync --locked --no-dev --extra desktop-build --managed-python --python 3.12.13
 uv run --locked --no-dev --extra desktop-build --managed-python --python 3.12.13 python desktop/scripts/build_core_sidecar.py
 ```

@@ -49,6 +49,9 @@ Python interpreter와 PyInstaller bootloader/runtime-hook의 제공된 license/e
 들어간 구성요소를 빠뜨리지 않도록 배포자의 플랫폼 공통 고지문을 보수적으로 포함하며,
 모든 구성요소가 매 실행에서 로드된다는 뜻은 아니다. 다른 interpreter build는 고지문을
 다시 검토하기 전까지 패키징을 거절한다.
+uv의 버전별 기본 카탈로그는 같은 Python patch 버전에도 다른 배포 빌드를 선택할 수 있다.
+따라서 CI는 별도 설치 경로에서 commit-pinned 공식 download metadata의 URL과 archive
+checksum을 사용해 해당 배포물을 먼저 설치한다. 사용한 metadata commit도 provenance에 남긴다.
 
 production Node graph와 현재 host의 native Cargo graph도 로컬 설치 source의 원문을 동봉한다.
 파일은 Tauri resources의 `licenses/`에 들어가며 `INDEX.md`로 찾고 `manifest.json`에서 package

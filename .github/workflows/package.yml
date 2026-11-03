@@ -57,6 +57,8 @@ jobs:
               desktop/src-tauri/target/release/bundle/macos/*.app.tar.gz.sig
             apple_signing_identity: "-"
     runs-on: ${{ matrix.os }}
+    env:
+      UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/growwise-packaging-python
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
@@ -93,12 +95,27 @@ jobs:
           rustup default 1.98.1
       - name: Install uv
         run: python -m pip install "uv==0.12.13"
+      - name: Install exact reviewed Python distribution
+        run: uv python install --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
       - name: Sync locked sidecar build environment
         run: uv sync --locked --no-dev --extra desktop-build --managed-python --python 3.12.13
       - name: Validate native updater feature compiles
         run: cargo check --locked --manifest-path desktop/src-tauri/Cargo.toml --features updater
       - name: Verify updater signature and interrupted-download guards
+        if: matrix.platform != 'windows'
         run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml --features updater --lib updater_commands::tests
+      - name: Verify Windows updater guards and diagnose loader failures
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./desktop/scripts/test_windows_updater.ps1
+      - name: Upload Windows updater loader diagnostics
+        if: always() && matrix.platform == 'windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: growwise-windows-updater-loader
+          path: desktop/artifacts/updater-loader
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Pin npm
         run: npm install --global npm@11.6.2
       - name: Install locked frontend dependencies
