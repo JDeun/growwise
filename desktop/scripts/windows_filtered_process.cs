@@ -75,6 +75,10 @@ namespace GrowWiseNativeToken {
             public IntPtr Process, Thread; public uint ProcessId, ThreadId;
         }
         [DllImport("kernel32.dll")] internal static extern IntPtr GetCurrentProcess();
+        [DllImport("kernel32.dll")] internal static extern uint GetCurrentThreadId();
+        [DllImport("user32.dll")] internal static extern IntPtr GetProcessWindowStation();
+        [DllImport("user32.dll")] internal static extern IntPtr GetThreadDesktop(uint threadId);
+        [DllImport("user32.dll", CharSet=CharSet.Unicode, SetLastError=true)] internal static extern bool GetUserObjectInformationW(IntPtr handle, int index, StringBuilder value, uint size, out uint needed);
         [DllImport("kernel32.dll", SetLastError=true)] internal static extern bool CloseHandle(IntPtr value);
         [DllImport("kernel32.dll", SetLastError=true)] internal static extern uint WaitForSingleObject(IntPtr value, uint milliseconds);
         [DllImport("kernel32.dll", SetLastError=true)] internal static extern bool GetExitCodeProcess(IntPtr process, out uint code);
@@ -143,6 +147,45 @@ namespace GrowWiseNativeToken {
             IntPtr token;
             if (!Native.OpenProcessToken(Native.GetCurrentProcess(), Query, out token)) throw new Win32Exception();
             try { return Inspect(token); } finally { Native.CloseHandle(token); }
+        }
+        static string ObjectName(IntPtr handle) {
+            StringBuilder name = new StringBuilder(256);
+            uint needed;
+            if (!Native.GetUserObjectInformationW(handle, 2, name, 512, out needed))
+                throw new Win32Exception(Marshal.GetLastWin32Error());
+            return name.ToString();
+        }
+        public static Dictionary<string, object> InspectExecutionContext() {
+            Dictionary<string, object> result = new Dictionary<string, object> {
+                { "session_id", System.Diagnostics.Process.GetCurrentProcess().SessionId },
+                { "window_station", ObjectName(Native.GetProcessWindowStation()) },
+                { "desktop", ObjectName(Native.GetThreadDesktop(Native.GetCurrentThreadId())) }
+            };
+            IntPtr token;
+            if (!Native.OpenProcessToken(Native.GetCurrentProcess(), Query, out token)) throw new Win32Exception();
+            try {
+                string user = Inspect(token).UserSid;
+                IntPtr data = Information(token, 6); // TokenDefaultDacl: do not serialize account SIDs.
+                try {
+                    IntPtr acl = Marshal.ReadIntPtr(data);
+                    bool userAllowed = false;
+                    if (acl != IntPtr.Zero) {
+                        int count = (ushort)Marshal.ReadInt16(acl, 4);
+                        int offset = 8;
+                        for (int index = 0; index < count; index++) {
+                            IntPtr ace = IntPtr.Add(acl, offset);
+                            int size = (ushort)Marshal.ReadInt16(ace, 2);
+                            if (size < 8) throw new InvalidOperationException("Invalid default ACL entry.");
+                            if (Marshal.ReadByte(ace) == 0 && new SecurityIdentifier(IntPtr.Add(ace, 8)).Value == user)
+                                userAllowed = true;
+                            offset += size;
+                        }
+                    }
+                    result.Add("default_dacl_is_null", acl == IntPtr.Zero);
+                    result.Add("default_dacl_allows_same_user", userAllowed);
+                } finally { Marshal.FreeHGlobal(data); }
+            } finally { Native.CloseHandle(token); }
+            return result;
         }
         static void Validate(TokenInfo info, string user) {
             if (info.UserSid != user || info.IsElevated || info.AdministratorsEnabled || info.IntegrityRid < 8192 || info.IntegrityRid >= 12288)

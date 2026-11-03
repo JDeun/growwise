@@ -750,6 +750,10 @@ try {
   assert(extra.id);
   await clickText("이 백업 복원",".quest-card button");
   await clickText("이 백업 복원",'[role="alertdialog"] button');
+  // Files can become visible before restore finishes rebuilding projections and advances its fence.
+  // Wait for the actual awaited UI response, rather than treating an early source count as completion.
+  await waitFor(()=>evaluate(cdp,'document.body.innerText.includes("백업을 복원했습니다.")'),
+    {label:"UI restore request completed", timeoutMs:30_000});
   await waitFor(async()=> (await api("/v1/children")).length === 2,{label:"confirmed UI restore applied"});
   assert.equal((await api("/v1/children")).length,2);
   assert.deepEqual((await api("/v1/children")).map((child)=>child.id).sort(),[childId,second.id].sort());

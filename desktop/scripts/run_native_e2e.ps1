@@ -66,6 +66,9 @@ if ($Worker) {
             $ownsResult = $false
             $result = $launched.WaitForExit()
         } else {
+            # Diagnostics must not replace the original process-start failure.
+            try { $executionContext = [GrowWiseNativeToken.FilteredProcess]::InspectExecutionContext() }
+            catch { $executionContext = @{ inspection_error = $_.Exception.Message } }
             @{
                 final_integrity_sid = $token.IntegritySid
                 token_is_elevated = $token.IsElevated
@@ -73,6 +76,7 @@ if ($Worker) {
                 elevation_type = $token.ElevationType
                 filtered_worker = [bool]$FilteredWorker
                 requested_task_runlevel = 'Limited'
+                execution_context = $executionContext
             } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.integrity.json')
             Set-Location -LiteralPath $payload.cwd
             foreach ($entry in $payload.environment.psobject.Properties) {
@@ -97,7 +101,9 @@ if ($Worker) {
             [GrowWiseNativeToken.FilteredProcess]::LastLaunchDiagnostics | ConvertTo-Json -Depth 4 |
                 Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.launch-failure.json')
         }
-        $_ | Out-String | Set-Content -Encoding utf8 -LiteralPath $payload.log
+        # Preserve the inner Win32 stack: formatted PowerShell records hide whether
+        # access was denied creating a pipe, inheriting handles, or starting the image.
+        $_.Exception.ToString() | Set-Content -Encoding utf8 -LiteralPath $payload.log
     } finally {
         if ($null -ne $launched) { $launched.Dispose() }
         if ($ownsResult) {

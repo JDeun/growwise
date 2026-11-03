@@ -1,9 +1,13 @@
 # Actual Core/browser validation
 
 GrowWise's general-user desktop targets are Windows and macOS. The `Live Browser E2E` workflow therefore
-runs independently on `windows-latest` and `macos-latest`, with separate `growwise-live-e2e-windows-latest`
-and `growwise-live-e2e-macos-latest` artifacts. Failure of one does not cancel the other. Linux remains
+runs independently on `windows-latest` and `macos-15-intel`, with separate `growwise-live-e2e-windows-latest`
+and `growwise-live-e2e-macos-15-intel` artifacts. Failure of one does not cancel the other. Linux remains
 useful for inexpensive Core/unit checks, but is not a public desktop release target.
+
+The Intel macOS runner is a supported public target and avoids the observed long hosted ARM runner
+queue. This browser matrix does not replace ARM package validation or the separately preserved actual
+ARM Core/browser evidence; neither Mac architecture's result establishes the other's success.
 
 Each job installs the reviewed pinned Python runtime, builds the production frontend and exercises the
 authenticated actual Core with synthetic records. Only the native IPC transport is replaced by the
