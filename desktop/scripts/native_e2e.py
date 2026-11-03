@@ -472,6 +472,24 @@ def owned_core_pid(driver_pid: int, data_dir: Path) -> int:
     return pid
 
 
+def wait_for_material_observation(
+    driver: WebDriver, material_id: str, observation: str
+) -> list[dict[str, Any]]:
+    def recorded() -> list[dict[str, Any]] | None:
+        results = driver.invoke("list_material_results", materialId=material_id)
+        # Explicit use creates a result before this form is submitted. A nonempty
+        # history alone does not prove that the requested observation was saved.
+        if any(
+            observation in log["parent_observation"]
+            for result in results
+            for log in result["learning_logs"]
+        ):
+            return results
+        return None
+
+    return wait_for(recorded, "authoritative submitted one-line observation")
+
+
 def run_journey(driver: WebDriver, artifacts: Path, report: dict[str, Any]) -> Path:
     steps = report["steps"]
     wait_for(
@@ -527,10 +545,7 @@ def run_journey(driver: WebDriver, artifacts: Path, report: dict[str, Any]) -> P
     observation = "민들레 씨앗을 보고 왜 날아가는지 질문했다."
     driver.fill(".material-result-panel textarea", observation)
     driver.execute("document.querySelector('.material-result-panel').requestSubmit()")
-    results = wait_for(
-        lambda: driver.invoke("list_material_results", materialId=material_id),
-        "authoritative one-line result",
-    )
+    results = wait_for_material_observation(driver, material_id, observation)
     assert any(
         observation in log["parent_observation"]
         for result in results

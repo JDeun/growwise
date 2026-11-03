@@ -143,6 +143,20 @@ def test_native_click_waits_for_a_pointer_hit_then_uses_original_webdriver(
     driver.command.assert_called_once_with("POST", "/element/actual-target/click", {})
 
 
+def test_native_result_wait_ignores_preexisting_use_until_exact_observation_is_saved(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    prior = [{"learning_logs": []}]
+    unrelated = [{"learning_logs": [{"parent_observation": "earlier observation"}]}]
+    saved = [{"learning_logs": [{"parent_observation": "민들레를 관찰했다."}]}]
+    driver.invoke = Mock(side_effect=[prior, unrelated, saved])
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    assert native.wait_for_material_observation(driver, "material", "민들레를 관찰했다.") == saved
+    assert driver.invoke.call_count == 3
+    driver.invoke.assert_called_with("list_material_results", materialId="material")
+
+
 def test_native_navigation_uses_the_same_unobstructed_pointer_path():
     driver = native.WebDriver("http://127.0.0.1:4444")
     driver.element = Mock(return_value="nav-target")
