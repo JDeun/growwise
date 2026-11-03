@@ -86,6 +86,14 @@ class WebDriver:
     def execute(self, script: str, *args: Any) -> Any:
         return self.command("POST", "/execute/sync", {"script": script, "args": list(args)})
 
+    def wait_for_native_bridge(self) -> None:
+        # Edge can acknowledge the session while the WebView is still about:blank.
+        # Observe the production bridge before the read-only storage isolation check.
+        wait_for(
+            lambda: self.execute("return typeof window.__TAURI_INTERNALS__?.invoke === 'function'"),
+            "original Tauri IPC bridge after WebView navigation",
+        )
+
     def invoke(self, command: str, **args: Any) -> Any:
         # Call the original production bridge. Never assign, intercept or replace invoke/fetch.
         result = self.command(
@@ -664,6 +672,7 @@ def main() -> int:
         try:
             wait_for(lambda: driver.request("GET", "/status"), "tauri-driver startup", timeout=30)
             driver.start(application)
+            driver.wait_for_native_bridge()
             isolated_data_dir(driver.invoke("get_storage_location"))
             core_pid = owned_core_pid(process.pid)
             run_journey(driver, artifacts, report)

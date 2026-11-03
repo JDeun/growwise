@@ -70,6 +70,29 @@ def test_webdriver_http_errors_keep_protocol_context(monkeypatch: pytest.MonkeyP
         driver.request("POST", "/session/native/element", {"using": "css selector"})
 
 
+def test_native_bridge_waits_through_initial_blank_navigation(monkeypatch: pytest.MonkeyPatch):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.session = "native-session"
+    driver.execute = Mock(side_effect=[False, False, True])
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    driver.wait_for_native_bridge()
+    assert driver.execute.call_count == 3
+    assert all(
+        call.args == ("return typeof window.__TAURI_INTERNALS__?.invoke === 'function'",)
+        for call in driver.execute.call_args_list
+    )
+
+
+def test_native_bridge_never_appearing_fails_closed(monkeypatch: pytest.MonkeyPatch):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.execute = Mock(return_value=False)
+    clock = iter([0.0, 0.0, 46.0])
+    monkeypatch.setattr(native.time, "monotonic", lambda: next(clock))
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    with pytest.raises(AssertionError, match="original Tauri IPC bridge"):
+        driver.wait_for_native_bridge()
+
+
 def test_webdriver_response_size_is_bounded_before_json_decode(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
