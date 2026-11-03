@@ -70,5 +70,5 @@ def test_sidecar_ci_has_clean_pinned_runtime_and_offline_attribution_inputs():
     assert "cargo fetch --locked" in job
     assert "build_license_bundle.py --check" in job
     assert "uv run --no-sync python desktop/scripts/smoke_core_sidecar.py" in job
-    assert "UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/growwise-packaging-python" in job
+    assert "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" in job
     assert "--python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/" in job

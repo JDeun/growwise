@@ -28,7 +28,6 @@ jobs:
       run:
         shell: pwsh
     env:
-      UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/growwise-native-python
       CARGO_BUILD_JOBS: "2"
       TAURI_DRIVER_VERSION: "2.1.0"
       MSEDGEDRIVER_TELEMETRY_OPTOUT: "1"
@@ -38,6 +37,9 @@ jobs:
       GROWWISE_PUBLIC_ENRICHMENT_ENABLED: "false"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Isolate managed Python installation
+        shell: bash
+        run: echo "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-native-python" >> "$GITHUB_ENV"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
@@ -61,7 +63,7 @@ jobs:
         run: |
           python -m pip install "uv==0.12.13"
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          uv python install --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
+          uv python install --no-bin --no-registry --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           uv sync --locked --no-dev --managed-python --python 3.12.13
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }

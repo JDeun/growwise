@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import importlib.util
 import json
+import re
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+import yaml
 
 SCRIPT = Path(__file__).resolve().parents[1] / "desktop/scripts/build_license_bundle.py"
 SPEC = importlib.util.spec_from_file_location("build_license_bundle", SCRIPT)
@@ -154,12 +156,23 @@ def test_package_resources_and_ci_include_license_verification():
     assert "build_license_bundle.py --check" in workflow
     assert "uv sync --locked --no-dev --extra desktop-build" in workflow
     assert "--managed-python --python 3.12.13" in workflow
-    assert "UV_PYTHON_INSTALL_DIR: ${{ runner.temp }}/growwise-packaging-python" in workflow
+    assert "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" in workflow
     assert "--python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/" in workflow
     assert (
         "901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json"
         in workflow
     )
+
+
+@pytest.mark.parametrize("name", ["ci.yml", "package.yml", "native-e2e.yml"])
+def test_ci_cannot_use_runner_context_before_a_job_has_a_runner(name):
+    workflow = yaml.safe_load(
+        (SCRIPT.parents[2] / ".github/workflows" / name).read_text(encoding="utf-8")
+    )
+    # GitHub rejects these workflows before jobs start, so normal CI execution cannot test it.
+    # Full workflow semantics are also checked with actionlint; this locks the observed regression.
+    for job in workflow["jobs"].values():
+        assert not re.search(r"\$\{\{\s*runner\.", json.dumps(job.get("env", {})))
 
 
 def test_generator_does_not_clear_an_unrelated_existing_output(tmp_path):
