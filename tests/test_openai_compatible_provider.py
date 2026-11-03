@@ -1,8 +1,12 @@
 from __future__ import annotations
 
 import json
+from email.message import Message
 from io import BytesIO
+from types import SimpleNamespace
 from urllib.error import HTTPError
+from urllib.request import HTTPHandler, HTTPSHandler, build_opener
+from urllib.response import addinfourl
 
 import pytest
 from pydantic import BaseModel, SecretStr
@@ -45,7 +49,9 @@ def test_openai_compatible_text_request_uses_chat_completions(monkeypatch) -> No
         captured["payload"] = json.loads(request.data.decode("utf-8"))
         return _chat_response("안녕하세요")
 
-    monkeypatch.setattr(openai_module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        openai_module, "build_opener", lambda *_args: SimpleNamespace(open=fake_urlopen)
+    )
     provider = OpenAICompatibleProvider(
         model="local-model",
         base_url="http://127.0.0.1:8080",
@@ -70,7 +76,9 @@ def test_openai_compatible_structured_output_uses_json_schema(monkeypatch) -> No
         captured["payload"] = json.loads(request.data.decode("utf-8"))
         return _chat_response('{"answer":"구조화 성공"}')
 
-    monkeypatch.setattr(openai_module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        openai_module, "build_opener", lambda *_args: SimpleNamespace(open=fake_urlopen)
+    )
     provider = OpenAICompatibleProvider(
         model="local-model",
         base_url="http://localhost:9000/v1",
@@ -102,7 +110,9 @@ def test_openai_compatible_retries_without_json_schema_for_basic_servers(monkeyp
             )
         return _chat_response('{"answer":"fallback"}')
 
-    monkeypatch.setattr(openai_module, "urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        openai_module, "build_opener", lambda *_args: SimpleNamespace(open=fake_urlopen)
+    )
     provider = OpenAICompatibleProvider(
         model="llama.cpp-model",
         base_url="http://127.0.0.1:8080/v1",
@@ -163,3 +173,68 @@ def test_health_reports_remote_provider_unconfigured_without_opt_in(tmp_path) ->
 
     assert runtime.configured is False
     assert runtime.reachable is False
+
+
+@pytest.mark.parametrize(
+    "base_url, allow_remote",
+    [
+        ("http://127.0.0.1:8080/v1", False),
+        ("https://models.example.invalid/v1", True),
+    ],
+)
+def test_redirect_never_forwards_key_or_escapes_local_origin(
+    monkeypatch,
+    base_url,
+    allow_remote,
+) -> None:
+    endpoint = base_url + "/chat/completions"
+    requests = []
+    token = "synthetic-redirect-test-token"
+
+    def respond(request):
+        requests.append(request)
+        assert request.full_url == endpoint, "redirect exposed the credential to another origin"
+        headers = Message()
+        headers["Location"] = "https://untrusted.example.invalid/collect"
+        response = addinfourl(BytesIO(b""), headers, request.full_url, 302)
+        response.msg = "Found"
+        return response
+
+    class HttpServer(HTTPHandler):
+        def http_open(self, request):
+            return respond(request)
+
+    class HttpsServer(HTTPSHandler):
+        def https_open(self, request):
+            return respond(request)
+
+    # Exercise urllib's actual redirect/proxy machinery with an in-memory HTTP transport.
+    monkeypatch.setenv("http_proxy", "http://proxy.example.invalid:9999")
+    monkeypatch.setenv("no_proxy", "")
+    monkeypatch.setenv("NO_PROXY", "")
+    monkeypatch.setattr(
+        openai_module,
+        "build_opener",
+        lambda *handlers: build_opener(*handlers, HttpServer(), HttpsServer()),
+    )
+    provider = OpenAICompatibleProvider(
+        model="synthetic-model",
+        base_url=base_url,
+        api_key=token,
+        allow_remote=allow_remote,
+    )
+    with pytest.raises(openai_module.OpenAICompatibleError, match="HTTP 302") as caught:
+        provider.generate_text(system="synthetic connection test", user="synthetic prompt")
+    assert caught.value.status_code == 302
+    assert token not in str(caught.value)
+    assert len(requests) == 1
+    assert requests[0].get_header("Authorization") == f"Bearer {token}"
+    if not allow_remote:
+        assert requests[0].host == "127.0.0.1:8080", "loopback traffic entered a proxy"
+
+
+def test_model_url_rejects_embedded_credentials() -> None:
+    with pytest.raises(ValueError, match="must not embed credentials"):
+        OpenAICompatibleProvider(
+            model="synthetic-model", base_url="http://user:secret@localhost:8080"
+        )

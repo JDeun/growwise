@@ -16,8 +16,8 @@
 .print-toolbar span {
   max-width: 210px;
   color: var(--ink-soft);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }
 
 @media (max-width: 700px) {

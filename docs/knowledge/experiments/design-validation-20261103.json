@@ -1,0 +1,128 @@
+{
+  "observed_on": "2026-11-03",
+  "status": "observed",
+  "revision": "5c92dac76c32a8910dee6461556354c822713d33",
+  "working_tree": "modified",
+  "tool": {
+    "name": "Impeccable",
+    "version": "4.8.0",
+    "revision": "9fadc41729c38fd47d7ae622b501558653f9d2e9",
+    "telemetry": "DO_NOT_TRACK=1"
+  },
+  "fixture": "Existing synthetic browser E2E native IPC responses; production React render, no household records",
+  "detector_viewport": {
+    "width": 1440,
+    "height": 1000
+  },
+  "detector_build_assets": [
+    "index-DnarskrO.js",
+    "index-D6ORJyIj.css"
+  ],
+  "per_view": [
+    {
+      "view": "home",
+      "quality_findings": 0,
+      "style_warnings": 6,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "profile",
+      "quality_findings": 0,
+      "style_warnings": 5,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "learning",
+      "quality_findings": 0,
+      "style_warnings": 4,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "materials",
+      "quality_findings": 0,
+      "style_warnings": 4,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "photos",
+      "quality_findings": 0,
+      "style_warnings": 0,
+      "style_warning_kinds": []
+    },
+    {
+      "view": "conversation",
+      "quality_findings": 0,
+      "style_warnings": 4,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "backup",
+      "quality_findings": 0,
+      "style_warnings": 2,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "settings",
+      "quality_findings": 0,
+      "style_warnings": 12,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    },
+    {
+      "view": "help",
+      "quality_findings": 0,
+      "style_warnings": 4,
+      "style_warning_kinds": [
+        "nested-cards"
+      ]
+    }
+  ],
+  "layout": {
+    "widths": [
+      1440,
+      1180,
+      820,
+      720
+    ],
+    "views_per_width": 9,
+    "samples": 36,
+    "horizontal_document_overflow_samples": 0,
+    "measurement": "document.documentElement.scrollWidth - innerWidth; positive means overflow",
+    "build_scope": "Typography-normalized build before final contrast-only color corrections"
+  },
+  "narrow_reflow": {
+    "width": 430,
+    "views": 9,
+    "horizontal_document_overflow_samples": 0,
+    "scope": "Reduced CSS viewport; not a browser zoom or assistive technology certification; before final contrast-only corrections"
+  },
+  "probe_exception": "Each layout sample marks notification count button scrollWidth38 versus clientWidth34; parent implementation agent inspected intended absolutely-positioned count badge and retained it. This is not a claim that every clipping probe returned zero.",
+  "manual_review": {
+    "implementation_agent": "Nine product views reviewed in rendered screenshots",
+    "independent_agent": "Nine actual-Core final journey screenshots and430px materials/settings screenshots inspected; no visible text truncation that blocks these tasks"
+  },
+  "artifact_sha256": {
+    "layout": "515c10d6bb9cbe9b52c75dc31f68b8d19befcf25cca0f4d5d1c85c10c5c7da92",
+    "narrow": "bda012195f42d80f4124d33923ad0bc8ca3b5b7697cfa9a7e8278ea2def94142",
+    "detector": "b182e76951053e4f2a6165e5cdd7996110acc647fb21cd5001166f8ad0a7fd21"
+  },
+  "limitations": [
+    "Only top-level default view states; profile/material/learning tabs and key form states are separate checks.",
+    "Zero categoryquality findings is not zero detector findings:41nested-cards style warnings remain, with app frame intentionally preserved.",
+    "No claim for all data, OS WebViews, fonts, keyboard or screen-reader behavior, or full WCAG certification.",
+    "Fixture-based layout checks do not replace actual authenticated Core journey evidence."
+  ]
+}

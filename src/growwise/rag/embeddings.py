@@ -30,13 +30,15 @@ class OllamaEmbeddingProvider:
             raise ValueError("timeout_seconds must be positive")
         if not is_loopback_endpoint(base_url):
             raise ValueError("embedding endpoint must be loopback")
+        self.model = model.strip()
+        self.base_url = base_url.rstrip("/")
         self._circuit = FailureCircuit(
             failure_threshold=failure_threshold,
             recovery_seconds=recovery_seconds,
         )
         self._embedding = OllamaEmbeddings(
-            model=model.strip(),
-            base_url=base_url,
+            model=self.model,
+            base_url=self.base_url,
             client_kwargs={"timeout": timeout_seconds},
         )
 

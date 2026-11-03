@@ -38,7 +38,7 @@ export function MaterialEditPanel({
 
   return (
     <form className="revision-panel" onSubmit={handleSubmit}>
-      <p className="card-label">PARENT EDIT · NEW VERSION</p>
+      <h3>PARENT EDIT · NEW VERSION</h3>
       <p className="muted">
         기존 v{material.version}은 그대로 보존됩니다. 저장하면 v{material.version + 1} 검토본을
         새로 만듭니다.

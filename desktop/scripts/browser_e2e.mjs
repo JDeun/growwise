@@ -3,9 +3,9 @@ import { createReadStream, existsSync, mkdtempSync, readFileSync, rmSync } from 
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const ROOT = resolve(new URL("..", import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DIST = join(ROOT, "dist");
 const ARTIFACTS = join(ROOT, "artifacts", "browser-e2e");
 const HOST = "127.0.0.1";
@@ -29,10 +29,31 @@ function contentType(file) {
   }[extname(file)] ?? "application/octet-stream";
 }
 
-function startStaticServer() {
+function startStaticServer(core = null) {
   invariant(existsSync(DIST), "desktop/dist is missing; run npm run build first");
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const raw = new URL(req.url ?? "/", BASE_URL).pathname;
+    if (core && raw.startsWith("/__e2e/core/")) {
+      try {
+        const path = (req.url ?? "").slice("/__e2e/core".length);
+        invariant(path.startsWith("/v1/") || path === "/health", "invalid Core test route");
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          invariant(size <= 2 * 1024 * 1024, "E2E request too large");
+          chunks.push(chunk);
+        }
+        const response = await fetch(`${core.url}${path}`, {
+          method: req.method,
+          headers: { Authorization: `Bearer ${core.token}`, "Content-Type": "application/json" },
+          body: chunks.length ? Buffer.concat(chunks) : undefined,
+        });
+        res.writeHead(response.status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
+        res.end(await response.text());
+      } catch (error) { res.writeHead(502).end(JSON.stringify({ error: error.message })); }
+      return;
+    }
     const relative = raw === "/" ? "index.html" : raw.replace(/^\/+/, "");
     const candidate = resolve(DIST, relative);
     if (!candidate.startsWith(resolve(DIST))) {
@@ -52,6 +73,8 @@ function startStaticServer() {
 function findChrome() {
   const candidates = [
     process.env.CHROME_BIN,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    process.env.PROGRAMFILES && join(process.env.PROGRAMFILES, "Google/Chrome/Application/chrome.exe"),
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
@@ -311,6 +334,10 @@ const mockSource = `
       model_provider: "ollama",
     },
     core_runtime_status: { started_by_desktop: true },
+    get_storage_location: "/tmp/growwise-synthetic-e2e",
+    list_local_models: [],
+    list_api_credentials: ["data4library", "google_books", "national_library", "krdict", "data_go_kr", "model"]
+      .map((service_id) => ({ service_id, configured: false, source: "none", supported: true })),
     list_children: [fixtures.child, fixtures.sibling],
     get_growth_map: fixtures.growth,
     list_observations: [fixtures.log],
@@ -578,4 +605,6 @@ async function main() {
   }
 }
 
-await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
+
+export { Cdp, evaluate, findChrome, mockSource, screenshot, startStaticServer, waitFor, waitForWorkspace };

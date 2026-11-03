@@ -1,0 +1,26 @@
+{
+  "passed": true,
+  "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+  "llm": false,
+  "fixture": "synthetic children, observations and one-pixel PNG; isolated temporary data directory",
+  "buildAssets": [
+    "/assets/index-DqGkbqwA.js",
+    "/assets/index-JNqnYira.css"
+  ],
+  "steps": [
+    "real Core starts and rejects unauthenticated access",
+    "UI first-run profile persists and enters materials",
+    "UI background generation saves template; explicit use passes real review gate",
+    "UI one-line result writes authoritative learning record",
+    "UI independent reading record preserves separate record kind",
+    "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+    "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+    "UI confirmed conversation deletion preserves another conversation and original source records",
+    "UI direct search returns actual child-scoped records without an LLM",
+    "UI reference library create/edit/detail/confirmed delete reaches real Core",
+    "UI actual PNG upload, manual draft, parent confirmation and saved asset rendering pass",
+    "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+    "real backup/restore removes newer child, preserves material result/conversation, UI reloads"
+  ],
+  "evidence_note": "Screenshots retained in a disposable local artifact directory; reviewed by the implementation agent. This report does not establish native IPC, real-model quality or household field effectiveness."
+}

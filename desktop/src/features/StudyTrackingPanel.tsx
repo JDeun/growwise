@@ -332,7 +332,6 @@ export function StudyTrackingPanel() {
     <section className="study-tracking-panel" aria-labelledby="study-tracking-title">
       <div className="section-heading compact">
         <div>
-          <p className="eyebrow">SECONDARY STUDY TRACKER</p>
           <h3 id="study-tracking-title">중·고 학습 트래커</h3>
           <p className="muted">
             점수·등수·또래 비교 없이, 실제 오답·회고·설명을 근거로 필요한 복습만 정리합니다.

@@ -12,6 +12,7 @@ import {
   type PhotoUploadInput,
 } from "../api";
 import "./PhotoActivityWorkspace.css";
+import { retryPhotoRecord } from "../record-actions-api";
 
 const MAX_FILES = 8;
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
@@ -56,6 +57,10 @@ function isBackgroundRecord(record: PhotoActivityRecord): boolean {
 
 export type PhotoFilter = "all" | "committed" | "attention";
 
+export function canRetryPhotoRecord(record: PhotoActivityRecord, childId: string): boolean {
+  return record.status === "failed" && record.child_id === childId;
+}
+
 export function filterPhotoRecords(
   records: PhotoActivityRecord[],
   filter: PhotoFilter,
@@ -81,6 +86,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
     syncRememberedChild,
   } = useActiveChild();
   const recordsRequestId = useRef(0);
+  const currentChildId = useRef(childId);
+  currentChildId.current = childId;
   const [sharedChildIds, setSharedChildIds] = useState<string[]>([]);
   const [records, setRecords] = useState<PhotoActivityRecord[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -108,7 +115,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
       return [] as PhotoActivityRecord[];
     }
     const nextRecords = await listPhotoRecords(targetChildId);
-    if (requestId !== recordsRequestId.current) return [] as PhotoActivityRecord[];
+    if (requestId !== recordsRequestId.current || targetChildId !== currentChildId.current) {
+      return [] as PhotoActivityRecord[];
+    }
     setRecords(nextRecords);
     return nextRecords;
   }, []);
@@ -139,6 +148,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setNotice(null);
     setPhotoFilter("all");
     setSelectedRecordId(null);
+    setBusy(false);
     void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
   }, [active, childId, refreshRecords]);
 
@@ -277,12 +287,14 @@ export function PhotoActivityWorkspace({ active }: Props) {
           data_base64: await fileToBase64(file),
         })),
       );
+      if (currentChildId.current !== childId) return;
       const result = await createPhotoRecord(childId, uploads, {
         userContext: context.trim() || undefined,
         manualObservation: manualObservation.trim() || undefined,
         aiAssist,
         sharedChildIds,
       });
+      if (currentChildId.current !== childId) return;
       setDraftAssets(result.assets);
       setStoredPreviews([]);
       await refreshRecords(childId);
@@ -306,9 +318,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
         "사진을 안전하게 저장했습니다. AI 보조는 백그라운드에서 진행됩니다. 다른 작업공간을 사용해도 됩니다.",
       );
     } catch (createError) {
-      setError(messageFrom(createError));
+      if (currentChildId.current === childId) setError(messageFrom(createError));
     } finally {
-      setBusy(false);
+      if (currentChildId.current === childId) setBusy(false);
     }
   }
 
@@ -318,6 +330,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setError(null);
     try {
       await commitPhotoRecord(draft.id, editedObservation.trim());
+      if (currentChildId.current !== childId) return;
       setNotice(
         sharedChildIds.length > 0
           ? "사진 기록을 저장했습니다. 함께 선택한 아이의 기록에서도 같은 원본을 링크로 볼 수 있습니다."
@@ -333,9 +346,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
       setPendingRecordId(null);
       await refreshRecords(childId);
     } catch (commitError) {
-      setError(messageFrom(commitError));
+      if (currentChildId.current === childId) setError(messageFrom(commitError));
     } finally {
-      setBusy(false);
+      if (currentChildId.current === childId) setBusy(false);
     }
   }
 
@@ -348,6 +361,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
       const contents = await Promise.all(
         record.photo_asset_ids.map((assetId) => getPhotoAsset(record.child_id, assetId)),
       );
+      if (currentChildId.current !== childId) return;
       setDraft(record);
       setDraftAssets(contents.map((content) => content.asset));
       setStoredPreviews(
@@ -362,9 +376,26 @@ export function PhotoActivityWorkspace({ active }: Props) {
       setPendingRecordId(null);
       setNotice("저장된 초안을 열었습니다. 실제 경험과 맞는지 확인한 뒤 기록으로 확정하세요.");
     } catch (loadError) {
-      setError(messageFrom(loadError));
+      if (currentChildId.current === childId) setError(messageFrom(loadError));
     } finally {
-      setBusy(false);
+      if (currentChildId.current === childId) setBusy(false);
+    }
+  }
+
+  async function handleRetry(record: PhotoActivityRecord) {
+    if (busy || !canRetryPhotoRecord(record, childId)) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const result = await retryPhotoRecord(record.id);
+      if (currentChildId.current !== childId) return;
+      setPendingRecordId(result.record.id);
+      setNotice("저장된 사진 분석을 다시 시작했습니다.");
+      await refreshRecords(childId);
+    } catch (cause) {
+      if (currentChildId.current === childId) setError(messageFrom(cause));
+    } finally {
+      if (currentChildId.current === childId) setBusy(false);
     }
   }
 
@@ -381,7 +412,6 @@ export function PhotoActivityWorkspace({ active }: Props) {
     <main className="photo-workspace app-shell" aria-labelledby="photo-workspace-title">
       <header className="photo-workspace-heading">
         <div>
-          <p className="eyebrow">PHOTO ARCHIVE</p>
           <h1 id="photo-workspace-title">사진첩</h1>
           <p>사진으로 남긴 배움과 활동을 한눈에 보고 새 기록을 추가합니다.</p>
         </div>
@@ -391,7 +421,6 @@ export function PhotoActivityWorkspace({ active }: Props) {
       <section className="workspace photo-history">
         <div className="photo-history-heading">
           <div>
-            <p className="card-label">사진 기록 내역</p>
             <h2>사진 일기와 초안</h2>
           </div>
           <div className="photo-history-filters" role="group" aria-label="사진 기록 필터">
@@ -473,7 +502,6 @@ export function PhotoActivityWorkspace({ active }: Props) {
               <aside className="photo-record-detail" aria-label="선택한 사진 기록 상세">
                 <div className="photo-record-detail-heading">
                   <div>
-                    <p className="card-label">기록 상세</p>
                     <h3>{STATUS_LABEL[selectedRecord.status]}</h3>
                   </div>
                   <button type="button" onClick={() => setSelectedRecordId(null)} aria-label="사진 기록 상세 닫기">×</button>
@@ -521,6 +549,12 @@ export function PhotoActivityWorkspace({ active }: Props) {
                     초안 검토하기
                   </button>
                 )}
+                {canRetryPhotoRecord(selectedRecord, childId) && (
+                  <button className="primary-button" type="button" disabled={busy}
+                    onClick={() => void handleRetry(selectedRecord)}>
+                    사진 분석 다시 시도
+                  </button>
+                )}
               </aside>
             )}
           </div>
@@ -537,7 +571,6 @@ export function PhotoActivityWorkspace({ active }: Props) {
         </summary>
         <div className="section-heading">
           <div>
-            <p className="card-label">사진 활동 기록</p>
             <h2>새 사진 일기와 활동 기록</h2>
             <p className="muted">
               사진과 부모가 직접 쓴 글만으로도 완전한 기록을 만들 수 있습니다. AI는 원할 때 장면
@@ -684,7 +717,6 @@ export function PhotoActivityWorkspace({ active }: Props) {
           <section className="photo-draft" aria-labelledby="photo-draft-title">
             <div className="activity-heading">
               <div>
-                <p className="card-label">부모 확인</p>
                 <h3 id="photo-draft-title">저장 전 확인</h3>
                 <p className="muted">직접 쓴 기록과 AI 보조 내용 모두 부모가 최종 기준입니다.</p>
               </div>

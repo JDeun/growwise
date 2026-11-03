@@ -15,60 +15,36 @@ interface MaterialContentProps {
   className?: string;
 }
 
-const INLINE_CODE = /`([^`]+)`/;
-const BOLD = /\*\*([^*]+)\*\*|__([^_]+)__/;
-const ITALIC = /\*([^*]+)\*|_([^_]+)_/;
+const INLINE_TOKEN = /`([^`]+)`|\*\*([^*]+)\*\*|__([^_]+)__|\*([^*]+)\*|_([^_]+)_/g;
 const TABLE_DELIMITER = /^\s*\|?\s*:?-{1,}:?\s*(\|\s*:?-{1,}:?\s*)*\|?\s*$/;
 
 type Align = "left" | "center" | "right" | undefined;
 
 // --- inline parsing ----------------------------------------------------------
 
-// Renders inline emphasis/code by repeatedly locating the earliest token in the
-// remaining text. Precedence: inline code > bold > italic. This is ITERATIVE over
-// the trailing text (not recursive) so a pathological paragraph with tens of
-// thousands of inline tokens can never overflow the call stack. Only the bounded,
-// shallow emphasis *nesting* recurses. Everything resolves to strings inside React
-// elements, so nothing is ever interpreted as markup.
+// Scan tokens once: repeatedly scanning the whole suffix for absent code/bold is quadratic.
+// Only bounded emphasis nesting recurses; text always remains escaped React content.
 function renderInline(text: string, keyPrefix: string): ReactNode[] {
   const nodes: ReactNode[] = [];
-  let remaining = text;
+  let offset = 0;
   let i = 0;
-  while (remaining) {
-    const code = INLINE_CODE.exec(remaining);
-    const bold = BOLD.exec(remaining);
-    const italic = ITALIC.exec(remaining);
-
-    const candidates = [
-      code ? { kind: "code" as const, index: code.index, match: code } : null,
-      bold ? { kind: "bold" as const, index: bold.index, match: bold } : null,
-      italic ? { kind: "italic" as const, index: italic.index, match: italic } : null,
-    ].filter((entry): entry is NonNullable<typeof entry> => entry !== null);
-
-    if (candidates.length === 0) {
-      nodes.push(remaining);
-      break;
-    }
-
-    candidates.sort((a, b) => a.index - b.index);
-    const chosen = candidates[0];
-    const { match } = chosen;
-    // `before` cannot contain an earlier token (chosen is the earliest), so it is plain text.
-    const before = remaining.slice(0, match.index);
-    const inner = match[1] ?? match[2] ?? "";
+  for (const match of text.matchAll(INLINE_TOKEN)) {
+    const before = text.slice(offset, match.index);
+    const inner = match[1] ?? match[2] ?? match[3] ?? match[4] ?? match[5] ?? "";
     if (before) nodes.push(before);
 
-    if (chosen.kind === "code") {
+    if (match[1] !== undefined) {
       nodes.push(<code key={`${keyPrefix}-${i}c`}>{inner}</code>);
-    } else if (chosen.kind === "bold") {
+    } else if (match[2] !== undefined || match[3] !== undefined) {
       nodes.push(<strong key={`${keyPrefix}-${i}s`}>{renderInline(inner, `${keyPrefix}-${i}si`)}</strong>);
     } else {
       nodes.push(<em key={`${keyPrefix}-${i}e`}>{renderInline(inner, `${keyPrefix}-${i}ei`)}</em>);
     }
 
-    remaining = remaining.slice(match.index + match[0].length);
+    offset = match.index + match[0].length;
     i += 1;
   }
+  if (offset < text.length) nodes.push(text.slice(offset));
   return nodes;
 }
 

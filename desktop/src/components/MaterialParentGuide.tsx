@@ -29,7 +29,6 @@ export function MaterialParentGuide({ material }: { material: GeneratedMaterial 
         aria-label={`${presentation.label} 인쇄 양식`}
       >
         <header>
-          <p className="material-presentation-kicker">GROWWISE WORKSHEET</p>
           <h3>{presentation.label}</h3>
           <p>{presentation.purpose}</p>
         </header>

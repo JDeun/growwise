@@ -154,7 +154,6 @@ export function ActivitiesSection({
       <section className="activity-section">
         <div className="activity-heading">
           <div>
-            <p className="card-label">활동 후보</p>
             <h3>새 활동 후보</h3>
             <p className="muted">
               추천은 자동 과제가 아닙니다. 부모가 선택한 후보만 활동 목록에 추가됩니다.
@@ -201,7 +200,6 @@ export function ActivitiesSection({
       <section className="quest-section">
         <div className="activity-heading">
           <div>
-            <p className="card-label">활동 목록</p>
             <h3>내 활동</h3>
             <p className="muted">
               생성한 자료와 선택한 활동을 상태별로 관리합니다. 완료 여부와 실제 결과 기록은 별도로

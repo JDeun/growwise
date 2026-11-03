@@ -35,7 +35,7 @@ describe("ChildProfileSection first-run onboarding", () => {
   it("frames the first child as the only required setup", () => {
     const markup = renderFirstRun();
 
-    expect(markup).toContain("빠른 시작");
+    expect(markup).toContain('aria-label="GrowWise 첫 실행 설정"');
     expect(markup).toContain("닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다");
     expect(markup).toContain("첫 프로필");
     expect(markup).toContain("첫 프로필 저장");
@@ -109,7 +109,7 @@ describe("ChildProfileSection product profile layout", () => {
       </ActiveChildProvider>,
     );
 
-    expect(markup).toContain("아이 목록");
+    expect(markup).toContain('aria-labelledby="child-roster-title"');
     expect(markup).toContain("프로필을 선택해 기록 맥락을 바꿉니다");
     expect(markup).toContain("수아");
     expect(markup).toContain("민준");

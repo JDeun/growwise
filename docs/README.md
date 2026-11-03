@@ -28,10 +28,11 @@
 - [architecture.md](architecture.md) — Tauri/React/Python/LangGraph 구조와 Desktop composition
 - [data-model.md](data-model.md) — Markdown SoT, SQLite projection, 상태 모델
 - [learning-wiki.md](learning-wiki.md) — 원본 기반 지속 합성, provenance, RAG/Graph 연결
+- [knowledge/README.md](knowledge/README.md) — 유지보수자 연구·실험 근거 위키 (아이별 Learning Wiki와 분리)
 - [hardening-contracts.md](hardening-contracts.md) — crash/retry/purge/race/RAG invariant
 - [integrations.md](integrations.md) — 외부 데이터와 model provider 경계
 - [evaluation.md](evaluation.md) — 생성/RAG/안전 평가
-- [adr/](adr/) — 주요 아키텍처 결정 기록
+- [adr/README.md](adr/README.md) — 주요 아키텍처 결정·수용 상태·재검토 조건
 
 ## Privacy and security
 

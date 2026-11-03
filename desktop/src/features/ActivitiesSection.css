@@ -23,13 +23,13 @@
 }
 
 .activity-lifecycle strong {
-  font-size: 12px;
+  font-size: var(--font-size-control);
 }
 
 .activity-lifecycle span,
 .activity-lifecycle small {
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 
 .quest-filters {
@@ -47,8 +47,8 @@
   color: var(--ink-soft);
   padding: 7px 11px;
   font: inherit;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -111,8 +111,8 @@
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 4px;
-  font-size: 10px;
-  font-weight: 700;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-semibold);
 }
 
 .activity-stage-track span {
@@ -132,8 +132,8 @@
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--surface);
-  font-size: 11px;
-  line-height: 1.55;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }
 
 .activity-observation-link > div {

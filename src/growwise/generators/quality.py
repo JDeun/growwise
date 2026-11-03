@@ -5,7 +5,8 @@ from dataclasses import dataclass
 
 from growwise.domain import MaterialKind, Stage
 
-_HEADING_RE = re.compile(r"(?m)^#{1,6}\s+\S")
+_HEADING_RE = re.compile(r"(?m)^#{1,6}\s+(.+)$")
+_STEP_RE = re.compile(r"(?m)^\s*\d+[.)]\s+(.+)$")
 _PLACEHOLDER_RE = re.compile(
     r"(?i)(?:\bTODO\b|\bTBD\b|\[insert[^\]]*\]|여기에\s*(?:입력|작성)|placeholder)"
 )
@@ -70,10 +71,14 @@ class MaterialQualityGate:
         issues: list[str] = []
         del stage
         substantive = re.sub(r"(?m)^#{1,6}\s+.*$", "", text).strip()
-        if len(substantive) < 12:
+        if len(substantive) < 80:
             issues.append("candidate_core_too_short")
-        if len(_HEADING_RE.findall(text)) < 1:
+        if len({heading.strip().casefold() for heading in _HEADING_RE.findall(text)}) < 2:
             issues.append("candidate_core_missing_structure")
+        if sum(len(step.strip()) >= 12 for step in _STEP_RE.findall(text)) < 2:
+            issues.append("candidate_core_missing_executable_steps")
+        if not re.search(r"[?？]", text):
+            issues.append("candidate_core_missing_question")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
         folded = generated_text.casefold()

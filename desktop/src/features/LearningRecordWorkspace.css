@@ -36,8 +36,8 @@
 .learning-record-form label > span,
 .learning-child-picker > span {
   margin-bottom: 0.45rem;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .learning-kind-picker > div {
@@ -133,8 +133,8 @@
 
 .learning-record-card-heading span,
 .learning-record-tags span {
-  font-size: 0.76rem;
-  font-weight: 700;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-semibold);
 }
 
 .learning-record-card p,
@@ -198,7 +198,7 @@
 .learning-profile-panel .child-avatar {
   width: 86px;
   height: 86px;
-  font-size: 22px;
+  font-size: var(--font-size-section);
   box-shadow: 0 12px 28px rgba(47, 86, 68, 0.1);
 }
 
@@ -214,13 +214,13 @@
 
 .learning-profile-copy h3 {
   color: #29372f;
-  font-size: 20px;
-  letter-spacing: -0.035em;
+  font-size: var(--font-size-card);
+  letter-spacing: var(--tracking-heading);
 }
 
 .learning-profile-copy > p:last-child {
-  color: #829089;
-  font-size: 11px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
 }
 
 .learning-profile-panel dl {
@@ -241,16 +241,16 @@
 }
 
 .learning-profile-panel dt {
-  color: #8d9792;
-  font-size: 8px;
-  font-weight: 750;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .learning-profile-panel dd {
   margin: 0;
   color: #2d3933;
-  font-size: 14px;
-  font-weight: 780;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .learning-profile-panel .learning-child-picker {
@@ -261,14 +261,14 @@
 
 .learning-profile-panel .learning-child-picker > span {
   margin: 0;
-  color: #7f8c85;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .learning-profile-panel select {
   min-height: 38px;
   border-radius: 10px;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 
 .learning-master-panel {
@@ -299,14 +299,14 @@
 .learning-detail-heading h3 {
   margin-top: 3px;
   color: #2d3933;
-  font-size: 15px;
-  letter-spacing: -0.025em;
+  font-size: var(--font-size-section);
+  letter-spacing: var(--tracking-heading);
 }
 
 .learning-panel-heading > span {
-  color: #829089;
-  font-size: 10px;
-  font-weight: 750;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .learning-master-list {
@@ -338,21 +338,21 @@
 }
 
 .learning-master-kind {
-  color: #2f8f6b;
-  font-size: 9px;
-  font-weight: 800;
+  color: var(--primary-strong);
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .learning-master-item strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-size-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .learning-master-item small {
-  color: #909a95;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .learning-master-item p {
@@ -360,8 +360,8 @@
   margin: 2px 0 0;
   overflow: hidden;
   color: #65726b;
-  font-size: 10px;
-  line-height: 1.45;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
 }
@@ -385,8 +385,8 @@
 .learning-detail-heading > div > span {
   display: block;
   margin-top: 5px;
-  color: #8c9791;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .learning-ai-status {
@@ -395,14 +395,14 @@
   border-radius: 999px;
   background: #eef7f2;
   color: #2f795d;
-  font-size: 8px;
-  font-weight: 800;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .learning-detail-meta {
   margin: 14px 18px 0;
-  color: #7e8b84;
-  font-size: 10px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .learning-detail-block {
@@ -415,17 +415,17 @@
 
 .learning-detail-block > span,
 .learning-detail-context-grid span {
-  color: #87928d;
-  font-size: 9px;
-  font-weight: 800;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .learning-detail-block p,
 .learning-detail-context-grid p {
   margin: 0;
   color: #344139;
-  font-size: 11px;
-  line-height: 1.65;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
   white-space: pre-wrap;
 }
 
@@ -457,8 +457,8 @@
 .learning-detail-tags span {
   padding: 5px 8px;
   border-radius: 999px;
-  font-size: 9px;
-  font-weight: 750;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .learning-detail-chips span {
@@ -478,7 +478,7 @@
   gap: 8px;
   min-height: 360px;
   padding: 28px;
-  color: #77837d;
+  color: var(--ink-soft);
   text-align: center;
 }
 
@@ -489,21 +489,21 @@
   height: 46px;
   border-radius: 15px;
   background: #eef7f2;
-  color: #2f8f6b;
-  font-size: 20px;
+  color: var(--primary-strong);
+  font-size: var(--font-size-section);
 }
 
 .learning-detail-empty strong {
   max-width: 320px;
   color: #344139;
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 .learning-detail-empty p {
   max-width: 360px;
   margin: 0;
-  font-size: 10px;
-  line-height: 1.55;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .learning-record-create {
@@ -534,17 +534,17 @@
 
 .learning-record-create > summary strong {
   color: #2d3933;
-  font-size: 12px;
+  font-size: var(--font-size-control);
 }
 
 .learning-record-create > summary small {
-  color: #87928d;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-control);
 }
 
 .learning-record-create > summary > span:last-child {
-  color: #2f8f6b;
-  font-size: 18px;
+  color: var(--primary-strong);
+  font-size: var(--font-size-control);
   transition: transform 120ms ease;
 }
 

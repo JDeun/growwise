@@ -34,8 +34,15 @@ updates:
           - "react*"
           - "vite"
           - "@vitejs/*"
-          - "typescript"
           - "@types/*"
+      typescript-tooling:
+        patterns:
+          - "typescript"
+          - "typescript-eslint"
+          - "@typescript-eslint/*"
+          - "eslint"
+          - "@eslint/*"
+          - "globals"
       tauri-js:
         patterns:
           - "@tauri-apps/*"
@@ -56,3 +63,14 @@ updates:
         patterns:
           - "serde*"
           - "reqwest"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "03:45"
+      timezone: "Asia/Seoul"
+    groups:
+      github-actions:
+        patterns: ["*"]

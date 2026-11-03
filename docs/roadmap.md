@@ -203,12 +203,14 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] macOS app/dmg CI (Apple Silicon + Intel)
 - [ ] 실제 배포용 code signing/notarization 실증 (operator-only: stable preflight·Apple/Windows signing workflow 완료; 실제 자격증명 설정·stable release·클린 기기 검증 필요)
 - [ ] Tauri updater trust-root 활성화/실기기 검증 (operator-only: `tauri.release.conf.json`, `configure_updater.py`, `prepare_release_assets.py`, stable workflow 자동화 완료; 장기 키 생성·백업·secret 설정·패키지 업데이트 검증 필요)
-- [x] 모델 다운로드/삭제/무결성 검증 (`model/registry.py` — 원자적 쓰기+sha256 검증)
-- [x] storage location 관리 (`storage/location.py` — 검증+안전 relocate)
+- [x] 실제 로컬 모델 관리 (`desktop/src/features/LocalModelSettings.tsx` + `desktop/src-tauri/src/model_commands.rs` — configured loopback Ollama 설치 목록·명시적 삭제·용도 capability 검증·선택 저장/재시작; 다운로드 SHA256 검증은 Ollama pull, 설치 digest는 메타데이터이며 디스크 재검사로 표현하지 않음)
+- [x] 전체 앱 저장 위치 이전 (`desktop/src/features/StorageSettings.tsx` + `desktop/src-tauri/src/storage_commands.rs` + CoreProcessManager — writer 정지·기록/asset/conversation/backup 복사검증·원자적 선택저장·실패복구; 원본 사본 보존 및 개인정보 잔존 안내)
+- [x] 개인 API 키 Desktop UX (`desktop/src/features/ApiKeySettings.tsx` + `desktop/src-tauri/src/credential_commands.rs` — macOS Keychain/Windows Credential Manager·원문 readback 없음·상태만 표시·즉시 재시작 적용·환경변수 사용 해제·고정 공개 입력 연결 확인; portable backup과 비밀 저장 분리)
 - [x] backup/restore/import/export Desktop UX
 - [x] 9-workspace 제품 IA 정렬 (대시보드/아이 프로필/학습 기록/자료실/사진첩/대화하기/백업 및 복원/설정/도움말)
 - [x] legacy 관찰/성장/활동/자료 찾기/참고 자료를 상위 workspace subview로 재조립
 - [x] production Vite artifact 기반 visual QA (9개 workspace, overflow/clipping/page-error 검증)
+- [x] 실제 Core에 연결한 production UI 흐름 (`desktop/scripts/live_e2e.mjs` — 합성 입력으로 프로필·생성/부모 선택·결과/독립 기록·Learning Wiki·검색/대화/삭제·자료 CRUD·사진·다자녀 격리·백업/복원 검증; native IPC만 테스트 transport로 교체, business 응답 mock 없음)
 - [x] 자료실 reload-loop 및 전역 print toolbar 누출 회귀 제거
 
 - [x] Core sidecar package/smoke + crash-safe start/stop 기초
@@ -252,6 +254,7 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] secret scan (Gitleaks workflow)
 - [x] Python license inventory CI
 - [x] docs/code consistency audit (`test_docs_code_consistency.py` — 로드맵 코드참조 검증)
+- [x] 유지보수자 연구 위키 (`docs/knowledge/`, `scripts/research_wiki.py`, `tests/test_research_wiki.py` — 제품 Learning Wiki와 분리·append-only 출처/실험 ledger·offline 검색/검증·공식 고시 review-only artifact·전용 CI)
 - [x] sample/test data privacy audit (`test_repo_privacy_audit.py` — 구조적 전화/주민번호 + GROWWISE_PII_DENYLIST 실명 감사)
 - [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
 
@@ -259,6 +262,11 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 updater 신뢰 키처럼 저장소가 대신 생성하거나 증명하면 안 되는 `operator-only` 항목이다.
 
 ## Definition of Done
+
+선택적 후속 보호 기능인 앱 자체 저장 암호화·비식별 공유용 export·호출별 원격 동의창은
+현재 구현 완료 범위에 포함하지 않는다. 기존 문서의 구현 과장은
+[`privacy-and-safety.md`](privacy-and-safety.md#아직-제공하지-않는-선택적-보호-기능)에
+현재 경계와 미구현 범위로 명시했다. 일반 backup/restore는 원본을 잃지 않는 snapshot을 유지한다.
 
 기능은 코드가 존재한다고 완료가 아니다. 다음을 모두 만족해야 한다.
 

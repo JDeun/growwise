@@ -92,7 +92,6 @@ export function ObservationTimelineSection({
     <section className="timeline-section">
       <div className="activity-heading">
         <div>
-          <p className="card-label">OBSERVATION TIMELINE</p>
           <h3>관찰 기록</h3>
         </div>
         <span className="badge">
@@ -236,7 +235,6 @@ export function ObservationTimelineSection({
                 >
                   <div className="timeline-detail-heading">
                     <div>
-                      <p className="card-label">RECORD DETAIL</p>
                       <h4 id="timeline-detail-title">관찰 상세</h4>
                     </div>
                     <button className="quiet-button" type="button" onClick={() => setSelectedId(null)}>

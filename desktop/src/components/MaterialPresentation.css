@@ -31,15 +31,8 @@
   .material-presentation-template > header p:last-child {
     margin: 0;
     color: #444;
-    font-size: 9.5pt;
-    line-height: 1.5;
-  }
-
-  .material-presentation-kicker {
-    margin: 0;
-    font-size: 7.5pt;
-    font-weight: 800;
-    letter-spacing: 0.12em;
+    font-size: 12pt;
+    line-height: var(--line-body);
   }
 
   .material-presentation-guide {
@@ -53,12 +46,12 @@
   .material-presentation-guide > strong {
     display: block;
     margin-bottom: 2mm;
-    font-size: 9pt;
+    font-size: 12pt;
   }
 
   .material-presentation-guide .material-content {
-    font-size: 8.5pt;
-    line-height: 1.45;
+    font-size: 12pt;
+    line-height: var(--line-body);
   }
 
   .material-presentation-zones {
@@ -89,8 +82,8 @@
     place-items: center;
     border: 1px solid #333;
     border-radius: 50%;
-    font-size: 8pt;
-    font-weight: 800;
+    font-size: 10pt;
+    font-weight: var(--weight-bold);
   }
 
   .material-presentation-zone-heading strong {
@@ -115,7 +108,7 @@
     margin-top: 5mm;
     padding-top: 4mm;
     border-top: 1px solid #bbb;
-    font-size: 8.5pt;
+    font-size: 10pt;
   }
 
   .material-presentation-template[data-presentation-layout="activity"] .material-presentation-zone:nth-child(2),

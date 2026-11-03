@@ -14,8 +14,8 @@
 
 .timeline-filters label > span {
   color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .timeline-filters input,
@@ -32,7 +32,7 @@
 .timeline-filter-status {
   margin: 10px 0 0;
   color: var(--ink-soft);
-  font-size: 12px;
+  font-size: var(--font-size-meta);
 }
 
 .timeline-browser {
@@ -78,8 +78,8 @@
 
 .timeline-card-detail-label {
   color: var(--primary-strong);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .timeline-detail {
@@ -108,8 +108,8 @@
 }
 
 .timeline-detail-observation {
-  font-size: 14px;
-  line-height: 1.65;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }
 
 .timeline-detail-list {
@@ -133,14 +133,14 @@
 
 .timeline-detail-list dt {
   color: var(--ink-soft);
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-semibold);
 }
 
 .timeline-detail-list dd {
   overflow-wrap: anywhere;
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }
 
 @media (max-width: 1000px) {

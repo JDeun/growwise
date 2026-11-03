@@ -164,8 +164,7 @@ export function ResourceLibrarySection({
     <section className="resource-section">
       <div className="resource-grid">
         <form className="resource-form" onSubmit={onSubmit}>
-          <p className="card-label">참고 자료 추가</p>
-          <h3>나중에 다시 쓸 자료를 저장합니다.</h3>
+          <h2>나중에 다시 쓸 자료를 저장합니다.</h2>
           <p className="muted">책, 교육과정, 웹 자료나 직접 적은 메모를 한곳에 모아 검색하고 학습 자료를 만들 때 참고할 수 있습니다.</p>
           <label>
             <span>종류</span>
@@ -203,12 +202,11 @@ export function ResourceLibrarySection({
         <div className="resource-browser">
           <div className="resource-browser-heading">
             <div>
-              <p className="card-label">저장된 참고 자료</p>
-              <h3>
+              <h2>
                 {loadState.kind === "ready"
                   ? `${filteredResources.length} / ${resources.length}건`
                   : "자료 목록"}
-              </h3>
+              </h2>
             </div>
             {loadState.kind === "ready" && (query || kindFilter !== "all") && (
               <button
@@ -364,8 +362,7 @@ export function ResourceLibrarySection({
                 <aside className="resource-detail" aria-label="선택한 자료 상세">
                   <div className="resource-detail-heading">
                     <div>
-                      <p className="card-label">자료 상세</p>
-                      <h4>{selectedResource.title}</h4>
+                      <h3>{selectedResource.title}</h3>
                     </div>
                     <button
                       className="quiet-button"
@@ -425,7 +422,6 @@ export function ResourceLibrarySection({
         <form className="resource-edit-panel" onSubmit={(event) => void handleUpdate(event)}>
           <div className="resource-detail-heading">
             <div>
-              <p className="card-label">자료 편집</p>
               <h3>자료 수정</h3>
             </div>
             <button

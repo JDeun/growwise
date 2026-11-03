@@ -269,7 +269,6 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     <section className="material-quest" aria-label={`${material.title} 활동 사용 기록`}>
       <div className="material-quest-heading">
         <div>
-          <span className="material-quest-kicker">활동 기록</span>
           <strong>자료 사용과 결과</strong>
           <small>이 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.</small>
         </div>

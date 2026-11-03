@@ -1,3 +1,6 @@
+import appLicense from "../../../LICENSE?raw";
+import thirdPartyNotices from "../../../THIRD_PARTY_NOTICES.md?raw";
+
 import "./HelpWorkspace.css";
 
 const HELP_GROUPS = [
@@ -35,7 +38,6 @@ export function HelpWorkspace({ active }: { active: boolean }) {
     <section className="help-workspace" aria-labelledby="help-workspace-title">
       <header className="help-workspace-heading">
         <div>
-          <p className="eyebrow">HELP & GUIDE</p>
           <h1 id="help-workspace-title">도움말</h1>
           <p>GrowWise의 주요 기능과 데이터 원칙을 빠르게 확인합니다.</p>
         </div>
@@ -64,6 +66,19 @@ export function HelpWorkspace({ active }: { active: boolean }) {
           <strong>먼저 백업을 만든 뒤 앱 상태를 확인해 주세요.</strong>
           <p>설정의 앱 상태에서 기본 기능과 AI 준비 상태를 각각 확인할 수 있습니다.</p>
         </div>
+      </section>
+
+      <section className="help-card help-licenses" aria-labelledby="help-licenses-title">
+        <h2 id="help-licenses-title">앱 정보와 오픈소스 고지</h2>
+        <p>라이선스와 의존성 고지는 앱에 포함되어 인터넷 연결 없이 확인할 수 있습니다.</p>
+        <details>
+          <summary>GrowWise 라이선스 · Apache 2.0</summary>
+          <pre tabIndex={0} aria-label="GrowWise 라이선스 전문">{appLicense}</pre>
+        </details>
+        <details>
+          <summary>Python 런타임 의존성 고지</summary>
+          <pre tabIndex={0} aria-label="Python 런타임 의존성 고지 전문">{thirdPartyNotices}</pre>
+        </details>
       </section>
     </section>
   );

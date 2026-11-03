@@ -24,13 +24,13 @@
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary-strong);
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .operation-notice > span:nth-child(2) {
-  font-size: 13px;
-  font-weight: 650;
-  line-height: 1.45;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
+  line-height: var(--line-control);
 }
 
 .operation-notice-dismiss {
@@ -40,7 +40,7 @@
   color: var(--ink-soft);
   padding: 5px 8px;
   cursor: pointer;
-  font-size: 18px;
+  font-size: var(--font-size-card);
   line-height: 1;
 }
 

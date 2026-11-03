@@ -3,4 +3,4 @@
    feature boundary without duplicating token values. */
 .material-workspace [role="alert"] { scroll-margin-block: 24px; }
 .material-workspace button { min-height: 40px; }
-.material-workspace textarea { line-height: 1.55; }
+.material-workspace textarea { line-height: var(--line-body); }

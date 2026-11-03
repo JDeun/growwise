@@ -22,17 +22,17 @@
 
 .material-queue-summary span,
 .material-lane-step {
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .material-queue-summary strong {
-  font-size: 24px;
-  line-height: 1.1;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
 }
 
 .material-queue-summary small {
-  font-size: 11px;
+  font-size: var(--font-size-control);
 }
 
 .material-heading-statuses {
@@ -51,8 +51,8 @@
   border-radius: 999px;
   background: var(--surface-soft);
   color: var(--ink-soft);
-  font-size: 10px;
-  font-weight: 800;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .material-ai-status.ai-queued,
@@ -96,8 +96,8 @@
   grid-template-columns: auto minmax(0, 1fr);
   gap: 8px;
   align-items: center;
-  font-size: 12px;
-  line-height: 1.45;
+  font-size: var(--font-size-label);
+  line-height: var(--line-body);
 }
 
 .material-kind-guide ol li::before {
@@ -108,18 +108,18 @@
   width: 22px;
   height: 22px;
   border-radius: 999px;
-  background: var(--primary);
+  background: var(--primary-strong);
   color: #fff;
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .material-kind-guide ul {
   display: grid;
   gap: 6px;
   color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.5;
+  font-size: var(--font-size-label);
+  line-height: var(--line-control);
 }
 
 .material-queue-lanes {
@@ -215,8 +215,8 @@
   overflow: hidden;
   margin: 3px 0 0;
   color: #2d3933;
-  font-size: 20px;
-  letter-spacing: -.035em;
+  font-size: var(--font-size-section);
+  letter-spacing: var(--tracking-heading);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -247,10 +247,10 @@
   border: 0;
   border-radius: 8px;
   background: transparent;
-  color: #7d8882;
+  color: var(--ink-soft);
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 760;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .material-studio-tabs button.is-active {
@@ -278,7 +278,7 @@
   align-content: center;
   gap: 8px;
   min-height: 470px;
-  color: #839089;
+  color: var(--ink-soft);
   text-align: center;
 }
 
@@ -289,20 +289,20 @@
   height: 52px;
   border-radius: 16px;
   background: #eaf5ef;
-  color: #2f8f6b;
-  font-size: 22px;
+  color: var(--primary-strong);
+  font-size: var(--font-size-section);
 }
 
 .material-document-empty strong {
   color: #425049;
-  font-size: 14px;
+  font-size: var(--font-size-control);
 }
 
 .material-document-empty p {
   max-width: 360px;
   margin: 0;
-  font-size: 11px;
-  line-height: 1.6;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .material-control-panel {
@@ -326,8 +326,8 @@
   height: 34px;
   border-radius: 11px;
   background: linear-gradient(145deg, #e7f4ed, #dceee5);
-  color: #2f8f6b;
-  font-weight: 850;
+  color: var(--primary-strong);
+  font-weight: var(--weight-bold);
 }
 
 .material-control-panel__heading h3,
@@ -338,14 +338,14 @@
 .material-control-panel__heading h3 {
   margin-top: 2px;
   color: #2d3933;
-  font-size: 15px;
+  font-size: var(--font-size-card);
 }
 
 .material-control-panel__heading > div > p:last-child {
   margin-top: 5px;
-  color: #7b8781;
-  font-size: 10px;
-  line-height: 1.55;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .material-control-panel .material-composer {
@@ -389,8 +389,8 @@
   background: transparent;
   color: #2f7c5e;
   cursor: pointer;
-  font-size: 9px;
-  font-weight: 760;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -443,9 +443,9 @@
   margin: 0 0 8px;
   padding: 0;
   color: #526159;
-  font-size: 9px;
-  font-weight: 800;
-  line-height: 1.35;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-control);
 }
 
 .material-control-panel .material-kind-options {
@@ -492,15 +492,15 @@
 
 .material-control-panel .material-kind-option strong {
   color: #39463f;
-  font-size: 9px;
-  font-weight: 780;
-  line-height: 1.35;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
+  line-height: var(--line-control);
 }
 
 .material-control-panel .material-kind-option small {
-  color: #7f8984;
-  font-size: 7.5px;
-  line-height: 1.45;
+  color: var(--ink-soft);
+  font-size: var(--font-size-label);
+  line-height: var(--line-control);
 }
 
 .material-workspace .badge,
@@ -530,8 +530,8 @@
   padding: 10px 12px;
   color: var(--ink-soft);
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 800;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .material-supporting-details[open],
@@ -566,4 +566,30 @@
     display: grid;
     justify-items: stretch;
   }
+}
+.material-ai-notice {
+  margin: 12px 18px;
+  padding: 12px;
+  border: 1px solid #dce8df;
+  border-radius: 10px;
+  background: #f7faf8;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
+}
+
+.material-ai-notice p {
+  margin: 6px 0 0;
+}
+
+.material-document-picker {
+  display: grid;
+  gap: 4px;
+  margin-top: 8px;
+  font-size: var(--font-size-meta);
+}
+
+.material-document-picker select {
+  min-width: 0;
+  width: 100%;
+  max-width: 340px;
 }

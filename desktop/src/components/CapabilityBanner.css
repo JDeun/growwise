@@ -11,13 +11,13 @@
 }
 
 .capability-banner strong {
-  font-size: 14px;
+  font-size: var(--font-size-control);
 }
 
 .capability-banner span {
   color: var(--ink-soft);
-  font-size: 13px;
-  line-height: 1.55;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
 }
 
 .capability-banner.enhanced {

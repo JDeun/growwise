@@ -2,7 +2,7 @@ use std::env;
 use std::fs::File;
 use std::io::{Read, Write};
 use std::net::{SocketAddr, TcpListener, TcpStream};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
 use std::sync::Mutex;
 use std::thread;
@@ -18,10 +18,13 @@ pub struct CoreProcessManager {
     child: Mutex<Option<Child>>,
     base_url: String,
     session_token: String,
+    data_dir: Mutex<PathBuf>,
 }
 
 impl CoreProcessManager {
     pub fn ensure_started(resource_dir: &Path, data_dir: &Path) -> Result<Self, String> {
+        // A one-file bootloader can exit before its Python child releases the data lock.
+        drop(lock_stopped_data_dir(data_dir)?);
         for process_attempt in 0..PROCESS_START_ATTEMPTS {
             // Binding port 0 and then dropping the listener necessarily leaves a small TOCTOU gap
             // before the Python/Uvicorn child binds the chosen port. If another process wins that
@@ -36,9 +39,12 @@ impl CoreProcessManager {
                 .env("GROWWISE_API_HOST", CORE_HOST)
                 .env("GROWWISE_API_PORT", port.to_string())
                 .env("GROWWISE_SESSION_TOKEN", &session_token)
+                .env("GROWWISE_PARENT_PID", std::process::id().to_string())
                 .env("GROWWISE_DATA_DIR", data_dir)
                 .stdin(Stdio::null());
             apply_desktop_ai_defaults(&mut command);
+            super::model_commands::apply_saved_model_settings(&mut command, data_dir)?;
+            super::credential_commands::apply_saved_credentials(&mut command)?;
 
             if cfg!(debug_assertions) {
                 command.stdout(Stdio::inherit()).stderr(Stdio::inherit());
@@ -57,13 +63,19 @@ impl CoreProcessManager {
                         child: Mutex::new(Some(child)),
                         base_url,
                         session_token,
+                        data_dir: Mutex::new(data_dir.to_path_buf()),
                     });
                 }
 
-                if let Some(status) = child
-                    .try_wait()
-                    .map_err(|error| format!("GrowWise Core 상태 확인 실패: {error}"))?
-                {
+                let status = match child.try_wait() {
+                    Ok(status) => status,
+                    Err(error) => {
+                        let _ = child.kill();
+                        let _ = child.wait();
+                        return Err(format!("GrowWise Core 상태 확인 실패: {error}"));
+                    }
+                };
+                if let Some(status) = status {
                     early_exit = Some(status);
                     break;
                 }
@@ -94,12 +106,225 @@ impl CoreProcessManager {
             .unwrap_or(false)
     }
 
+    pub fn shutdown(&self) -> Result<(), String> {
+        let mut child_slot = self.child.lock().map_err(|error| error.to_string())?;
+        if let Some(child) = child_slot.as_mut() {
+            if child
+                .try_wait()
+                .map_err(|error| error.to_string())?
+                .is_none()
+            {
+                child.kill().map_err(|error| error.to_string())?;
+            }
+            child.wait().map_err(|error| error.to_string())?;
+        }
+        *child_slot = None;
+        drop(lock_stopped_data_dir(
+            &self.data_dir.lock().map_err(|error| error.to_string())?,
+        )?);
+        Ok(())
+    }
+
     pub fn base_url(&self) -> &str {
         &self.base_url
     }
 
     pub fn session_token(&self) -> &str {
         &self.session_token
+    }
+
+    pub fn data_dir(&self) -> Result<PathBuf, String> {
+        self.data_dir
+            .lock()
+            .map(|path| path.clone())
+            .map_err(|error| error.to_string())
+    }
+
+    pub fn change_credential(
+        &self,
+        resource_dir: &Path,
+        service_id: &str,
+        value: Option<&str>,
+    ) -> Result<(), String> {
+        let mut child_slot = self
+            .child
+            .lock()
+            .map_err(|_| "Core 잠금을 확인해 주세요.".to_string())?;
+        let data_dir = self
+            .data_dir
+            .lock()
+            .map_err(|_| "저장소 잠금을 확인해 주세요.".to_string())?;
+        let previous = super::credential_commands::read_saved_credential(service_id)?;
+        super::credential_commands::write_saved_credential(service_id, value)?;
+        let result = (|| {
+            if let Some(child) = child_slot.as_mut() {
+                if child
+                    .try_wait()
+                    .map_err(|_| "Core 상태 확인 실패".to_string())?
+                    .is_none()
+                {
+                    child.kill().map_err(|_| "Core 중지 실패".to_string())?;
+                }
+                child
+                    .wait()
+                    .map_err(|_| "Core 종료 확인 실패".to_string())?;
+            }
+            *child_slot = None;
+            *child_slot = Some(self.restart_at(resource_dir, &data_dir)?);
+            Ok::<(), String>(())
+        })();
+        if let Err(error) = result {
+            super::credential_commands::write_saved_credential(service_id, previous.as_deref())
+                .map_err(|_| {
+                    "Core 재연결 및 이전 API 키 복원에 실패했습니다. 개인설정을 확인해 주세요."
+                        .to_string()
+                })?;
+            let needs_restart = match child_slot.as_mut() {
+                None => true,
+                Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+            };
+            if needs_restart {
+                *child_slot = Some(self.restart_at(resource_dir, &data_dir)?);
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    pub fn change_model_settings(
+        &self,
+        resource_dir: &Path,
+        component: &str,
+        model: &str,
+    ) -> Result<(), String> {
+        let mut child_slot = self.child.lock().map_err(|error| error.to_string())?;
+        let data_dir = self.data_dir.lock().map_err(|error| error.to_string())?;
+        let previous = super::model_commands::read_saved_model_settings(&data_dir)?;
+        let mut next = previous.clone();
+        next.select(component, model)?;
+        super::model_commands::write_saved_model_settings(&data_dir, &next)?;
+        let result = (|| {
+            if let Some(child) = child_slot.as_mut() {
+                if child
+                    .try_wait()
+                    .map_err(|error| error.to_string())?
+                    .is_none()
+                {
+                    child.kill().map_err(|error| error.to_string())?;
+                }
+                child.wait().map_err(|error| error.to_string())?;
+            }
+            *child_slot = None;
+            *child_slot = Some(self.restart_at(resource_dir, &data_dir)?);
+            Ok::<(), String>(())
+        })();
+        if let Err(error) = result {
+            super::model_commands::write_saved_model_settings(&data_dir, &previous).map_err(
+                |rollback_error| format!("{error}; 이전 설정 복원 실패: {rollback_error}"),
+            )?;
+            let needs_restart = match child_slot.as_mut() {
+                None => true,
+                Some(child) => matches!(child.try_wait(), Ok(Some(_))),
+            };
+            if needs_restart {
+                *child_slot = Some(self.restart_at(resource_dir, &data_dir).map_err(
+                    |restart_error| format!("{error}; 이전 모델 재연결 실패: {restart_error}"),
+                )?);
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+
+    pub fn relocate(
+        &self,
+        resource_dir: &Path,
+        destination: &Path,
+        location_file: &Path,
+    ) -> Result<Option<String>, String> {
+        let mut child_slot = self.child.lock().map_err(|error| error.to_string())?;
+        let mut source = self.data_dir.lock().map_err(|error| error.to_string())?;
+        let destination = super::storage_commands::validate_destination(&source, destination)?;
+        if let Some(child) = child_slot.as_mut() {
+            if child
+                .try_wait()
+                .map_err(|error| error.to_string())?
+                .is_none()
+            {
+                child.kill().map_err(|error| error.to_string())?;
+            }
+            child.wait().map_err(|error| error.to_string())?;
+        }
+        *child_slot = None;
+        // Stop every writer before copying SQLite/WAL, assets, records and backups together.
+        let result = (|| {
+            let _source_guard = lock_stopped_data_dir(&source)?;
+            super::storage_commands::copy_data_directory(&source, &destination)?;
+            let mut next = self.restart_at(resource_dir, &destination)?;
+            let warning = match super::storage_commands::save_location(location_file, &destination)
+            {
+                Ok(warning) => warning,
+                Err(error) => {
+                    let _ = next.kill();
+                    let _ = next.wait();
+                    return Err(error);
+                }
+            };
+            *child_slot = Some(next);
+            *source = destination;
+            Ok(warning)
+        })();
+        match result {
+            Ok(warning) => Ok(warning),
+            Err(error) => {
+                *child_slot = Some(self.restart_at(resource_dir, &source).map_err(|restart_error| {
+                    format!("{error}; 원래 저장소 재연결 실패: {restart_error}. 원본은 보존되어 있습니다.")
+                })?);
+                Err(error)
+            }
+        }
+    }
+
+    fn restart_at(&self, resource_dir: &Path, data_dir: &Path) -> Result<Child, String> {
+        drop(lock_stopped_data_dir(data_dir)?);
+        let port = reqwest::Url::parse(&self.base_url)
+            .map_err(|error| error.to_string())?
+            .port()
+            .ok_or("Core 포트가 없습니다.")?;
+        let mut command = core_command(resource_dir)?;
+        command
+            .env("GROWWISE_API_HOST", CORE_HOST)
+            .env("GROWWISE_API_PORT", port.to_string())
+            .env("GROWWISE_SESSION_TOKEN", &self.session_token)
+            .env("GROWWISE_PARENT_PID", std::process::id().to_string())
+            .env("GROWWISE_DATA_DIR", data_dir)
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        apply_desktop_ai_defaults(&mut command);
+        super::model_commands::apply_saved_model_settings(&mut command, data_dir)?;
+        super::credential_commands::apply_saved_credentials(&mut command)?;
+        let mut child = command.spawn().map_err(|error| error.to_string())?;
+        for _ in 0..STARTUP_ATTEMPTS {
+            if authenticated_handshake(port, &self.session_token) {
+                return Ok(child);
+            }
+            let status = match child.try_wait() {
+                Ok(status) => status,
+                Err(error) => {
+                    let _ = child.kill();
+                    let _ = child.wait();
+                    return Err(format!("GrowWise Core 상태 확인 실패: {error}"));
+                }
+            };
+            if let Some(status) = status {
+                return Err(format!("GrowWise Core 재시작 실패: {status}"));
+            }
+            thread::sleep(STARTUP_INTERVAL);
+        }
+        let _ = child.kill();
+        let _ = child.wait();
+        Err("GrowWise Core 재시작 제한 시간을 초과했습니다.".to_string())
     }
 }
 
@@ -114,7 +339,187 @@ impl Drop for CoreProcessManager {
             let _ = child.wait();
         }
         *child_slot = None;
+        if let Ok(data_dir) = self.data_dir.get_mut() {
+            let _ = lock_stopped_data_dir(data_dir);
+        }
         self.session_token.clear();
+    }
+}
+
+fn lock_stopped_data_dir(data_dir: &Path) -> Result<File, String> {
+    std::fs::create_dir_all(data_dir).map_err(|error| error.to_string())?;
+    let lock = File::options()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(false)
+        .open(data_dir.join(".core.lock"))
+        .map_err(|error| error.to_string())?;
+    for attempt in 0..60 {
+        match lock.try_lock() {
+            Ok(()) => return Ok(lock),
+            Err(error) if attempt == 59 => {
+                return Err(format!("이전 Core가 저장소를 사용 중입니다: {error}"))
+            }
+            Err(_) => thread::sleep(Duration::from_millis(50)),
+        }
+    }
+    unreachable!("bounded lock attempts always return")
+}
+
+#[cfg(test)]
+mod live_smoke {
+    use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    #[test]
+    #[ignore = "requires an installed Python Core and loopback network; run with GROWWISE_PYTHON"]
+    fn real_core_survives_whole_data_relocation_and_model_restart() {
+        let root = env::temp_dir().join(format!(
+            "growwise-real-runtime-{}-{}",
+            std::process::id(),
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        let source = root.join("source");
+        let target = root.join("target");
+        fs::create_dir_all(&source).unwrap();
+        fs::create_dir_all(&target).unwrap();
+        let manager = CoreProcessManager::ensure_started(&root, &source).unwrap();
+        let request = |method: &str, path: &str, body: Option<serde_json::Value>| {
+            tauri::async_runtime::block_on(async {
+                let request = reqwest::Client::new()
+                    .request(
+                        method.parse().unwrap(),
+                        format!("{}{path}", manager.base_url()),
+                    )
+                    .bearer_auth(manager.session_token())
+                    .timeout(Duration::from_secs(30));
+                let response = match body {
+                    Some(body) => request.json(&body),
+                    None => request,
+                }
+                .send()
+                .await
+                .unwrap();
+                assert!(
+                    response.status().is_success(),
+                    "{method} {path}: {}",
+                    response.status()
+                );
+                response.json::<serde_json::Value>().await.unwrap()
+            })
+        };
+        let child = request(
+            "POST",
+            "/v1/children",
+            Some(
+                serde_json::json!({"nickname":"가상런타임검증", "stage":"elementary", "age_months":96}),
+            ),
+        );
+        let id = child["id"].as_str().unwrap();
+        request(
+            "POST",
+            "/v1/observations/background",
+            Some(
+                serde_json::json!({"child_id":id,"observation":"가상 민들레 관찰 기록", "experience_axes":["exploration"]}),
+            ),
+        );
+        request(
+            "POST",
+            &format!("/v1/children/{id}/conversations"),
+            Some(serde_json::json!({})),
+        );
+        request("POST", "/v1/admin/backups", Some(serde_json::json!({})));
+        fs::create_dir_all(source.join("assets/photos")).unwrap();
+        fs::write(
+            source.join("assets/photos/synthetic.bin"),
+            b"synthetic asset",
+        )
+        .unwrap();
+        manager
+            .relocate(&root, &target, &source.join("storage-location.json"))
+            .unwrap();
+        assert_eq!(
+            request("GET", "/v1/children", None)
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        let projection_check = Command::new(
+            env::var_os("GROWWISE_PYTHON").expect("live smoke requires GROWWISE_PYTHON"),
+        )
+        .args([
+            "-c",
+            "import pathlib,sqlite3,sys; root=pathlib.Path(sys.argv[1]).resolve(); \
+             rows=sqlite3.connect(root/'index.sqlite3').execute('SELECT source_path FROM entities').fetchall(); \
+             assert rows and all(pathlib.Path(row[0]).is_relative_to(root/'records') for row in rows), rows; \
+             assert not (root/'index.sqlite3.dirty').exists()",
+        ])
+        .arg(&target)
+        .output()
+        .unwrap();
+        assert!(
+            projection_check.status.success(),
+            "relocated projection paths: {}",
+            String::from_utf8_lossy(&projection_check.stderr)
+        );
+        assert_eq!(
+            request("GET", &format!("/v1/children/{id}/conversations"), None)
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            request("GET", "/v1/admin/backups", None)
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        assert_eq!(
+            fs::read(target.join("assets/photos/synthetic.bin")).unwrap(),
+            b"synthetic asset"
+        );
+        assert!(source.join("records").exists());
+        assert_eq!(
+            super::super::storage_commands::configured_data_dir(&source).unwrap(),
+            target.canonicalize().unwrap()
+        );
+        assert!(manager
+            .relocate(&root, &target, &source.join("storage-location.json"))
+            .is_err());
+        assert_eq!(
+            request("GET", "/v1/children", None)
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        manager
+            .change_model_settings(&root, "text", "qwen3.5:0.8b")
+            .unwrap();
+        assert_eq!(
+            request("GET", "/health", None)["llm_model_id"],
+            "qwen3.5:0.8b"
+        );
+        assert_eq!(
+            request("GET", "/v1/children", None)
+                .as_array()
+                .unwrap()
+                .len(),
+            1
+        );
+        drop(manager);
+        let resumed = CoreProcessManager::ensure_started(&root, &target).unwrap();
+        assert!(resumed.started_by_desktop());
+        drop(resumed);
+        fs::remove_dir_all(root).unwrap();
     }
 }
 

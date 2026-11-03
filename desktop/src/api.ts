@@ -457,6 +457,9 @@ async function call<T>(command: string, args?: Record<string, unknown>): Promise
 
 export const getHealth = () => call<HealthResponse>("core_health");
 export const getCoreRuntimeStatus = () => call<CoreRuntimeStatus>("core_runtime_status");
+export const getStorageLocation = () => call<string>("get_storage_location");
+export const chooseStorageLocation = () => call<string | null>("choose_storage_location");
+export const relocateStorage = (destination: string) => call<string | null>("relocate_storage", { destination });
 export const prepareLocalAi = (component: "basic" | "vision") =>
   call<"prepared" | "already_ready">("prepare_local_ai", { component });
 export const createChild = (request: ChildCreateInput) =>

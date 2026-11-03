@@ -224,7 +224,6 @@ export function LearningRecordWorkspace({
     <section className={`learning-record-workspace${embedded ? " is-embedded" : ""}`} aria-labelledby="learning-record-title">
       <div className="section-heading learning-record-heading">
         <div>
-          <p className="eyebrow">LEARNING RECORDS</p>
           <h2 id="learning-record-title">아이의 배움 기록을 한 화면에서 살펴봅니다.</h2>
           <p className="muted">
             프로필과 기록 목록, 선택한 기록의 상세 맥락을 함께 보고 필요한 경우 새 기록을 이어서 작성합니다.
@@ -241,7 +240,6 @@ export function LearningRecordWorkspace({
             <aside className="learning-profile-panel" aria-label="현재 아이 프로필">
               <ChildAvatar child={activeChild} size="lg" />
               <div className="learning-profile-copy">
-                <p className="card-label">현재 아이</p>
                 <h3>{activeChild?.nickname ?? "아이 선택"}</h3>
                 <p>{activeChild ? stageLabel(activeChild.stage) : "프로필을 선택해 주세요"}</p>
               </div>
@@ -267,7 +265,6 @@ export function LearningRecordWorkspace({
             <section className="learning-master-panel" aria-labelledby="learning-master-title">
               <div className="learning-panel-heading">
                 <div>
-                  <p className="card-label">기록 목록</p>
                   <h3 id="learning-master-title">최근 학습 기록</h3>
                 </div>
                 <span>{records.length}건</span>
@@ -304,7 +301,6 @@ export function LearningRecordWorkspace({
                 <>
                   <div className="learning-detail-heading">
                     <div>
-                      <p className="card-label">{kindLabel(selectedRecord.record_kind ?? "other")}</p>
                       <h3 id="learning-detail-title">{selectedRecord.title ?? "제목 없는 기록"}</h3>
                       <span>{displayDate(selectedRecord)}</span>
                     </div>
@@ -429,7 +425,7 @@ export function LearningRecordWorkspace({
           <StudyTrackingPanel />
 
           <section className="learning-record-history learning-record-history--legacy" aria-labelledby="learning-history-title">
-            <div className="section-heading compact"><div><p className="eyebrow">HISTORY</p><h3 id="learning-history-title">최근 학습 기록</h3></div><span className="badge">{records.length}건</span></div>
+            <div className="section-heading compact"><div><h3 id="learning-history-title">최근 학습 기록</h3></div><span className="badge">{records.length}건</span></div>
             {loading ? <p className="muted">기록을 불러오는 중…</p> : records.length === 0 ? <p className="muted">아직 별도 학습 기록이 없습니다.</p> : (
               <div className="learning-record-list">
                 {records.map((record) => (

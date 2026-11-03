@@ -20,7 +20,6 @@ export function GrowthContextPanel({ growthState, growthMap, onRetry }: GrowthCo
   if (growthState.kind === "loading") {
     return (
       <article className="observation-result growth-context-panel">
-        <p className="card-label">GROWTH CONTEXT</p>
         <h3>성장 맥락</h3>
         <ViewStateNotice
           kind="loading"
@@ -34,7 +33,6 @@ export function GrowthContextPanel({ growthState, growthMap, onRetry }: GrowthCo
   if (growthState.kind === "error") {
     return (
       <article className="observation-result growth-context-panel">
-        <p className="card-label">GROWTH CONTEXT</p>
         <h3>성장 맥락</h3>
         <ViewStateNotice
           kind="error"
@@ -53,7 +51,6 @@ export function GrowthContextPanel({ growthState, growthMap, onRetry }: GrowthCo
   if (!growthMap || growthMap.total_logs_in_period === 0) {
     return (
       <article className="observation-result growth-context-panel">
-        <p className="card-label">GROWTH CONTEXT</p>
         <h3>최근 {growthMap?.period_days ?? 30}일</h3>
         <ViewStateNotice
           kind="empty"
@@ -77,7 +74,6 @@ export function GrowthContextPanel({ growthState, growthMap, onRetry }: GrowthCo
     <article className="observation-result growth-context-panel">
       <div className="growth-context-heading">
         <div>
-          <p className="card-label">GROWTH CONTEXT</p>
           <h3>최근 {growthMap.period_days}일의 기록 분포</h3>
           <p className="muted">
             아이를 점수화하지 않고, 부모가 남긴 관찰이 어떤 경험에 연결됐는지 보여줍니다.

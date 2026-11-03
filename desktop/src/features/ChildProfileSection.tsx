@@ -152,7 +152,6 @@ export function ChildProfileSection({
     <section className="child-profile-section" aria-labelledby="child-profile-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">아이 프로필</p>
           <h2 id="child-profile-title">{firstRun ? "처음 설정을 마치면 바로 기록을 시작할 수 있습니다." : "아이의 기본 정보와 성장 맥락을 관리합니다."}</h2>
         </div>
         {firstRun && <span className="badge">처음 설정</span>}
@@ -162,7 +161,6 @@ export function ChildProfileSection({
         <section className="onboarding-panel" aria-label="GrowWise 첫 실행 설정">
           <div className="onboarding-heading">
             <div>
-              <p className="card-label">빠른 시작</p>
               <h3>닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다.</h3>
             </div>
             <span className="onboarding-optional-badge">AI는 선택 사항</span>
@@ -209,7 +207,6 @@ export function ChildProfileSection({
         <section className="child-roster" aria-labelledby="child-roster-title">
           <div className="child-roster__heading">
             <div>
-              <p className="card-label">아이 목록</p>
               <h3 id="child-roster-title">프로필을 선택해 기록 맥락을 바꿉니다.</h3>
             </div>
             <span>{children.length}명</span>
@@ -310,7 +307,6 @@ export function ChildProfileSection({
                   </label>
                 </div>
                 <div>
-                  <p className="card-label">현재 아이</p>
                   <h3>{activeChild.nickname}</h3>
                   <p className="muted">{stageLabel(activeChild.stage)} · {activeChild.age_months ?? "—"}개월</p>
                   {activeChild.avatar_asset_id && (
@@ -334,7 +330,6 @@ export function ChildProfileSection({
             </>
           ) : (
             <>
-              <p className="card-label">첫 단계</p>
               <h3>첫 아이 프로필을 만들어 주세요.</h3>
               <p className="muted">개인 식별정보 대신 앱 안에서 구분할 닉네임만 사용해도 됩니다.</p>
             </>

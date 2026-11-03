@@ -165,7 +165,6 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">오늘</p>
             <h2 id="home-dashboard-title">오늘의 GrowWise</h2>
           </div>
         </div>
@@ -181,7 +180,6 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">오늘</p>
             <h2 id="home-dashboard-title">오늘의 GrowWise</h2>
           </div>
         </div>
@@ -201,7 +199,6 @@ export function HomeDashboard({ active, onNavigate }: HomeDashboardProps) {
       <section className="home-dashboard" aria-labelledby="home-dashboard-title">
         <div className="home-dashboard-heading">
           <div>
-            <p className="eyebrow">처음 시작</p>
             <h2 id="home-dashboard-title">아이 프로필부터 시작해 주세요.</h2>
             <p>프로필을 만들면 아이의 질문과 경험을 기록하고, 그 기록에서 다음 활동을 이어갈 수 있습니다.</p>
           </div>

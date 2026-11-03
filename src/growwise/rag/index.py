@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sqlite3
 from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
+from uuid import uuid4
 
 from .chunking import ResourceChunk
 from .embeddings import EmbeddingProvider
@@ -51,6 +53,24 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
     return dot / (left_norm * right_norm)
 
 
+def _vector(value: object, dimensions: int | None = None) -> list[float] | None:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(value, list) or not value:
+        return None
+    if dimensions is not None and len(value) != dimensions:
+        return None
+    if any(
+        isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item)
+        for item in value
+    ):
+        return None
+    return [float(item) for item in value]
+
+
 def _fts_query(terms: list[str]) -> str:
     """Treat parent-entered text as literals and use token-prefix matching.
 
@@ -76,6 +96,8 @@ class HybridRagIndex:
         self.path = path
         self._data_generation = DATA_MAINTENANCE.generation
         self.embedding = embedding
+        # Providers without a stable model/endpoint identity cannot reuse vectors across instances.
+        self._opaque_embedding_identity = uuid4().hex
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fts_available = False
         self._ensure_schema()
@@ -119,6 +141,7 @@ class HybridRagIndex:
                     source_name TEXT,
                     tags_json TEXT NOT NULL,
                     embedding_json TEXT,
+                    embedding_identity TEXT,
                     recorded_at TEXT
                 )
                 """
@@ -129,6 +152,8 @@ class HybridRagIndex:
             }
             if "recorded_at" not in columns:
                 connection.execute("ALTER TABLE rag_chunks ADD COLUMN recorded_at TEXT")
+            if "embedding_identity" not in columns:
+                connection.execute("ALTER TABLE rag_chunks ADD COLUMN embedding_identity TEXT")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_rag_resource ON rag_chunks(resource_id)"
             )
@@ -259,6 +284,7 @@ class HybridRagIndex:
             raise ValueError("replace_resource expects chunks from exactly one resource")
 
         vectors: list[list[float] | None] = [None] * len(chunks)
+        identity = self._embedding_identity()
         if self.embedding is not None:
             try:
                 embedded = self.embedding.embed_documents([chunk.text for chunk in chunks])
@@ -282,8 +308,9 @@ class HybridRagIndex:
                     """
                     INSERT INTO rag_chunks (
                         chunk_id, resource_id, child_id, title, text,
-                        source_url, source_name, tags_json, embedding_json, recorded_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        source_url, source_name, tags_json, embedding_json, recorded_at,
+                        embedding_identity
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         chunk.chunk_id,
@@ -296,6 +323,7 @@ class HybridRagIndex:
                         tags_json,
                         json.dumps(vector) if vector is not None else None,
                         chunk.recorded_at,
+                        identity if vector is not None else None,
                     ),
                 )
                 if self._fts_available:
@@ -321,6 +349,57 @@ class HybridRagIndex:
         finally:
             connection.close()
         return len(chunks)
+
+    def _embedding_identity(self) -> str | None:
+        if self.embedding is None:
+            return None
+        model = getattr(self.embedding, "model", None)
+        endpoint = getattr(self.embedding, "base_url", None)
+        if not isinstance(model, str) or not isinstance(endpoint, str):
+            return self._opaque_embedding_identity
+        provider = type(self.embedding)
+        identity = [f"{provider.__module__}.{provider.__qualname__}", model, endpoint.rstrip("/")]
+        return hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+
+    def _refresh_vectors(self, rows: list[dict], identity: str, dimensions: int) -> None:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        if self.embedding is None:
+            return
+        stale = [row for row in rows if row["embedding_identity"] != identity
+                 or _vector(row["embedding_json"], dimensions) is None]
+        for offset in range(0, len(stale), 32):
+            batch = stale[offset : offset + 32]
+            try:
+                vectors = self.embedding.embed_documents([row["text"] for row in batch])
+            except Exception:
+                return
+            if not isinstance(vectors, list) or len(vectors) != len(batch):
+                return
+            try:
+                with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+                    connection = self._connect()
+                    try:
+                        with connection:
+                            for row, value in zip(batch, vectors, strict=True):
+                                vector = _vector(value, dimensions)
+                                if vector is None:
+                                    continue
+                                encoded = json.dumps(vector)
+                                # Inference ran outside the transaction; never attach old-text
+                                # vectors to a chunk replaced by a concurrent source update.
+                                updated = connection.execute(
+                                    "UPDATE rag_chunks SET embedding_json = ?, "
+                                    "embedding_identity = ? WHERE chunk_id = ? AND text = ?",
+                                    (encoded, identity, row["chunk_id"], row["text"]),
+                                )
+                                if updated.rowcount:
+                                    row["embedding_json"] = encoded
+                                    row["embedding_identity"] = identity
+                    finally:
+                        connection.close()
+            except sqlite3.Error:
+                return
 
     @staticmethod
     def _normalized_shared_ids(shared_resource_ids: Iterable[str] | None) -> tuple[str, ...]:
@@ -438,9 +517,10 @@ class HybridRagIndex:
             return []
         query_terms = _normalize_query_terms(query)
         query_vector: list[float] | None = None
+        identity = self._embedding_identity()
         if self.embedding is not None:
             try:
-                query_vector = self.embedding.embed_query(query)
+                query_vector = _vector(self.embedding.embed_query(query))
             except Exception:
                 query_vector = None
         if not query_terms and query_vector is None:
@@ -467,18 +547,18 @@ class HybridRagIndex:
         finally:
             connection.close()
 
+        source_rows = [dict(row) for row in rows]
+        if query_vector is not None and identity is not None:
+            self._refresh_vectors(source_rows, identity, len(query_vector))
         ranked: list[tuple[float, dict]] = []
-        for row in rows:
+        for row in source_rows:
             tags = _decode_tags(row["tags_json"])
             haystack = " ".join((str(row["title"]), str(row["text"]), *tags)).casefold()
             lexical = float(sum(haystack.count(term) for term in query_terms))
             vector_score = 0.0
-            if query_vector is not None and row["embedding_json"]:
-                try:
-                    stored_vector = json.loads(row["embedding_json"])
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    stored_vector = []
-                if isinstance(stored_vector, list):
+            if query_vector is not None and row["embedding_identity"] == identity:
+                stored_vector = _vector(row["embedding_json"], len(query_vector))
+                if stored_vector is not None:
                     vector_score = cosine_similarity(query_vector, stored_vector)
             if lexical <= 0 and vector_score <= 0:
                 continue

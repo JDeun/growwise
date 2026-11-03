@@ -90,6 +90,12 @@ jobs:
         run: uv run --locked --extra hygiene pip-licenses --format=json --with-urls > /tmp/growwise-python-licenses.json
       - name: Enforce Python license policy
         run: python scripts/check_license_policy.py --ecosystem python --input /tmp/growwise-python-licenses.json
+      - name: Verify locked runtime notices
+        env:
+          UV_PROJECT_ENVIRONMENT: /tmp/growwise-runtime-notices
+        run: |
+          uv sync --locked
+          uv run --no-sync python scripts/generate_notice.py --check
 
   desktop-frontend:
     runs-on: ubuntu-latest

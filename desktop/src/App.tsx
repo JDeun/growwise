@@ -31,8 +31,12 @@ import { stageForBirthDate } from "./child-stage";
 import { activityStatusLabel } from "./presentation";
 import { useBackupManagement } from "./use-backup-management";
 import { useMaterialManagement } from "./use-material-management";
+import { materialAiCompletionNotice, materialAiPending, startMaterialAiPolling } from "./material-ai-polling";
 import { useResourceManagement } from "./use-resource-management";
 import { useSearchConversation } from "./use-search-conversation";
+import { StorageSettings } from "./features/StorageSettings";
+import { LocalModelSettings } from "./features/LocalModelSettings";
+import { ApiKeySettings } from "./features/ApiKeySettings";
 import {
   createActivity,
   createChild,
@@ -113,6 +117,7 @@ function App({
   );
   const childContextRequestId = useRef(0);
   const activeChildIdRef = useRef<string | null>(null);
+  const materialPollInFlight = useRef(false);
 
   const [nickname, setNickname] = useState("");
   const [childStage, setChildStage] = useState<Stage>("infant_0_2");
@@ -186,6 +191,7 @@ function App({
     setEditingMaterialId,
     handleGenerateMaterial,
     handleUseMaterial,
+    handleRetryMaterial,
     handleReviewMaterial,
     handleReviseMaterial,
     handleParentEdit,
@@ -392,6 +398,23 @@ function App({
     writeNoticeId.current += 1;
     setWriteNotice({ id: writeNoticeId.current, message });
   }
+
+  const pendingMaterialIds = materials.filter(materialAiPending).map((material) => material.id);
+  const pendingMaterialKey = pendingMaterialIds.join(",");
+  const materialPollRequestId = childContextRequestId.current;
+  useEffect(() => {
+    if (!activeChild || materialBusy || childContext.materials.kind !== "ready" || !pendingMaterialKey) return;
+    const childId = activeChild.id;
+    return startMaterialAiPolling({
+      childId,
+      pendingIds: pendingMaterialIds,
+      inFlight: materialPollInFlight,
+      isCurrent: () => scopeIsCurrent(childId, materialPollRequestId),
+      load: listMaterials,
+      onUpdate: setMaterials,
+      onFinished: (finished) => announceWrite(materialAiCompletionNotice(finished)),
+    });
+  }, [activeChild?.id, materialBusy, childContext.materials.kind, pendingMaterialKey, materialPollRequestId, scopeIsCurrent]);
 
   async function reloadChildContextPart(key: ChildContextKey) {
     if (!activeChild) return;
@@ -814,6 +837,7 @@ function App({
                   toggleResourceRef,
                   handleGenerateMaterial,
                   handleUseMaterial,
+                  handleRetryMaterial,
                   handleReviewMaterial,
                   setRevisionNote,
                   handleReviseMaterial,
@@ -881,7 +905,6 @@ function App({
         <section className="settings-product-workspace" aria-labelledby="settings-product-title">
           <header className="settings-product-heading">
             <div>
-              <p className="eyebrow">PREFERENCES</p>
               <h1 id="settings-product-title">설정</h1>
               <p>앱 상태, 가족 프로필과 개인정보 관련 설정을 관리합니다.</p>
             </div>
@@ -892,6 +915,9 @@ function App({
             childrenCount={children.length}
             onRefresh={() => refresh()}
           />
+          <StorageSettings connected={isConnected} />
+          <ApiKeySettings connected={isConnected} onRefresh={() => refresh()} />
+          {connection.kind === "connected" && <LocalModelSettings health={connection.health} onRefresh={() => refresh()} />}
           <DataManagementSection
             mode="settings"
             showHeading={false}

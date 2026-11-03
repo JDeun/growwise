@@ -8,11 +8,11 @@ src/growwise/
 ├── api/          Tauri ↔ Python API/IPC, health/version, request DTO
 ├── domain/       핵심 엔티티·enum·invariant·schema
 ├── workflows/    LangGraph state/nodes/edges/checkpoint/recovery
-├── router/       자연어/기능 요청을 workflow/use-case로 라우팅
+├── services/     use case, 검색 의도, 성장/기록/자료/파생 맥락
 ├── generators/   독서/영어/탐방/수학/과학/글쓰기/영아 활동 생성
 ├── rag/          기록·교육과정·도서·외부 자료 검색과 provenance
 ├── storage/      Markdown SoT, SQLite projection, migration/rebuild
-├── export/       HTML/CSS/PDF 및 portable Markdown export
+├── backup/       portable Markdown/asset/conversation 백업과 복원
 ├── review/       automated review + Parent Review 정책
 ├── adapters/     외부 데이터/API 경계, cache/offline fallback
 └── model/        LangChain 기반 Model Provider와 embedding abstraction
@@ -27,11 +27,14 @@ api/workflows/generators/rag/review
               ↓
            domain
 
-model/adapters/storage/export
+model/adapters/storage/backup
       = infrastructure boundary
 ```
 
 `domain/`은 LangChain/LangGraph, FastAPI, Tauri를 import하지 않는다.
+
+승인 자료 인쇄/PDF는 `desktop/src/print-layout.ts`와 WebView/OS print 경로가 담당한다.
+별도 Python PDF 엔진이나 `router/`, `export/` 패키지는 없다.
 
 ## LangChain / LangGraph 역할
 

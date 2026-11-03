@@ -28,7 +28,7 @@ export function MaterialSources({ sourceRefs, resources = [], headingId = "mater
 
   return (
     <section className="material-sources-block" aria-labelledby={headingId}>
-      <p className="eyebrow" id={headingId}>출처 · 근거</p>
+      <h4 id={headingId}>출처 · 근거</h4>
       {refs.length === 0 ? (
         <EmptyState
           title="연결된 출처가 없습니다."

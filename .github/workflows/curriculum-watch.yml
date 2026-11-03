@@ -22,4 +22,22 @@ jobs:
       - name: Sync locked runtime
         run: uv sync --locked
       - name: Detect unknown official curriculum revisions
-        run: uv run python scripts/check_curriculum_updates.py --strict
+        run: uv run python scripts/check_curriculum_updates.py --strict > "$RUNNER_TEMP/growwise-curriculum-watch.json"
+      - name: Prepare review-only research candidates
+        if: always()
+        run: |
+          if [ -s "$RUNNER_TEMP/growwise-curriculum-watch.json" ]; then
+            python scripts/research_wiki.py curriculum-candidates \
+              "$RUNNER_TEMP/growwise-curriculum-watch.json" \
+              > "$RUNNER_TEMP/growwise-curriculum-candidates.jsonl"
+          fi
+      - name: Upload public curriculum review evidence
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: growwise-curriculum-review
+          path: |
+            ${{ runner.temp }}/growwise-curriculum-watch.json
+            ${{ runner.temp }}/growwise-curriculum-candidates.jsonl
+          if-no-files-found: warn
+          retention-days: 30

@@ -138,6 +138,7 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
                 "GROWWISE_API_HOST": "127.0.0.1",
                 "GROWWISE_API_PORT": str(port),
                 "GROWWISE_SESSION_TOKEN": token,
+                "GROWWISE_PARENT_PID": str(os.getpid()),
                 "GROWWISE_DATA_DIR": str(temp / "data"),
                 "GROWWISE_LLM_FEATURES_ENABLED": "false",
                 "GROWWISE_EMBEDDING_FEATURES_ENABLED": "false",

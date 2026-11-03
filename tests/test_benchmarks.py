@@ -31,7 +31,14 @@ class _StubProvider:
         return schema.model_validate(
             {
                 "title": "샘플",
-                "content_markdown": "# 활동\n그림을 함께 보고 질문을 하나만 합니다.",
+                "content_markdown": (
+                    "## 함께 살펴보기\n"
+                    "1. 주변에서 관심 있는 대상을 하나 고르고 모양과 색을 충분히 관찰해 봅니다.\n"
+                    "2. 비슷한 다른 대상과 나란히 놓아 어떤 점이 같고 다른지 비교해 봅니다.\n"
+                    "## 생각 이어가기\n"
+                    "다른 방법으로 살펴보면 무엇을 더 발견할 수 있을까요? "
+                    "말이나 손짓으로 생각을 나눕니다."
+                ),
                 "source_refs": [],
             }
         )
@@ -53,6 +60,7 @@ def test_model_benchmark_reports_latency_and_reviewable_output() -> None:
     assert all("## 오늘의 목표" in row.content_markdown for row in report.rows)
     assert all("## 활동 자료" in row.content_markdown for row in report.rows)
     assert all(row.content_chars == len(row.content_markdown) for row in report.rows)
+    assert all("## 진행 시나리오" in row.parent_guide_markdown for row in report.rows)
 
 
 def test_model_benchmark_core_only_baseline() -> None:
@@ -64,6 +72,27 @@ def test_model_benchmark_core_only_baseline() -> None:
     assert all(row.content_markdown for row in report.rows)
 
 
+def test_model_benchmark_can_reproduce_one_kind_without_other_model_calls() -> None:
+    from growwise.domain import MaterialKind
+
+    bench = _load("benchmark_model_single", script_name="benchmark_model")
+
+    class CountingProvider(_StubProvider):
+        def __init__(self):
+            self.calls = 0
+
+        def generate_structured(self, **kwargs):
+            self.calls += 1
+            return super().generate_structured(**kwargs)
+
+    provider = CountingProvider()
+    report = bench.run_model_benchmark(provider, kind=MaterialKind.MATH_ACTIVITY,
+                                       repeats=2, warmup_rounds=1)
+    assert report.count == 2
+    assert provider.calls == 3
+    assert all(row.kind == "math_activity" for row in report.rows)
+
+
 def test_model_benchmark_cli_uses_configured_provider(
     monkeypatch: pytest.MonkeyPatch,
     capsys: pytest.CaptureFixture[str],
@@ -73,11 +102,17 @@ def test_model_benchmark_cli_uses_configured_provider(
         llm_features_enabled=True,
         model_provider="ollama",
         model_id="test-model:4b",
+        model_timeout_seconds=12,
+        model_max_output_tokens=768,
+        background_ai_model_timeout_seconds=240,
+        background_ai_max_output_tokens=8192,
+        background_ai_reasoning_enabled=False,
+        background_ai_model_context_tokens=8192,
     )
     calls: list[Any] = []
 
-    def create_provider(received: Any) -> _StubProvider:
-        calls.append(received)
+    def create_provider(received: Any, *, background: bool = False) -> _StubProvider:
+        calls.append((received, background))
         return _StubProvider()
 
     monkeypatch.setattr(bench, "Settings", lambda: settings)
@@ -85,11 +120,16 @@ def test_model_benchmark_cli_uses_configured_provider(
 
     assert bench.main(["--repeats", "2", "--warmup-rounds", "1"]) == 0
     payload = json.loads(capsys.readouterr().out)
-    assert calls == [settings]
+    assert calls == [(settings, True)]
     assert payload["provider"] == "configured"
     assert payload["provider_kind"] == "ollama"
     assert payload["model_id"] == "test-model:4b"
     assert payload["llm_features_enabled"] is True
+    assert payload["inference_profile"] == "background_material"
+    assert payload["effective_timeout_seconds"] == 240
+    assert payload["effective_max_output_tokens"] == 8192
+    assert payload["reasoning"] is False
+    assert payload["effective_context_tokens"] == 8192
     assert payload["repeats"] == 2
     assert payload["warmup_rounds"] == 1
     assert payload["count"] == 12
@@ -99,6 +139,7 @@ def test_model_benchmark_cli_uses_configured_provider(
     assert all(row["title"] == "샘플" for row in payload["rows"])
     assert all("## 오늘의 목표" in row["content_markdown"] for row in payload["rows"])
     assert all("## 활동 자료" in row["content_markdown"] for row in payload["rows"])
+    assert all("## 진행 시나리오" in row["parent_guide_markdown"] for row in payload["rows"])
 
 
 def test_model_benchmark_cli_respects_disabled_llm(
@@ -121,9 +162,35 @@ def test_model_benchmark_cli_respects_disabled_llm(
     assert bench.main([]) == 0
     payload = json.loads(capsys.readouterr().out)
     assert payload["provider"] == "core-only"
+    assert payload["inference_profile"] == "core_only"
+    assert payload["effective_timeout_seconds"] is None
+    assert payload["effective_max_output_tokens"] is None
+    assert payload["reasoning"] is None
+    assert payload["effective_context_tokens"] is None
     assert payload["llm_features_enabled"] is False
     assert payload["llm_used_ratio"] == 0.0
     assert payload["generator_mode_counts"] == {"template": 6}
+
+
+def test_model_benchmark_distinguishes_called_provider_from_accepted_model_output() -> None:
+    bench = _load("benchmark_model_quality", script_name="benchmark_model")
+
+    class WeakProvider(_StubProvider):
+        def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
+            return schema.model_validate(
+                {
+                    "title": "샘플",
+                    "content_markdown": "# 활동\n짧음",
+                    "source_refs": [],
+                }
+            )
+
+    report = bench.run_model_benchmark(WeakProvider())
+    assert report.count == 6
+    assert report.llm_used_ratio == 0.0
+    assert report.generator_mode_counts == {"template_quality_fallback": 6}
+    assert all(not row.llm_used for row in report.rows)
+    assert all("## 오늘의 목표" in row.content_markdown for row in report.rows)
 
 
 def test_model_benchmark_cli_rejects_invalid_round_counts() -> None:

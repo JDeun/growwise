@@ -10,7 +10,6 @@ export function WorkspaceFrame({ view, children }: WorkspaceFrameProps) {
   return (
     <section className="workspace-frame" data-workspace-view={view} aria-labelledby={`workspace-${view}-title`}>
       <header className="workspace-frame__header">
-        <p className="eyebrow">WORKSPACE</p>
         <h2 id={`workspace-${view}-title`}>{WORKSPACE_LABELS[view]}</h2>
         <p className="muted">{WORKSPACE_DESCRIPTIONS[view]}</p>
       </header>

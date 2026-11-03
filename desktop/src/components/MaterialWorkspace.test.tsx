@@ -64,8 +64,8 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("Document canvas");
-    expect(html).toContain("활동 만들기");
+    expect(html).toContain('aria-label="선택한 학습 자료 미리보기"');
+    expect(html).toContain("<h3>새 자료 만들기</h3>");
     expect(html).toContain("이 활동 사용하기");
     expect(html).toContain('role="tablist"');
     expect(html).toContain("부모 가이드");

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { PhotoActivityRecord, PhotoRecordStatus } from "../api";
-import { filterPhotoRecords } from "./PhotoActivityWorkspace";
+import { canRetryPhotoRecord, filterPhotoRecords } from "./PhotoActivityWorkspace";
 
 function record(id: string, status: PhotoRecordStatus): PhotoActivityRecord {
   return {
@@ -41,6 +41,14 @@ describe("filterPhotoRecords", () => {
       "committed",
       "failed",
     ]);
+  });
+
+  it("retries only failed records in their owning child workspace", () => {
+    expect(canRetryPhotoRecord(record("failed", "failed"), "child-1")).toBe(true);
+    expect(canRetryPhotoRecord(record("failed", "failed"), "other-child")).toBe(false);
+    for (const status of ["queued", "processing", "draft", "committed", "discarded"] as const) {
+      expect(canRetryPhotoRecord(record(status, status), "child-1")).toBe(false);
+    }
   });
 
   it("separates completed records from records that need attention", () => {

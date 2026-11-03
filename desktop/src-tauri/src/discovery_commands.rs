@@ -16,6 +16,7 @@ fn discovery_client() -> Result<reqwest::Client, String> {
     headers.insert(AUTHORIZATION, authorization);
     reqwest::Client::builder()
         .default_headers(headers)
+        .no_proxy()
         .timeout(DISCOVERY_REQUEST_TIMEOUT)
         .build()
         .map_err(|error| error.to_string())

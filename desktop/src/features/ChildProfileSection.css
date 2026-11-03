@@ -24,8 +24,8 @@
   padding: 0.3rem 0.55rem;
   border-radius: 999px;
   background: rgba(36, 95, 73, 0.1);
-  font-size: 0.75rem;
-  font-weight: 700;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-semibold);
 }
 
 .onboarding-steps {
@@ -69,8 +69,8 @@
   height: 1.7rem;
   border-radius: 999px;
   background: rgba(36, 95, 73, 0.1);
-  font-size: 0.78rem;
-  font-weight: 800;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .onboarding-steps strong {
@@ -80,7 +80,7 @@
 
 .onboarding-steps p {
   margin: 0;
-  line-height: 1.55;
+  line-height: var(--line-body);
 }
 
 .onboarding-model-help {
@@ -97,7 +97,7 @@
   border-radius: 0.45rem;
   background: rgba(22, 48, 38, 0.08);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 0.78rem;
+  font-size: var(--font-size-control);
 }
 
 .onboarding-footnote {
@@ -143,8 +143,8 @@
 
 .child-profile-card__identity h3 {
   margin: 2px 0 5px;
-  font-size: 23px;
-  letter-spacing: -.035em;
+  font-size: var(--font-size-card);
+  letter-spacing: var(--tracking-heading);
 }
 
 .child-profile-card__avatar {
@@ -175,8 +175,8 @@
   background: transparent;
   color: var(--primary-strong);
   cursor: pointer;
-  font-size: 10px;
-  font-weight: 750;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -190,8 +190,8 @@
 .child-avatar-remove {
   margin-top: 8px;
   padding: 0;
-  color: #8c7770;
-  font-weight: 650;
+  color: var(--ink-soft);
+  font-weight: var(--weight-semibold);
 }
 
 .child-avatar-remove:disabled,
@@ -231,14 +231,14 @@
 .child-roster__heading h3 {
   margin: 3px 0 0;
   color: #2d3933;
-  font-size: 15px;
-  letter-spacing: -.025em;
+  font-size: var(--font-size-card);
+  letter-spacing: var(--tracking-heading);
 }
 
 .child-roster__heading > span {
-  color: #8a9690;
-  font-size: 10px;
-  font-weight: 750;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .child-roster__grid {
@@ -283,20 +283,20 @@
 
 .child-roster-card__copy strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-size-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .child-roster-card__copy small {
-  color: #87918c;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .child-roster-card__status {
-  color: #6d7b74;
-  font-size: 14px;
-  font-weight: 800;
+  color: var(--ink-soft);
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .child-roster-card.is-active .child-roster-card__status {
@@ -305,9 +305,9 @@
   width: 21px;
   height: 21px;
   border-radius: 50%;
-  background: #2f8f6b;
+  background: var(--primary-strong);
   color: #fff;
-  font-size: 10px;
+  font-size: var(--font-size-meta);
 }
 
 .child-profile-layout {
@@ -352,16 +352,16 @@
 }
 
 .child-profile-card .verification-list dt {
-  color: #8d9792;
-  font-size: 9px;
-  font-weight: 750;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .child-profile-card .verification-list dd {
   margin: 0;
   color: #2d3933;
-  font-size: 15px;
-  font-weight: 760;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 @media (max-width: 880px) {
@@ -390,8 +390,8 @@
 .profile-fallback-fields > summary {
   cursor: pointer;
   color: var(--ink-soft);
-  font-size: 0.8rem;
-  font-weight: 750;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .profile-fallback-fields > p {
@@ -400,6 +400,6 @@
 
 .field-help {
   color: var(--ink-soft);
-  font-size: 0.74rem;
-  line-height: 1.45;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }

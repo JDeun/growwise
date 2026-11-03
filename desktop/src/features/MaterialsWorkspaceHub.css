@@ -16,22 +16,17 @@
 .materials-hub-heading p {
   margin: 0;
 }
-
-.materials-hub-heading .eyebrow {
-  margin-bottom: 6px;
-}
-
 .materials-hub-heading h1 {
   color: #2b2a28;
-  font-size: 25px;
-  font-weight: 780;
-  letter-spacing: -0.045em;
+  font-size: var(--font-size-page);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
 }
 
 .materials-hub-heading > div > p:last-child {
   margin-top: 5px;
-  color: #77807b;
-  font-size: 11px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
 }
 
 .materials-hub-tabs {
@@ -52,18 +47,18 @@
   border: 0;
   border-radius: 9px;
   background: transparent;
-  color: #76817b;
+  color: var(--ink-soft);
   cursor: pointer;
   text-align: left;
 }
 
 .materials-hub-tabs button strong {
-  font-size: 9.5px;
+  font-size: var(--font-size-control);
 }
 
 .materials-hub-tabs button small {
-  font-size: 7.5px;
-  opacity: .76;
+  font-size: var(--font-size-control);
+  color: var(--ink-soft);
 }
 
 .materials-hub-tabs button.is-active {

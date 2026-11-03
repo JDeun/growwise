@@ -17,6 +17,11 @@ _REQUIRED_RECORD_KEYS = ("id", "entity_type", "created_at", "updated_at")
 _MAX_SEARCH_TERMS = 32
 _MAX_SEARCH_TERM_CHARS = 128
 _SQLITE_IN_CHUNK = 400
+_PENDING_AI_WHERE = (
+    "entity_type IN ('learning_log', 'generated_material') AND "
+    "CASE WHEN json_valid(payload_json) THEN json_extract(payload_json, '$.ai_status') END "
+    "IN ('queued', 'running')"
+)
 
 
 def _escape_like(value: str) -> str:
@@ -89,6 +94,10 @@ class SQLiteProjection:
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_entities_type_child "
                 "ON entities(entity_type, child_id)"
+            )
+            connection.execute(
+                f"CREATE INDEX IF NOT EXISTS idx_entities_pending_ai ON entities(id) "
+                f"WHERE {_PENDING_AI_WHERE}"
             )
             connection.execute(
                 """
@@ -308,6 +317,18 @@ class SQLiteProjection:
                         if payload is not None:
                             by_id.setdefault(str(payload["id"]), payload)
         return list(by_id.values())
+
+    def pending_ai_entities(self, *, after_id: str = "") -> list[dict]:
+        """Page only unfinished AI metadata, rather than scanning the family's full history."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT id, payload_json, source_path FROM entities INDEXED BY "
+                f"idx_entities_pending_ai WHERE {_PENDING_AI_WHERE} "
+                "AND id > ? ORDER BY id LIMIT 100",
+                (after_id,),
+            ).fetchall()
+            return [payload for row in rows
+                    if (payload := self._decode_projection_row(connection, row)) is not None]
 
     def list_entities(
         self,

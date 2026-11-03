@@ -14,14 +14,33 @@ recommended evidence run performs one untimed warm-up round and three measured r
 
 ```bash
 uv sync --locked --extra dev
+uv run python scripts/benchmark_model.py --kind math_activity --stage elementary > benchmark-single.json
 uv run python scripts/benchmark_model.py --warmup-rounds 1 --repeats 3 > benchmark-model.json
 ```
 
-The report records the configured provider kind/model ID, stage, warm-up/measured round counts,
-average and p95 generation latency, generator-mode counts, whether the LLM path was actually used,
-and the exact synthetic generated title/Markdown for every measured sample. The synthetic output is
+The harness uses the same `background_material` provider profile as Desktop material enhancement,
+rather than the interactive request budget. `GROWWISE_BACKGROUND_AI_MODEL_TIMEOUT_SECONDS` and
+`GROWWISE_BACKGROUND_AI_MAX_OUTPUT_TOKENS` control that profile; the interactive timeout/output
+variables do not override it. Ollama uses explicit
+`GROWWISE_BACKGROUND_AI_REASONING_ENABLED=false` and
+`GROWWISE_BACKGROUND_AI_MODEL_CONTEXT_TOKENS=8192` defaults; enable reasoning deliberately and
+re-evaluate its output rather than relying on a model's implicit behavior. The report includes the
+effective timeout/output/context budgets, actual Ollama reasoning flag, profile, configured provider
+kind/model ID, stage, warm-up/measured counts,
+average and p95 latency, generator-mode counts, whether model output was accepted, and the exact
+synthetic title, material Markdown and parent-guide Markdown for every measured sample. The output is
 included so a reviewer can inspect the same artifacts that produced the timing/fallback evidence;
 it contains no household child data.
+
+`--kind` restricts the run to one of the six fixed material kinds for initial diagnosis; omitting it
+retains the full suite. The [2026-11-03 synthetic experiment](knowledge/experiments/model-quality-20261103.md)
+records one production-path Gemma 12B acceptance and one Qwen 2B quality fallback, plus earlier
+thinking-budget exhaustion. It is one-sample evidence, not a complete hardware or six-kind benchmark.
+
+A completed provider request can still produce a deterministic quality/safety fallback. Review the
+mode counts and final artifacts together; a low latency with only fallback output is not evidence of
+successful personalized model generation or educational effectiveness. Candidate rejection reasons
+are not currently exposed by this harness, so do not infer a particular failure from the mode alone.
 
 If LLM features are enabled, provider construction uses the same `Settings` +
 `create_model_provider` path as the application; invalid provider configuration is not silently

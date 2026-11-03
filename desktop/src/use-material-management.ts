@@ -11,6 +11,8 @@ import {
   type MaterialStatus,
 } from "./api";
 import { errorMessage } from "./child-context-state";
+import { materialAiPending } from "./material-ai-polling";
+import { retryMaterialEnhancement } from "./record-actions-api";
 
 type MaterialManagementOptions = {
   childId: string | null;
@@ -63,7 +65,7 @@ export function useMaterialManagement({
     setMaterialBusy(true);
     setMaterialError(null);
     try {
-      await generateMaterial(
+      const material = await generateMaterial(
         scope.childId,
         materialKind,
         topic,
@@ -76,7 +78,9 @@ export function useMaterialManagement({
       setSelectedResourceRefs([]);
       await reloadMaterials();
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
-        announceWrite("학습 자료 초안을 생성했습니다.");
+        announceWrite(materialAiPending(material)
+          ? "기본 초안을 저장했습니다. AI 자료는 백그라운드에서 작성·검토하며 준비되면 알려드립니다."
+          : "학습 자료 초안을 생성했습니다.");
       }
     } catch (error) {
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
@@ -101,6 +105,27 @@ export function useMaterialManagement({
     } catch (error) {
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
         setMaterialError(errorMessage(error, "활동 사용 준비에 실패했습니다."));
+      }
+    } finally {
+      if (scopeIsCurrent(scope.childId, scope.requestId)) setMaterialBusy(false);
+    }
+  }
+
+  async function handleRetryMaterial(materialId: string) {
+    const scope = currentScope();
+    if (!scope) return;
+    setMaterialBusy(true);
+    setMaterialError(null);
+    try {
+      await retryMaterialEnhancement(materialId);
+      if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
+      await reloadMaterials();
+      if (scopeIsCurrent(scope.childId, scope.requestId)) {
+        announceWrite("AI 보강을 다시 시작했습니다. 자료가 준비되면 알려드립니다.");
+      }
+    } catch (error) {
+      if (scopeIsCurrent(scope.childId, scope.requestId)) {
+        setMaterialError(errorMessage(error, "AI 보강을 다시 시작하지 못했습니다. 설정에서 AI 상태를 확인해 주세요."));
       }
     } finally {
       if (scopeIsCurrent(scope.childId, scope.requestId)) setMaterialBusy(false);
@@ -144,7 +169,7 @@ export function useMaterialManagement({
     setMaterialBusy(true);
     setMaterialError(null);
     try {
-      await reviseMaterial(materialId, note);
+      const material = await reviseMaterial(materialId, note);
       if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
       await reloadMaterials();
       if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
@@ -153,7 +178,9 @@ export function useMaterialManagement({
         delete next[materialId];
         return next;
       });
-      announceWrite("수정본을 생성했습니다.");
+      announceWrite(materialAiPending(material)
+        ? "수정 초안을 저장했습니다. AI 수정본은 준비되면 알려드립니다."
+        : "수정본을 생성했습니다.");
     } catch (error) {
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
         setMaterialError(errorMessage(error, "수정본 생성에 실패했습니다."));
@@ -220,6 +247,7 @@ export function useMaterialManagement({
     setEditingMaterialId,
     handleGenerateMaterial,
     handleUseMaterial,
+    handleRetryMaterial,
     handleReviewMaterial,
     handleReviseMaterial,
     handleParentEdit,

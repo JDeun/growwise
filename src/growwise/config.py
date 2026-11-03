@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     background_ai_job_lease_seconds: int = Field(default=900, ge=60, le=86_400)
     background_ai_job_max_attempts: int = Field(default=3, ge=1, le=10)
     background_ai_job_poll_interval_seconds: float = Field(default=0.5, ge=0.1, le=30.0)
+    # Background material quality must not inherit an interactive request's latency budget.
+    background_ai_model_timeout_seconds: float = Field(default=600.0, gt=0.0, le=1800.0)
+    background_ai_max_output_tokens: int = Field(default=8192, ge=64, le=65_536)
+    background_ai_reasoning_enabled: bool = False
+    background_ai_model_context_tokens: int = Field(default=8192, ge=1024, le=131_072)
 
     # Child photos are more sensitive than ordinary public enrichment. Vision therefore has a
     # dedicated local endpoint rather than inheriting a potentially remote text-provider URL.

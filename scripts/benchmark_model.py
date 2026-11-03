@@ -3,6 +3,7 @@
 
 Runs representative parent-facing generation requests through the configured model provider and
 reports timed samples plus the exact synthetic material output needed for manual quality review.
+Uses the Desktop background material profile, including its independent timeout/output budgets.
 Real numbers require a real local model (e.g. Ollama); the harness itself is provider-agnostic and
 offline-testable via a stub.
 
@@ -45,6 +46,7 @@ class BenchmarkRow:
     generator_mode: str
     title: str
     content_markdown: str
+    parent_guide_markdown: str
     content_chars: int
     llm_used: bool
 
@@ -76,31 +78,36 @@ def run_model_benchmark(
     stage: Stage = Stage.ELEMENTARY,
     repeats: int = 1,
     warmup_rounds: int = 0,
+    kind: MaterialKind | None = None,
 ) -> BenchmarkReport:
     measured_repeats = max(1, repeats)
     warmups = max(0, warmup_rounds)
-    child = ChildProfile(nickname="샘플아이", stage=stage, interests=["동물"])
+    child = ChildProfile(nickname="샘플아이", stage=stage, age_months=None, interests=["동물"])
     service = MaterialGenerationService(provider=provider)
+    prompts = tuple(item for item in _PROMPTS if kind is None or item[0] is kind)
+    if not prompts:
+        raise ValueError("unsupported benchmark material kind")
 
     for _ in range(warmups):
-        for kind, topic in _PROMPTS:
-            service.generate(child=child, kind=kind, topic=topic)
+        for prompt_kind, topic in prompts:
+            service.generate(child=child, kind=prompt_kind, topic=topic)
 
     rows: list[BenchmarkRow] = []
     for sample in range(1, measured_repeats + 1):
-        for kind, topic in _PROMPTS:
+        for prompt_kind, topic in prompts:
             start = time.perf_counter()
-            material = service.generate(child=child, kind=kind, topic=topic)
+            material = service.generate(child=child, kind=prompt_kind, topic=topic)
             latency_ms = (time.perf_counter() - start) * 1000.0
             rows.append(
                 BenchmarkRow(
                     sample=sample,
-                    kind=kind.value,
+                    kind=prompt_kind.value,
                     topic=topic,
                     latency_ms=round(latency_ms, 3),
                     generator_mode=material.generator_mode,
                     title=material.title,
                     content_markdown=material.content_markdown,
+                    parent_guide_markdown=material.parent_guide_markdown,
                     content_chars=len(material.content_markdown),
                     llm_used=material.generator_mode == "llm_enhanced",
                 )
@@ -125,7 +132,7 @@ def run_model_benchmark(
 def _provider_from_settings(settings: Settings) -> ModelProvider | None:
     if not settings.llm_features_enabled:
         return None
-    return create_model_provider(settings)
+    return create_model_provider(settings, background=True)
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -141,6 +148,11 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         default=0,
         help="Untimed rounds before measurement to remove model-load effects",
+    )
+    parser.add_argument(
+        "--kind",
+        choices=tuple(kind.value for kind, _topic in _PROMPTS),
+        help="Run one material kind instead of the complete six-kind benchmark",
     )
     parser.add_argument(
         "--stage",
@@ -166,12 +178,26 @@ def main(argv: Sequence[str] | None = None) -> int:
         stage=Stage(args.stage),
         repeats=args.repeats,
         warmup_rounds=args.warmup_rounds,
+        kind=MaterialKind(args.kind) if args.kind else None,
     )
+    ollama = provider is not None and settings.model_provider.casefold() == "ollama"
     payload = {
         "provider": "configured" if provider is not None else "core-only",
         "provider_kind": settings.model_provider,
         "model_id": settings.model_id,
         "llm_features_enabled": settings.llm_features_enabled,
+        "inference_profile": "background_material" if provider is not None else "core_only",
+        "effective_timeout_seconds": (
+            settings.background_ai_model_timeout_seconds if provider is not None else None
+        ),
+        "effective_max_output_tokens": (
+            settings.background_ai_max_output_tokens if provider is not None else None
+        ),
+        "reasoning": settings.background_ai_reasoning_enabled if ollama else None,
+        "effective_context_tokens": (
+            settings.background_ai_model_context_tokens
+            if ollama else None
+        ),
         **{key: value for key, value in asdict(report).items() if key != "rows"},
         "rows": [asdict(row) for row in report.rows],
     }

@@ -1,0 +1,16 @@
+.local-model-list {
+  display: grid;
+  gap: 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+.local-model-list li {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.local-model-list .button-row {
+  flex-wrap: wrap;
+  margin-block: 0.5rem;
+}

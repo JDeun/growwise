@@ -25,7 +25,7 @@ def get_background_ai_provider() -> ModelProvider | None:
     if not settings.llm_features_enabled:
         return None
     try:
-        return create_model_provider(settings)
+        return create_model_provider(settings, background=True)
     except Exception:
         logger.exception("background AI provider unavailable; continuing without enhancement")
         return None

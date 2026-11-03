@@ -228,7 +228,6 @@ export function DataManagementSection({
       {showHeading && (
         <div className="data-management-page-heading">
           <div>
-            <p className="eyebrow">{mode === "backup" ? "DATA SAFETY" : "PREFERENCES"}</p>
             <h1>{mode === "backup" ? "백업 및 복원" : "설정"}</h1>
             <p>
               {mode === "backup"
@@ -243,7 +242,6 @@ export function DataManagementSection({
       <section className="profile-management-zone" aria-labelledby="profile-management-title">
         <div className="activity-heading">
           <div>
-            <p className="card-label">가족 설정</p>
             <h2 id="profile-management-title">아이 프로필 관리</h2>
             <p className="muted">
               아이를 선택해 표시 정보와 학습 맥락을 수정합니다. 실제 식별정보보다는 앱 안에서 필요한 최소 정보만 저장하는 것을 권장합니다.
@@ -424,7 +422,6 @@ export function DataManagementSection({
 
       <div className="activity-heading data-section-divider">
         <div>
-          <p className="card-label">내 데이터</p>
           <h2>백업과 복원</h2>
           <p className="muted">
             기록을 하나의 백업 파일로 보관할 수 있습니다. 복원하면 저장된 기록을 기준으로 검색 데이터도 다시 준비합니다.
@@ -473,7 +470,6 @@ export function DataManagementSection({
       <>
       <div className="activity-heading privacy-danger-zone">
         <div>
-          <p className="card-label">개인정보와 삭제</p>
           <h2>아이 데이터 영구 삭제</h2>
           <p className="muted">
             선택한 아이의 현재 기록과 관련된 앱 데이터를 삭제합니다. 이미 만들어 둔 과거 백업 파일에는 해당 기록이 남아 있을 수 있으므로, 완전히 지우려면 백업 파일도 함께 삭제해 주세요.

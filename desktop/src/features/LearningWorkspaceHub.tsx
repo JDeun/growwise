@@ -23,7 +23,6 @@ export function LearningWorkspaceHub({
     >
       <header className="learning-hub-heading">
         <div>
-          <p className="eyebrow">LEARNING RECORDS</p>
           <h1 id="learning-hub-title">학습 기록</h1>
           <p>배움의 결과와 일상의 관찰을 같은 기록 흐름 안에서 관리합니다.</p>
         </div>

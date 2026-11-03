@@ -28,14 +28,6 @@
   color: var(--text-muted);
 }
 
-.material-quest-kicker {
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-}
-
 .material-quest-tags,
 .material-quest-actions,
 .material-quest-meta {
@@ -53,8 +45,8 @@
   border: 1px solid var(--line);
   border-radius: 999px;
   background: var(--surface);
-  font-size: 0.76rem;
-  font-weight: 750;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .quest-tag.status-active,
@@ -64,7 +56,7 @@
 
 .quest-tag.status-completed,
 .quest-tag.result-recorded {
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .material-quest-track {
@@ -81,8 +73,8 @@
   text-align: center;
   color: var(--text-muted);
   background: var(--surface);
-  font-size: 0.78rem;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .material-quest-track span.done {
@@ -142,8 +134,8 @@
 .material-result-axes legend,
 .material-result-photo-evidence legend {
   margin-bottom: 0.5rem;
-  font-size: 0.82rem;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .material-result-outcomes label {
@@ -246,8 +238,8 @@
   padding: 0.7rem 0.8rem;
   color: var(--text-muted);
   cursor: pointer;
-  font-size: 0.82rem;
-  font-weight: 750;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .material-result-more[open] {

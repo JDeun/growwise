@@ -40,8 +40,7 @@ export function ObservationGrowthSection({
     <div className="observation-panel">
       <form className="observation-form" onSubmit={onSubmit}>
         <div>
-          <p className="card-label">OBSERVATION</p>
-          <h3>의미 있는 관찰만 기록합니다.</h3>
+          <h2>의미 있는 관찰만 기록합니다.</h2>
           <p className="muted">
             관련 활동과 경험 축은 선택 사항입니다. 연결한 경우에만 활동의 후속 관찰로 기록됩니다.
           </p>

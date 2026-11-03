@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from functools import wraps
 from threading import Lock
 from typing import Concatenate
 from uuid import UUID
+
+from growwise.maintenance import DATA_MAINTENANCE
 
 _LOCK_STRIPES = 128
 _material_locks: tuple[Lock, ...] = tuple(Lock() for _ in range(_LOCK_STRIPES))
@@ -14,6 +17,12 @@ def _lock_for(material_id: UUID) -> Lock:
     # Bounded striping avoids retaining one process-lifetime lock for every material ever edited.
     # A hash collision only serializes two unrelated successor operations temporarily.
     return _material_locks[hash(str(material_id)) % _LOCK_STRIPES]
+
+
+@contextmanager
+def material_mutation(material_id: UUID) -> Iterator[None]:
+    with DATA_MAINTENANCE.mutation(), _lock_for(material_id):
+        yield
 
 
 def serialize_material_successor[**P, R](
@@ -28,7 +37,7 @@ def serialize_material_successor[**P, R](
 
     @wraps(func)
     def wrapped(material_id: UUID, *args: P.args, **kwargs: P.kwargs) -> R:
-        with _lock_for(material_id):
+        with material_mutation(material_id):
             return func(material_id, *args, **kwargs)
 
     return wrapped

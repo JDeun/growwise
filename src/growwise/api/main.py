@@ -43,6 +43,7 @@ from growwise.api.dependencies import (
     get_settings,
     get_store,
 )
+from growwise.api.integration_routes import router as integration_router
 from growwise.api.material_routes import (
     edit_material,
     generate_material,
@@ -126,6 +127,7 @@ async def domain_validation_error(_request: Request, exc: ValidationError) -> JS
     return JSONResponse(status_code=422, content={"detail": exc.errors(include_url=False)})
 
 app.include_router(backup_router)
+app.include_router(integration_router)
 app.include_router(conversation_router)
 app.include_router(material_router)
 app.include_router(study_router)
