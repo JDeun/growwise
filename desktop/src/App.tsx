@@ -1,6 +1,6 @@
 import { FormEvent, useCallback, useEffect, useRef, useState } from "react";
 
-import { readRememberedChildId, useActiveChild } from "./active-child-context";
+import { useActiveChild } from "./active-child-context";
 import {
   ConfirmDialog,
   MaterialWorkspaceIntegration,
@@ -51,7 +51,6 @@ import {
   getInfantActivities,
   getInfantObservationHints,
   listActivities,
-  listChildren,
   listMaterials,
   listObservations,
   listResources,
@@ -80,15 +79,38 @@ type ConnectionState =
 
 type WriteNotice = { id: number; message: string };
 
-function App({
-  activeView,
-  onNavigate,
-}: {
+type AppProps = {
   activeView: WorkspaceViewName;
   onNavigate?: (view: WorkspaceViewName) => void;
+};
+
+function App(props: AppProps) {
+  const { activeChildId } = useActiveChild();
+  const [writeNotice, setWriteNotice] = useState<WriteNotice | null>(null);
+  const writeNoticeId = useRef(0);
+  const announceWrite = useCallback((message: string) => {
+    setWriteNotice({ id: ++writeNoticeId.current, message });
+  }, []);
+  useEffect(() => {
+    if (!writeNotice) return;
+    const timeout = window.setTimeout(() => {
+      setWriteNotice((current) => current?.id === writeNotice.id ? null : current);
+    }, 4500);
+    return () => window.clearTimeout(timeout);
+  }, [writeNotice]);
+  return <>
+    <ChildScopedApp key={activeChildId || "no-child"} {...props} announceWrite={announceWrite} />
+    <OperationNotice message={writeNotice?.message ?? null} onDismiss={() => setWriteNotice(null)} />
+  </>;
+}
+
+function ChildScopedApp({ activeView, onNavigate, announceWrite }: AppProps & {
+  announceWrite: (message: string) => void;
 }) {
   const {
+    children, activeChild,
     selectChild: selectSharedChild,
+    refreshChildren: refreshSharedChildren,
     upsertChild: upsertSharedChild,
   } = useActiveChild();
   const {
@@ -109,8 +131,6 @@ function App({
     handleCancelBackupAction,
   } = useBackupManagement();
   const [connection, setConnection] = useState<ConnectionState>({ kind: "loading" });
-  const [children, setChildren] = useState<ChildProfile[]>([]);
-  const [activeChild, setActiveChild] = useState<ChildProfile | null>(null);
   const [growthMap, setGrowthMap] = useState<GrowthMap | null>(null);
   const [timeline, setTimeline] = useState<LearningLog[]>([]);
   const [resources, setResources] = useState<ResourceRecord[]>([]);
@@ -120,7 +140,8 @@ function App({
     childContextState("idle"),
   );
   const childContextRequestId = useRef(0);
-  const activeChildIdRef = useRef<string | null>(null);
+  const activeChildIdRef = useRef<string | null>(activeChild?.id ?? null);
+  const refreshRequestId = useRef(0);
   const materialPollInFlight = useRef(false);
 
   const [nickname, setNickname] = useState("");
@@ -161,9 +182,6 @@ function App({
 
 
   const [printMaterial, setPrintMaterial] = useState<GeneratedMaterial | null>(null);
-  const [writeNotice, setWriteNotice] = useState<WriteNotice | null>(null);
-  const writeNoticeId = useRef(0);
-
   const updateChildContextState = useCallback((key: ChildContextKey, state: ViewLoadState) => {
     setChildContext((current) => ({ ...current, [key]: state }));
   }, []);
@@ -264,10 +282,8 @@ function App({
 
   const loadChildContext = useCallback(
     async (child: ChildProfile) => {
+      if (child.id !== activeChildIdRef.current) return;
       const requestId = ++childContextRequestId.current;
-      activeChildIdRef.current = child.id;
-      selectSharedChild(child.id);
-      setActiveChild(child);
       setGrowthMap(null);
       setTimeline([]);
       setResources([]);
@@ -344,67 +360,43 @@ function App({
               },
       });
     },
-    [resetMaterialState, resetResourceState, resetSearchConversation, scopeIsCurrent, selectSharedChild],
+    [resetMaterialState, resetResourceState, resetSearchConversation, scopeIsCurrent],
   );
 
   const refresh = useCallback(async () => {
+    const request = ++refreshRequestId.current;
     setConnection({ kind: "loading" });
     try {
-      const [health, runtime, storedChildren] = await Promise.all([
-        getHealth(),
-        getCoreRuntimeStatus(),
-        listChildren(),
+      const [health, runtime, selected] = await Promise.all([
+        getHealth(), getCoreRuntimeStatus(), refreshSharedChildren(),
       ]);
+      if (request !== refreshRequestId.current) return;
       setConnection({ kind: "connected", health, runtime });
-      setChildren(storedChildren);
-
       await refreshBackups();
-
-      if (storedChildren.length > 0) {
-        const rememberedId = readRememberedChildId(window.localStorage);
-        const selected =
-          storedChildren.find((child) => child.id === rememberedId) ?? storedChildren[0];
-        await loadChildContext(selected);
-      } else {
-        childContextRequestId.current += 1;
-        activeChildIdRef.current = null;
-        selectSharedChild("");
-        setActiveChild(null);
-        setGrowthMap(null);
-        setTimeline([]);
-        setResources([]);
-        setMaterials([]);
-        setActivityPlans([]);
-        setChildContext(childContextState("idle"));
-        setSelectedActivityId("");
-      }
+      if (request !== refreshRequestId.current) return;
+      if (selected) await loadChildContext(selected);
     } catch (error) {
+      if (request !== refreshRequestId.current) return;
       childContextRequestId.current += 1;
-      activeChildIdRef.current = null;
       setConnection({
         kind: "offline",
         message: errorMessage(error, "GrowWise Core 상태를 확인할 수 없습니다."),
       });
     }
-  }, [loadChildContext, refreshBackups, selectSharedChild]);
+  }, [loadChildContext, refreshBackups, refreshSharedChildren]);
 
   useEffect(() => {
     void refresh();
+    return () => {
+      refreshRequestId.current += 1;
+      childContextRequestId.current += 1;
+    };
   }, [refresh]);
 
   useEffect(() => {
-    if (!writeNotice) return;
-    const noticeId = writeNotice.id;
-    const timeoutId = window.setTimeout(() => {
-      setWriteNotice((current) => (current?.id === noticeId ? null : current));
-    }, 4500);
-    return () => window.clearTimeout(timeoutId);
-  }, [writeNotice]);
-
-  function announceWrite(message: string) {
-    writeNoticeId.current += 1;
-    setWriteNotice({ id: writeNoticeId.current, message });
-  }
+    activeChildIdRef.current = activeChild?.id ?? null;
+    return () => { activeChildIdRef.current = null; };
+  }, [activeChild?.id]);
 
   const pendingMaterialIds = materials.filter(materialAiPending).map((material) => material.id);
   const pendingMaterialKey = pendingMaterialIds.join(",");
@@ -501,8 +493,6 @@ function App({
         interests: [],
       });
       upsertSharedChild(child, { select: true });
-      setChildren((current) => [child, ...current.filter((item) => item.id !== child.id)]);
-      await loadChildContext(child);
       setNickname("");
       setBirthDate("");
       setAgeMonths("");
@@ -521,30 +511,17 @@ function App({
   }
 
   function handleAvatarUpdated(child: ChildProfile) {
-    upsertSharedChild(child, { select: true });
-    setChildren((current) => current.map((item) => (item.id === child.id ? child : item)));
-    if (activeChildIdRef.current === child.id) setActiveChild(child);
+    upsertSharedChild(child);
   }
 
   async function handleManagedProfileUpdated(child: ChildProfile) {
-    upsertSharedChild(child, { select: activeChildIdRef.current === child.id });
-    setChildren((current) =>
-      current.map((item) => (item.id === child.id ? child : item)),
-    );
-    if (activeChildIdRef.current === child.id) {
-      await loadChildContext(child);
-    }
+    upsertSharedChild(child);
+    if (activeChildIdRef.current === child.id) await loadChildContext(child);
   }
 
-  async function handleSelectChild(childId: string) {
-    const child = children.find((item) => item.id === childId);
-    if (!child) return;
+  function handleSelectChild(childId: string) {
     setFormError(null);
-    try {
-      await loadChildContext(child);
-    } catch (error) {
-      setFormError(errorMessage(error, "아이 정보를 불러오지 못했습니다."));
-    }
+    selectSharedChild(childId);
   }
 
   async function handleCreateObservation(event: FormEvent<HTMLFormElement>) {
@@ -980,7 +957,6 @@ function App({
         onConfirm={() => void handleConfirmBackupAction()}
         onCancel={handleCancelBackupAction}
       />
-      <OperationNotice message={writeNotice?.message ?? null} onDismiss={() => setWriteNotice(null)} />
 
       {printMaterial && (
         <article className="print-material" aria-hidden="true">

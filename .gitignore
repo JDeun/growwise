@@ -69,6 +69,8 @@ target/
 /desktop/artifacts/
 /desktop/src-tauri/binaries/growwise-core
 /desktop/src-tauri/binaries/growwise-core.exe
+/desktop/src-tauri/licenses/*
+!/desktop/src-tauri/licenses/README.md
 
 # --- OS / 에디터 ---
 .DS_Store

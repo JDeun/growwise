@@ -10,7 +10,7 @@ from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
 from growwise.generators import MaterialDraft, MaterialGenerationService, MaterialQualityGate
 
 _EVIDENCE = json.loads((Path(__file__).resolve().parents[1] /
-    "docs/knowledge/experiments/model-typed-quality-20261103.json").read_text())
+    "docs/knowledge/experiments/model-typed-quality-20261103.json").read_text(encoding='utf-8'))
 
 
 def _candidate(row):
@@ -192,3 +192,113 @@ def test_correct_meanings_modeled_responses_and_explicit_corrections_remain_usab
     row = next(row for row in _GOOD if row["kind"] == "english_card")
     core = _candidate(row).content_markdown + f"\n{expression}"
     assert _check(MaterialKind.ENGLISH_CARD, core).ready
+
+
+@pytest.mark.parametrize("kind", list(MaterialKind))
+def test_infant_publication_guide_supports_observation_instead_of_schoolwork(kind):
+    material = MaterialGenerationService().generate(
+        child=ChildProfile(nickname="합성영아", stage=Stage.INFANT_0_2, age_months=9),
+        kind=kind, topic="소리와 움직임 살펴보기",
+    )
+    guide = material.parent_guide_markdown
+    assert "아이의 시선·소리·몸짓" in guide
+    assert "질문은 보호자가 관찰할 단서이며 아이의 답을 요구하지 않습니다" in guide
+    assert "자신의 말로 정리하게" not in guide
+    assert "다른 방법이 가능한지 설명하게" not in guide
+    assert "가리키기·배치하기·그리기" not in guide
+    assert "보호자가 어떻게 응답했는지" in material.content_markdown
+    assert MaterialQualityGate().assess_published(
+        title=material.title, content_markdown=material.content_markdown,
+        parent_guide_markdown=guide, source_refs=[], stage=Stage.INFANT_0_2,
+    ).ready
+
+
+@pytest.mark.parametrize("demand", [
+    "아이가 발견한 것을 자신의 말로 정리하게 합니다.",
+    "학습자가 관찰한 이유를 설명합니다.",
+    "아이에게 문장을 쓰도록 지도합니다.",
+])
+def test_infant_schoolwork_cannot_hide_in_parent_notes_or_publication_shell(demand):
+    capture = _EVIDENCE["infant_corrected"]["capture"]
+    core = capture["candidate"]["content_markdown"]
+    checked = _check(MaterialKind.ACTIVITY_GUIDE, core, stage=Stage.INFANT_0_2, notes=demand)
+    assert "candidate_infant_requires_independent_schoolwork" in checked.issues
+    material = MaterialGenerationService().generate(
+        child=ChildProfile(nickname="합성영아", stage=Stage.INFANT_0_2, age_months=9),
+        kind=MaterialKind.ACTIVITY_GUIDE, topic="소리와 움직임",
+    )
+    published = MaterialQualityGate().assess_published(
+        title=material.title, content_markdown=material.content_markdown,
+        parent_guide_markdown=material.parent_guide_markdown + "\n" + demand,
+        source_refs=[], stage=Stage.INFANT_0_2,
+    )
+    assert "published_infant_requires_independent_schoolwork" in published.issues
+
+
+@pytest.mark.parametrize("notes", [
+    "아이가 자신의 말로 정리하지 않아도 됩니다. 보호자가 반응을 기록합니다.",
+    "아이에게 문장을 쓰도록 요구하지 않습니다.",
+    "아이에게 글을 읽어 줍니다. 관심이 없으면 멈춥니다.",
+])
+def test_infant_protective_directions_and_read_aloud_parent_notes_remain_accepted(notes):
+    core = _EVIDENCE["infant_corrected"]["capture"]["candidate"]["content_markdown"]
+    checked = _check(MaterialKind.ACTIVITY_GUIDE, core, stage=Stage.INFANT_0_2, notes=notes)
+    assert checked.ready, checked.issues
+
+
+def test_science_observed_sensory_mismatch_is_rejected_without_rejecting_clear_questions():
+    row = next(row for row in _GOOD if row["kind"] == "science_inquiry")
+    core = _candidate(row).content_markdown
+    bad = _check(MaterialKind.SCIENCE_INQUIRY, core + "\n어떤 모습이나 소리가 들리니?")
+    assert "candidate_science_mismatched_sensory_verb" in bad.issues
+    good = _check(MaterialKind.SCIENCE_INQUIRY,
+                  core + "\n어떤 모습이 보이고 어떤 소리가 들리니? 소리가 없을 수도 있어요.")
+    assert good.ready, good.issues
+
+
+@pytest.mark.parametrize("demand", [
+    "아이가 좋아하는 표정이나 소리를 낼 때까지 반복하며 상호작용합니다.",
+    "아이가 반응할 때까지 계속 소리를 들려줍니다.",
+])
+def test_infant_repetition_until_a_target_response_is_not_responsive_interaction(demand):
+    candidate = _EVIDENCE["infant_corrected"]["capture"]["candidate"]
+    core = candidate["content_markdown"]
+    result = _check(MaterialKind.ACTIVITY_GUIDE, core, stage=Stage.INFANT_0_2, notes=demand)
+    assert "candidate_infant_requires_target_response" in result.issues
+    class TargetResponseProvider:
+        def generate_structured(self, **_kwargs):
+            return MaterialDraft(title="소리와 움직임", content_markdown=core,
+                                 parent_guide_markdown=demand)
+    material = MaterialGenerationService(TargetResponseProvider()).generate(
+        child=ChildProfile(nickname="합성영아", stage=Stage.INFANT_0_2, age_months=9),
+        kind=MaterialKind.ACTIVITY_GUIDE, topic="소리와 움직임 살펴보기",
+    )
+    assert material.generator_mode == "template_quality_fallback"
+    assert demand not in material.parent_guide_markdown
+    published = MaterialQualityGate().assess_published(
+        title=material.title, content_markdown=material.content_markdown,
+        parent_guide_markdown=material.parent_guide_markdown + demand,
+        source_refs=[], stage=Stage.INFANT_0_2,
+    )
+    assert "published_infant_requires_target_response" in published.issues
+
+
+@pytest.mark.parametrize("notes", [
+    "아이가 소리를 낼 때까지 반복하지 않습니다. 반응이 없으면 멈춥니다.",
+    "아이가 먼저 낸 소리를 보호자가 한 번 따라 하고 잠시 기다립니다.",
+    "아이가 책을 만지는 행동을 할 때까지 잠시 기다리되 관심이 없으면 멈춥니다.",
+])
+def test_infant_negative_directions_waiting_and_voluntary_mirroring_remain_supported(notes):
+    candidate = _EVIDENCE["infant_corrected"]["capture"]["candidate"]
+    result = _check(MaterialKind.ACTIVITY_GUIDE, candidate["content_markdown"],
+                    stage=Stage.INFANT_0_2, notes=notes)
+    assert result.ready, result.issues
+
+
+def test_observed_coordinated_sensory_predicate_also_requires_revision():
+    row = next(row for row in _GOOD if row["kind"] == "science_inquiry")
+    core = _candidate(row).content_markdown
+    result = _check(MaterialKind.SCIENCE_INQUIRY, core + (
+        "\n얼음이 녹으면서 눈에 보이거나, 손에 느껴지거나, 들리는 소리가 있나요?"
+    ))
+    assert "candidate_science_mismatched_sensory_verb" in result.issues

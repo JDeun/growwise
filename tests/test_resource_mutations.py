@@ -32,6 +32,24 @@ def _request(title: str, content: str) -> resource_routes.ResourceUpdateRequest:
     )
 
 
+def test_resource_projection_cleanup_failure_does_not_log_source_identifiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    resource = _resource()
+    store.save(resource)
+
+    class UnavailableProjection:
+        def delete_resource(self, _resource_id):
+            raise OSError("synthetic retrieval projection unavailable")
+
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", UnavailableProjection)
+    assert resource_routes.delete_resource(resource.id, store) == {"deleted": True}
+    assert "source deletion remains authoritative" in caplog.text
+    assert str(resource.id) not in caplog.text
+    assert store.index.get_entity(str(resource.id), entity_type="resource") is None
+
+
 def test_resource_update_and_delete_keep_markdown_sqlite_and_rag_in_sync(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

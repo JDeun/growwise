@@ -5,7 +5,11 @@ from dataclasses import dataclass
 
 from growwise.domain import MaterialKind, Stage
 
-from .pedagogy import instruction_issues
+from .pedagogy import (
+    infant_requires_schoolwork,
+    infant_requires_target_response,
+    instruction_issues,
+)
 
 _HEADING_RE = re.compile(r"(?m)^#{1,6}\s+(.+)$")
 _STEP_RE = re.compile(r"(?m)^\s*\d+[.)]\s+(.+)$")
@@ -101,6 +105,7 @@ class MaterialQualityGate:
         content_markdown: str,
         parent_guide_markdown: str,
         source_refs: list[str],
+        stage: Stage | None = None,
     ) -> MaterialQualityResult:
         issues: list[str] = []
         if len(title.strip()) < 2:
@@ -119,5 +124,13 @@ class MaterialQualityGate:
             issues.append("content_too_short")
         if len(parent_guide_markdown.strip()) < 1_000:
             issues.append("guide_too_short")
+        if stage is Stage.INFANT_0_2 and infant_requires_schoolwork(
+            f"{content_markdown}\n{parent_guide_markdown}"
+        ):
+            issues.append("published_infant_requires_independent_schoolwork")
+        if stage is Stage.INFANT_0_2 and infant_requires_target_response(
+            f"{content_markdown}\n{parent_guide_markdown}"
+        ):
+            issues.append("published_infant_requires_target_response")
 
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))

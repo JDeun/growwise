@@ -12,6 +12,7 @@ import ctypes
 import hashlib
 import json
 import os
+import re
 import shutil
 import socket
 import struct
@@ -206,6 +207,21 @@ def free_port() -> int:
     with socket.socket() as reservation:
         reservation.bind(("127.0.0.1", 0))
         return int(reservation.getsockname()[1])
+
+
+def runtime_python() -> str:
+    # Resolving a venv symlink can launch the base interpreter without the installed Core.
+    return str(Path(sys.executable).absolute())
+
+
+def integrity_level() -> str:
+    groups = subprocess.check_output(
+        ["whoami.exe", "/groups", "/fo", "csv", "/nh"], encoding="utf-8", errors="replace"
+    )
+    found = re.search(r"S-1-16-\d+", groups)
+    if found is None:
+        raise RuntimeError("Cannot determine the native WebView host integrity level")
+    return found.group()
 
 
 def write_png(path: Path) -> bytes:
@@ -492,6 +508,9 @@ def main() -> int:
     args = parser.parse_args()
     if os.name != "nt":
         parser.error("Actual native WebDriver execution is supported here only on Windows")
+    integrity = integrity_level()
+    if integrity != "S-1-16-8192":
+        parser.error("Run this journey with a Medium-integrity user via run_native_e2e.ps1")
     application = args.app.resolve(strict=True)
     native_driver = args.native_driver.resolve(strict=True)
     driver_path = shutil.which("tauri-driver")
@@ -506,6 +525,7 @@ def main() -> int:
         "script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "ai_enabled": False,
         "commit": os.environ.get("GITHUB_SHA"),
+        "integrity_level": integrity,
     }
     with application.open("rb") as binary:
         report["application_sha256"] = hashlib.file_digest(binary, "sha256").hexdigest()
@@ -514,7 +534,7 @@ def main() -> int:
         native_port = free_port()
     env = {
         **os.environ,
-        "GROWWISE_PYTHON": str(Path(sys.executable).resolve()),
+        "GROWWISE_PYTHON": runtime_python(),
         "TAURI_WEBVIEW_AUTOMATION": "true",
         "MSEDGEDRIVER_TELEMETRY_OPTOUT": "1",
     }

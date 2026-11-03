@@ -55,7 +55,9 @@ def test_configurator_enables_committed_feature_and_rolls_back_on_compile_failur
     assert config.read_text() == original
 
 
-@pytest.mark.parametrize("value", ["PUBLIC-KEY", "/private/key", "c2VjcmV0IGtleQ=="])
+@pytest.mark.parametrize("value", [
+    "PUBLIC-KEY", "/private/key", base64.b64encode(b"not a public key").decode(),
+])
 def test_configurator_rejects_non_public_key_inputs(tmp_path, value):
     path = tmp_path / "key.pub"
     path.write_text(value, encoding="utf-8")

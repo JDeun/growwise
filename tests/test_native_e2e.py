@@ -90,3 +90,34 @@ def test_native_photo_fixture_is_real_multimegapixel_png(tmp_path: Path) -> None
         assert image.format == "PNG"
         assert image.size == (2048, 1536)
         assert image.getpixel((1024, 768)) == (57, 116, 93)
+
+
+def test_core_python_keeps_the_virtual_environment_entry_point(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    base = tmp_path / "base-python"
+    base.write_bytes(b"synthetic interpreter")
+    venv = tmp_path / "venv-python"
+    try:
+        venv.symlink_to(base)
+    except OSError:
+        pytest.skip("Creating a symlink requires OS support/Windows developer permission")
+    monkeypatch.setattr(native.sys, "executable", str(venv))
+    assert native.runtime_python() == str(venv.absolute())
+    assert native.runtime_python() != str(base.resolve())
+
+
+def test_native_integrity_check_requires_a_real_medium_integrity_sid(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        native.subprocess,
+        "check_output",
+        lambda *args, **kwargs: '"Mandatory Label\\Medium Mandatory Level","Label","S-1-16-8192"',
+    )
+    assert native.integrity_level() == "S-1-16-8192"
+    monkeypatch.setattr(
+        native.subprocess, "check_output", lambda *args, **kwargs: "no integrity SID"
+    )
+    with pytest.raises(RuntimeError, match="integrity level"):
+        native.integrity_level()

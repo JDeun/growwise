@@ -2,15 +2,23 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { Cdp, evaluate, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
+import { Cdp, evaluate, evaluateWithArguments, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+function fingerprintCoreSource() {
+  const directory=join(root,"src/growwise");
+  const files=readdirSync(directory,{recursive:true}).filter(name=>name.endsWith(".py")).sort();
+  const hash=createHash("sha256");
+  for(const name of files) hash.update(name.replaceAll("\\","/")).update("\0").update(readFileSync(join(directory,name)));
+  return hash.digest("hex");
+}
+const coreSourceSha256 = fingerprintCoreSource();
 const desktopVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url))).version;
 const scriptSha256 = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex");
 const browserHelperSha256 = createHash("sha256").update(readFileSync(new URL("./browser_e2e.mjs", import.meta.url))).digest("hex");
@@ -165,37 +173,51 @@ const transport = `(() => {
 })();`;
 
 async function fill(selector, value) {
-  await waitFor(()=>evaluate(cdp,`(() => { const field=document.querySelector(${JSON.stringify(selector)}); return !!field && !field.disabled && field.getBoundingClientRect().height > 0; })()`),{label:`ready field ${selector}`});
-  await evaluate(cdp, `(() => {
-    const input = document.querySelector(${JSON.stringify(selector)});
-    if (!input || input.disabled) throw new Error("field missing or disabled: " + ${JSON.stringify(selector)});
+  await waitFor(()=>evaluateWithArguments(cdp,(selector)=>{
+    const field=document.querySelector(selector);
+    return !!field && !field.disabled && field.getBoundingClientRect().height > 0;
+  },selector),{label:`ready field ${selector}`});
+  await evaluateWithArguments(cdp, (selector,value) => {
+    const input = document.querySelector(selector);
+    if (!input || input.disabled) throw new Error("field missing or disabled: " + selector);
     const prototype = input.tagName === "TEXTAREA" ? HTMLTextAreaElement.prototype
       : input.tagName === "SELECT" ? HTMLSelectElement.prototype : HTMLInputElement.prototype;
-    Object.getOwnPropertyDescriptor(prototype, "value").set.call(input, ${JSON.stringify(value)});
+    Object.getOwnPropertyDescriptor(prototype, "value").set.call(input, value);
     input.dispatchEvent(new Event("input", {bubbles:true}));
     input.dispatchEvent(new Event("change", {bubbles:true}));
-  })()`);
+  },selector,value);
 }
 
 async function clickText(text, selector = "button") {
-  await waitFor(async () => evaluate(cdp, `(() => {
-    const button = [...document.querySelectorAll(${JSON.stringify(selector)})].find((node) => (node.textContent.trim() === ${JSON.stringify(text)} || node.querySelector("strong")?.textContent.trim() === ${JSON.stringify(text)}) && node.getBoundingClientRect().height > 0 && !node.disabled);
+  await waitFor(async () => evaluateWithArguments(cdp, (selector,text) => {
+    const button = [...document.querySelectorAll(selector)].find((node) => (node.textContent.trim() === text || node.querySelector("strong")?.textContent.trim() === text) && node.getBoundingClientRect().height > 0 && !node.disabled);
     if (!button) return false; button.click(); return true;
-  })()`), {label:`click ${text}`});
+  },selector,text), {label:`click ${text}`});
+}
+
+async function clickResourceAction(title, action) {
+  await waitFor(()=>evaluateWithArguments(cdp,(title,action)=>{
+    const card=[...document.querySelectorAll(".resource-card")]
+      .find(node=>node.querySelector(".resource-card-heading strong")?.textContent === title);
+    const button=card && [...card.querySelectorAll("button")]
+      .find(node=>node.textContent.trim() === action && !node.disabled);
+    if(!button || button.getBoundingClientRect().height === 0) return false;
+    button.click();return true;
+  },title,action),{label:`${action} on ${title}`});
 }
 
 async function fillLabel(context, text, value) {
-  await waitFor(() => evaluate(cdp, `(() => {
-    const label=[...document.querySelectorAll(${JSON.stringify(context)} + ' label')]
-      .find(node=>node.querySelector('span')?.textContent.trim() === ${JSON.stringify(text)});
+  await waitFor(() => evaluateWithArguments(cdp, (context,text,value) => {
+    const label=[...document.querySelectorAll(context + ' label')]
+      .find(node=>node.querySelector('span')?.textContent.trim() === text);
     const input=label?.querySelector('input,textarea,select');
     if(!input || input.disabled || input.getBoundingClientRect().height === 0) return false;
     const proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype
       :input.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
-    Object.getOwnPropertyDescriptor(proto,'value').set.call(input,${JSON.stringify(value)});
+    Object.getOwnPropertyDescriptor(proto,'value').set.call(input,value);
     input.dispatchEvent(new Event('input',{bubbles:true}));
     input.dispatchEvent(new Event('change',{bubbles:true})); return true;
-  })()`),{label:`fill ${text}`});
+  },context,text,value),{label:`fill ${text}`});
 }
 
 async function navigate(view) {
@@ -563,7 +585,9 @@ try {
   await fillLabel('.resource-form','사용 범위','shared');
   await evaluate(cdp,'document.querySelector(".resource-form").requestSubmit()');
   await waitFor(async()=> (await api(`/v1/resources?child_id=${childId}`)).some((item)=>item.title === "민들레 참고 메모"),{label:"resource UI create"});
-  await clickText("편집",".resource-card button");
+  const createdResource=(await api(`/v1/resources?child_id=${childId}`)).find(item=>item.title === "민들레 참고 메모");
+  assert.deepEqual(createdResource.tags,['씨앗','관찰']);
+  await clickResourceAction("민들레 참고 메모","편집");
   await fill(".resource-edit-panel input","민들레 참고 메모 수정");
   await clickText('출처·분류 설정(선택)','.resource-edit-panel summary');
   await fillLabel('.resource-edit-panel','출처 이름','출처 수정 검증');
@@ -574,9 +598,10 @@ try {
   assert.equal(editedResource.source_name,'출처 수정 검증');
   assert.equal(editedResource.child_id,childId);
   assert.deepEqual(editedResource.tags,['씨앗','관찰']);
-  await clickText("상세",".resource-card button");
+  assert.equal(editedResource.id,createdResource.id);
+  await clickResourceAction("민들레 참고 메모 수정","상세");
   await capture("resource-created-and-edited");
-  await clickText("삭제",".resource-card button");
+  await clickResourceAction("민들레 참고 메모 수정","삭제");
   await clickText("자료 삭제",'[role="alertdialog"] button');
   await waitFor(async()=> !(await api(`/v1/resources?child_id=${childId}`)).some(item=>item.id===editedResource.id),{label:"confirmed resource deletion"});
   steps.push("UI reference library create/edit/detail/confirmed delete reaches real Core");
@@ -608,14 +633,18 @@ try {
   const fileInput=await cdp.send("DOM.querySelector",{nodeId:dom.root.nodeId,selector:'.photo-workspace input[type="file"]'});
   await cdp.send("DOM.setFileInputFiles",{nodeId:fileInput.nodeId,files:[photoFile]});
   await waitFor(()=>evaluate(cdp,'[...document.querySelectorAll(".photo-preview-grid img")].some(image=>image.complete && image.naturalWidth > 0)'),{label:"small local selected-photo preview"});
-  const localPreview=await evaluate(cdp,`(async()=>{
+  const localPreview=await evaluate(cdp,`(()=>{
     const image=document.querySelector('.photo-preview-grid img');
-    const blob=await (await fetch(image.src)).blob();
-    return {width:image.naturalWidth,height:image.naturalHeight,type:blob.type,size:blob.size};
+    return {width:image.naturalWidth,height:image.naturalHeight,url:image.src};
   })()`);
   assert(localPreview.width<=384 && localPreview.height<=384,"selected photo preview must be resized before display");
-  assert.equal(localPreview.type,"image/jpeg");
-  assert(localPreview.size<=128*1024);
+  // Inspect the loaded image through trusted CDP; production CSP intentionally forbids fetch(blob:).
+  const {frameTree}=await cdp.send("Page.getFrameTree",{});
+  const previewResource=await cdp.send("Page.getResourceContent",{frameId:frameTree.frame.id,url:localPreview.url});
+  assert(previewResource.base64Encoded);
+  const previewBytes=Buffer.from(previewResource.content,"base64");
+  assert.equal(previewBytes.subarray(0,2).toString("hex"),"ffd8");
+  assert(previewBytes.length<=128*1024);
   await capture("selected-local-photo-preview");
   await fill('.photo-workspace textarea[placeholder^="예: 오늘 둘이"]',"사진을 보며 씨앗 모양을 비교했다.");
   await evaluate(cdp,`[...document.querySelectorAll('.photo-workspace input[type="checkbox"]')].find(input=>input.closest('label').innerText.includes('로컬 AI')).click()`);
@@ -738,10 +767,13 @@ else: raise AssertionError('selected export must not be accepted as a whole-app 
   await verifyPrimaryPrint(infantMaterial,'infant-');
   steps.push('infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces');
   const navigationSoak = await verifyNavigationSoak(childId);
+  assert.equal(fingerprintCoreSource(),coreSourceSha256,"Core source changed during the run; repeat against frozen source");
+  assert.equal(createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex"),scriptSha256,"live script changed during the run");
+  assert.equal(createHash("sha256").update(readFileSync(new URL("./browser_e2e.mjs",import.meta.url))).digest("hex"),browserHelperSha256,"browser helper changed during the run");
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
   assert.deepEqual(errors,[]);
   const buildAssets=await evaluate(cdp,'[...document.querySelectorAll("script[src],link[rel=stylesheet]")].map(element=>element.getAttribute("src")??element.getAttribute("href"))');
-  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",scriptSha256,browserHelperSha256,nativeCsp,buildAssets,steps,artifacts,navigationSoak};
+  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",scriptSha256,browserHelperSha256,coreSourceSha256,nativeCsp,buildAssets,steps,artifacts,navigationSoak};
   writeFileSync(join(artifacts,"report.json"),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
 } catch(error) {

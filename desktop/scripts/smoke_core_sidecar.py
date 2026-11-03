@@ -57,7 +57,7 @@ def assert_packaged_photo_thumbnail(base_url: str, token: str) -> None:
         "manual_observation": "Synthetic package thumbnail validation", "ai_assist": False,
     })
     thumbnail = request(
-        f"/v1/children/{child['id']}/photo-assets/{photo['photo_asset_ids'][0]}/thumbnail"
+        f"/v1/children/{child['id']}/photo-assets/{photo['record']['photo_asset_ids'][0]}/thumbnail"
     )
     image = base64.b64decode(thumbnail["data_base64"], validate=True)
     if (thumbnail["mime_type"] != "image/jpeg" or not image.startswith(b"\xff\xd8")

@@ -103,7 +103,11 @@ async function waitFor(fn, { timeoutMs = 15_000, intervalMs = 100, label = "cond
 
 class Cdp {
   constructor(url) {
-    this.url = url;
+    const endpoint = new URL(url);
+    invariant(endpoint.protocol === "ws:" && endpoint.hostname === "127.0.0.1"
+      && endpoint.port && !endpoint.username && !endpoint.password
+      && endpoint.pathname.startsWith("/devtools/"), "CDP must use a local Chrome debugger");
+    this.url = endpoint.href;
     this.nextId = 1;
     this.pending = new Map();
     this.listeners = new Map();
@@ -419,6 +423,20 @@ async function evaluate(cdp, expression) {
   return result.result?.value;
 }
 
+let nextCallGroup = 1;
+async function evaluateWithArguments(cdp, fn, ...args) {
+  const objectGroup = `growwise-e2e-${nextCallGroup++}`;
+  try {
+    const global = await cdp.send("Runtime.evaluate", {expression:"globalThis", objectGroup});
+    const result = await cdp.send("Runtime.callFunctionOn", {
+      objectId:global.result.objectId, functionDeclaration:fn.toString(),
+      arguments:args.map(value=>({value})), returnByValue:true, awaitPromise:true,
+    });
+    if (result.exceptionDetails) throw new Error(result.exceptionDetails.text || "browser call failed");
+    return result.result?.value;
+  } finally { await cdp.send("Runtime.releaseObjectGroup", {objectGroup}); }
+}
+
 async function waitForWorkspace(cdp, view) {
   await waitFor(
     async () => evaluate(
@@ -653,4 +671,4 @@ async function main() {
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
 
-export { Cdp, evaluate, findChrome, mockSource, screenshot, startStaticServer, waitFor, waitForWorkspace };
+export { Cdp, evaluate, evaluateWithArguments, findChrome, mockSource, screenshot, startStaticServer, waitFor, waitForWorkspace };

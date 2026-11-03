@@ -12,7 +12,7 @@ from growwise.generators import MaterialDraft
 @lru_cache(maxsize=1)
 def _observed_cores() -> dict[str, dict]:
     artifact = json.loads((Path(__file__).resolve().parents[1] /
-        "docs/knowledge/experiments/model-typed-quality-20261103.json").read_text())
+        "docs/knowledge/experiments/model-typed-quality-20261103.json").read_text(encoding='utf-8'))
     rows = artifact["gemma_typed_six_kinds_before_english_contract"]["benchmark"]["rows"]
     rows += artifact["gemma_corrected_english"]["benchmark"]["rows"]
     cores = {}

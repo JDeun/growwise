@@ -27,6 +27,45 @@ _INCORRECT_GREETING_MEANING = re.compile(
     r"good\s+morning\s*!?\s*['\"”’]?\s*[-–—:：=(（]\s*잘\s*자|"
     r"good\s+night\s*!?\s*['\"”’]?\s*[-–—:：=(（]\s*좋은\s*아침)", re.IGNORECASE,
 )
+_INFANT_SCHOOLWORK = re.compile(
+    r"(?:아이가|아이에게|학습자가)[^.!?\n]{0,60}?"
+    r"(?:문장을\s*쓰|글을\s*읽|혼자\s*수행|정답을\s*말|이유를\s*설명|"
+    r"자신의\s*말로\s*정리|다른\s*방법[^.!?\n]{0,25}설명)"
+)
+_INFANT_TARGET_RESPONSE = re.compile(
+    r"(?:아이가|아기는|아이에게)[^.!?\n]{0,55}?"
+    r"(?:소리|표정|몸짓|동작|반응)[^.!?\n]{0,25}?"
+    r"(?:낼|할|보일|지을|나올)\s*때까지[^.!?\n]{0,15}?(?:반복|계속)"
+)
+
+
+def infant_requires_target_response(text: str) -> bool:
+    """Reject stimuli repeated until a target response; preserve responsive mirroring."""
+    return any(
+        not re.match(r"(?:하지|해\s*주지|해?지)\s*(?:않|말)", text[m.end():m.end() + 20])
+        for m in _INFANT_TARGET_RESPONSE.finditer(text)
+    )
+
+
+def infant_requires_schoolwork(text: str) -> bool:
+    """Catch explicit performance demands, including parent notes and publication boilerplate.
+
+    Reading aloud *to* a baby and statements declining to require schoolwork remain valid.
+    This narrow rule does not attempt to infer every developmental expectation from prose.
+    """
+    for match in _INFANT_SCHOOLWORK.finditer(text):
+        before = text[max(0, text.rfind("\n", 0, match.start())):match.start()]
+        tail = text[match.end():match.end() + 35]
+        if (match.group().startswith("아이에게")
+                and (re.search(r"보호자|부모", before) or "글을" in match.group())
+                and re.match(r"어\s*(?:주|줍|줘)", tail)):
+            continue
+        if not re.match(
+            r"(?:어도\s*되|지\s*(?:않|말)|하지\s*(?:않|말)|"
+            r"(?:게|도록)\s*(?:요구|강요)하지\s*않)", tail,
+        ):
+            return True
+    return False
 
 
 def instruction_issues(
@@ -83,6 +122,11 @@ def instruction_issues(
             issues.append("candidate_presupposes_unprovided_scene")
 
     if kind is MaterialKind.SCIENCE_INQUIRY and stage is not Stage.INFANT_0_2:
+        if re.search(
+            r"모습(?:이나|과|와|·)\s*소리(?:가|를)?\s*들리|"
+            r"보이거나[^?？.!\n]{0,45}느껴지거나[^?？.!\n]{0,45}들리는\s*소리", combined,
+        ):
+            issues.append("candidate_science_mismatched_sensory_verb")
         prediction = next((i for i, step in enumerate(steps)
                            if re.search(r"예상|예측|가설|미리[^.\n]{0,20}생각|"
                                         r"(?:변할지|될지|일어날지)[^.\n]{0,20}(?:생각|말)", step)),
@@ -103,14 +147,8 @@ def instruction_issues(
                     if (re.search(r"실제[^.\n]{0,35}비교|관찰한[^.\n]{0,25}비교", step)
                             and not re.search(r"나중|뒤|후|하면|때\s*비교|현장에서", step)):
                         issues.append("candidate_field_trip_uses_results_before_visit")
-    if stage is Stage.INFANT_0_2:
-        schoolwork = re.finditer(
-            r"아이가[^.\n]{0,30}(?:문장을\s*쓰|글을\s*읽|혼자\s*수행|정답을\s*말|이유를\s*설명)|"
-            r"아이에게[^.\n]{0,30}(?:문장을\s*쓰|글을\s*읽)(?:게|도록)", actions,
-        )
-        for match in schoolwork:
-            tail = actions[match.end():match.end() + 25]
-            if not re.search(r"지\s*않|하지\s*않|요구하지\s*않|강요하지\s*않", tail):
-                issues.append("candidate_infant_requires_independent_schoolwork")
-                break
+    if stage is Stage.INFANT_0_2 and infant_requires_schoolwork(combined):
+        issues.append("candidate_infant_requires_independent_schoolwork")
+    if stage is Stage.INFANT_0_2 and infant_requires_target_response(combined):
+        issues.append("candidate_infant_requires_target_response")
     return list(dict.fromkeys(issues))

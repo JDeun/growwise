@@ -161,7 +161,7 @@ Apple Silicon은 CPU와 GPU가 통합 메모리를 공유합니다.
 
 ### 자료 생성 품질과 실제 확인 범위
 
-현재 `growwise.material.v4`의 검사 범위와 한계는
+현재 `growwise.material.v6`의 검사 범위와 한계는
 [자료 초안 품질 경계](material-quality-contract.md)를 참고하세요. 과거 실측 결과는 당시
 출력으로 보존되며, 새 검사에 통과한 회귀 사례를 새 모델 실행이나 교육 효과 검증으로 세지 않습니다.
 

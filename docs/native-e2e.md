@@ -11,6 +11,15 @@ Python 표준 라이브러리 HTTP 클라이언트가 W3C WebDriver 명령을 �
 [Microsoft WebView2 테스트](https://learn.microsoft.com/microsoft-edge/webview2/how-to/webdriver),
 [W3C 프로토콜](https://www.w3.org/TR/webdriver/).
 
+WebView2 150 이후에는 관리자 권한 host의 디버깅 환경 변수가 무시된다. GitHub Windows runner는
+관리자 권한으로 시작하므로 `run_native_e2e.ps1`이 Windows Task Scheduler의 현재 로그인 사용자
+`Interactive / RunLevel Limited`로 테스트 프로세스를 실행한다. Python harness는 실제 Medium
+integrity SID(`S-1-16-8192`)를 검사하고 보고서에 남긴다. 머신 정책이나 앱의 배포 설정을 변경하지
+않으며, 테스트 디렉터리 접근이 필요하면 현재 사용자 SID에만 권한을 부여한다.
+근거: [Microsoft의 권한 권고](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security#recommended-privilege-level-for-webview2-host-applications),
+[Tauri Wry 추적 이슈](https://github.com/tauri-apps/wry/issues/1782),
+[Windows 제한 권한 task principal](https://learn.microsoft.com/powershell/module/scheduledtasks/new-scheduledtaskprincipal).
+
 ## 격리와 실제 검증 범위
 
 - `tauri.e2e.conf.json` overlay의 identifier는 `io.github.jdeun.growwise.e2e`다. 테스트는 native
@@ -33,7 +42,7 @@ Windows에 WebView2·Rust 1.98.1·Node 22·Python 3.12가 준비된 환경에서
 
 ```powershell
 python -m pip install uv==0.12.13
-uv sync --locked
+uv sync --locked --no-dev --managed-python --python 3.12.13
 npm ci --prefix desktop
 cargo install tauri-driver --version 2.1.0 --locked
 ./desktop/scripts/install_edge_webdriver.ps1 -Destination "$env:TEMP/growwise-edge-driver"
@@ -41,10 +50,11 @@ Push-Location desktop
 npm run tauri -- icon ../assets/brand/growwise-symbol.svg
 npm run tauri -- build --debug --no-bundle --config src-tauri/tauri.e2e.conf.json -- --locked
 Pop-Location
-.venv/Scripts/python.exe desktop/scripts/native_e2e.py `
-  --app desktop/src-tauri/target/debug/growwise-desktop.exe `
-  --native-driver "$env:TEMP/growwise-edge-driver/msedgedriver.exe" `
-  --artifacts desktop/artifacts/native-e2e
+./desktop/scripts/run_native_e2e.ps1 `
+  -Python .venv/Scripts/python.exe `
+  -App desktop/src-tauri/target/debug/growwise-desktop.exe `
+  -NativeDriver "$env:TEMP/growwise-edge-driver/msedgedriver.exe" `
+  -Artifacts desktop/artifacts/native-e2e
 ```
 
 설치 스크립트는 GitHub Actions에서 `$GITHUB_ENV`를 통해 런타임 경로를 다음 step에 전달한다.

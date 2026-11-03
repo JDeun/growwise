@@ -19,6 +19,11 @@ def binary_name() -> str:
 
 
 def build(*, clean: bool) -> Path:
+    from build_license_bundle import assert_clean_build_environment, check, generate
+
+    assert_clean_build_environment()
+    generate()
+    check()
     BINARIES.mkdir(parents=True, exist_ok=True)
     target = BINARIES / binary_name()
     if clean and target.exists():

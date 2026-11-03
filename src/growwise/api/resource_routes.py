@@ -288,9 +288,7 @@ def delete_resource(
             get_resource_rag_index().delete_resource(str(resource_id))
         except Exception:
             logger.exception(
-                "RAG projection delete failed for resource %s; "
-                "source deletion remains authoritative",
-                resource_id,
+                "RAG projection delete failed; source deletion remains authoritative",
             )
         EntityLinkService(store).delete_for_entities({str(resource_id)})
         return {"deleted": True}

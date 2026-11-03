@@ -16,6 +16,19 @@ from .visibility import entity_visible_to_child
 
 _ConversationContent = Annotated[str, Field(min_length=1, max_length=20_000)]
 _ConversationSourceId = Annotated[str, Field(min_length=1, max_length=500)]
+_MATERIAL_REQUEST_VERB = re.compile(r"(?:만들어|생성해|준비해)\s*(?:줘|주세요|줄래)")
+
+
+def _requests_material(question: str) -> bool:
+    previous_end = 0
+    for verb in _MATERIAL_REQUEST_VERB.finditer(question):
+        # Inspect disjoint prefixes: a noun must precede the verb on the same line. Keeping
+        # whitespace in the verb pattern preserves requests such as '만들어\n주세요'.
+        prefix = question[previous_end:verb.start()].rpartition("\n")[2]
+        if any(noun in prefix for noun in ("활동", "자료", "카드")):
+            return True
+        previous_end = verb.end()
+    return False
 
 
 class MaterialAction(BaseModel):
@@ -88,9 +101,7 @@ user's questions. Return only the rewritten retrieval query."""
             query=retrieval_query,
             limit=limit,
         )
-        if re.search(
-            r"(?:활동|자료|활동지|카드).*?(?:만들어|생성해|준비해)\s*(?:줘|주세요|줄래)", question
-        ):
+        if _requests_material(question):
             source_refs: list[str] = []
             candidate_ids = [
                 source_id.partition(":")[2]

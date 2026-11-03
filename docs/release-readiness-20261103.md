@@ -75,14 +75,19 @@ The final integration section will record exact source/build hashes, test totals
 external CI links after the source snapshot is frozen.
 
 
-## Packaging license follow-up (integration pending)
+## Packaging license follow-up
 
 The existing table/link notice was insufficient as the only bundled attribution. The Core build now
 creates a full-text license resource bundle from the installed58-entry Python runtime closure
 (57third parties plus GrowWise), preserves wheel LICENSE/NOTICE/copyright bytes and includes Python/
 bootloader support texts. Three wheels omit license files; four version/commit-pinned official files
 are checked in with SHA-256 provenance rather than invented notices. Production Node and native
-Cargo license collection is integrated through the packaging helper and awaits its final source
-freeze/complete-bundle verification. `licenses/` is a Tauri resource; hashes and Python graph parity
+Cargo license collection is integrated and was exercised offline on this macOS host:57Python,
+2bootloader-support,4Node and311Rust package rows. The pinned interpreter's native-component
+notices form one additional row, including the distributor's8component texts and the exact
+OpenSSL3.5.7 LICENSE/AUTHORS texts. Official commits and SHA-256 accompany those files; the
+package workflow uses uv-managed Python3.12.13/build20260623 and rejects a different build until
+its component notices are reviewed. This is technical preservation, not a complete legal opinion.
+`licenses/` is a Tauri resource; hashes and Python graph parity
 are CI checked. A shared environment containing development tools is rejected for sidecar builds.
 Final clean-environment PyInstaller/packaged checks remain the integration agent's next evidence.

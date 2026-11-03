@@ -33,6 +33,11 @@ _QUERY_FILLER = re.compile(
 )
 
 
+def _ordered_on_line(text: str, first: str, second: str) -> bool:
+    # Each line is scanned a constant number of times, even with repeated unmatched prefixes.
+    return any(second in line.partition(first)[2] for line in text.split("\n"))
+
+
 class SearchPlan(BaseModel):
     keywords: list[str] = Field(default_factory=list)
     entity_types: list[str] = Field(default_factory=lambda: ["learning_log", "activity_plan"])
@@ -146,9 +151,9 @@ Prefer a few concrete Korean or English content keywords over generic temporal w
                     remaining = re.sub(pattern, " ", remaining)
                     break
         order: Literal["relevance", "newest", "oldest"] = "relevance"
-        if re.search(r"마지막|가장\s*최근|최근.*언제", query):
+        if re.search(r"마지막|가장\s*최근", query) or _ordered_on_line(query, "최근", "언제"):
             order, limit = "newest", 1
-        elif re.search(r"처음.*언제|가장\s*처음", query):
+        elif re.search(r"가장\s*처음", query) or _ordered_on_line(query, "처음", "언제"):
             order, limit = "oldest", 1
         elif "최근" in query:
             order = "newest"
