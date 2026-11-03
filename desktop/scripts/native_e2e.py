@@ -171,9 +171,9 @@ class WebDriver:
         wait_for(
             lambda: self.execute(
                 """
-            return [...document.querySelectorAll('[data-workspace-view]')].some(node =>
-              node.getAttribute('data-workspace-view') === arguments[0]
-              && node.getBoundingClientRect().height > 0);
+            const panel=document.querySelector('#workspace-panel');
+            return panel?.getAttribute('data-active-workspace') === arguments[0]
+              && panel.getBoundingClientRect().height > 0;
         """,
                 view,
             ),

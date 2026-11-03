@@ -86,6 +86,17 @@ def test_native_bridge_waits_through_initial_blank_navigation(monkeypatch: pytes
     )
 
 
+def test_native_navigation_reads_the_canonical_shell_panel(monkeypatch: pytest.MonkeyPatch):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.execute = Mock(side_effect=[False, True])
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    driver.workspace("profile")
+    assert driver.execute.call_count == 2
+    query, view = driver.execute.call_args.args
+    assert "#workspace-panel" in query and "data-active-workspace" in query
+    assert view == "profile"
+
+
 def test_native_bridge_never_appearing_fails_closed(monkeypatch: pytest.MonkeyPatch):
     driver = native.WebDriver("http://127.0.0.1:4444")
     driver.execute = Mock(return_value=False)
