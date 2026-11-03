@@ -70,9 +70,11 @@ python desktop/scripts/configure_updater.py \
   --public-key-file ~/.tauri/growwise-updater.key.pub
 ```
 
-The configurator prepares the release-only Tauri updater config, adds `tauri-plugin-updater` to the
-Rust shell, wires the plugin into the Tauri builder, updates `Cargo.lock` through `cargo check`, and
-uses the default GitHub Release endpoint unless `--endpoint` is supplied.
+The configurator validates the public-key format, prepares the release-only overlay with the
+committed native `updater` feature, and runs `cargo check --locked --features updater`. The plugin,
+explicit Settings check/install controls and restart handling are already implemented. A failed
+compile rolls back the overlay; activation does not edit Cargo dependencies or generate keys.
+It uses the default GitHub Release endpoint unless `--endpoint` is supplied.
 
 After reviewing and committing those generated public/code files, store these GitHub Actions secrets:
 

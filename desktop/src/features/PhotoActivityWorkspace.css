@@ -10,6 +10,7 @@
 .photo-preview-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
 .photo-preview-grid figure { margin: 0; min-width: 0; }
 .photo-preview-grid img { width: 100%; aspect-ratio: 4 / 3; object-fit: cover; border-radius: 12px; border: 1px solid var(--border); background: #f4f2ed; }
+.photo-preview-placeholder { display: grid; place-items: center; width: 100%; aspect-ratio: 4 / 3; border-radius: 12px; border: 1px solid var(--border); background: #f4f2ed; color: var(--ink-soft); font-size: var(--font-size-meta); }
 .photo-preview-grid figcaption { margin-top: 6px; color: var(--ink-soft); font-size: var(--font-size-meta); overflow-wrap: anywhere; }
 .photo-workspace-card > .primary-button { margin-top: 18px; }
 .photo-notice { margin-top: 14px; }

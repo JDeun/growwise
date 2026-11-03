@@ -7,6 +7,7 @@ from pydantic import BaseModel, Field
 
 from growwise.model import ModelProvider
 from growwise.rag import HybridRagIndex
+from growwise.source_snapshot import current_source_payloads, rag_hits_from_payloads
 from growwise.storage import SQLiteProjection
 
 from .graph_context import GraphContextExpander
@@ -221,6 +222,22 @@ concise Korean for Korean questions."""
             seed_ids=seed_ids,
             limit=min(6, max(2, limit // 2)),
         )
+
+        # Search/graph/RAG results are candidate pointers, not current evidence. Take one short
+        # source snapshot after retrieval so deletes, edits and sharing changes during retrieval
+        # cannot send cached text to the model. Network inference runs after these locks release.
+        current = current_source_payloads(
+            self.entity_index, child_id=child_id,
+            entity_ids=[str(record["id"]) for record in records]
+            + [str(chunk.get("resource_id") or "") for chunk in chunks]
+            + [str(neighbor["id"]) for neighbor in graph_neighbors],
+        )
+        records = [current[str(record["id"])] for record in records
+                   if str(record["id"]) in current
+                   and (not constrained or search.plan.matches(current[str(record["id"])]))]
+        chunks = rag_hits_from_payloads(chunks, current)
+        graph_neighbors = [{**neighbor, **current[str(neighbor["id"])]}
+                           for neighbor in graph_neighbors if str(neighbor["id"]) in current]
 
         sources: list[tuple[str, str]] = []
         for record in records:

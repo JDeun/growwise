@@ -34,7 +34,10 @@ class Provider:
             "title": "블록을 다르게 세어 보기",
             "sections": [
                 {"heading": "쌓아서 세어 보기", "steps": [step], "question": "어떻게 확인했나요?"},
-                {"heading": "나란히 놓아 보기", "steps": [step],
+                {"heading": "나란히 놓아 보기", "steps": [
+                    "해봅니다." if self.mode == "weak" else
+                    "세었던 블록을 한 줄로 옮겨 다시 세고 처음 개수와 같은지 확인합니다.",
+                ],
                  "question": "어떤 방법이 더 편했고 왜 그렇게 생각하나요?"},
             ],
             "parent_guide_markdown": "아이의 설명을 기다리고 작은 힌트만 건넵니다.",

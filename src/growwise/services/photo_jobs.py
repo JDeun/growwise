@@ -3,12 +3,15 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager, suppress
+from datetime import UTC, datetime
 from pathlib import Path
 from time import sleep
 
 from growwise.domain.models import EntityBase
-from growwise.jobs import Job, SQLiteJobQueue
+from growwise.domain.photo import PhotoActivityRecord, PhotoRecordStatus
+from growwise.jobs import Job, JobStatus, SQLiteJobQueue
 from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
+from growwise.services.child_lock import child_operation_lock
 from growwise.services.photo_activity import PhotoActivityService
 from growwise.storage import EntityStore
 
@@ -89,6 +92,7 @@ class PhotoJobRunner:
                 job_type=PHOTO_ANALYSIS_JOB,
                 max_attempts=self.max_attempts,
             )
+            self._recover_source_statuses()
             self._stop.clear()
             self._thread = threading.Thread(
                 target=self._run,
@@ -96,6 +100,49 @@ class PhotoJobRunner:
                 daemon=True,
             )
             self._thread.start()
+
+    def _recover_source_statuses(self) -> None:
+        """Make interrupted/restored photos actionable instead of leaving an eternal spinner."""
+        store = self.service_factory().store
+        after_id = ""
+        while payloads := store.index.pending_photo_entities(after_id=after_id):
+            after_id = str(payloads[-1]["id"])
+            for payload in payloads:
+                record = PhotoActivityRecord.model_validate(payload)
+                child_id = str(record.child_id)
+                with store.mutation_window(), child_operation_lock(child_id):
+                    latest = store.index.get_entity(str(record.id),
+                                                    entity_type="photo_activity_record")
+                    if latest is None or store.index.get_entity(
+                        child_id, entity_type="child_profile",
+                    ) is None:
+                        continue
+                    record = PhotoActivityRecord.model_validate(latest)
+                    if record.status not in {
+                        PhotoRecordStatus.QUEUED, PhotoRecordStatus.PROCESSING,
+                    }:
+                        continue  # A parent may already have committed/discarded the draft.
+                    job = self.queue.get(record.job_id) if record.job_id is not None else None
+                    valid = (
+                        job is not None and job.job_type == PHOTO_ANALYSIS_JOB
+                        and str(job.payload.get("record_id")) == str(record.id)
+                        and str(job.payload.get("child_id")) == child_id
+                    )
+                    status = PhotoRecordStatus.FAILED
+                    if valid and job is not None:
+                        if job.status is JobStatus.PENDING:
+                            status = PhotoRecordStatus.QUEUED
+                        elif job.status is JobStatus.RUNNING:
+                            status = PhotoRecordStatus.PROCESSING
+                    if record.status is not status:
+                        record.status = status
+                        record.generation_mode = status.value
+                        record.error_message = (
+                            "사진 분석이 중단되었습니다. 저장된 사진으로 다시 시도할 수 있습니다."
+                            if status is PhotoRecordStatus.FAILED else None
+                        )
+                        record.updated_at = datetime.now(UTC)
+                        store.save(record)
 
     def stop(self) -> None:
         self._stop.set()

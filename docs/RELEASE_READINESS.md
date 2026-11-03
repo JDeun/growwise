@@ -23,9 +23,10 @@ Public **stable** distribution has an additional trust boundary enforced by
   runtime thumbprint.
 - `desktop/src-tauri/tauri.release.conf.json` isolates updater artifacts to stable releases.
 - `desktop/scripts/configure_updater.py` converts a backed-up updater public key into the required
-  release config and Rust plugin wiring, and validates it with `cargo check`.
-- Stable preflight validates updater public configuration and requires the private updater signing
-  key when updater artifacts are enabled.
+  release overlay/build feature and validates committed native wiring with `cargo check --locked
+  --features updater`; optional native commands and Settings controls are already present.
+- Stable preflight validates updater public configuration and requires an activated trust root and private updater signing
+  key for every stable tag. Disabled updater configurations cannot pass stable preflight.
 - `desktop/scripts/prepare_release_assets.py` normalizes three-platform artifacts and generates the
   Tauri static `latest.json` only when a complete signed updater set is present.
 - The release workflow publishes installers, updater bundles/signatures, and `latest.json` from the
@@ -90,3 +91,12 @@ its [actual production UI ZIP-saving check](knowledge/experiments/live-core-brow
 Other remaining work is operator-owned evidence: production signing/notarization on a real stable
 release, updater trust-root activation and packaged-client update testing, representative model and
 hardware measurements, and household dogfooding. See `docs/operator-handoff.md` for the exact handoff.
+
+
+## Current release gate (2026-11-03)
+
+The repository remains on `0.1.0-alpha.0`; its updater overlay is intentionally disabled until an
+operator supplies a durable public trust root. Missing signing credentials/updater activation are
+release blockers, not completed operator evidence. No production private key was generated to make
+validation green. See [the dated readiness assessment](release-readiness-20261103.md) for audit
+resolutions, evidence scope and outstanding physical Windows/signed-update verification.

@@ -140,6 +140,41 @@ impl CoreProcessManager {
             .map_err(|error| error.to_string())
     }
 
+    #[cfg(any(feature = "updater", test))]
+    pub fn install_application_update(
+        &self,
+        resource_dir: &Path,
+        install: impl FnOnce() -> Result<(), String>,
+    ) -> Result<(), String> {
+        // The caller has downloaded and verified the package before stopping the only writer.
+        let mut child_slot = self.child.lock().map_err(|error| error.to_string())?;
+        let data_dir = self.data_dir.lock().map_err(|error| error.to_string())?;
+        if let Some(child) = child_slot.as_mut() {
+            if child
+                .try_wait()
+                .map_err(|error| error.to_string())?
+                .is_none()
+            {
+                child.kill().map_err(|error| error.to_string())?;
+            }
+            child.wait().map_err(|error| error.to_string())?;
+        }
+        *child_slot = None;
+        let result = (|| {
+            let _writer_guard = lock_stopped_data_dir(&data_dir)?;
+            install()
+        })();
+        if let Err(error) = result {
+            *child_slot = Some(self.restart_at(resource_dir, &data_dir).map_err(
+                |restart_error| {
+                    format!("{error}; Core 재연결 실패: {restart_error}. 앱을 다시 열어 주세요.")
+                },
+            )?);
+            return Err(error);
+        }
+        Ok(())
+    }
+
     pub fn change_credential(
         &self,
         resource_dir: &Path,
@@ -515,6 +550,33 @@ mod live_smoke {
                 .len(),
             1
         );
+        let stopped_during_install = || {
+            let port = reqwest::Url::parse(manager.base_url())
+                .unwrap()
+                .port()
+                .unwrap();
+            assert!(!authenticated_handshake(port, manager.session_token()));
+            let competing_lock = File::options()
+                .read(true)
+                .write(true)
+                .open(target.join(".core.lock"))
+                .unwrap();
+            assert!(competing_lock.try_lock().is_err());
+        };
+        let failed_install = manager.install_application_update(&root, || {
+            stopped_during_install();
+            Err("synthetic installer failure".to_string())
+        });
+        assert_eq!(failed_install.unwrap_err(), "synthetic installer failure");
+        assert!(manager.started_by_desktop());
+        assert_eq!(request("GET", "/v1/children", None)[0]["id"], id);
+        manager
+            .install_application_update(&root, || {
+                stopped_during_install();
+                Ok(())
+            })
+            .unwrap();
+        assert!(!manager.started_by_desktop());
         drop(manager);
         let resumed = CoreProcessManager::ensure_started(&root, &target).unwrap();
         assert!(resumed.started_by_desktop());

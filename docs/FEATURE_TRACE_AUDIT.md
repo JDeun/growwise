@@ -174,3 +174,17 @@ Current local checks for this lane:66 focused search/growth/context/graph/wiki t
 the Windows cp1252-default/UTF-8 Git history regression. Ruff and mypy passed for the changed source.
 The resolution table records the completed integration without deleting this historical audit
 evidence. Full commit CI/native-platform results remain separate from the scope of a local browser run.
+
+
+## Release hardening follow-up
+
+The release audit subsequently confirmed that plugin registration alone lacked a reachable updater
+check/install flow, and a signed stable tag could pass while updater artifacts were disabled.
+`UpdaterSettings`, native `updater_commands` and the committed optional Cargo feature now implement
+explicit version checking and confirmed verified installation/restart. Stable preflight and asset
+assembly fail closed without activation/signing inputs and all three signed updater bundles.
+The shared confirmation dialog now uses a real fixed portal overlay; busy install prevents new
+background input/navigation, traps focus and restores editable UI on failure. Native signature/
+interruption tests and browser IPC-only confirmation/focus/failure checks cover this code path;
+production-key success and physical Windows updates remain unverified operator evidence.
+See [the dated audit and release assessment](release-readiness-20261103.md).

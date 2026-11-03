@@ -116,6 +116,8 @@ def prepare(input_dir: Path, output_dir: Path, tag: str, repository: str) -> Pat
             "partial updater artifact set; missing signed bundles for: " + ", ".join(missing)
         )
 
+    if not updater_artifacts_present and "-" not in tag.split("+", 1)[0]:
+        raise RuntimeError("stable releases require signed updater bundles for every platform")
     if not updater_artifacts_present:
         _write_checksums(output_dir)
         return None

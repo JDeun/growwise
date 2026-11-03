@@ -9,6 +9,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from material_quality_fixtures import observed_draft_for_request
 
 from growwise.generators import MaterialDraft
 
@@ -30,25 +31,8 @@ class _StubProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        draft = MaterialDraft.model_validate(
-            {
-                "title": "샘플",
-                "content_markdown": (
-                    "## 함께 살펴보기\n"
-                    "1. 주변에서 관심 있는 대상을 하나 고르고 모양과 색을 충분히 관찰해 봅니다.\n"
-                    "2. 비슷한 다른 대상과 나란히 놓아 어떤 점이 같고 다른지 비교해 봅니다.\n"
-                    "## 생각 이어가기\n"
-                    "다른 방법으로 살펴보면 무엇을 더 발견할 수 있을까요? "
-                    "말이나 손짓으로 생각을 나눕니다."
-                ),
-                "source_refs": [],
-            }
-        )
-
-        if "Material kind: english_card" in user:
-            draft.content_markdown += (
-                "\n말할 표현: 'Hello!'와 'Your turn.' 중 골라 역할을 바꾸어 봅니다.\n"
-            )
+        draft = observed_draft_for_request(user)
+        draft.title = "샘플"
         return draft
 
 
@@ -207,6 +191,31 @@ def test_model_benchmark_cli_rejects_invalid_round_counts() -> None:
         bench.main(["--repeats", "0"])
     with pytest.raises(SystemExit, match="2"):
         bench.main(["--warmup-rounds", "-1"])
+    with pytest.raises(SystemExit, match="2"):
+        bench.main(["--age-months", "-1"])
+
+
+def test_model_benchmark_records_actual_infant_age_and_generator_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from growwise.domain import MaterialKind, Stage
+
+    bench = _load("benchmark_model_infant", script_name="benchmark_model")
+    ages = []
+    generate = bench.MaterialGenerationService.generate
+
+    def track_age(self: Any, **kwargs: Any) -> Any:
+        ages.append(kwargs["child"].age_months)
+        return generate(self, **kwargs)
+
+    monkeypatch.setattr(bench.MaterialGenerationService, "generate", track_age)
+    report = bench.run_model_benchmark(
+        None, stage=Stage.INFANT_0_2, age_months=9, kind=MaterialKind.READING_ACTIVITY,
+    )
+    assert report.age_months == 9
+    assert report.stage == "infant_0_2"
+    assert report.rows[0].generator_version
+    assert ages == [9]
 
 
 def test_hardware_benchmark_measures_and_classifies() -> None:

@@ -44,6 +44,7 @@ jobs:
         run: npm run test:live
         env:
           GROWWISE_E2E_ARTIFACTS: ${{ github.workspace }}/desktop/artifacts/live-e2e
+          GROWWISE_E2E_SOAK_SECONDS: "120"
       - name: Upload live journey report and screenshots
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7

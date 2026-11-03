@@ -49,7 +49,7 @@ def test_child_scope_resource_becomes_rag_visible_without_becoming_public(tmp_pa
         ]
     )
     context_service = ChildContextService(entity_index=store.index, rag_index=rag, provider=None)
-    direct_service = GroundedRagService(index=rag, provider=None)
+    direct_service = GroundedRagService(index=rag, entity_index=store.index, provider=None)
 
     before_share = context_service.ask(
         child_id=str(second.id),

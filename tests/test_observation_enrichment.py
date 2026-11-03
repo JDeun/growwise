@@ -4,6 +4,30 @@ from pydantic import BaseModel
 
 from growwise.services import ObservationEnricher, ObservationEnrichment
 
+
+def test_object_photo_cannot_become_unsupported_ability_tags() -> None:
+    class Provider:
+        def generate_structured(self, **_kwargs):
+            return ObservationEnrichment(
+                tags=["색상", "기하학적 모양", "분별력", "높은 집중력", "관찰력"],
+            )
+
+    result = ObservationEnricher(Provider()).enrich(  # type: ignore[arg-type]
+        "흰 배경 위에 빨간 사각형, 파란 원, 노란 삼각형이 놓여 있다.",
+    )
+    assert result.tags == ["색상", "기하학적 모양"]
+
+
+def test_parent_named_activity_topic_is_preserved_without_allowing_diagnosis() -> None:
+    class Provider:
+        def generate_structured(self, **_kwargs):
+            return ObservationEnrichment(tags=["기억력 놀이", "자폐 진단"])
+
+    result = ObservationEnricher(Provider()).enrich(  # type: ignore[arg-type]
+        "부모가 기억력 놀이를 제안했고 아이가 짝을 맞추어 보았다. 자폐 진단 이야기는 하지 않았다.",
+    )
+    assert result.tags == ["기억력 놀이"]
+
 T = TypeVar("T", bound=BaseModel)
 
 

@@ -15,6 +15,7 @@ mod photo_commands;
 mod record_management_commands;
 mod storage_commands;
 mod study_commands;
+mod updater_commands;
 
 use std::fmt;
 use std::fs;
@@ -44,7 +45,8 @@ use link_commands::{get_entity_backlinks, share_entity_with_child};
 use material_result_commands::{list_material_results, record_material_result};
 use model_commands::{list_local_models, remove_local_model, set_local_model};
 use photo_commands::{
-    commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
+    commit_photo_record, create_photo_record, get_photo_asset, get_photo_thumbnail,
+    list_photo_records,
 };
 use record_management_commands::{
     delete_conversation, delete_entity_link, retry_material_enhancement, retry_photo_record,
@@ -59,6 +61,7 @@ use study_commands::{
     update_study_plan_item_status,
 };
 use tauri::Manager;
+use updater_commands::{app_update_status, check_app_update, install_app_update, AppUpdater};
 
 #[derive(Debug)]
 struct CoreConnection {
@@ -801,7 +804,9 @@ async fn get_board_book_recommendations(child_id: String) -> Result<serde_json::
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(AppUpdater::default())
         .setup(|app| {
+            updater_commands::register(app.handle())?;
             let resource_dir = app.path().resource_dir()?;
             let default_data_dir = app.path().app_data_dir()?;
             fs::create_dir_all(&default_data_dir)?;
@@ -822,6 +827,9 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             core_health,
+            app_update_status,
+            check_app_update,
+            install_app_update,
             core_runtime_status,
             prepare_local_ai,
             get_storage_location,
@@ -896,6 +904,7 @@ pub fn run() {
             list_photo_records,
             commit_photo_record,
             get_photo_asset,
+            get_photo_thumbnail,
             discover_education_resources,
             save_discovered_resource,
             share_entity_with_child,

@@ -407,6 +407,11 @@ export interface PhotoDraftResult {
   job?: PhotoJobSummary | null;
 }
 export interface PhotoAssetContent { asset: PhotoAsset; data_base64: string; }
+export interface PhotoThumbnailContent extends PhotoAssetContent {
+  mime_type: "image/jpeg";
+  width: number;
+  height: number;
+}
 export interface PhotoCreateOptions {
   userContext?: string;
   manualObservation?: string;
@@ -633,6 +638,8 @@ export const commitPhotoRecord = (recordId: string, observation?: string) =>
   call<LearningLog>("commit_photo_record", { recordId, observation: observation ?? null });
 export const getPhotoAsset = (childId: string, assetId: string) =>
   call<PhotoAssetContent>("get_photo_asset", { childId, assetId });
+export const getPhotoThumbnail = (childId: string, assetId: string) =>
+  call<PhotoThumbnailContent>("get_photo_thumbnail", { childId, assetId });
 export const shareEntityWithChild = (
   sourceId: string,
   childId: string,

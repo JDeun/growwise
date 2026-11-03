@@ -39,6 +39,7 @@ import { materialCatalogForStage } from "./material-catalog";
 import { StorageSettings } from "./features/StorageSettings";
 import { LocalModelSettings } from "./features/LocalModelSettings";
 import { ApiKeySettings } from "./features/ApiKeySettings";
+import { UpdaterSettings } from "./features/UpdaterSettings";
 import {
   createActivity,
   createChild,
@@ -949,6 +950,7 @@ function App({
             onRefresh={() => refresh()}
           />
           <StorageSettings connected={isConnected} />
+          <UpdaterSettings />
           <ApiKeySettings connected={isConnected} onRefresh={() => refresh()} />
           {connection.kind === "connected" && <LocalModelSettings health={connection.health} onRefresh={() => refresh()} />}
           <DataManagementSection

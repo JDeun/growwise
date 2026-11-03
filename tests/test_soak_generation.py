@@ -9,6 +9,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from material_quality_fixtures import observed_draft_for_request
+
 from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
 from growwise.generators import MaterialDraft, MaterialGenerationService
 
@@ -70,13 +72,9 @@ class _RotatingProvider:
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
         if self.payload is None:
             raise ValueError("model returned unparseable output")
-        draft = MaterialDraft.model_validate(self.payload)
-        if ("Material kind: english_card" in user
-                and self.payload is _CASES[0][0]):
-            draft.content_markdown += (
-                "\n'Hello!'와 'Your turn.' 중 골라 말이나 몸짓으로 반응합니다.\n"
-            )
-        return draft
+        if self.payload is _CASES[0][0]:
+            return observed_draft_for_request(user)
+        return MaterialDraft.model_validate(self.payload)
 
 
 def test_generation_soak_stays_safe_and_stable() -> None:

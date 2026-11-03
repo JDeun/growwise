@@ -86,6 +86,13 @@ jobs:
           --format requirements-txt --output-file /tmp/growwise-runtime.txt
       - name: Python vulnerability audit
         run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-runtime.txt
+      - name: Export exact locked development and build graph
+        run: >-
+          uv export --locked --no-dev --no-emit-project --no-hashes
+          --extra dev --extra hygiene --extra desktop-build
+          --format requirements-txt --output-file /tmp/growwise-tooling.txt
+      - name: Development and build vulnerability audit
+        run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-tooling.txt
       - name: Python license inventory
         run: uv run --locked --extra hygiene pip-licenses --format=json --with-urls > /tmp/growwise-python-licenses.json
       - name: Enforce Python license policy

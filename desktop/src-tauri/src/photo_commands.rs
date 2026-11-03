@@ -146,3 +146,83 @@ pub(crate) async fn get_photo_asset(
         .await
         .map_err(|error| error.to_string())
 }
+
+fn thumbnail_url(base_url: &str, child_id: &str, asset_id: &str) -> Result<reqwest::Url, String> {
+    if [child_id, asset_id]
+        .into_iter()
+        .any(|value| value.is_empty() || value == "." || value == "..")
+    {
+        return Err("사진 미리보기 식별자가 올바르지 않습니다.".to_string());
+    }
+    let mut url =
+        reqwest::Url::parse(base_url).map_err(|_| "Core 주소를 읽지 못했습니다.".to_string())?;
+    url.path_segments_mut()
+        .map_err(|_| "Core 주소를 읽지 못했습니다.".to_string())?
+        .extend([
+            "v1",
+            "children",
+            child_id,
+            "photo-assets",
+            asset_id,
+            "thumbnail",
+        ]);
+    Ok(url)
+}
+
+#[tauri::command]
+pub(crate) async fn get_photo_thumbnail(
+    child_id: String,
+    asset_id: String,
+) -> Result<serde_json::Value, String> {
+    let base_url = core_base_url()?;
+    let mut response = ensure_success(
+        super::client()?
+            .get(thumbnail_url(&base_url, &child_id, &asset_id)?)
+            .send()
+            .await
+            .map_err(|error| error.to_string())?,
+        "사진 미리보기 조회 실패",
+    )
+    .await?;
+    const MAX_RESPONSE_BYTES: usize = 512 * 1024;
+    if response
+        .content_length()
+        .is_some_and(|bytes| bytes > MAX_RESPONSE_BYTES as u64)
+    {
+        return Err("사진 미리보기 응답이 너무 큽니다.".to_string());
+    }
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| error.to_string())? {
+        if chunk.len() > MAX_RESPONSE_BYTES - body.len() {
+            return Err("사진 미리보기 응답이 너무 큽니다.".to_string());
+        }
+        body.extend_from_slice(&chunk);
+    }
+    serde_json::from_slice(&body).map_err(|_| "사진 미리보기 응답을 읽지 못했습니다.".to_string())
+}
+
+#[cfg(test)]
+mod thumbnail_tests {
+    use super::thumbnail_url;
+
+    #[test]
+    fn thumbnail_identifiers_cannot_change_the_core_route() {
+        let url = thumbnail_url("http://127.0.0.1:8830", "child", "photo").unwrap();
+        assert_eq!(
+            url.as_str(),
+            "http://127.0.0.1:8830/v1/children/child/photo-assets/photo/thumbnail"
+        );
+        let forged = thumbnail_url(
+            "http://127.0.0.1:8830",
+            "../other-child",
+            "../original?token=private",
+        )
+        .unwrap();
+        assert_eq!(forged.path_segments().unwrap().count(), 6);
+        assert!(forged.path().contains("..%2Fother-child"));
+        assert!(forged.path().contains("..%2Foriginal%3Ftoken=private"));
+        assert!(forged.query().is_none());
+        assert_eq!(forged.host_str(), Some("127.0.0.1"));
+        assert!(thumbnail_url("http://127.0.0.1:8830", "..", "photo").is_err());
+    }
+}

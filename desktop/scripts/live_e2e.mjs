@@ -11,7 +11,10 @@ import { fileURLToPath } from "node:url";
 import { Cdp, evaluate, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+const desktopVersion = JSON.parse(readFileSync(new URL("../package.json", import.meta.url))).version;
 const scriptSha256 = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex");
+const browserHelperSha256 = createHash("sha256").update(readFileSync(new URL("./browser_e2e.mjs", import.meta.url))).digest("hex");
+const nativeCsp = JSON.parse(readFileSync(join(root,"desktop/src-tauri/tauri.conf.json"),"utf8")).app.security.csp;
 const temporary = mkdtempSync(join(tmpdir(), "growwise-live-e2e-"));
 const dataDir = join(temporary, "data");
 const artifacts = process.env.GROWWISE_E2E_ARTIFACTS ?? join(temporary, "artifacts");
@@ -61,6 +64,8 @@ async function api(path, method = "GET", body) {
 
 const transport = `(() => {
   const request = async (path, method = "GET", body) => {
+    globalThis.__LIVE_INFLIGHT__ = (globalThis.__LIVE_INFLIGHT__ ?? 0) + 1;
+    try {
     const response = await fetch("/__e2e/core" + path, {
       method, headers: {"Content-Type":"application/json"},
       body: body === undefined ? undefined : JSON.stringify(body),
@@ -68,6 +73,7 @@ const transport = `(() => {
     const result = await response.json();
     if (!response.ok) throw new Error(JSON.stringify(result));
     return result;
+    } finally { globalThis.__LIVE_INFLIGHT__ -= 1; }
   };
   globalThis.__TAURI_INTERNALS__ = { invoke: async (command, a = {}) => {
     try {
@@ -98,6 +104,8 @@ const transport = `(() => {
       get_board_book_recommendations: "/v1/children/" + child + "/board-books",
     };
     if (command === "core_runtime_status") return {started_by_desktop:false};
+    // Native release configuration is absent in this browser adapter; Core business data stays live.
+    if (command === "app_update_status") return {configured:false,current_version:${JSON.stringify(desktopVersion)},checked:false,available_version:null,notes:null};
     if (Object.hasOwn(read, command)) {
       const result = await request(read[command]);
       // Delay only delivery of an actual authenticated Core response; never replace its data.
@@ -120,7 +128,10 @@ const transport = `(() => {
     if (command === "update_resource") return request("/v1/resources/"+encodeURIComponent(a.resourceId)+"?acting_child_id="+encodeURIComponent(a.actingChildId), "PUT", a.request);
     if (command === "delete_resource") return request("/v1/resources/"+encodeURIComponent(a.resourceId)+"?acting_child_id="+encodeURIComponent(a.actingChildId), "DELETE");
     if (command === "create_photo_record") return request("/v1/children/"+child+"/photo-records", "POST", {files:a.files,user_context:a.userContext,manual_observation:a.manualObservation,ai_assist:a.aiAssist,shared_child_ids:a.sharedChildIds});
-    if (command === "get_photo_asset") return request("/v1/children/"+child+"/photo-assets/"+encodeURIComponent(a.assetId));
+    if (command === "get_photo_asset" || command === "get_photo_thumbnail") {
+      (globalThis.__LIVE_PHOTO_READS__ ??= []).push({command,childId:a.childId,assetId:a.assetId});
+      return request("/v1/children/"+child+"/photo-assets/"+encodeURIComponent(a.assetId)+(command === "get_photo_thumbnail" ? "/thumbnail" : ""));
+    }
     if (command === "commit_photo_record") return request("/v1/photo-records/"+encodeURIComponent(a.recordId)+"/commit", "POST", {observation:a.observation});
     if (command === "create_observation_background") return request("/v1/observations/background", "POST", a.request);
     if (command === "generate_material_background") return request("/v1/children/"+child+"/materials/background", "POST", {kind:a.kind,topic:a.topic,goal:a.goal,source_refs:a.sourceRefs});
@@ -190,6 +201,72 @@ async function fillLabel(context, text, value) {
 async function navigate(view) {
   await evaluate(cdp, `document.querySelector("#workspace-nav-${view}").click()`);
   await waitForWorkspace(cdp, view);
+}
+
+async function verifyNavigationSoak(childId) {
+  const seconds = Number(process.env.GROWWISE_E2E_SOAK_SECONDS ?? 0);
+  assert(Number.isFinite(seconds) && seconds >= 0 && seconds <= 3600, "invalid soak duration");
+  if (!seconds) return null;
+  const seededRecords = Number(process.env.GROWWISE_E2E_SOAK_RECORDS ?? 1000);
+  assert(Number.isInteger(seededRecords) && seededRecords >= 0 && seededRecords <= 5000, "invalid soak dataset");
+  let nextRecord = 0;
+  await Promise.all(Array.from({length:4}, async () => {
+    while (nextRecord < seededRecords) {
+      const number = nextRecord++;
+      await api(`/v1/children/${childId}/learning-records`, "POST", {
+        kind:"other", title:`장기 사용 합성 기록 ${number}`,
+        summary:"민들레 씨앗의 모양과 움직임을 함께 살펴본 가상 관찰입니다. ".repeat(4),
+        experience_axes:["exploration"],
+        occurred_at:new Date(Date.now() - (number % 365) * 86400000).toISOString(),
+      });
+    }
+  }));
+  const views = ["home", "profile", "learning", "materials", "photos", "conversation", "backup", "help"];
+  await fill(".workspace-child-picker select", childId);
+  const cycle = async () => {
+    for (const view of views) {
+      await navigate(view);
+      await evaluate(cdp, "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+      await waitFor(() => evaluate(cdp, "(globalThis.__LIVE_INFLIGHT__ ?? 0) === 0"), {label:`settled ${view} requests`});
+    }
+    await navigate("home");
+  };
+  // Warm all mounted workspaces and caches before measuring growth.
+  for (let index = 0; index < 3; index += 1) await cycle();
+  await cdp.send("Performance.enable", {});
+  const samples = [];
+  const started = Date.now();
+  let cycles = 0;
+  const sample = async () => {
+    await cdp.send("HeapProfiler.collectGarbage", {});
+    const heap = await cdp.send("Runtime.getHeapUsage", {});
+    const {metrics} = await cdp.send("Performance.getMetrics", {});
+    const rss = spawnSync("ps", ["-o", "rss=", "-p", String(core.pid)], {encoding:"utf8", timeout:2000});
+    const coreRssBytes = rss.status === 0 ? Number(rss.stdout.trim()) * 1024 : null;
+    samples.push({elapsedSeconds:Math.round((Date.now()-started)/1000), cycles,
+      heapUsedBytes:heap.usedSize, coreRssBytes,
+      ...Object.fromEntries(metrics.filter(item=>["Nodes","Documents","JSEventListeners"].includes(item.name)).map(item=>[item.name,item.value]))});
+    writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify({requestedSeconds:seconds, seededRecords, views, samples},null,2));
+  };
+  await sample();
+  while (Date.now() - started < seconds * 1000) {
+    await cycle();
+    cycles += 1;
+    if (Date.now() - started >= samples.at(-1).elapsedSeconds * 1000 + 30_000) {
+      await sample();
+      console.log(`Navigation soak: ${cycles} cycles, ${samples.at(-1).elapsedSeconds}s`);
+    }
+  }
+  await sample();
+  assert(cycles > 0);
+  assert(samples.at(-1).heapUsedBytes < samples[0].heapUsedBytes + 8 * 1024 * 1024,
+    "post-GC browser heap grew beyond the bounded smoke allowance");
+  const rss = samples.filter(item=>item.coreRssBytes !== null);
+  if (rss.length > 1) assert(rss.at(-1).coreRssBytes < rss[0].coreRssBytes + 32 * 1024 * 1024,
+    "Core RSS grew beyond the bounded smoke allowance");
+  assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
+  steps.push(`actual Core/UI navigation soak: ${seededRecords} added records, ${cycles} cycles across ${views.length} workspaces, ${samples.at(-1).elapsedSeconds}s, bounded post-GC heap and Core RSS`);
+  return {requestedSeconds:seconds, seededRecords, views, cycles, samples};
 }
 
 async function capture(name, selector) {
@@ -524,10 +601,22 @@ try {
   await navigate("photos");
   await evaluate(cdp,'(() => { const details=document.querySelector(".photo-create-summary").closest("details"); if(!details.open) details.querySelector("summary").click(); })()');
   const photoFile=join(temporary,"synthetic-activity.png");
-  writeFileSync(photoFile,Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=","base64"));
+  const photoFixture=spawnSync(python,["-c","from PIL import Image; import sys; image=Image.new('RGB',(2048,1536),'#39745d'); image.save(sys.stdout.buffer,format='PNG'); image.close()"],{cwd:root});
+  assert.equal(photoFixture.status,0,"create a real multi-megapixel synthetic PNG fixture");
+  writeFileSync(photoFile,photoFixture.stdout);
   const dom=await cdp.send("DOM.getDocument");
   const fileInput=await cdp.send("DOM.querySelector",{nodeId:dom.root.nodeId,selector:'.photo-workspace input[type="file"]'});
   await cdp.send("DOM.setFileInputFiles",{nodeId:fileInput.nodeId,files:[photoFile]});
+  await waitFor(()=>evaluate(cdp,'[...document.querySelectorAll(".photo-preview-grid img")].some(image=>image.complete && image.naturalWidth > 0)'),{label:"small local selected-photo preview"});
+  const localPreview=await evaluate(cdp,`(async()=>{
+    const image=document.querySelector('.photo-preview-grid img');
+    const blob=await (await fetch(image.src)).blob();
+    return {width:image.naturalWidth,height:image.naturalHeight,type:blob.type,size:blob.size};
+  })()`);
+  assert(localPreview.width<=384 && localPreview.height<=384,"selected photo preview must be resized before display");
+  assert.equal(localPreview.type,"image/jpeg");
+  assert(localPreview.size<=128*1024);
+  await capture("selected-local-photo-preview");
   await fill('.photo-workspace textarea[placeholder^="예: 오늘 둘이"]',"사진을 보며 씨앗 모양을 비교했다.");
   await evaluate(cdp,`[...document.querySelectorAll('.photo-workspace input[type="checkbox"]')].find(input=>input.closest('label').innerText.includes('로컬 AI')).click()`);
   await clickText("사진 일기 저장");
@@ -535,8 +624,20 @@ try {
   await clickText("확인하고 관찰 기록으로 저장");
   await waitFor(async()=> (await api(`/v1/children/${childId}/photo-records`))[0]?.status === "committed",{label:"photo parent confirmation persisted"});
   await waitFor(()=>evaluate(cdp,'[...document.querySelectorAll(".photo-gallery-thumb img")].some(image=>image.complete && image.naturalWidth > 0)'),{label:"real saved photo asset displayed"});
+  const savedPhoto=(await api(`/v1/children/${childId}/photo-records`))[0];
+  const thumbnail=await api(`/v1/children/${childId}/photo-assets/${savedPhoto.photo_asset_ids[0]}/thumbnail`);
+  const thumbnailBytes=Buffer.from(thumbnail.data_base64,"base64");
+  assert.equal(thumbnail.mime_type,"image/jpeg");
+  assert(thumbnail.width <= 384 && thumbnail.height <= 384);
+  assert(thumbnailBytes.length <= 128*1024);
+  assert(!thumbnailBytes.equals(readFileSync(photoFile)),"gallery derivative must not contain the original PNG bytes");
+  const originalAfterThumbnail=await api(`/v1/children/${childId}/photo-assets/${savedPhoto.photo_asset_ids[0]}`);
+  assert.equal(originalAfterThumbnail.data_base64,readFileSync(photoFile).toString("base64"));
+  const browserPhotoReads=await evaluate(cdp,"globalThis.__LIVE_PHOTO_READS__ ?? []");
+  assert(browserPhotoReads.some((read)=>read.command === "get_photo_thumbnail"));
+  assert.equal(browserPhotoReads.filter((read)=>read.command === "get_photo_asset").length,0,"photo UI must use small previews instead of original downloads");
   await capture("manual-photo-record");
-  steps.push("UI actual PNG upload, manual draft, parent confirmation and saved asset rendering pass");
+  steps.push("UI actual PNG upload, parent confirmation and bounded JPEG thumbnails pass; original PNG remains byte-identical and UI never fetches full originals");
 
   await navigate("profile");
   await clickText("아이 추가 · 사진 관리");
@@ -636,10 +737,11 @@ else: raise AssertionError('selected export must not be accepted as a whole-app 
   assert(await evaluate(cdp,'document.querySelector(".material-studio-pane").innerText.includes("활동 전 안전")'));
   await verifyPrimaryPrint(infantMaterial,'infant-');
   steps.push('infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces');
+  const navigationSoak = await verifyNavigationSoak(childId);
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
   assert.deepEqual(errors,[]);
   const buildAssets=await evaluate(cdp,'[...document.querySelectorAll("script[src],link[rel=stylesheet]")].map(element=>element.getAttribute("src")??element.getAttribute("href"))');
-  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and one-pixel PNG; isolated temporary data directory",scriptSha256,buildAssets,steps,artifacts};
+  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",scriptSha256,browserHelperSha256,nativeCsp,buildAssets,steps,artifacts,navigationSoak};
   writeFileSync(join(artifacts,"report.json"),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
 } catch(error) {

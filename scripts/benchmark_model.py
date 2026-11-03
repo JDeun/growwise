@@ -49,6 +49,7 @@ class BenchmarkRow:
     parent_guide_markdown: str
     content_chars: int
     llm_used: bool
+    generator_version: str | None
 
 
 @dataclass(frozen=True)
@@ -58,6 +59,7 @@ class BenchmarkReport:
     repeats: int
     warmup_rounds: int
     stage: str
+    age_months: int | None
     avg_latency_ms: float
     p95_latency_ms: float
     llm_used_ratio: float
@@ -79,10 +81,13 @@ def run_model_benchmark(
     repeats: int = 1,
     warmup_rounds: int = 0,
     kind: MaterialKind | None = None,
+    age_months: int | None = None,
 ) -> BenchmarkReport:
     measured_repeats = max(1, repeats)
     warmups = max(0, warmup_rounds)
-    child = ChildProfile(nickname="샘플아이", stage=stage, age_months=None, interests=["동물"])
+    child = ChildProfile(
+        nickname="샘플아이", stage=stage, age_months=age_months, interests=["동물"],
+    )
     service = MaterialGenerationService(provider=provider)
     prompts = tuple(item for item in _PROMPTS if kind is None or item[0] is kind)
     if not prompts:
@@ -110,6 +115,7 @@ def run_model_benchmark(
                     parent_guide_markdown=material.parent_guide_markdown,
                     content_chars=len(material.content_markdown),
                     llm_used=material.generator_mode == "llm_enhanced",
+                    generator_version=material.generator_version,
                 )
             )
 
@@ -122,6 +128,7 @@ def run_model_benchmark(
         repeats=measured_repeats,
         warmup_rounds=warmups,
         stage=stage.value,
+        age_months=age_months,
         avg_latency_ms=round(sum(latencies) / len(latencies), 3),
         p95_latency_ms=round(_percentile(latencies, 95), 3),
         llm_used_ratio=round(llm_used / len(rows), 3),
@@ -155,6 +162,10 @@ def _parser() -> argparse.ArgumentParser:
         help="Run one material kind instead of the complete six-kind benchmark",
     )
     parser.add_argument(
+        "--age-months", type=int, default=None,
+        help="Actual synthetic child age in months, for example 9 with --stage infant_0_2",
+    )
+    parser.add_argument(
         "--stage",
         choices=tuple(stage.value for stage in Stage),
         default=Stage.ELEMENTARY.value,
@@ -170,6 +181,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("--repeats must be at least 1")
     if args.warmup_rounds < 0:
         parser.error("--warmup-rounds must be at least 0")
+    if args.age_months is not None and not 0 <= args.age_months <= 240:
+        parser.error("--age-months must be between 0 and 240")
 
     settings = Settings()
     provider = _provider_from_settings(settings)
@@ -179,6 +192,7 @@ def main(argv: Sequence[str] | None = None) -> int:
         repeats=args.repeats,
         warmup_rounds=args.warmup_rounds,
         kind=MaterialKind(args.kind) if args.kind else None,
+        age_months=args.age_months,
     )
     ollama = provider is not None and settings.model_provider.casefold() == "ollama"
     payload = {

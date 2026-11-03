@@ -5,6 +5,8 @@ from dataclasses import dataclass
 
 from growwise.domain import MaterialKind, Stage
 
+from .pedagogy import instruction_issues
+
 _HEADING_RE = re.compile(r"(?m)^#{1,6}\s+(.+)$")
 _STEP_RE = re.compile(r"(?m)^\s*\d+[.)]\s+(.+)$")
 _PLACEHOLDER_RE = re.compile(
@@ -64,11 +66,11 @@ class MaterialQualityGate:
         stage: Stage,
         content_markdown: str,
         parent_guide_markdown: str = "",
+        grounding_context: str = "",
     ) -> MaterialQualityResult:
         text = content_markdown.strip()
         generated_text = f"{content_markdown}\n{parent_guide_markdown}"
         issues: list[str] = []
-        del stage
         substantive = re.sub(r"(?m)^#{1,6}\s+.*$", "", text).strip()
         if len(substantive) < 80:
             issues.append("candidate_core_too_short")
@@ -88,6 +90,8 @@ class MaterialQualityGate:
         folded = generated_text.casefold()
         if any(marker in folded for marker in _CANDIDATE_INTERNAL_MARKERS):
             issues.append("candidate_core_exposes_internal_metadata")
+        issues.extend(instruction_issues(kind, stage, text, parent_guide_markdown,
+                                          grounding_context))
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
 
     def assess_published(

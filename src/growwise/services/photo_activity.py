@@ -253,7 +253,10 @@ class PhotoAssetStore:
         root = self.assets_root.resolve()
         if path != root and root not in path.parents:
             raise PhotoValidationError("unsafe_photo_path")
-        data = path.read_bytes()
+        with path.open("rb") as handle:
+            data = handle.read(self.max_file_bytes + 1)
+        if len(data) > self.max_file_bytes:
+            raise PhotoValidationError("image_too_large")
         if hashlib.sha256(data).hexdigest() != asset.sha256:
             raise PhotoValidationError("photo_integrity_mismatch")
         return data

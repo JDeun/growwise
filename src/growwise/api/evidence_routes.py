@@ -15,7 +15,7 @@ from growwise.rag import HybridRagIndex
 from growwise.services.context import _ENTITY_TEXT_FIELDS, _entity_text
 from growwise.services.entity_lock import entity_operation_lock
 from growwise.services.record_time import record_time
-from growwise.services.visibility import entity_visible_to_child
+from growwise.source_snapshot import current_source_payloads
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/v1", tags=["conversation-evidence"])
@@ -96,13 +96,12 @@ def resolve_conversation_evidence(
     # Scope narrowing and child sharing use the same per-source lock. Never display a cached chunk
     # body: an old global chunk must not expose a source that is now private or has been edited.
     with store.mutation_window(), entity_operation_lock(entity_id):
-        payload = store.index.get_entity(str(entity_id))
+        payload = current_source_payloads(
+            store.index, entity_ids=[str(entity_id)], child_id=str(child_id),
+        ).get(str(entity_id))
         if (
             payload is None or payload.get("entity_type") not in _ORIGINAL_TYPES
             or payload.get("derived") is True
-            or not entity_visible_to_child(
-                store.index, entity_id=str(entity_id), child_id=str(child_id),
-            )
             or (payload.get("entity_type") == "photo_activity_record"
                 and payload.get("status") != "committed")
         ):

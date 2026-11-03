@@ -93,7 +93,7 @@ _MAX_PARENT_GUIDE_CHARS = 12_000
 _MAX_SOURCE_EVIDENCE_CHARS = 12_000
 _MAX_SOURCE_EVIDENCE_ITEMS = 8
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")  # allow \t (\x09) and \n (\x0a)
-MATERIAL_GENERATOR_VERSION = "growwise.material.v2"
+MATERIAL_GENERATOR_VERSION = "growwise.material.v4"
 
 
 def _malformed_draft(draft: MaterialDraft) -> bool:
@@ -128,6 +128,11 @@ class MaterialGenerationService:
 않게 합니다. 활동은 실제 수행 순서대로 쓰고 예상과 검증을 구분하며, 준비물·수량·단계 사이의
 연결을 확인합니다. 아이가 표현과 수정 방법을 선택하게 하고 부모가 글이나 답을 대신 완성하지
 않습니다. 학습 목적상 필요한 외국어 표현 외에는 본문과 교안 모두 자연스러운 한국어로 씁니다.
+예측은 변화나 실험 결과를 관찰하기 전에 남기고, 결과 뒤에는 처음 예측과 비교합니다.
+탐방은 방문 전 질문·예상, 현장 관찰, 돌아온 뒤 확인을 시간 순서대로 분리합니다.
+책의 실제 본문이 없으면 특정 표정·사건을 가정하지 말고 아이가 고른 장면에서 단서를 찾게 합니다.
+반려동물이나 특정 가족 구성원이 있다는 전제를 두지 않습니다. 부모는 아이의 글을 직접 고치거나
+답을 완성하지 않으며, 사고를 대신하지 않는 질문·힌트·구체적 피드백은 필요할 때 제공합니다.
 
 sections는 실제 실행할 학습자 활동 본문입니다. 서로 다른 의미 있는 소제목 heading을 두 개 이상
 만들고, 각 소제목의 steps에는 관찰·조작·기록·비교할 구체적 행동을 적습니다. 각 question은
@@ -239,6 +244,11 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
                         + (
                             "\n영어 카드는 주제에 맞게 바로 말해 볼 실제 영어 표현 2~3개와 "
                             "짧은 역할 대화 예시를 steps 안에 포함합니다. "
+                            "영어 표현의 한국어 뜻은 실제 의미와 일치하게 적고, "
+                            "질문 표현에는 상황에 맞는 짧은 응답까지 짝지어 보여 줍니다. "
+                            "기초 표현의 완결된 예시 대화는 유익한 언어 비계이며 정답 대납이 "
+                            "아닙니다. 모르는 문장을 혼자 완성하도록 하지 않고, 예시에서 "
+                            "단어·역할·상황을 선택하거나 바꾸게 합니다. "
                             "한국어 활동 지시만 쓰지 않습니다. 예시를 먼저 제공한 뒤 "
                             "학습자가 단어나 역할을 선택·변형하게 하고 처음부터 문장을 "
                             "혼자 만들거나 정해진 답을 외우도록 요구하지 않습니다."
@@ -274,7 +284,7 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
                 scaffold = self.scaffold_guard.check(
                     kind=kind,
                     title=candidate.title,
-                    content=candidate.content_markdown,
+                    content=f"{candidate.content_markdown}\n{candidate.parent_guide_markdown}",
                 )
                 infant_hazard = effective_stage is Stage.INFANT_0_2 and unsafe_infant_directions(
                     f"{candidate.content_markdown}\n{candidate.parent_guide_markdown}"
@@ -291,6 +301,9 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
                         stage=generation_child.stage,
                         content_markdown=candidate.content_markdown,
                         parent_guide_markdown=candidate.parent_guide_markdown,
+                        grounding_context="\n".join([
+                            topic, goal or "", *(item.excerpt for item in evidence),
+                        ]),
                     )
                     if not core_quality.ready:
                         draft = fallback

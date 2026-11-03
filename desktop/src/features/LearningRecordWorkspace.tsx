@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveChild } from "../active-child-context";
 import {
@@ -15,6 +15,7 @@ import {
 import { AXIS_OPTIONS, stageLabel } from "../presentation";
 import "./LearningRecordWorkspace.css";
 import { StudyTrackingPanel } from "./StudyTrackingPanel";
+import { startSerialPolling } from "../serial-polling";
 
 const AI_POLL_INTERVAL_MS = 1500;
 
@@ -97,6 +98,7 @@ function ChildLearningRecords({
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const pollInFlight = useRef(false);
 
   const siblings = useMemo(
     () => children.filter((child) => child.id !== childId),
@@ -146,21 +148,15 @@ function ChildLearningRecords({
   }, [active, childId, loadRecords]);
 
   useEffect(() => {
-    if (!active || !childId || !hasPendingAi) return;
-    let cancelled = false;
-    const poll = () => {
-      void listLearningRecords(childId)
-        .then((nextRecords) => {
-          if (!cancelled) setRecords(nextRecords);
-        })
-        .catch(() => undefined);
-    };
-    const timer = window.setInterval(poll, AI_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [active, childId, hasPendingAi]);
+    if (!active || !childId || !hasPendingAi || busy || loading) return;
+    return startSerialPolling({
+      intervalMs: AI_POLL_INTERVAL_MS, inFlight: pollInFlight,
+      poll: async (isCurrent) => {
+        const nextRecords = await listLearningRecords(childId);
+        if (isCurrent()) setRecords(nextRecords);
+      },
+    });
+  }, [active, childId, hasPendingAi, busy, loading]);
 
   function toggleAxis(axis: ExperienceAxis) {
     setAxes((current) =>

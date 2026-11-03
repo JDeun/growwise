@@ -4,7 +4,6 @@ import { useActiveChild } from "../active-child-context";
 import {
   commitPhotoRecord,
   createPhotoRecord,
-  getPhotoAsset,
   listPhotoRecords,
   type PhotoActivityRecord,
   type PhotoAsset,
@@ -12,6 +11,10 @@ import {
   type PhotoUploadInput,
 } from "../api";
 import "./PhotoActivityWorkspace.css";
+import { PhotoThumbnail } from "../components/PhotoThumbnail";
+import { createPhotoThumbnailLoader, type PhotoThumbnailLoader } from "../photo-thumbnails";
+import { startSerialPolling } from "../serial-polling";
+import { startLocalPhotoPreviews } from "../local-photo-previews";
 import { retryPhotoRecord } from "../record-actions-api";
 
 const MAX_FILES = 8;
@@ -79,6 +82,20 @@ export function filterPhotoRecords(
 type Props = { active: boolean };
 
 export function PhotoActivityWorkspace({ active }: Props) {
+  const { activeChildId } = useActiveChild();
+  const currentChildId = useRef(activeChildId);
+  currentChildId.current = activeChildId;
+  const [thumbnailLoader] = useState(createPhotoThumbnailLoader);
+  const pollInFlight = useRef(false);
+  return <ChildPhotoWorkspace key={activeChildId} active={active} currentChildId={currentChildId}
+    thumbnailLoader={thumbnailLoader} pollInFlight={pollInFlight} />;
+}
+
+function ChildPhotoWorkspace({ active, currentChildId, thumbnailLoader, pollInFlight }: Props & {
+  currentChildId: { current: string };
+  thumbnailLoader: PhotoThumbnailLoader;
+  pollInFlight: { current: boolean };
+}) {
   const {
     children,
     activeChildId: childId,
@@ -86,15 +103,11 @@ export function PhotoActivityWorkspace({ active }: Props) {
     syncRememberedChild,
   } = useActiveChild();
   const recordsRequestId = useRef(0);
-  const currentChildId = useRef(childId);
-  currentChildId.current = childId;
   const [sharedChildIds, setSharedChildIds] = useState<string[]>([]);
   const [records, setRecords] = useState<PhotoActivityRecord[]>([]);
   const [files, setFiles] = useState<File[]>([]);
-  const [previews, setPreviews] = useState<string[]>([]);
+  const [previews, setPreviews] = useState<Array<string | null>>([]);
   const [storedPreviews, setStoredPreviews] = useState<string[]>([]);
-  const [recordPreviews, setRecordPreviews] = useState<Record<string, string>>({});
-  const recordPreviewLoaded = useRef(new Set<string>());
   const [context, setContext] = useState("");
   const [manualObservation, setManualObservation] = useState("");
   const [aiAssist, setAiAssist] = useState(true);
@@ -107,6 +120,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
   const [notice, setNotice] = useState<string | null>(null);
   const [photoFilter, setPhotoFilter] = useState<PhotoFilter>("all");
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const hasBackgroundWork = records.some(isBackgroundRecord);
 
   const refreshRecords = useCallback(async (targetChildId: string) => {
     const requestId = ++recordsRequestId.current;
@@ -131,13 +145,10 @@ export function PhotoActivityWorkspace({ active }: Props) {
   }, [active, syncRememberedChild]);
 
   useEffect(() => {
-    if (!active) return;
     setSharedChildIds([]);
     setRecords([]);
     setFiles([]);
     setStoredPreviews([]);
-    setRecordPreviews({});
-    recordPreviewLoaded.current.clear();
     setContext("");
     setManualObservation("");
     setDraft(null);
@@ -149,58 +160,26 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setPhotoFilter("all");
     setSelectedRecordId(null);
     setBusy(false);
-    void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
+    if (active) void refreshRecords(childId).catch((loadError) => setError(messageFrom(loadError)));
   }, [active, childId, refreshRecords]);
 
   useEffect(() => {
-    const urls = files.map((file) => URL.createObjectURL(file));
-    setPreviews(urls);
-    return () => urls.forEach((url) => URL.revokeObjectURL(url));
+    setPreviews(files.map(() => null));
+    return startLocalPhotoPreviews(files, (index, url) => {
+      setPreviews((current) => current.map((value, position) => position === index ? url : value));
+    });
   }, [files]);
 
-  useEffect(() => {
-    if (!active || records.length === 0) return;
-    let cancelled = false;
-    const candidates = records
-      .filter((record) => record.photo_asset_ids.length > 0 && !recordPreviewLoaded.current.has(record.id))
-      .slice(0, 24);
-
-    candidates.forEach((record) => recordPreviewLoaded.current.add(record.id));
-    if (candidates.length === 0) return;
-
-    void Promise.all(
-      candidates.map(async (record) => {
-        try {
-          const content = await getPhotoAsset(record.child_id, record.photo_asset_ids[0]);
-          return [record.id, `data:${content.asset.mime_type};base64,${content.data_base64}`] as const;
-        } catch {
-          return [record.id, null] as const;
-        }
-      }),
-    ).then((entries) => {
-      if (cancelled) return;
-      setRecordPreviews((current) => {
-        const next = { ...current };
-        entries.forEach(([recordId, preview]) => {
-          if (preview) next[recordId] = preview;
-        });
-        return next;
-      });
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [active, records]);
+  useEffect(() => () => thumbnailLoader.clear(), [active, thumbnailLoader]);
 
   useEffect(() => {
-    if (!active || !childId || !records.some(isBackgroundRecord)) return;
-    let cancelled = false;
-
-    const check = async () => {
-      try {
+    if (!active || !childId || !hasBackgroundWork || busy) return;
+    return startSerialPolling({
+      intervalMs: POLL_INTERVAL_MS, inFlight: pollInFlight,
+      isCurrent: () => currentChildId.current === childId,
+      poll: async (isCurrent) => {
         const nextRecords = await refreshRecords(childId);
-        if (cancelled) return;
+        if (!isCurrent()) return;
         if (!pendingRecordId) return;
         const pending = nextRecords.find((record) => record.id === pendingRecordId);
         if (!pending) return;
@@ -219,17 +198,10 @@ export function PhotoActivityWorkspace({ active }: Props) {
             "사진 기록의 로컬 처리도 완료하지 못했습니다. 원본 사진은 보관되어 있으므로 다시 열어 확인할 수 있습니다.",
           );
         }
-      } catch (pollError) {
-        if (!cancelled) setError(messageFrom(pollError));
-      }
-    };
-
-    const timer = window.setInterval(() => void check(), POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [active, childId, pendingRecordId, records, refreshRecords]);
+      },
+      onError: (error) => setError(messageFrom(error)),
+    });
+  }, [active, childId, pendingRecordId, hasBackgroundWork, busy, refreshRecords, currentChildId, pollInFlight]);
 
   function handleChildChange(event: ChangeEvent<HTMLSelectElement>) {
     selectChild(event.target.value);
@@ -359,15 +331,13 @@ export function PhotoActivityWorkspace({ active }: Props) {
     setNotice(null);
     try {
       const contents = await Promise.all(
-        record.photo_asset_ids.map((assetId) => getPhotoAsset(record.child_id, assetId)),
+        record.photo_asset_ids.map((assetId) => thumbnailLoader.load(record.child_id, assetId)),
       );
       if (currentChildId.current !== childId) return;
       setDraft(record);
       setDraftAssets(contents.map((content) => content.asset));
       setStoredPreviews(
-        contents.map(
-          (content) => `data:${content.asset.mime_type};base64,${content.data_base64}`,
-        ),
+        contents.map((content) => content.url),
       );
       setEditedObservation(record.generated_observation);
       setFiles([]);
@@ -401,8 +371,7 @@ export function PhotoActivityWorkspace({ active }: Props) {
 
   if (!active) return null;
 
-  const visiblePreviews = previews.length > 0 ? previews : storedPreviews;
-  const hasBackgroundWork = records.some(isBackgroundRecord);
+  const visiblePreviews = files.length > 0 ? files.map((_, index) => previews[index] ?? null) : storedPreviews;
   const shareCandidates = children.filter((child) => child.id !== childId);
   const visibleRecords = filterPhotoRecords(records, photoFilter);
   const selectedRecord =
@@ -449,13 +418,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
             {visibleRecords.map((record) => (
               <article className={`photo-gallery-card${selectedRecordId === record.id ? " is-selected" : ""}`} key={record.id}>
                 <div className="photo-gallery-thumb">
-                  {recordPreviews[record.id] ? (
-                    <img src={recordPreviews[record.id]} alt="" />
-                  ) : (
-                    <span aria-hidden="true">
-                      <svg viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="9" cy="10" r="2"/><path d="m21 15-4.5-4.5L8 19"/></svg>
-                    </span>
-                  )}
+                  {record.photo_asset_ids[0] && <PhotoThumbnail childId={record.child_id}
+                    assetId={record.photo_asset_ids[0]} loader={thumbnailLoader} />}
                   <span className={`status-badge status-${record.status}`}>
                     {STATUS_LABEL[record.status]}
                   </span>
@@ -507,11 +471,8 @@ export function PhotoActivityWorkspace({ active }: Props) {
                   <button type="button" onClick={() => setSelectedRecordId(null)} aria-label="사진 기록 상세 닫기">×</button>
                 </div>
                 <div className="photo-record-detail-media">
-                  {recordPreviews[selectedRecord.id] ? (
-                    <img src={recordPreviews[selectedRecord.id]} alt="" />
-                  ) : (
-                    <span aria-hidden="true">사진 {selectedRecord.photo_asset_ids.length}장</span>
-                  )}
+                  {selectedRecord.photo_asset_ids[0] && <PhotoThumbnail childId={selectedRecord.child_id}
+                    assetId={selectedRecord.photo_asset_ids[0]} loader={thumbnailLoader} />}
                 </div>
                 <dl className="photo-record-detail-meta">
                   <div>
@@ -642,8 +603,9 @@ export function PhotoActivityWorkspace({ active }: Props) {
         {visiblePreviews.length > 0 && (
           <div className="photo-preview-grid" aria-label="활동 사진 미리보기">
             {visiblePreviews.map((url, index) => (
-              <figure key={`${index}-${url.slice(0, 40)}`}>
-                <img src={url} alt={`활동 사진 ${index + 1}`} />
+              <figure key={index}>
+                {url ? <img src={url} alt={`활동 사진 ${index + 1}`} loading="lazy" decoding="async" />
+                  : <span className="photo-preview-placeholder">사진 선택 완료</span>}
                 <figcaption>
                   {files[index]?.name ?? draftAssets[index]?.original_filename ?? `사진 ${index + 1}`}
                 </figcaption>

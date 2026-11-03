@@ -431,6 +431,7 @@ def ask_resources(
         raise HTTPException(status_code=404, detail="child_not_found")
     service = GroundedRagService(
         index=get_rag_index(),
+        entity_index=store.index,
         provider=get_model_provider(),
     )
     return service.ask(

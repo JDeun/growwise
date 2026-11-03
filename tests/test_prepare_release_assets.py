@@ -105,3 +105,13 @@ def test_prepare_includes_extra_sbom_artifact_in_release_checksums(tmp_path: Pat
     assert (output / "sbom.spdx.json").is_file()
     checksums = (output / "SHA256SUMS").read_text(encoding="utf-8")
     assert "  sbom.spdx.json" in checksums
+
+
+@pytest.mark.parametrize("tag", ["v1.0.0", "v1.0.0+windows-x64"])
+def test_stable_release_rejects_entirely_unsigned_updater_set(tmp_path, tag):
+    source = tmp_path / "dist"
+    _write(source / "growwise-windows-x64" / "GrowWise.exe")
+    _write(source / "growwise-macos-arm64" / "GrowWise-arm64.dmg")
+    _write(source / "growwise-macos-x64" / "GrowWise-x64.dmg")
+    with pytest.raises(RuntimeError, match="stable releases require signed updater"):
+        MODULE.prepare(source, tmp_path / "release", tag, "JDeun/growwise")

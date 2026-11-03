@@ -1,0 +1,103 @@
+name: Native Windows E2E
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - ".github/workflows/native-e2e.yml"
+      - "desktop/**"
+      - "src/**"
+      - "pyproject.toml"
+      - "uv.lock"
+      - "rust-toolchain.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  actual-windows-webview:
+    runs-on: windows-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: pwsh
+    env:
+      CARGO_BUILD_JOBS: "2"
+      TAURI_DRIVER_VERSION: "2.1.0"
+      MSEDGEDRIVER_TELEMETRY_OPTOUT: "1"
+      GROWWISE_LLM_FEATURES_ENABLED: "false"
+      GROWWISE_EMBEDDING_FEATURES_ENABLED: "false"
+      GROWWISE_VISION_FEATURES_ENABLED: "false"
+      GROWWISE_PUBLIC_ENRICHMENT_ENABLED: "false"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Install pinned Rust and WebDriver
+        timeout-minutes: 10
+        run: |
+          rustup toolchain install 1.98.1 --profile minimal
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          rustup default 1.98.1
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          cargo install tauri-driver --version $env:TAURI_DRIVER_VERSION --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Install matching signed Microsoft WebView2 driver
+        run: ./desktop/scripts/install_edge_webdriver.ps1 -Destination "$env:RUNNER_TEMP/growwise-edge-driver"
+      - name: Install locked runtime and frontend
+        run: |
+          python -m pip install "uv==0.12.13"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          uv sync --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm install --global npm@11.6.2
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm ci --prefix desktop --no-audit --no-fund
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Build actual app with isolated E2E identifier
+        working-directory: desktop
+        timeout-minutes: 15
+        run: |
+          npm run tauri -- icon ../assets/brand/growwise-symbol.svg
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          npm run tauri -- build --debug --no-bundle --config src-tauri/tauri.e2e.conf.json -- --locked
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Exercise real WebView Rust IPC and authenticated Core
+        timeout-minutes: 5
+        run: |
+          $env:GROWWISE_PYTHON = Join-Path $env:GITHUB_WORKSPACE '.venv/Scripts/python.exe'
+          & $env:GROWWISE_PYTHON desktop/scripts/native_e2e.py --app desktop/src-tauri/target/debug/growwise-desktop.exe --native-driver $env:GROWWISE_EDGE_WEBDRIVER --artifacts desktop/artifacts/native-e2e
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - name: Ensure owned driver and sidecars are stopped
+        if: always()
+        run: |
+          $pidFile = 'desktop/artifacts/native-e2e/driver-pid.json'
+          if (Test-Path -LiteralPath $pidFile) {
+            $owned = Get-Content -Raw -LiteralPath $pidFile | ConvertFrom-Json
+            $process = Get-CimInstance Win32_Process -Filter "ProcessId=$($owned.pid)" -ErrorAction SilentlyContinue
+            if ($process -and $process.ExecutablePath -eq $owned.executable) {
+              taskkill /PID $owned.pid /T /F
+            }
+          }
+      - name: Upload native journey evidence and driver provenance
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: growwise-native-windows-e2e
+          path: |
+            desktop/artifacts/native-e2e
+            ${{ runner.temp }}/growwise-edge-driver/driver-provenance.json
+          if-no-files-found: warn
+          retention-days: 7

@@ -8,7 +8,7 @@ development and build tools.
 Regenerate in a clean runtime environment with `uv sync --locked` followed by
 `uv run --no-sync python scripts/generate_notice.py`.
 
-Total packages: 56
+Total packages: 57
 
 | Package | Version | License | Homepage |
 | --- | --- | --- | --- |
@@ -44,6 +44,7 @@ Total packages: 56
 | orjson | 3.12.0 | MPL-2.0 AND (Apache-2.0 OR MIT) | <https://github.com/ijl/orjson> |
 | ormsgpack | 1.12.2 | Apache-2.0 OR MIT | <https://github.com/ormsgpack/ormsgpack> |
 | packaging | 26.3 | Apache-2.0 OR BSD-2-Clause | <https://github.com/pypa/packaging> |
+| pillow | 13.0.0 | MIT-CMU | <https://python-pillow.org> |
 | pydantic | 2.13.5 | MIT | <https://github.com/pydantic/pydantic> |
 | pydantic-settings | 2.15.0 | MIT | <https://github.com/pydantic/pydantic-settings> |
 | pydantic_core | 2.46.5 | MIT | <https://github.com/pydantic/pydantic> |

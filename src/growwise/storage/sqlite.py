@@ -10,7 +10,7 @@ import frontmatter
 
 from growwise.domain.models import EntityBase
 
-from .markdown import _decode_metadata
+from .markdown import MarkdownRepository, _decode_metadata
 from .schema import UnsupportedSchemaVersion, validate_schema_version
 
 _REQUIRED_RECORD_KEYS = ("id", "entity_type", "created_at", "updated_at")
@@ -21,6 +21,11 @@ _PENDING_AI_WHERE = (
     "entity_type IN ('learning_log', 'generated_material') AND "
     "CASE WHEN json_valid(payload_json) THEN json_extract(payload_json, '$.ai_status') END "
     "IN ('queued', 'running')"
+)
+_PENDING_PHOTO_WHERE = (
+    "entity_type = 'photo_activity_record' AND "
+    "CASE WHEN json_valid(payload_json) THEN json_extract(payload_json, '$.status') END "
+    "IN ('queued', 'processing')"
 )
 
 
@@ -42,6 +47,37 @@ class SQLiteProjection:
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA busy_timeout=5000")  # ride out transient contention
         return connection
+
+    def get_current_entity(self, entity_id: str, *, entity_type: str | None = None) -> dict | None:
+        """Resolve an index pointer against its current Markdown source, failing closed.
+
+        Close the SQLite read before taking the Markdown path lock: writers take that path lock
+        before updating SQLite. A projection payload is never authoritative evidence here.
+        """
+        with self._connection() as connection:
+            row = connection.execute(
+                "SELECT entity_type, source_path FROM entities WHERE id = ?", (entity_id,),
+            ).fetchone()
+        if row is None or (entity_type is not None and row["entity_type"] != entity_type):
+            return None
+        path = Path(row["source_path"])
+        with MarkdownRepository.lock_for(path):
+            try:
+                if (path.is_symlink() or not path.is_file()
+                        or path.stat().st_size > 64 * 1024 * 1024):
+                    return None
+                post = frontmatter.loads(path.read_text(encoding="utf-8"))
+                payload = _decode_metadata(dict(post.metadata))
+                validate_schema_version(payload)
+                if (not all(payload.get(key) for key in _REQUIRED_RECORD_KEYS)
+                        or str(payload["id"]) != entity_id
+                        or payload["entity_type"] != row["entity_type"]
+                        or path.stem != entity_id or path.parent.name != row["entity_type"]):
+                    return None
+                return payload
+            except Exception:
+                # A malformed/unreadable source must never fall back to the old cached payload.
+                return None
 
     @contextmanager
     def _connection(self) -> Iterator[sqlite3.Connection]:
@@ -98,6 +134,10 @@ class SQLiteProjection:
             connection.execute(
                 f"CREATE INDEX IF NOT EXISTS idx_entities_pending_ai ON entities(id) "
                 f"WHERE {_PENDING_AI_WHERE}"
+            )
+            connection.execute(
+                f"CREATE INDEX IF NOT EXISTS idx_entities_pending_photo ON entities(id) "
+                f"WHERE {_PENDING_PHOTO_WHERE}"
             )
             connection.execute(
                 """
@@ -333,6 +373,21 @@ class SQLiteProjection:
                 if (payload := self._decode_projection_row(connection, row)) is not None
             ]
 
+    def pending_photo_entities(self, *, after_id: str = "") -> list[dict]:
+        """Page unfinished photos only, including records whose disposable job was restored away."""
+        with self._connection() as connection:
+            rows = connection.execute(
+                "SELECT id, payload_json, source_path FROM entities INDEXED BY "
+                f"idx_entities_pending_photo WHERE {_PENDING_PHOTO_WHERE} "
+                "AND id > ? ORDER BY id LIMIT 100",
+                (after_id,),
+            ).fetchall()
+            return [
+                payload
+                for row in rows
+                if (payload := self._decode_projection_row(connection, row)) is not None
+            ]
+
     def list_entities(
         self,
         *,
@@ -341,25 +396,30 @@ class SQLiteProjection:
         limit: int | None = None,
         include_global: bool = False,
     ) -> list[dict]:
+        if limit is not None and limit <= 0:
+            return []
         clauses: list[str] = []
         params: list[str | int] = []
         if entity_type is not None:
             clauses.append("entity_type = ?")
             params.append(entity_type)
         if child_id is not None:
-            clauses.append(
-                "(child_id = ? OR child_id IS NULL)" if include_global else "child_id = ?"
-            )
+            scope = "child_id = ?"
             params.append(child_id)
-
-        augment_child_scope = (
-            child_id is not None and entity_type is not None and entity_type != "entity_link"
-        )
+            if include_global:
+                scope += " OR child_id IS NULL"
+            if entity_type is not None and entity_type != "entity_link":
+                scope += (
+                    " OR id IN (SELECT source_id FROM entity_links_index "
+                    "WHERE target_id = ? AND relation = 'child_scope')"
+                )
+                params.append(child_id)
+            clauses.append(f"({scope})")
         sql = "SELECT id, payload_json, source_path FROM entities"
         if clauses:
             sql += " WHERE " + " AND ".join(clauses)
         sql += " ORDER BY updated_at DESC"
-        if limit is not None and not augment_child_scope:
+        if limit is not None:
             sql += " LIMIT ?"
             params.append(limit)
 
@@ -370,31 +430,6 @@ class SQLiteProjection:
                 for row in rows
                 if (payload := self._decode_projection_row(connection, row)) is not None
             ]
-            if augment_child_scope:
-                assert child_id is not None
-                assert entity_type is not None
-                linked_ids = sorted(self._child_scope_source_ids(connection, child_id=child_id))
-                if linked_ids:
-                    by_id = {str(payload["id"]): payload for payload in payloads}
-                    for id_chunk in self._chunks(linked_ids):
-                        placeholders = ",".join("?" for _ in id_chunk)
-                        linked_rows = connection.execute(
-                            "SELECT id, payload_json, source_path FROM entities "
-                            "WHERE entity_type = ? "
-                            f"AND id IN ({placeholders})",
-                            [entity_type, *id_chunk],
-                        ).fetchall()
-                        for row in linked_rows:
-                            payload = self._decode_projection_row(connection, row)
-                            if payload is not None:
-                                by_id.setdefault(str(payload["id"]), payload)
-                    payloads = sorted(
-                        by_id.values(),
-                        key=lambda payload: str(payload.get("updated_at") or ""),
-                        reverse=True,
-                    )
-            if limit is not None:
-                payloads = payloads[:limit]
         return payloads
 
     def search_entities(

@@ -36,6 +36,10 @@ _FORBIDDEN_INTERPRETATION_MARKERS = (
     "하위 ",
     "퍼센타일",
 )
+_TRAIT_TAG_MARKERS = (
+    "분별력", "집중력", "기억력", "창의력", "관찰력", "지능", "아이큐",
+    "사회성", "외향성", "내향성", "잠재력", "영재", "천재",
+)
 
 
 def _contains_forbidden_interpretation(value: str | None) -> bool:
@@ -45,13 +49,15 @@ def _contains_forbidden_interpretation(value: str | None) -> bool:
     return any(marker in lowered for marker in _FORBIDDEN_INTERPRETATION_MARKERS)
 
 
-def _sanitize(enrichment: ObservationEnrichment) -> ObservationEnrichment:
+def _sanitize(enrichment: ObservationEnrichment, observation: str) -> ObservationEnrichment:
     return enrichment.model_copy(
         update={
             "tags": [
                 tag
                 for tag in enrichment.tags
                 if not _contains_forbidden_interpretation(tag)
+                and not any(marker in tag and marker not in observation
+                            for marker in _TRAIT_TAG_MARKERS)
             ],
             "interest": (
                 None
@@ -80,6 +86,8 @@ Return only conservative metadata grounded in the observation.
 Do not diagnose development, infer disorders, rank against peers,
 or infer stable personality traits.
 Use short Korean tags when the observation is Korean. Keep uncertainty explicit.
+Tags describe observed objects or activities, never inferred intelligence, ability or personality.
+Do not turn a photograph of objects into evidence about a child's cognitive traits.
 Choose experience_axes only when directly supported. Allowed values are:
 physical, emotional_character, expression_art, thinking_inquiry, social,
 reading, speaking, writing, math, exploration.
@@ -94,4 +102,4 @@ The parent's original observation remains authoritative; you are only producing 
             user=observation,
             schema=ObservationEnrichment,
         )
-        return _sanitize(enrichment)
+        return _sanitize(enrichment, observation)

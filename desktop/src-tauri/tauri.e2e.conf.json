@@ -1,0 +1,8 @@
+{
+  "identifier": "io.github.jdeun.growwise.e2e",
+  "productName": "GrowWise E2E",
+  "bundle": {
+    "active": false,
+    "resources": []
+  }
+}
