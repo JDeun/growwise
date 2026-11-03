@@ -43,6 +43,8 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
+      - name: Verify native process UTF-8 capture
+        run: ./desktop/scripts/test_native_process_io.ps1
       - name: Verify actual filtered process launch before building
         timeout-minutes: 5
         run: ./desktop/scripts/run_native_e2e.ps1 -ProbeOnly -Artifacts desktop/artifacts/native-token-preflight

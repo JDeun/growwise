@@ -23,7 +23,21 @@ describe("Core RSS observation before the steady soak", () => {
     expect(assessRssPlateau([sample(0,200*mib),sample(15,null),sample(30,200*mib)]).stable).toBe(false);
     expect(assessRssPlateau([sample(0,200*mib),sample(5,200*mib),sample(10,200*mib)]).stable).toBe(false);
     expect(assessRssPlateau([sample(0,200*mib),sample(15,202*mib),sample(30,200*mib)]).stable).toBe(false);
-    expect(RSS_WARMUP.maximumSeconds).toBe(120);
+    expect(RSS_WARMUP.maximumSeconds).toBe(300);
+  });
+
+  it("keeps the late Linux allocation step failed until a full unchanged window is observed", () => {
+    // Actual Python3.12.16 CI: a late1.18MiB step prevented the old120s setup deadline.
+    const failed = [sample(78,263110656),sample(96,264290304),sample(111,264290304)];
+    expect(assessRssPlateau(failed)).toMatchObject({stable:false,spreadBytes:1179648});
+    // This is a synthetic decision regression, not a claimed later sample from that failed run.
+    expect(assessRssPlateau([...failed,sample(126,264290304)]))
+      .toMatchObject({stable:true,spanSeconds:30,spreadBytes:0});
+    const ongoing = Array.from({length:21},(_,index)=>sample(index*15,200*mib+index*4096));
+    expect(assessRssPlateau(ongoing)).toMatchObject({stable:false,sustainedGrowth:true});
+    expect(RSS_WARMUP.minimumSpanSeconds).toBe(30);
+    expect(RSS_WARMUP.maximumSpreadBytes).toBe(512*1024);
+    expect(RSS_WARMUP.sampleCount).toBe(3);
   });
 
   it("records only allowlisted Linux memory/thread metrics", () => {

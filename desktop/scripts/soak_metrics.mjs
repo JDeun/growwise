@@ -1,5 +1,5 @@
 export const RSS_WARMUP = Object.freeze({
-  maximumSeconds: 120,
+  maximumSeconds: 300,
   sampleIntervalSeconds: 15,
   minimumSpanSeconds: 30,
   maximumSpreadBytes: 512 * 1024,

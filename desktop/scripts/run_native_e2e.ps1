@@ -13,6 +13,31 @@ param(
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
+function Invoke-OwnedPythonProcess {
+    param([string]$Executable, [string[]]$CommandArguments, [string]$LogPath)
+    # PowerShell's optimized native file redirection fails in a console-less filtered worker.
+    # Explicitly redirect both pipes before assigning their UTF-8 encodings.
+    $start = [Diagnostics.ProcessStartInfo]::new()
+    $start.FileName = $Executable
+    $start.WorkingDirectory = (Get-Location).Path
+    $start.UseShellExecute = $false
+    $start.RedirectStandardOutput = $true
+    $start.RedirectStandardError = $true
+    $start.StandardOutputEncoding = [Text.Encoding]::UTF8
+    $start.StandardErrorEncoding = [Text.Encoding]::UTF8
+    foreach ($argument in $CommandArguments) { $start.ArgumentList.Add($argument) }
+    $process = [Diagnostics.Process]::new()
+    try {
+        $process.StartInfo = $start
+        if (-not $process.Start()) { throw 'Cannot start the owned native test process.' }
+        $stdout = $process.StandardOutput.ReadToEndAsync()
+        $stderr = $process.StandardError.ReadToEndAsync()
+        $process.WaitForExit()
+        $text = $stdout.GetAwaiter().GetResult() + $stderr.GetAwaiter().GetResult()
+        [IO.File]::WriteAllText($LogPath, $text, [Text.UTF8Encoding]::new($false))
+        return $process.ExitCode
+    } finally { $process.Dispose() }
+}
 if ($Worker) {
     $payload = Get-Content -Raw -LiteralPath $Parameters | ConvertFrom-Json
     $result = 1
@@ -54,13 +79,16 @@ if ($Worker) {
                 [Environment]::SetEnvironmentVariable($entry.Name, [string]$entry.Value, 'Process')
             }
             if ($payload.probe_only) {
-                'Verified actual non-elevated Medium worker with disabled Administrators membership.' |
-                    Set-Content -Encoding utf8 -LiteralPath $payload.log
-                $result = 0
+                $result = Invoke-OwnedPythonProcess -Executable (Get-Process -Id $PID).Path -CommandArguments @(
+                    '-NoProfile', '-NonInteractive', '-Command',
+                    "[Console]::Out.WriteLine('Verified filtered worker native UTF-8 stdout.'); [Console]::Error.WriteLine('Native stderr 확인.'); exit 0"
+                ) -LogPath $payload.log
+                $captured = Get-Content -Raw -Encoding utf8 -LiteralPath $payload.log
+                if ($result -ne 0 -or -not $captured.Contains('Verified filtered worker native UTF-8 stdout.') -or -not $captured.Contains('Native stderr 확인.')) {
+                    throw 'Filtered worker native UTF-8 stdout/stderr capture failed.'
+                }
             } else {
-                $arguments = @($payload.arguments)
-                & $payload.python @arguments > $payload.log 2>&1
-                $result = $LASTEXITCODE
+                $result = Invoke-OwnedPythonProcess -Executable $payload.python -CommandArguments @($payload.arguments) -LogPath $payload.log
             }
         }
     } catch {
