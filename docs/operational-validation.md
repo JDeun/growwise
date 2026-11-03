@@ -37,6 +37,13 @@ retains the full suite. The [2026-11-03 synthetic experiment](knowledge/experime
 records one production-path Gemma 12B acceptance and one Qwen 2B quality fallback, plus earlier
 thinking-budget exhaustion. It is one-sample evidence, not a complete hardware or six-kind benchmark.
 
+The [typed-response follow-up](knowledge/experiments/model-typed-quality-20261103.md) preserves
+six-kind Qwen 4B manual failures despite structural acceptance, the stronger Gemma batch, an English
+target-expression correction and a nine-month infant safety rejection/correction. Those runs use one
+sample per topic with no warm-up; their cross-kind p95 is not a stable per-kind latency distribution.
+They support reviewing the exact drafts, not a universal model recommendation, toy certification or
+measured learning-effect claim. Hardware auto-selection remains an installation starting point.
+
 A completed provider request can still produce a deterministic quality/safety fallback. Review the
 mode counts and final artifacts together; a low latency with only fallback output is not evidence of
 successful personalized model generation or educational effectiveness. Candidate rejection reasons

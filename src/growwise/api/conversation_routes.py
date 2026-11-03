@@ -138,6 +138,11 @@ def _existing_exchange(
             "answer": assistant_turn.content,
             "source_ids": assistant_turn.source_ids,
             "insufficient_evidence": bool(assistant_turn.insufficient_evidence),
+            **(
+                {"material_action": assistant_turn.material_action.model_dump(mode="json")}
+                if assistant_turn.material_action is not None
+                else {}
+            ),
         },
         "turn_count": len(session.turns),
     }

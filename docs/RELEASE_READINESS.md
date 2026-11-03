@@ -83,6 +83,10 @@ Review and commit only the generated public/code changes, then configure GitHub 
 The stable workflow then handles updater artifact signing, three-platform asset collection, static
 `latest.json` generation, and GitHub Release upload automatically.
 
-The remaining work is operator-owned evidence: production signing/notarization on a real stable
+The [contract trace](FEATURE_TRACE_AUDIT.md) closes the original nine missing behaviors and tracks
+later findings separately. Selective child/date raw-record export is implemented and regression-tested;
+its [actual production UI ZIP-saving check](knowledge/experiments/live-core-browser-20261103-verified.md) now passes, including scope/hash checks and rejection by full restore. Infant parent-guide print and worksheet exclusion also pass. The bounded contract trace has no remaining confirmed implementation gap; this does not assert universal absence of defects.
+
+Other remaining work is operator-owned evidence: production signing/notarization on a real stable
 release, updater trust-root activation and packaged-client update testing, representative model and
 hardware measurements, and household dogfooding. See `docs/operator-handoff.md` for the exact handoff.

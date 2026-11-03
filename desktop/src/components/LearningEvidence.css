@@ -1,0 +1,14 @@
+.learning-evidence-fields,
+.learning-evidence-fields label,
+.learning-evidence-details {
+  display: grid;
+  gap: 0.8rem;
+  min-width: 0;
+}
+
+.learning-evidence-fields label { gap: 0.4rem; }
+.learning-evidence-fields textarea { resize: vertical; }
+.learning-evidence-details { margin: 0.8rem 0; }
+.learning-evidence-details dt { color: var(--ink-soft); font-weight: var(--weight-semibold); }
+.learning-evidence-details dd { margin: 0.3rem 0 0; white-space: pre-wrap; overflow-wrap: anywhere; }
+.learning-detail-panel > .learning-evidence-details { padding-inline: 1.1rem; }

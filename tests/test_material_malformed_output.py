@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 
 
 def _child() -> ChildProfile:
@@ -22,7 +22,7 @@ class _StructuredProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(self.payload)
+        return MaterialDraft.model_validate(self.payload)
 
 
 class _RaisingProvider:

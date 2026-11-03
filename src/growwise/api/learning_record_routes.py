@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field, model_validator
 from uuid6 import uuid7
 
 from growwise.api.background_ai import queue_learning_log_enrichment
+from growwise.api.learning_record_fields import validate_learning_book
 from growwise.config import Settings
 from growwise.domain import ExperienceAxis, LearningLog, LearningRecordKind
 from growwise.domain.models import TagText
@@ -42,6 +43,10 @@ class LearningRecordRequest(BaseModel):
     institution: str | None = Field(default=None, max_length=500)
     summary: str = Field(min_length=1, max_length=10_000)
     learner_work: str | None = Field(default=None, max_length=20_000)
+    book_id: UUID | None = None
+    ai_hint: str | None = Field(default=None, max_length=4_000)
+    evidence_checked: bool | None = None
+    child_reexplanation: str | None = Field(default=None, max_length=10_000)
     process: str | None = Field(default=None, max_length=10_000)
     interest: str | None = Field(default=None, max_length=2_000)
     difficulty_note: str | None = Field(default=None, max_length=4_000)
@@ -94,6 +99,7 @@ def create_learning_record(
 ) -> LearningLog:
     if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
         raise HTTPException(status_code=404, detail="child_not_found")
+    validate_learning_book(book_id=request.book_id, child_id=child_id, store=store)
     shared_child_ids = _validate_shared_children(
         child_id=child_id,
         shared_child_ids=request.shared_child_ids,
@@ -157,6 +163,10 @@ def create_learning_record(
         subject=request.subject,
         institution=request.institution,
         learner_work=request.learner_work,
+        book_id=request.book_id,
+        ai_hint=request.ai_hint,
+        evidence_checked=request.evidence_checked,
+        child_reexplanation=request.child_reexplanation,
         parent_observation=request.summary,
         process=request.process,
         interest=request.interest,

@@ -28,6 +28,13 @@ function material(kind: MaterialKind, guide = "## 진행\n천천히 관찰합니
 }
 
 describe("MaterialParentGuide", () => {
+  it("keeps the infant parent guide without a learner worksheet or writing spaces", () => {
+    const html = renderToStaticMarkup(<MaterialParentGuide material={material("activity_guide")} stage="infant_0_2" />);
+    expect(html).toContain("부모용 교안");
+    expect(html).toContain("천천히 관찰합니다.");
+    expect(html).not.toContain("material-presentation-template");
+    expect(html).not.toContain("material-presentation-writing-space");
+  });
   it("renders a kind-specific science worksheet contract for print", () => {
     const html = renderToStaticMarkup(<MaterialParentGuide material={material("science_inquiry")} />);
 

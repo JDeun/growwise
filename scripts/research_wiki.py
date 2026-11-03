@@ -152,6 +152,7 @@ def check(root: Path, *, base_ref: str | None = None) -> int:
                 cwd=root,
                 capture_output=True,
                 text=True,
+                encoding="utf-8",
                 check=False,
             )
             if old.returncode == 0:
@@ -167,7 +168,7 @@ def search(root: Path, query: str) -> list[dict[str, str | int]]:
     terms = query.casefold().split()
     if not terms:
         raise ValueError("search needs at least one word")
-    matches = []
+    matches: list[dict[str, str | int]] = []
     for path in sorted((root / "docs/knowledge").rglob("*")):
         if path.suffix not in {".md", ".jsonl"}:
             continue

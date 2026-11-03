@@ -1,0 +1,23 @@
+.conversation-originals { display: grid; gap: 8px; min-width: 0; }
+.conversation-original { min-width: 0; }
+.conversation-original > summary {
+  color: var(--primary-strong);
+  cursor: pointer;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
+  padding: 5px 0;
+  overflow-wrap: anywhere;
+}
+.conversation-original-content { display: grid; gap: 8px; padding: 10px 0; min-width: 0; }
+.conversation-original-content > strong { overflow-wrap: anywhere; }
+.conversation-original-content > time { color: var(--ink-soft); font-size: var(--font-size-meta); }
+.conversation-original-content > pre {
+  margin: 0;
+  max-height: 360px;
+  overflow: auto;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font: inherit;
+  line-height: var(--line-body);
+}
+.conversation-original-content > a { color: var(--primary-strong); text-underline-offset: 3px; }

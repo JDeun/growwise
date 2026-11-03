@@ -39,6 +39,16 @@
     visibility: hidden !important;
   }
 
+  .approved-card .entity-link-panel,
+  .approved-card .material-card-heading,
+  .approved-card .material-heading-statuses,
+  .approved-card button,
+  .approved-card input,
+  .approved-card select,
+  .approved-card textarea {
+    display: none !important;
+  }
+
   body[data-growwise-print-scope="approved"] .material-workspace,
   body[data-growwise-print-scope="approved"] .material-queue-lanes,
   body[data-growwise-print-scope="approved"] .material-lane,

@@ -49,8 +49,8 @@ function startStaticServer(core = null) {
           headers: { Authorization: `Bearer ${core.token}`, "Content-Type": "application/json" },
           body: chunks.length ? Buffer.concat(chunks) : undefined,
         });
-        res.writeHead(response.status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
-        res.end(await response.text());
+        res.writeHead(response.status, { "Content-Type": response.headers.get("content-type") ?? "application/octet-stream", "Cache-Control": "no-store" });
+        res.end(Buffer.from(await response.arrayBuffer()));
       } catch (error) { res.writeHead(502).end(JSON.stringify({ error: error.message })); }
       return;
     }

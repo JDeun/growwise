@@ -240,6 +240,7 @@ export function useMaterialManagement({
     setMaterialKind,
     setMaterialTopic,
     setMaterialGoal,
+    setSelectedResourceRefs,
     toggleResourceRef,
     removeResourceRef,
     setRevisionNote: (materialId: string, note: string) =>

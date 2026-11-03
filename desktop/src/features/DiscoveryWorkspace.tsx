@@ -10,6 +10,7 @@ import {
   type DiscoverySuggestion,
 } from "../discovery-api";
 import "./DiscoveryWorkspace.css";
+import { ExternalSourceLink } from "../components/ExternalSourceLink";
 
 const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
   book: "도서",
@@ -304,9 +305,9 @@ export function DiscoveryWorkspace({ active }: Props) {
                           <p>{suggestion.attribution}</p>
                           <p>{suggestion.license_note}</p>
                           {suggestion.source_url && (
-                            <a href={suggestion.source_url} target="_blank" rel="noreferrer">
+                            <ExternalSourceLink href={suggestion.source_url}>
                               원 출처 열기
-                            </a>
+                            </ExternalSourceLink>
                           )}
                         </details>
                         <button

@@ -99,6 +99,23 @@
   position: relative;
 }
 
+.workspace-child-picker {
+  min-width: 0;
+  max-width: 160px;
+}
+
+.workspace-child-picker select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-control);
+}
+
 .workspace-icon-button {
   display: grid;
   place-items: center;
@@ -209,7 +226,7 @@
   }
 }
 
-@media (max-width: 940px) {
+@media (max-width: 780px) {
   .workspace-shell-root {
     grid-template-columns: minmax(0, 1fr);
     width: min(100% - 24px, 1180px);

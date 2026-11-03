@@ -4,6 +4,7 @@ import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, Stage
 from growwise.generators import (
+    MaterialDraft,
     MaterialGenerationService,
     MaterialQualityGate,
     MaterialSourceEvidence,
@@ -55,7 +56,7 @@ class _WeakProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema):
-        return schema(
+        return MaterialDraft(
             title="너무 짧은 초안",
             content_markdown="## 활동\n해 봅니다.",
             parent_guide_markdown="",
@@ -68,7 +69,7 @@ class _UsefulProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema):
-        return schema(
+        return MaterialDraft(
             title="물의 변화 과학 탐구",
             content_markdown=(
                 "## 예측하기\n"
@@ -100,6 +101,53 @@ def test_weak_model_output_is_replaced_by_publication_quality_fallback() -> None
     )
 
     assert material.generator_mode == "template_quality_fallback"
+
+
+def test_english_card_rejects_korean_only_instructions_even_with_valid_structure() -> None:
+    class KoreanOnlyProvider(_UsefulProvider):
+        pass
+
+    material = MaterialGenerationService(provider=KoreanOnlyProvider()).generate(
+        child=ChildProfile(nickname="합성아이", stage=Stage.ELEMENTARY),
+        kind=MaterialKind.ENGLISH_CARD, topic="아침 인사",
+    )
+    assert material.generator_mode == "template_quality_fallback"
+    # Fallback still supplies usable English; it cannot make the rejected model count as accepted.
+    assert "Hello!" in material.content_markdown
+
+
+def test_english_card_accepts_real_target_expression_and_modeled_turns() -> None:
+    class EnglishProvider(_UsefulProvider):
+        def generate_structured(self, **kwargs):
+            draft = super().generate_structured(**kwargs)
+            draft.content_markdown += (
+                "\n역할 대화: 보호자 'Good morning!' → 아이 'Good morning!'\n"
+                "아이가 먼저 인사할 상대나 동물을 선택하고 역할을 바꾸어 봅니다.\n"
+            )
+            return draft
+
+    material = MaterialGenerationService(provider=EnglishProvider()).generate(
+        child=ChildProfile(nickname="합성아이", stage=Stage.ELEMENTARY),
+        kind=MaterialKind.ENGLISH_CARD, topic="아침 인사",
+    )
+    assert material.generator_mode == "llm_enhanced"
+    assert "Good morning!" in material.content_markdown
+
+
+@pytest.mark.parametrize("stage", list(Stage))
+def test_core_english_cards_provide_actual_stage_appropriate_expression_examples(stage) -> None:
+    material = MaterialGenerationService().generate(
+        child=ChildProfile(nickname="합성아이", stage=stage),
+        kind=MaterialKind.ENGLISH_CARD, topic="함께하는 대화",
+    )
+    assert material.generator_mode == "template"
+    assert "## 바로 써볼 기본 표현과 짧은 대화" in material.content_markdown
+    assert "기본 예시" in material.content_markdown
+    if stage is Stage.INFANT_0_2:
+        assert "Hello!" in material.content_markdown
+        assert "발음하기를 요구하지 않습니다" in material.content_markdown
+    elif stage is Stage.HIGH:
+        assert "What evidence supports that?" in material.content_markdown
     assert "## 오늘의 목표" in material.content_markdown
     assert "## 사용 전 확인" in material.parent_guide_markdown
 
@@ -133,7 +181,7 @@ def test_incomplete_cores_fail_quality_review_before_parent_use(core: str, issue
 
     class IncompleteProvider:
         def generate_structured(self, *, schema, **kwargs):
-            return schema(title="미완성 탐구", content_markdown=core, source_refs=[])
+            return MaterialDraft(title="미완성 탐구", content_markdown=core, source_refs=[])
 
     material = MaterialGenerationService(provider=IncompleteProvider()).generate(
         child=ChildProfile(nickname="테스트아이", stage=Stage.ELEMENTARY),

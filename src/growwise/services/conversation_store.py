@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .conversation import ConversationSession, ConversationTurn
 
-CURRENT_CONVERSATION_SCHEMA_VERSION = 2
+CURRENT_CONVERSATION_SCHEMA_VERSION = 3
 
 
 class UnsupportedConversationSchema(ValueError):
@@ -55,8 +55,11 @@ class SQLiteConversationStore:
 
     @staticmethod
     def _turn_key(turn: ConversationTurn) -> str:
+        payload = turn.model_dump(mode="json")
+        if turn.material_action is None:
+            payload.pop("material_action", None)
         canonical = json.dumps(
-            turn.model_dump(mode="json"),
+            payload,
             ensure_ascii=False,
             sort_keys=True,
             separators=(",", ":"),
@@ -111,6 +114,7 @@ class SQLiteConversationStore:
                     operation_key TEXT,
                     operation_hash TEXT,
                     insufficient_evidence INTEGER,
+                    material_action_json TEXT,
                     created_at TEXT NOT NULL,
                     PRIMARY KEY (session_id, turn_key),
                     FOREIGN KEY (session_id) REFERENCES conversation_sessions(id) ON DELETE CASCADE
@@ -119,21 +123,19 @@ class SQLiteConversationStore:
             )
             turn_columns = {
                 str(row["name"])
-                for row in connection.execute(
-                    "PRAGMA table_info(conversation_turns)"
-                ).fetchall()
+                for row in connection.execute("PRAGMA table_info(conversation_turns)").fetchall()
             }
             if "operation_key" not in turn_columns:
-                connection.execute(
-                    "ALTER TABLE conversation_turns ADD COLUMN operation_key TEXT"
-                )
+                connection.execute("ALTER TABLE conversation_turns ADD COLUMN operation_key TEXT")
             if "operation_hash" not in turn_columns:
-                connection.execute(
-                    "ALTER TABLE conversation_turns ADD COLUMN operation_hash TEXT"
-                )
+                connection.execute("ALTER TABLE conversation_turns ADD COLUMN operation_hash TEXT")
             if "insufficient_evidence" not in turn_columns:
                 connection.execute(
                     "ALTER TABLE conversation_turns ADD COLUMN insufficient_evidence INTEGER"
+                )
+            if "material_action_json" not in turn_columns:
+                connection.execute(
+                    "ALTER TABLE conversation_turns ADD COLUMN material_action_json TEXT"
                 )
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_conversation_turn_order "
@@ -150,9 +152,7 @@ class SQLiteConversationStore:
             connection.commit()
 
     def _migrate_legacy_turns(self, connection: sqlite3.Connection) -> None:
-        rows = connection.execute(
-            "SELECT id, payload_json FROM conversation_sessions"
-        ).fetchall()
+        rows = connection.execute("SELECT id, payload_json FROM conversation_sessions").fetchall()
         for row in rows:
             try:
                 session = ConversationSession.model_validate(json.loads(row["payload_json"]))
@@ -173,8 +173,9 @@ class SQLiteConversationStore:
                 """
                 INSERT OR IGNORE INTO conversation_turns (
                     session_id, turn_key, role, content, source_ids_json,
-                    operation_key, operation_hash, insufficient_evidence, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    operation_key, operation_hash, insufficient_evidence,
+                    material_action_json, created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     session_id,
@@ -189,6 +190,11 @@ class SQLiteConversationStore:
                         if turn.insufficient_evidence is None
                         else int(turn.insufficient_evidence)
                     ),
+                    (
+                        turn.material_action.model_dump_json()
+                        if turn.material_action is not None
+                        else None
+                    ),
                     turn.created_at.isoformat(),
                 ),
             )
@@ -202,9 +208,10 @@ class SQLiteConversationStore:
     def save(self, session: ConversationSession) -> None:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(
-            expected_generation=self._data_generation
-        ), self._connection() as connection:
+        with (
+            DATA_MAINTENANCE.mutation(expected_generation=self._data_generation),
+            self._connection() as connection,
+        ):
             connection.execute("BEGIN IMMEDIATE")
             connection.execute(
                 """
@@ -247,12 +254,14 @@ class SQLiteConversationStore:
         has_operation_key = "operation_key" in columns
         has_operation_hash = "operation_hash" in columns
         has_insufficient_evidence = "insufficient_evidence" in columns
+        has_material_action = "material_action_json" in columns
         optional_columns = [
             name
             for name, present in (
                 ("operation_key", has_operation_key),
                 ("operation_hash", has_operation_hash),
                 ("insufficient_evidence", has_insufficient_evidence),
+                ("material_action_json", has_material_action),
             )
             if present
         ]
@@ -280,6 +289,11 @@ class SQLiteConversationStore:
                     if not has_insufficient_evidence or row["insufficient_evidence"] is None
                     else bool(row["insufficient_evidence"])
                 ),
+                material_action=(
+                    json.loads(row["material_action_json"])
+                    if has_material_action and row["material_action_json"]
+                    else None
+                ),
                 created_at=row["created_at"],
             )
             for row in rows
@@ -300,9 +314,10 @@ class SQLiteConversationStore:
     def get(self, session_id: str) -> ConversationSession | None:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(
-            expected_generation=self._data_generation
-        ), self._connection() as connection:
+        with (
+            DATA_MAINTENANCE.mutation(expected_generation=self._data_generation),
+            self._connection() as connection,
+        ):
             row = connection.execute(
                 "SELECT payload_json, updated_at FROM conversation_sessions WHERE id = ?",
                 (session_id,),
@@ -314,9 +329,10 @@ class SQLiteConversationStore:
     def list_for_child(self, child_id: str, *, limit: int = 50) -> list[ConversationSession]:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(
-            expected_generation=self._data_generation
-        ), self._connection() as connection:
+        with (
+            DATA_MAINTENANCE.mutation(expected_generation=self._data_generation),
+            self._connection() as connection,
+        ):
             rows = connection.execute(
                 """
                 SELECT payload_json, updated_at FROM conversation_sessions
@@ -331,9 +347,10 @@ class SQLiteConversationStore:
     def delete(self, session_id: str) -> bool:
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(
-            expected_generation=self._data_generation
-        ), self._connection() as connection:
+        with (
+            DATA_MAINTENANCE.mutation(expected_generation=self._data_generation),
+            self._connection() as connection,
+        ):
             connection.execute("BEGIN IMMEDIATE")
             connection.execute("DELETE FROM conversation_turns WHERE session_id = ?", (session_id,))
             cursor = connection.execute(
@@ -347,9 +364,10 @@ class SQLiteConversationStore:
         """Delete all sessions and turns for one child and return the session count."""
         from growwise.maintenance import DATA_MAINTENANCE
 
-        with DATA_MAINTENANCE.mutation(
-            expected_generation=self._data_generation
-        ), self._connection() as connection:
+        with (
+            DATA_MAINTENANCE.mutation(expected_generation=self._data_generation),
+            self._connection() as connection,
+        ):
             connection.execute("BEGIN IMMEDIATE")
             count_row = connection.execute(
                 "SELECT COUNT(*) FROM conversation_sessions WHERE child_id = ?",

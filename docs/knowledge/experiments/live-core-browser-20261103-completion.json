@@ -1,0 +1,90 @@
+{
+  "passed": true,
+  "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+  "llm": false,
+  "fixture": "synthetic children, observations and one-pixel PNG; isolated temporary data directory",
+  "buildAssets": [
+    "/assets/index-DgKRkCJj.js",
+    "/assets/index-CgZeVefP.css"
+  ],
+  "steps": [
+    "real Core starts and rejects unauthenticated access",
+    "UI first-run profile persists and enters materials",
+    "UI background generation saves template; explicit use passes real review gate",
+    "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+    "UI one-line result writes authoritative learning record",
+    "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+    "UI independent reading record preserves separate record kind",
+    "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+    "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+    "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+    "UI confirmed conversation deletion preserves another conversation and original source records",
+    "UI direct search returns actual child-scoped records without an LLM",
+    "UI reference library create/edit/detail/confirmed delete reaches real Core",
+    "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+    "UI actual PNG upload, manual draft, parent confirmation and saved asset rendering pass",
+    "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+    "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+    "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated"
+  ],
+  "observed_on": "2026-11-03",
+  "status": "observed",
+  "supersedes": "EXP-LIVE-UI-FINAL-OBSERVED-20261103",
+  "repository_revision": "e3c3b3b19d9fa23a42d976e39f7fee48af211d4b",
+  "working_tree": "modified",
+  "journey_script_sha256": "6314500f9ccd15db3c01fe86a4cf0aca08e48f282645b953bb342f2049f0b95e",
+  "environment": {
+    "os": "macOS",
+    "architecture": "arm64",
+    "python": "3.12.13",
+    "node": "24.18.0",
+    "npm": "11.16.0"
+  },
+  "screenshots_inspected": [
+    "conversation-original-source.png",
+    "delayed-previous-child-responses.png",
+    "first-empty-home.png",
+    "first-profile-minimum-window.png",
+    "grounded-conversation.png",
+    "independent-learning-evidence-detail.png",
+    "learning-records.png",
+    "manual-photo-record.png",
+    "material-used-and-recorded.png",
+    "optional-learning-evidence-form.png",
+    "primary-approved-material-print.png",
+    "primary-material-document-selector.png",
+    "profile-learning-wiki.png",
+    "resource-created-and-edited.png",
+    "restored-records.png",
+    "saved-learning-evidence-history.png",
+    "second-child-private-scope.png"
+  ],
+  "viewports": [
+    {
+      "width": 1440,
+      "height": 1000
+    },
+    {
+      "width": 860,
+      "height": 620,
+      "scope": "first profile form save CTA"
+    }
+  ],
+  "build_asset_sha256": {
+    "/assets/index-DgKRkCJj.js": "e8702a04702907b788831b7ef02e89c16daa92eec9a3c4aec5b504c9a6803c57",
+    "/assets/index-CgZeVefP.css": "bfa056f13ffc6ffc89deb7307be4077b4cc1a91226c317926aac97b58a720951"
+  },
+  "pdf": {
+    "bytes": 441003,
+    "pages": 8,
+    "sha256": "231483bc9f35760ff2e3326e3e4410824bb63e2d5516ae8139541e231c5d0dc2",
+    "validation": "Chrome print media and Page.printToPDF; window.print invocation spied, native OS print dialog not exercised"
+  },
+  "transport_timing": "Actual Core responses for child A deliberately held and delivered after child B; business data is not substituted",
+  "limitations": [
+    "Native Tauri IPC, OS credential store, OS dialogs and packaged process lifecycle tested separately.",
+    "LLM, embeddings, vision and public enrichment disabled; not model-quality or field-effectiveness evidence.",
+    "Scoped date/axis search and event-time growth have separate focused API/service regressions, not new18-step browser assertions.",
+    "Selective child/date raw-record export is a later explicit requirement and is outside this18-step run."
+  ]
+}

@@ -48,3 +48,12 @@
     border-top: 0;
   }
 }
+.material-provenance {
+  display: grid;
+  gap: 0.7rem;
+  margin-block: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.material-provenance dt { color: var(--ink-soft); font-weight: var(--weight-semibold); }
+.material-provenance dd { margin: 0.2rem 0 0; }

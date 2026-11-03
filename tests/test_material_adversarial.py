@@ -21,7 +21,7 @@ from growwise.domain import (
     ResourceRecord,
     Stage,
 )
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 from growwise.rag import HybridRagIndex
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.storage import EntityStore
@@ -32,7 +32,7 @@ class UnsafeDraftProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "발달 진단 결과",
                 "content_markdown": "또래보다 뒤처졌고 자폐 진단이 필요합니다.",
@@ -46,7 +46,7 @@ class SafeButFabricatedRefProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "고양이 읽기",
                 "content_markdown": (

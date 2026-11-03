@@ -3,6 +3,30 @@
   gap: 4px;
 }
 
+.record-export-section h2 {
+  margin: 0 0 8px;
+}
+
+.record-export-section > .muted + .muted {
+  margin-top: 8px;
+}
+
+.record-export-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.record-export-form .field-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+
+.record-export-help {
+  max-width: var(--measure-prose);
+  font-size: var(--font-size-meta);
+}
+
 .profile-management-form {
   display: grid;
   gap: 14px;

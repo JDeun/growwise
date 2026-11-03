@@ -30,7 +30,8 @@ type WorkspaceShellProps = {
 };
 
 export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellProps) {
-  const activeChild = useOptionalActiveChild()?.activeChild ?? null;
+  const childContext = useOptionalActiveChild();
+  const activeChild = childContext?.activeChild ?? null;
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [notificationState, setNotificationState] = useState<NotificationState>({
     kind: "idle",
@@ -138,6 +139,17 @@ export function WorkspaceShell({ initialView, renderWorkspace }: WorkspaceShellP
               <span>검색어를 입력하세요...</span>
             </button>
 
+            {childContext && childContext.children.length > 0 && (
+              <label className="workspace-child-picker">
+                <span className="sr-only">현재 아이</span>
+                <select aria-label="현재 아이" value={childContext.activeChildId}
+                  onChange={(event) => childContext.selectChild(event.target.value)}>
+                  {childContext.children.map((child) => (
+                    <option key={child.id} value={child.id}>{child.nickname}</option>
+                  ))}
+                </select>
+              </label>
+            )}
             <div className="workspace-notifications">
               <button
                 type="button"

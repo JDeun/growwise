@@ -327,8 +327,11 @@ class SQLiteProjection:
                 "AND id > ? ORDER BY id LIMIT 100",
                 (after_id,),
             ).fetchall()
-            return [payload for row in rows
-                    if (payload := self._decode_projection_row(connection, row)) is not None]
+            return [
+                payload
+                for row in rows
+                if (payload := self._decode_projection_row(connection, row)) is not None
+            ]
 
     def list_entities(
         self,
@@ -336,6 +339,7 @@ class SQLiteProjection:
         entity_type: str | None = None,
         child_id: str | None = None,
         limit: int | None = None,
+        include_global: bool = False,
     ) -> list[dict]:
         clauses: list[str] = []
         params: list[str | int] = []
@@ -343,13 +347,13 @@ class SQLiteProjection:
             clauses.append("entity_type = ?")
             params.append(entity_type)
         if child_id is not None:
-            clauses.append("child_id = ?")
+            clauses.append(
+                "(child_id = ? OR child_id IS NULL)" if include_global else "child_id = ?"
+            )
             params.append(child_id)
 
         augment_child_scope = (
-            child_id is not None
-            and entity_type is not None
-            and entity_type != "entity_link"
+            child_id is not None and entity_type is not None and entity_type != "entity_link"
         )
         sql = "SELECT id, payload_json, source_path FROM entities"
         if clauses:
@@ -389,8 +393,8 @@ class SQLiteProjection:
                         key=lambda payload: str(payload.get("updated_at") or ""),
                         reverse=True,
                     )
-                    if limit is not None:
-                        payloads = payloads[:limit]
+            if limit is not None:
+                payloads = payloads[:limit]
         return payloads
 
     def search_entities(
@@ -399,14 +403,14 @@ class SQLiteProjection:
         child_id: str,
         query_text: str,
         entity_types: Sequence[str],
-        limit: int = 20,
+        limit: int | None = 20,
     ) -> list[dict]:
         """Deterministic child-scoped lexical search over owned and linked JSON payloads.
 
         Large child-scope graphs are queried in bounded chunks so SQLite host-parameter limits do
         not turn an authorization relation into a platform-dependent failure.
         """
-        if not entity_types or limit <= 0:
+        if not entity_types or (limit is not None and limit <= 0):
             return []
 
         terms: list[str] = []
@@ -437,8 +441,7 @@ class SQLiteProjection:
                 patterns = [f"%{_escape_like(term)}%" for term in terms]
                 where_params.extend(patterns)
                 score_sql = " + ".join(
-                    "CASE WHEN payload_json LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END"
-                    for _ in terms
+                    "CASE WHEN payload_json LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END" for _ in terms
                 )
                 sql = (
                     "SELECT id, payload_json, source_path, updated_at, "
@@ -446,7 +449,11 @@ class SQLiteProjection:
                     f"FROM entities WHERE {' AND '.join(clauses)} "
                     "ORDER BY match_score DESC, updated_at DESC LIMIT ?"
                 )
-                params: list[str | int] = [*patterns, *where_params, limit]
+                params: list[str | int] = [
+                    *patterns,
+                    *where_params,
+                    limit if limit is not None else -1,
+                ]
             else:
                 sql = (
                     "SELECT id, payload_json, source_path, updated_at, "
@@ -454,7 +461,7 @@ class SQLiteProjection:
                     f"WHERE {' AND '.join(clauses)} "
                     "ORDER BY updated_at DESC LIMIT ?"
                 )
-                params = [*where_params, limit]
+                params = [*where_params, limit if limit is not None else -1]
             return connection.execute(sql, params).fetchall()
 
         with self._connection() as connection:
@@ -498,7 +505,7 @@ class SQLiteProjection:
                 payload = self._decode_projection_row(connection, row)
                 if payload is not None:
                     payloads.append(payload)
-                if len(payloads) >= limit:
+                if limit is not None and len(payloads) >= limit:
                     break
         return payloads
 

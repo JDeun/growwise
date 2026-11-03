@@ -17,6 +17,11 @@ revision/digest, provider, 양자화, 일반화한 OS/CPU/RAM/VRAM, 컨텍스트
 검토를 통과했고, Qwen 2B MXFP8 한 건은 품질 fallback이었다. 모델 크기별 보편적 품질이나
 교육 효과를 입증한 결과는 아니다. source:GW-MODEL-QUALITY-OBSERVED-20261103.
 
+[후속 typed 응답·영아 안전 실험](experiments/model-typed-quality-20261103.md)은 형식이 통과해도
+Qwen 4B 본문을 보완해야 했던 여섯 사례와, 실제 영어 표현·영아 안전 계약을 보완한 Gemma 결과를
+보존한다. source:GW-MODEL-TYPED-QUALITY-OBSERVED-20261103. 더 큰 모델의 메모리 부담과
+표본·지침 변경의 한계 때문에 자동 선택 표를 교육 품질 추천으로 해석하지 않는다.
+
 실측 절차는 [operational validation](../operational-validation.md), 추적 상태는
 [experiment ledger](experiments.jsonl)에 있다. 실제 모델 비교 전 두 설정에 같은 fixture를
 쓰고 latency와 품질을 각각 보고한다.

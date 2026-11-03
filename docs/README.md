@@ -27,6 +27,7 @@
 - [technical-guide.md](technical-guide.md) — 개발/운영 기술 진입점
 - [architecture.md](architecture.md) — Tauri/React/Python/LangGraph 구조와 Desktop composition
 - [data-model.md](data-model.md) — Markdown SoT, SQLite projection, 상태 모델
+- [record-export.md](record-export.md) — 아이·기간별 원본 Markdown/첨부 ZIP과 전체 복원의 구분
 - [learning-wiki.md](learning-wiki.md) — 원본 기반 지속 합성, provenance, RAG/Graph 연결
 - [knowledge/README.md](knowledge/README.md) — 유지보수자 연구·실험 근거 위키 (아이별 Learning Wiki와 분리)
 - [hardening-contracts.md](hardening-contracts.md) — crash/retry/purge/race/RAG invariant

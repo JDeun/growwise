@@ -10,6 +10,8 @@ from typing import Any
 
 import pytest
 
+from growwise.generators import MaterialDraft
+
 _SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
 
 
@@ -28,7 +30,7 @@ class _StubProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        draft = MaterialDraft.model_validate(
             {
                 "title": "샘플",
                 "content_markdown": (
@@ -42,6 +44,12 @@ class _StubProvider:
                 "source_refs": [],
             }
         )
+
+        if "Material kind: english_card" in user:
+            draft.content_markdown += (
+                "\n말할 표현: 'Hello!'와 'Your turn.' 중 골라 역할을 바꾸어 봅니다.\n"
+            )
+        return draft
 
 
 def test_model_benchmark_reports_latency_and_reviewable_output() -> None:
@@ -177,7 +185,7 @@ def test_model_benchmark_distinguishes_called_provider_from_accepted_model_outpu
 
     class WeakProvider(_StubProvider):
         def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-            return schema.model_validate(
+            return MaterialDraft.model_validate(
                 {
                     "title": "샘플",
                     "content_markdown": "# 활동\n짧음",

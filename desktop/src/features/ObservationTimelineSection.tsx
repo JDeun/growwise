@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { ViewLoadState } from "../child-context-state";
 import { ViewStateNotice } from "../components";
-import type { ActivityPlan, ExperienceAxis, LearningLog } from "../api";
+import type { ActivityPlan, ExperienceAxis, LearningLog, ResourceRecord } from "../api";
+import { LearningEvidenceDetails } from "../components/LearningEvidence";
 import { AXIS_OPTIONS } from "../presentation";
 import "./ObservationTimelineSection.css";
 
@@ -11,6 +12,7 @@ interface ObservationTimelineSectionProps {
   timeline: LearningLog[];
   activityPlans: ActivityPlan[];
   onRetry: () => void;
+  resources?: ResourceRecord[];
 }
 
 type ActivityFilter = "all" | "linked" | "unlinked";
@@ -31,6 +33,7 @@ export function ObservationTimelineSection({
   timeline,
   activityPlans,
   onRetry,
+  resources = [],
 }: ObservationTimelineSectionProps) {
   const [query, setQuery] = useState("");
   const [axis, setAxis] = useState<ExperienceAxis | "all">("all");
@@ -59,6 +62,8 @@ export function ObservationTimelineSection({
           log.parent_observation,
           log.interest ?? "",
           log.next_activity ?? "",
+          log.ai_hint ?? "",
+          log.child_reexplanation ?? "",
           log.tags.join(" "),
           log.experience_axes.map(axisName).join(" "),
           linkedActivity?.title ?? "",
@@ -242,6 +247,7 @@ export function ObservationTimelineSection({
                     </button>
                   </div>
                   <p className="timeline-detail-observation">{selectedLog.parent_observation}</p>
+                  <LearningEvidenceDetails record={selectedLog} books={resources.filter((item) => item.kind === "book")} />
                   <dl className="timeline-detail-list">
                     <div>
                       <dt>기록 시각</dt>

@@ -21,6 +21,7 @@ from growwise.domain import (
     Stage,
 )
 from growwise.domain.links import EntityLink, EntityLinkRelation
+from growwise.generators import MaterialDraft
 from growwise.jobs import Job, JobStatus, SQLiteJobQueue
 from growwise.material_versions import material_mutation
 from growwise.services import background_ai
@@ -41,7 +42,7 @@ class InspectingMaterialProvider:
     def generate_structured(self, *, system: str, user: str, schema):
         del system
         self.last_user = user
-        return schema(
+        return MaterialDraft(
             title="후속 나누기 활동",
             content_markdown=(
                 "## 실물을 같은 수씩 모으기\n"

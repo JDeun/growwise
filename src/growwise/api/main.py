@@ -43,6 +43,7 @@ from growwise.api.dependencies import (
     get_settings,
     get_store,
 )
+from growwise.api.evidence_routes import router as evidence_router
 from growwise.api.integration_routes import router as integration_router
 from growwise.api.material_routes import (
     edit_material,
@@ -55,6 +56,7 @@ from growwise.api.material_routes import (
     validate_material_source_refs,
 )
 from growwise.api.material_routes import router as material_router
+from growwise.api.records_export_routes import router as records_export_router
 from growwise.api.study_routes import router as study_router
 from growwise.domain import (
     ActivityPlan,
@@ -128,8 +130,10 @@ async def domain_validation_error(_request: Request, exc: ValidationError) -> JS
 
 app.include_router(backup_router)
 app.include_router(integration_router)
+app.include_router(evidence_router)
 app.include_router(conversation_router)
 app.include_router(material_router)
+app.include_router(records_export_router)
 app.include_router(study_router)
 
 
@@ -410,6 +414,7 @@ def list_resources(
     return store.index.list_entities(
         entity_type="resource",
         child_id=str(child_id) if child_id else None,
+        include_global=child_id is not None,
     )
 
 

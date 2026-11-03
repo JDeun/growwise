@@ -42,6 +42,7 @@ class MaterialPipelineState(TypedDict, total=False):
     # Populated by the reused ``parent_review`` interrupt node.
     decision_status: str
     decision_note: str | None
+    decision_at: str
     # Populated by the ``apply_decision`` node.
     applied_status: str
     applied_note: str | None

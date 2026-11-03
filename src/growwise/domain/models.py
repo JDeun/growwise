@@ -234,6 +234,10 @@ class LearningLog(EntityBase):
     subject: str | None = Field(default=None, max_length=200)
     institution: str | None = Field(default=None, max_length=500)
     learner_work: str | None = Field(default=None, max_length=20_000)
+    book_id: UUID | None = None
+    ai_hint: str | None = Field(default=None, max_length=4_000)
+    evidence_checked: bool | None = None
+    child_reexplanation: str | None = Field(default=None, max_length=10_000)
     # Legacy Markdown may contain an empty observation. API create requests remain min_length=1;
     # the domain model keeps read compatibility while still bounding pathological persisted input.
     parent_observation: str = Field(max_length=10_000)
@@ -343,9 +347,16 @@ class GeneratedMaterial(EntityBase):
     )
     curriculum_targets: list[CurriculumTarget] = Field(default_factory=list, max_length=100)
     generator_mode: str = Field(default="template", min_length=1, max_length=120)
+    generator_version: str | None = Field(default=None, max_length=120)
+    model_provider: str | None = Field(default=None, max_length=120)
+    model_id: str | None = Field(default=None, max_length=240)
     ai_status: AiEnhancementStatus = AiEnhancementStatus.NOT_REQUESTED
     ai_job_id: UUID | None = None
     review_note: str | None = Field(default=None, max_length=10_000)
+    reviewed_at: datetime | None = None
+    review_decision: str | None = Field(
+        default=None, pattern=r"^(approved|rejected|revision_requested)$",
+    )
     request_topic: str | None = Field(default=None, max_length=500)
     request_goal: str | None = Field(default=None, max_length=2_000)
     version: int = Field(default=1, ge=1)

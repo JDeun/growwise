@@ -7,6 +7,7 @@ import {
 } from "../active-child-context";
 import { deleteChild, updateChild, type BackupItem, type ChildProfile, type Stage } from "../api";
 import { stageForBirthDate } from "../child-stage";
+import { RecordExportSection } from "./RecordExportSection";
 import "./DataManagementSection.css";
 
 interface DataManagementSectionProps {
@@ -65,6 +66,7 @@ export function DataManagementSection({
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [privacyBusy, setPrivacyBusy] = useState(false);
   const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [recordExportBusy, setRecordExportBusy] = useState(false);
 
   const selectedProfileChild = useMemo(
     () => children.find((child) => child.id === profileChildId) ?? null,
@@ -114,7 +116,7 @@ export function DataManagementSection({
     setProfileNotes(selectedProfileChild.notes ?? "");
   }, [selectedProfileChild]);
 
-  const destructiveBusy = (mode === "backup" ? busy : false) || privacyBusy || profileBusy;
+  const destructiveBusy = (mode === "backup" ? busy : false) || privacyBusy || profileBusy || recordExportBusy;
   const deletionConfirmed =
     selectedDeleteChild !== null && deleteConfirmation.trim() === selectedDeleteChild.nickname;
 
@@ -463,6 +465,8 @@ export function DataManagementSection({
           ))}
         </div>
       )}
+      <RecordExportSection children={children} currentChildId={activeChild?.id ?? null}
+        connected={connected} busy={destructiveBusy} onBusyChange={setRecordExportBusy} />
       </>
       )}
 

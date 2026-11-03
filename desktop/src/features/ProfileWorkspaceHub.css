@@ -253,6 +253,20 @@
   min-width: 0;
 }
 
+.profile-hub.is-managing .profile-hub-core > .app-shell {
+  width: 100%;
+  padding: 0;
+}
+
+.profile-hub.is-managing .profile-hub-core .workspace {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .profile-manage-toolbar {
   display: flex;
   justify-content: flex-end;

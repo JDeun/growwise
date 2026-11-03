@@ -151,6 +151,10 @@ export interface LearningLog {
   subject?: string | null;
   institution?: string | null;
   learner_work?: string | null;
+  book_id?: string | null;
+  ai_hint?: string | null;
+  evidence_checked?: boolean | null;
+  child_reexplanation?: string | null;
   process?: string | null;
   child_question?: string | null;
   difficulty_note?: string | null;
@@ -166,6 +170,10 @@ export interface LearningRecordInput {
   institution?: string | null;
   summary: string;
   learner_work?: string | null;
+  book_id?: string | null;
+  ai_hint?: string | null;
+  evidence_checked?: boolean | null;
+  child_reexplanation?: string | null;
   process?: string | null;
   interest?: string | null;
   difficulty_note?: string | null;
@@ -243,6 +251,12 @@ export interface SearchResponse {
   plan: SearchPlan;
   results: Array<Record<string, unknown>>;
 }
+export interface MaterialAction {
+  material_kind: MaterialKind;
+  topic: string;
+  source_refs: string[];
+  needs_book_selection: boolean;
+}
 export interface ConversationSession {
   id: string;
   child_id: string;
@@ -251,6 +265,7 @@ export interface ConversationSession {
     role: "user" | "assistant";
     content: string;
     source_ids: string[];
+    material_action?: MaterialAction | null;
     created_at: string;
   }>;
   created_at?: string;
@@ -259,7 +274,7 @@ export interface ConversationSession {
 export interface ConversationAnswer {
   session_id: string;
   thread_id: string;
-  answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean };
+  answer: { answer: string; source_ids: string[]; insufficient_evidence: boolean; material_action?: MaterialAction | null };
   turn_count: number;
 }
 export interface ResourceCreateInput {
@@ -308,6 +323,11 @@ export interface GeneratedMaterial {
   source_refs: string[];
   source_citations?: MaterialSourceCitation[];
   generator_mode: string;
+  generator_version?: string | null;
+  model_provider?: string | null;
+  model_id?: string | null;
+  reviewed_at?: string | null;
+  review_decision?: "approved" | "rejected" | "revision_requested" | null;
   review_note: string | null;
   request_topic: string | null;
   request_goal: string | null;
@@ -325,6 +345,10 @@ export interface MaterialResultInput {
   outcome: "completed" | "partial" | "skipped";
   observation: string;
   learner_work?: string | null;
+  book_id?: string | null;
+  ai_hint?: string | null;
+  evidence_checked?: boolean | null;
+  child_reexplanation?: string | null;
   process?: string | null;
   child_question?: string | null;
   interest?: string | null;
@@ -486,6 +510,10 @@ export const createLearningRecord = (childId: string, input: LearningRecordInput
       subject: input.subject ?? null,
       institution: input.institution ?? null,
       learner_work: input.learner_work ?? null,
+      book_id: input.book_id ?? null,
+      ai_hint: input.ai_hint ?? null,
+      evidence_checked: input.evidence_checked ?? null,
+      child_reexplanation: input.child_reexplanation ?? null,
       process: input.process ?? null,
       interest: input.interest ?? null,
       difficulty_note: input.difficulty_note ?? null,
@@ -561,6 +589,10 @@ export const recordMaterialResult = (materialId: string, input: MaterialResultIn
     request: {
       ...input,
       learner_work: input.learner_work ?? null,
+      book_id: input.book_id ?? null,
+      ai_hint: input.ai_hint ?? null,
+      evidence_checked: input.evidence_checked ?? null,
+      child_reexplanation: input.child_reexplanation ?? null,
       process: input.process ?? null,
       child_question: input.child_question ?? null,
       interest: input.interest ?? null,
@@ -614,6 +646,8 @@ export const restoreBackup = (archiveName: string) =>
   call<BackupRestoreResult>("restore_backup", { archiveName });
 export const exportBackup = (archiveName: string) =>
   call<string | null>("export_backup", { archiveName });
+export const exportChildRecords = (childId: string, startDate?: string | null, endDate?: string | null) =>
+  call<string | null>("export_child_records", { childId, startDate: startDate || null, endDate: endDate || null });
 export const importBackup = () =>
   call<(BackupRestoreResult & { safety_backup: string; imported_archive: string }) | null>(
     "import_backup",

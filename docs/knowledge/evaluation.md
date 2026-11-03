@@ -12,6 +12,11 @@ baseline PR들이 보고한 CI는 `reported`이며 이를 독립 재현했다고
 [직접 실행한 위키 회귀](experiments/wiki-validation-20261103.md),
 [실제 Core에 연결한 production UI 검증](experiments/live-core-browser-20261103-final.md),
 [렌더링 타이포그래피·위계 검증](experiments/design-validation-20261103.md)을 구분한다.
+[하위 탭·설정 펼침 후속 검증](experiments/design-validation-20261103-deep.md)은
+발견한 제목 단계 문제와 수정 후 두 너비 재검사를 별도로 보존한다.
+[확장된 18개 실제 Core 흐름](experiments/live-core-browser-20261103-completion.md)은
+선택 기록 필드·원본 근거 펼침·대화에서 자료 생성·기본 인쇄·지연된 아이 응답 격리까지
+검증하며, 이전 13/14개 흐름 기록을 덮어쓰지 않는다.
 `observed`/`failed` 항목을 추가할 때 날짜·revision·환경·artifact를 빠뜨리면 offline checker가 거부한다.
 
 2026-11-03의 최종 UI run은 합성 입력과 별도 임시 저장소로 14개 흐름을 검증했다.
@@ -23,3 +28,5 @@ LLM·embedding·vision·외부 보강은 껐다. 이 결과는 native 패키징,
 열린 조사: 35 Stage × Kind family와 토픽을 가로지르는 실패 분포, malformed/injection/PII
 출력의 fallback, 실제 앱에서 부모 선택 경계와 활동 후 기록 연결, backup/restore 데이터 보존,
 정식 패키지 시작·업데이트 복구. 교육 효과와 교사 검증은 해당 현장 연구가 없으면 unknown이다.
+
+[최종 실제 Core21단계 검증](experiments/live-core-browser-20261103-verified.md)은 아이·기간별 원본 ZIP과 영아 부모 교안 PDF/worksheet 제외를 추가 확인했다. 앞선 관측 기록을 보존하며 출처·실험 ledger에 별도 등록했다.

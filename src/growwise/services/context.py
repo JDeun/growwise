@@ -10,6 +10,8 @@ from growwise.rag import HybridRagIndex
 from growwise.storage import SQLiteProjection
 
 from .graph_context import GraphContextExpander
+from .record_time import record_time
+from .search import NaturalLanguageSearch
 
 _AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
 _SourceId = Annotated[str, Field(min_length=1, max_length=500)]
@@ -69,6 +71,8 @@ _ENTITY_TEXT_FIELDS = (
     ("learner_work", "아이 글·결과물"),
     ("process", "과정"),
     ("child_question", "아이 질문·반응"),
+    ("ai_hint", "부모가 기록한 AI 힌트"),
+    ("child_reexplanation", "아이의 자기 언어 재설명"),
     ("interest", "흥미"),
     ("difficulty_note", "어려움"),
     ("next_activity", "다음 활동"),
@@ -108,6 +112,18 @@ def _entity_text(payload: dict) -> str:
     """Compose bounded evidence without dropping learner-authored work behind a summary field."""
     sections: list[str] = []
     remaining = _ENTITY_TEXT_LIMIT
+    event_time = record_time(payload)
+    if event_time is not None:
+        remaining = _append_bounded_section(
+            sections, label="경험·기록 시각", value=event_time.astimezone().isoformat(),
+            remaining=remaining,
+        )
+    checked = payload.get("evidence_checked")
+    if isinstance(checked, bool):
+        remaining = _append_bounded_section(
+            sections, label="부모의 근거 확인 기록",
+            value="확인함" if checked else "아직 확인하지 않음", remaining=remaining,
+        )
     for key, label in _ENTITY_TEXT_FIELDS:
         value = payload.get(key)
         if not isinstance(value, str) or not value.strip() or remaining <= 0:
@@ -173,13 +189,17 @@ concise Korean for Korean questions."""
         self.graph = GraphContextExpander(entity_index)
 
     def ask(self, *, child_id: str, query: str, limit: int = 8) -> ContextAnswer:
-        records = self.entity_index.search_entities(
+        search = NaturalLanguageSearch(self.entity_index).search(
             child_id=child_id,
-            query_text=query,
+            query=query,
             entity_types=_RAW_CONTEXT_ENTITY_TYPES,
             limit=limit,
         )
-        wiki_records = self.entity_index.search_entities(
+        records = search.results
+        # A date/axis/last-event request must not regain excluded originals through a derived Wiki,
+        # an unrelated RAG chunk, or a graph neighbor after strict filtering and result limiting.
+        constrained = search.plan.constrained
+        wiki_records = [] if constrained else self.entity_index.search_entities(
             child_id=child_id,
             query_text=query,
             entity_types=("learning_wiki",),
@@ -187,7 +207,7 @@ concise Korean for Korean questions."""
         )
         records.extend(wiki_records)
 
-        chunks = self.rag_index.search(
+        chunks = [] if constrained else self.rag_index.search(
             query=query,
             child_id=child_id,
             limit=limit,
@@ -196,7 +216,7 @@ concise Korean for Korean questions."""
 
         seed_ids = [str(record["id"]) for record in records]
         seed_ids.extend(str(chunk["resource_id"]) for chunk in chunks if chunk.get("resource_id"))
-        graph_neighbors = self.graph.expand(
+        graph_neighbors = [] if constrained else self.graph.expand(
             child_id=child_id,
             seed_ids=seed_ids,
             limit=min(6, max(2, limit // 2)),

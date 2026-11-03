@@ -797,4 +797,47 @@ def select_body(*, kind: MaterialKind, topic: str, stage: Stage) -> str:
     """Choose one stage-appropriate scaffolded body deterministically and fill in the topic."""
     variants = variants_for(kind, stage)
     body = variants[variant_index(topic, stage, len(variants))]
-    return body.replace(_TOPIC_TOKEN, topic)
+    result = body.replace(_TOPIC_TOKEN, topic)
+    if kind is MaterialKind.ENGLISH_CARD:
+        result += _english_expression_examples(stage)
+    return result
+
+
+def _english_expression_examples(stage: Stage) -> str:
+    expressions, exchange = {
+        Stage.INFANT_0_2: (
+            "- Hello! — 안녕!\n- Bye-bye! — 잘 가!\n",
+            "보호자가 'Hello!'라고 말하고 아이의 시선·몸짓·옹알이에 'Hello!'로 응답합니다. "
+            "따라 말하거나 발음하기를 요구하지 않습니다.",
+        ),
+        Stage.PRESCHOOL_3_5: (
+            "- Hello! — 안녕!\n- My turn. — 내 차례야.\n- Your turn. — 네 차례야.\n",
+            "놀이 중 보호자가 'Your turn.'이라고 건네고, 아이는 몸짓이나 'My turn.'으로 "
+            "원하는 방식으로 반응합니다. 역할과 놀이 방향은 아이가 선택합니다.",
+        ),
+        Stage.ELEMENTARY: (
+            "- Hello! — 안녕!\n- Can you help me? — 도와줄 수 있나요?\n- Thank you. — 고마워요.\n",
+            "A: 'Can you help me?' → B: 'Yes.' → A: 'Thank you.' "
+            "도움을 청할 상황과 역할을 바꾸거나 몸짓으로 선택해 봅니다.",
+        ),
+        Stage.MIDDLE: (
+            "- Could you explain that? — 설명해 줄 수 있나요?\n"
+            "- I see your point. — 무슨 뜻인지 알겠어요.\n"
+            "- Let's compare our ideas. — 서로 생각을 비교해 봐요.\n",
+            "A: 'Could you explain that?' → B: 'Let me show you.' "
+            "학습자가 고른 경험이나 자료를 바탕으로 설명과 되묻기를 이어갑니다.",
+        ),
+        Stage.HIGH: (
+            "- What evidence supports that? — 어떤 근거가 뒷받침하나요?\n"
+            "- Let's consider another possibility. — 다른 가능성을 생각해 봐요.\n"
+            "- What would change your mind? — 무엇을 확인하면 생각이 달라질까요?\n",
+            "A: 'What evidence supports that?' → B: 'I would check another source.' "
+            "학습자가 고른 실제 근거와 다른 해석을 비교하며 표현을 선택·수정합니다.",
+        ),
+    }[stage]
+    return (
+        "\n## 바로 써볼 기본 표현과 짧은 대화\n"
+        "아래는 주제의 번역이나 사실 설명이 아닌 기본 예시입니다. "
+        "실제 상황에 맞는 것을 선택합니다.\n"
+        f"{expressions}\n{exchange}\n"
+    )

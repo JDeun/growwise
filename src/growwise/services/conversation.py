@@ -1,17 +1,32 @@
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import re
+from datetime import UTC, date, datetime
 from typing import Annotated, Literal
 
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
+from growwise.domain import MaterialKind
 from growwise.model import ModelProvider
 
 from .context import ChildContextService, ContextAnswer
+from .search import NaturalLanguageSearch
+from .visibility import entity_visible_to_child
 
 _ConversationContent = Annotated[str, Field(min_length=1, max_length=20_000)]
 _ConversationSourceId = Annotated[str, Field(min_length=1, max_length=500)]
+
+
+class MaterialAction(BaseModel):
+    material_kind: MaterialKind
+    topic: str = Field(min_length=1, max_length=500)
+    source_refs: list[_ConversationSourceId] = Field(default_factory=list, max_length=20)
+    needs_book_selection: bool = False
+
+
+class MaterialActionAnswer(ContextAnswer):
+    material_action: MaterialAction
 
 
 class ConversationTurn(BaseModel):
@@ -21,6 +36,7 @@ class ConversationTurn(BaseModel):
     operation_key: str | None = Field(default=None, max_length=200)
     operation_hash: str | None = Field(default=None, min_length=64, max_length=64)
     insufficient_evidence: bool | None = None
+    material_action: MaterialAction | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
@@ -72,6 +88,70 @@ user's questions. Return only the rewritten retrieval query."""
             query=retrieval_query,
             limit=limit,
         )
+        if re.search(
+            r"(?:활동|자료|활동지|카드).*?(?:만들어|생성해|준비해)\s*(?:줘|주세요|줄래)", question
+        ):
+            source_refs: list[str] = []
+            candidate_ids = [
+                source_id.partition(":")[2]
+                for source_id in answer.source_ids
+                if source_id.partition(":")[0] in {"record", "graph", "resource"}
+            ]
+            candidate_ids.extend(
+                str(resource["id"])
+                for resource in NaturalLanguageSearch(
+                    self.context_service.entity_index,
+                )
+                .search(
+                    child_id=session.child_id,
+                    query=retrieval_query,
+                    entity_types=("resource",),
+                    limit=8,
+                )
+                .results
+            )
+            for entity_id in candidate_ids:
+                resource = self.context_service.entity_index.get_entity(
+                    entity_id, entity_type="resource"
+                )
+                if (
+                    resource
+                    and resource.get("kind") == "book"
+                    and entity_visible_to_child(
+                        self.context_service.entity_index,
+                        entity_id=entity_id,
+                        child_id=session.child_id,
+                        entity_type="resource",
+                    )
+                ):
+                    source_refs.append(f"resource:{entity_id}")
+            kind = next(
+                (
+                    kind
+                    for word, kind in (
+                        ("영어", MaterialKind.ENGLISH_CARD),
+                        ("수학", MaterialKind.MATH_ACTIVITY),
+                        ("과학", MaterialKind.SCIENCE_INQUIRY),
+                        ("글쓰기", MaterialKind.WRITING_PROMPT),
+                        ("탐방", MaterialKind.FIELD_TRIP),
+                        ("여행", MaterialKind.FIELD_TRIP),
+                        ("책", MaterialKind.READING_ACTIVITY),
+                        ("독서", MaterialKind.READING_ACTIVITY),
+                    )
+                    if word in question
+                ),
+                MaterialKind.ACTIVITY_GUIDE,
+            )
+            action = MaterialAction(
+                material_kind=kind,
+                topic=retrieval_query[:500],
+                source_refs=list(dict.fromkeys(source_refs))[:20],
+                needs_book_selection="책" in question and not source_refs,
+            )
+            answer = MaterialActionAnswer(
+                **answer.model_dump(),
+                material_action=action,
+            )
         session.turns.extend(
             [
                 ConversationTurn(
@@ -87,6 +167,7 @@ user's questions. Return only the rewritten retrieval query."""
                     operation_key=operation_key,
                     operation_hash=operation_hash,
                     insufficient_evidence=answer.insufficient_evidence,
+                    material_action=getattr(answer, "material_action", None),
                 ),
             ]
         )
@@ -94,13 +175,13 @@ user's questions. Return only the rewritten retrieval query."""
         return answer
 
     def _rewrite(self, *, session: ConversationSession, question: str) -> str:
+        if NaturalLanguageSearch.explicit_plan(question, 8, date.today()).constrained:
+            return question
         if self.provider is None or not session.turns:
             return question
-        recent_user_turns = [
-            turn
-            for turn in session.turns
-            if turn.role == "user"
-        ][-self.max_history_turns :]
+        recent_user_turns = [turn for turn in session.turns if turn.role == "user"][
+            -self.max_history_turns :
+        ]
         if not recent_user_turns:
             return question
         history = "\n".join(f"user: {turn.content}" for turn in recent_user_turns)

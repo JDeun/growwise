@@ -4,6 +4,8 @@ mod child_commands;
 mod core_process;
 mod credential_commands;
 mod discovery_commands;
+mod evidence_commands;
+mod external_commands;
 mod learning_record_commands;
 mod learning_wiki_commands;
 mod link_commands;
@@ -23,7 +25,9 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use background_write_commands::{
     create_observation_background, generate_material_background, revise_material_background,
 };
-use backup_commands::{create_backup, export_backup, import_backup, list_backups, restore_backup};
+use backup_commands::{
+    create_backup, export_backup, export_child_records, import_backup, list_backups, restore_backup,
+};
 use child_commands::{
     create_child, delete_child, delete_child_avatar, list_children, set_child_avatar, update_child,
 };
@@ -32,6 +36,8 @@ use credential_commands::{
     delete_api_credential, list_api_credentials, save_api_credential, test_api_credential,
 };
 use discovery_commands::{discover_education_resources, save_discovered_resource};
+use evidence_commands::get_conversation_evidence;
+use external_commands::open_external_url;
 use learning_record_commands::{create_learning_record, list_learning_records};
 use learning_wiki_commands::{get_learning_wiki, rebuild_learning_wiki};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
@@ -822,6 +828,8 @@ pub fn run() {
             choose_storage_location,
             relocate_storage,
             get_learning_wiki,
+            get_conversation_evidence,
+            open_external_url,
             rebuild_learning_wiki,
             list_local_models,
             remove_local_model,
@@ -896,6 +904,7 @@ pub fn run() {
             create_backup,
             restore_backup,
             export_backup,
+            export_child_records,
             import_backup
         ])
         .build(tauri::generate_context!())

@@ -65,7 +65,6 @@ class MaterialQualityGate:
         content_markdown: str,
         parent_guide_markdown: str = "",
     ) -> MaterialQualityResult:
-        del kind
         text = content_markdown.strip()
         generated_text = f"{content_markdown}\n{parent_guide_markdown}"
         issues: list[str] = []
@@ -79,6 +78,11 @@ class MaterialQualityGate:
             issues.append("candidate_core_missing_executable_steps")
         if not re.search(r"[?？]", text):
             issues.append("candidate_core_missing_question")
+        if kind is MaterialKind.ENGLISH_CARD and not any(
+            word.casefold() not in {"ai", "growwise", "english", "markdown"}
+            for word in re.findall(r"\b[A-Za-z]{2,}\b", substantive)
+        ):
+            issues.append("candidate_core_missing_target_language")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
         folded = generated_text.casefold()

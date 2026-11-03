@@ -409,6 +409,9 @@ class BackgroundAiJobRunner:
             current.source_refs = candidate.source_refs
             current.curriculum_targets = candidate.curriculum_targets
             current.generator_mode = candidate.generator_mode
+            current.generator_version = candidate.generator_version
+            current.model_provider = candidate.model_provider
+            current.model_id = candidate.model_id
             current.ai_status = AiEnhancementStatus.COMPLETED
             current.updated_at = datetime.now(UTC)
             store.save(current)

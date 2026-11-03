@@ -1,7 +1,7 @@
 // Actual production UI + authenticated Core, with only the native IPC transport replaced.
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { spawn, spawnSync } from "node:child_process";
+import { createHash, randomBytes } from "node:crypto";
 import { existsSync, mkdtempSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 import { Cdp, evaluate, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
+const scriptSha256 = createHash("sha256").update(readFileSync(fileURLToPath(import.meta.url))).digest("hex");
 const temporary = mkdtempSync(join(tmpdir(), "growwise-live-e2e-"));
 const dataDir = join(temporary, "data");
 const artifacts = process.env.GROWWISE_E2E_ARTIFACTS ?? join(temporary, "artifacts");
@@ -78,6 +79,12 @@ const transport = `(() => {
       get_growth_map: "/v1/children/" + child + "/growth-map",
       list_observations: "/v1/children/" + child + "/observations",
       list_learning_records: "/v1/children/" + child + "/learning-records",
+      list_study_progress: "/v1/children/" + child + "/study/progress",
+      list_study_mistakes: "/v1/children/" + child + "/study/mistakes",
+      list_study_reflections: "/v1/children/" + child + "/study/reflections",
+      list_self_explanations: "/v1/children/" + child + "/study/self-explanations",
+      get_study_weak_map: "/v1/children/" + child + "/study/weak-map",
+      list_study_plans: "/v1/children/" + child + "/study/plans",
       list_resources: "/v1/resources" + (child ? "?child_id=" + child : ""),
       list_materials: "/v1/children/" + child + "/materials",
       list_activities: "/v1/children/" + child + "/activities",
@@ -91,7 +98,19 @@ const transport = `(() => {
       get_board_book_recommendations: "/v1/children/" + child + "/board-books",
     };
     if (command === "core_runtime_status") return {started_by_desktop:false};
-    if (Object.hasOwn(read, command)) return request(read[command]);
+    if (Object.hasOwn(read, command)) {
+      const result = await request(read[command]);
+      // Delay only delivery of an actual authenticated Core response; never replace its data.
+      const gate = Object.values(globalThis.__LIVE_RESPONSE_GATES__ ?? {}).find(
+        item => item.command === command && item.childId === a.childId && !item.arrived,
+      );
+      if (gate) {
+        gate.arrived = true;
+        await new Promise(resolve => { gate.release = resolve; });
+        gate.delivered = true;
+      }
+      return result;
+    }
     if (command === "create_child") return request("/v1/children", "POST", a.request);
     if (command === "create_learning_record") return request("/v1/children/"+child+"/learning-records", "POST", a.request);
     if (command === "create_activity") return request("/v1/children/"+child+"/activities", "POST", {title:a.title,source_refs:a.sourceRefs,parent_note:null});
@@ -110,6 +129,17 @@ const transport = `(() => {
     if (command === "create_conversation") return request("/v1/children/"+child+"/conversations", "POST", {});
     if (command === "delete_conversation") return request("/v1/conversations/"+encodeURIComponent(a.sessionId), "DELETE");
     if (command === "append_conversation_turn") return request("/v1/conversations/"+encodeURIComponent(a.sessionId)+"/turns", "POST", {question:a.question,limit:8});
+    if (command === "get_conversation_evidence") return request("/v1/children/"+child+"/evidence?source_id="+encodeURIComponent(a.sourceId));
+    if (command === "export_child_records") {
+      const query=new URLSearchParams();
+      if(a.startDate)query.set('start_date',a.startDate);
+      if(a.endDate)query.set('end_date',a.endDate);
+      const response=await fetch('/__e2e/core/v1/children/'+child+'/records/export?'+query);
+      if(!response.ok)throw new Error(await response.text());
+      const bytes=new Uint8Array(await response.arrayBuffer());
+      globalThis.__LIVE_SELECTED_EXPORT__=btoa(Array.from(bytes,byte=>String.fromCharCode(byte)).join(''));
+      return '/synthetic/selected-records.zip';
+    }
     if (command === "search_child_context") return request("/v1/children/"+child+"/search?q="+encodeURIComponent(a.query));
     if (command === "get_entity_backlinks") return request("/v1/links/"+encodeURIComponent(a.entityId));
     if (command === "rebuild_learning_wiki") return request("/v1/children/"+child+"/learning-wiki/rebuild", "POST");
@@ -143,6 +173,20 @@ async function clickText(text, selector = "button") {
   })()`), {label:`click ${text}`});
 }
 
+async function fillLabel(context, text, value) {
+  await waitFor(() => evaluate(cdp, `(() => {
+    const label=[...document.querySelectorAll(${JSON.stringify(context)} + ' label')]
+      .find(node=>node.querySelector('span')?.textContent.trim() === ${JSON.stringify(text)});
+    const input=label?.querySelector('input,textarea,select');
+    if(!input || input.disabled || input.getBoundingClientRect().height === 0) return false;
+    const proto=input.tagName==='TEXTAREA'?HTMLTextAreaElement.prototype
+      :input.tagName==='SELECT'?HTMLSelectElement.prototype:HTMLInputElement.prototype;
+    Object.getOwnPropertyDescriptor(proto,'value').set.call(input,${JSON.stringify(value)});
+    input.dispatchEvent(new Event('input',{bubbles:true}));
+    input.dispatchEvent(new Event('change',{bubbles:true})); return true;
+  })()`),{label:`fill ${text}`});
+}
+
 async function navigate(view) {
   await evaluate(cdp, `document.querySelector("#workspace-nav-${view}").click()`);
   await waitForWorkspace(cdp, view);
@@ -152,6 +196,121 @@ async function capture(name, selector) {
   if(selector) await evaluate(cdp,`document.querySelector(${JSON.stringify(selector)})?.scrollIntoView({block:"center"})`);
   const image = await cdp.send("Page.captureScreenshot", {format:"png",captureBeyondViewport:false});
   writeFileSync(join(artifacts, `${name}.png`), Buffer.from(image.data,"base64"));
+}
+
+async function gateRealResponse(name, command, childId) {
+  await evaluate(cdp, `(() => {
+    globalThis.__LIVE_RESPONSE_GATES__ ??= {};
+    globalThis.__LIVE_RESPONSE_GATES__[${JSON.stringify(name)}] = {
+      command: ${JSON.stringify(command)}, childId: ${JSON.stringify(childId)}, arrived: false, delivered: false,
+    };
+  })()`);
+}
+
+async function releaseRealResponse(name) {
+  await evaluate(cdp, `globalThis.__LIVE_RESPONSE_GATES__[${JSON.stringify(name)}].release()`);
+  await waitFor(() => evaluate(cdp, `globalThis.__LIVE_RESPONSE_GATES__[${JSON.stringify(name)}].delivered`),
+    { label: `deliver delayed real response ${name}` });
+  await evaluate(cdp, "new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve)))");
+}
+
+async function verifyPrimaryPrint(material, artifactPrefix = "") {
+  assert.equal(await evaluate(cdp, 'document.querySelector(".material-workflow-admin").open'), false);
+  const detailsBefore = await evaluate(cdp, '[...document.querySelectorAll(".material-workflow-admin, .material-workflow-admin details")].map(node => node.open)');
+  await evaluate(cdp, `(() => {
+    globalThis.__LIVE_ORIGINAL_PRINT__ = window.print;
+    globalThis.__LIVE_PRINT_CALLS__ = 0;
+    window.print = () => { globalThis.__LIVE_PRINT_CALLS__ += 1; };
+  })()`);
+  try {
+    await clickText("인쇄 / PDF 내보내기", ".material-document-toolbar button");
+    await waitFor(() => evaluate(cdp, "globalThis.__LIVE_PRINT_CALLS__ === 1"), {label:"primary action reaches native print surface"});
+    const target = await evaluate(cdp, `(() => {
+      const card = document.querySelector('[data-growwise-print-target="true"]');
+      return {
+        count: document.querySelectorAll('[data-growwise-print-target="true"]').length,
+        id: card?.getAttribute('data-approved-material-id'), scope: document.body.getAttribute('data-growwise-print-scope'),
+        adminOpen: document.querySelector('.material-workflow-admin').open,
+        allTargetDetailsOpen: [...(card?.querySelectorAll('details') ?? [])].every(node => node.open),
+      };
+    })()`);
+    assert.deepEqual(target, {count:1,id:material.id,scope:"single",adminOpen:true,allTargetDetailsOpen:true});
+    await cdp.send("Emulation.setEmulatedMedia", {media:"print"});
+    assert(await evaluate(cdp, `(() => {
+      const card=document.querySelector('[data-growwise-print-target="true"]');
+      return card && getComputedStyle(card).visibility === 'visible' && card.getBoundingClientRect().width > 0
+        && [...card.querySelectorAll('.material-preview, .material-support-pages')].every(node => getComputedStyle(node).display !== 'none');
+    })()`), "selected approved document and supporting content remain visible in print media");
+    await capture(`${artifactPrefix}primary-approved-material-print`);
+    const pdf = await cdp.send("Page.printToPDF", {printBackground:true,preferCSSPageSize:true});
+    const bytes = Buffer.from(pdf.data,"base64");
+    assert.equal(bytes.subarray(0,5).toString(),"%PDF-");
+    assert(bytes.length > 10000,"real PDF contains rendered document and fonts");
+    writeFileSync(join(artifacts,`${artifactPrefix}approved-material.pdf`),bytes);
+  } finally {
+    await cdp.send("Emulation.setEmulatedMedia", {media:"screen"});
+    await evaluate(cdp, `(() => {
+      window.dispatchEvent(new Event('afterprint'));
+      window.print = globalThis.__LIVE_ORIGINAL_PRINT__;
+    })()`);
+  }
+  assert.deepEqual(await evaluate(cdp, `({
+    adminOpen:document.querySelector('.material-workflow-admin').open,
+    targetCount:document.querySelectorAll('[data-growwise-print-target="true"]').length,
+    scope:document.body.getAttribute('data-growwise-print-scope'),
+  })`), {adminOpen:false,targetCount:0,scope:null});
+  assert.deepEqual(await evaluate(cdp, '[...document.querySelectorAll(".material-workflow-admin, .material-workflow-admin details")].map(node => node.open)'), detailsBefore,
+    "printing restores every previously closed or open detail, including supporting guides");
+  steps.push("primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing");
+}
+
+async function verifyDelayedChildIsolation() {
+  const oldChild = await api("/v1/children","POST", {nickname:"지연응답 검증 A",stage:"middle",age_months:160});
+  const currentChild = await api("/v1/children","POST", {nickname:"지연응답 검증 B",stage:"middle",age_months:168});
+  const oldTitle = "이전 아이 지연 학습 기록";
+  const currentTitle = "현재 아이 확인 학습 기록";
+  for (const [child,title,unit] of [[oldChild,oldTitle,"이전 아이 단원"],[currentChild,currentTitle,"현재 아이 단원"]]) {
+    await api(`/v1/children/${child.id}/learning-records`,"POST", {
+      kind:"self_study",title,summary:`${title}의 원본 관찰`,
+    });
+    await api(`/v1/children/${child.id}/study/progress`,"POST", {
+      subject:"수학",unit,state:"in_progress",note:`${title}의 진도 기록`,
+    });
+  }
+  // Refresh real child profiles before staying in one workspace throughout A -> B switching.
+  await cdp.send("Page.reload",{});
+  await waitFor(()=>evaluate(cdp,'document.readyState === "complete" && !!document.querySelector(".workspace-shell-root")'),{label:"reload new synthetic child fixtures"});
+  await navigate("learning");
+  const picker = ".workspace-child-picker select";
+  await waitFor(()=>evaluate(cdp,`[...document.querySelectorAll(${JSON.stringify(picker + " option")})].some(node=>node.value === ${JSON.stringify(currentChild.id)})`),{label:"current-child picker contains new real profiles"});
+  await gateRealResponse("old-learning","list_learning_records",oldChild.id);
+  await gateRealResponse("old-study","list_study_progress",oldChild.id);
+  await fill(picker,oldChild.id);
+  await waitFor(()=>evaluate(cdp,'globalThis.__LIVE_RESPONSE_GATES__["old-learning"].arrived && globalThis.__LIVE_RESPONSE_GATES__["old-study"].arrived'),{label:"old child's real learning and study responses are delayed"});
+  await fill(picker,currentChild.id);
+  const visibleContext = () => evaluate(cdp,`({
+    selected:document.querySelector(${JSON.stringify(picker)})?.value,
+    learning:document.querySelector('.learning-hub-records .learning-master-list')?.innerText ?? '',
+    study:document.querySelector('.learning-hub-records .study-history-list')?.innerText ?? '',
+  })`);
+  await waitFor(async()=>{
+    const view=await visibleContext();
+    return view.selected === currentChild.id && view.learning.includes(currentTitle) && view.study.includes("현재 아이 단원");
+  },{label:"new child's own learning and study responses are visible first"});
+  const assertCurrentChild = async () => {
+    const view=await visibleContext();
+    assert.equal(view.selected,currentChild.id);
+    assert(view.learning.includes(currentTitle));
+    assert(!view.learning.includes(oldTitle),"late learning response must not overwrite the new child's records");
+    assert(view.study.includes("현재 아이 단원"));
+    assert(!view.study.includes("이전 아이 단원"),"late study response must not overwrite the new child's study history");
+  };
+  await releaseRealResponse("old-learning");
+  await assertCurrentChild();
+  await releaseRealResponse("old-study");
+  await assertCurrentChild();
+  await capture("delayed-previous-child-responses");
+  steps.push("real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated");
 }
 
 try {
@@ -180,8 +339,20 @@ try {
   await cdp.send("Page.addScriptToEvaluateOnNewDocument",{source:transport});
   await cdp.send("Page.navigate",{url:"http://127.0.0.1:4173"});
   await waitFor(()=>evaluate(cdp,'!!document.querySelector(".workspace-shell-root")'),{label:"production UI"});
-  await navigate("profile");
+  await waitForWorkspace(cdp,"home");
+  await capture("first-empty-home");
+  await clickText("프로필 입력으로 이동");
+  await waitForWorkspace(cdp,"profile");
   await waitFor(()=>evaluate(cdp,'!!document.querySelector(".profile-form input:not(:disabled)")'),{label:"profile form"});
+  await cdp.send("Emulation.setDeviceMetricsOverride",{width:860,height:620,deviceScaleFactor:1,mobile:false});
+  assert(await evaluate(cdp, `(() => {
+    const field=document.querySelector('.profile-form input');
+    const save=document.querySelector('.profile-form button[type=submit]');
+    return field.getBoundingClientRect().top >= 0 && save.getBoundingClientRect().bottom <= innerHeight
+      && document.documentElement.scrollWidth <= innerWidth;
+  })()`),"first profile fields and save remain visible at the desktop minimum viewport");
+  await capture("first-profile-minimum-window");
+  await cdp.send("Emulation.setDeviceMetricsOverride",{width:1440,height:1000,deviceScaleFactor:1,mobile:false});
   await fill('.profile-form input[placeholder="예: 샘플아이"]',"가상실사용아이");
   await fill('.profile-form input[type="date"]',"2018-04-15");
   await clickText("첫 프로필 저장");
@@ -191,6 +362,8 @@ try {
   const childId = children[0].id;
   assert.equal(children[0].stage,"elementary");
   steps.push("UI first-run profile persists and enters materials");
+  const book=await api('/v1/resources','POST',{kind:'book',title:'씨앗 그림책',child_id:childId,
+    content:'씨앗이 바람에 이동하는 모습을 관찰한다.',source_name:'합성 검증 자료',tags:['씨앗']});
 
   await waitFor(()=>evaluate(cdp,'!!document.querySelector(".material-composer input:not(:disabled)")'),{label:"material composer"});
   await fill(".material-topic-field input","민들레 씨앗 관찰");
@@ -200,13 +373,27 @@ try {
   await waitFor(async()=> (await api(`/v1/children/${childId}/materials`))[0].status === "approved",{label:"explicit parent approval"});
   const material = (await api(`/v1/children/${childId}/materials`))[0];
   steps.push("UI background generation saves template; explicit use passes real review gate");
+  await verifyPrimaryPrint(material);
   await clickText("활동 결과 기록");
   await fill(".material-result-panel textarea","민들레 씨앗을 보고 왜 날아가는지 질문했다.");
+  await clickText("더 자세히 기록","summary");
+  await fillLabel('.material-result-panel','함께 읽은 책',book.id);
+  await fillLabel('.material-result-panel','AI가 준 힌트','씨앗의 날개를 다시 관찰해 보자.');
+  await fillLabel('.material-result-panel','근거 확인 여부','false');
+  await fillLabel('.material-result-panel','아이가 다시 설명한 내용','날개가 있어 바람을 타는 것 같다.');
+  await capture('optional-learning-evidence-form','.material-result-panel .learning-evidence-fields');
   await evaluate(cdp,'document.querySelector(".material-result-panel").requestSubmit()');
   await waitFor(async()=> (await api(`/v1/materials/${material.id}/results`)).some((item)=>item.learning_logs.some((log)=>log.parent_observation.includes("민들레 씨앗을 보고"))),{label:"one-line result persisted"});
   const resultLog=(await api(`/v1/materials/${material.id}/results`))[0].learning_logs[0];
+  assert.equal(resultLog.book_id,book.id);
+  assert.equal(resultLog.evidence_checked,false);
+  assert.equal(resultLog.child_reexplanation,'날개가 있어 바람을 타는 것 같다.');
   await waitFor(()=>evaluate(cdp,'document.querySelector(".material-quest-meta")?.innerText.includes("민들레")'),{label:"saved material result visible"});
   await capture("material-used-and-recorded",".material-quest");
+  await evaluate(cdp,'document.querySelector(".material-result-history").open=true');
+  await waitFor(()=>evaluate(cdp,'document.querySelector(".material-result-history").innerText.includes("확인하지 않음")'),{label:"saved false evidence and book context remain readable"});
+  await capture('saved-learning-evidence-history','.material-result-history');
+  await evaluate(cdp,'document.querySelector(".material-result-history").open=false');
   steps.push("UI one-line result writes authoritative learning record");
 
   await fill(".material-topic-field input","달의 모양 관찰");
@@ -231,9 +418,16 @@ try {
   await navigate("learning");
   await fill('.learning-record-form input[placeholder="예: 어린 왕자 독서감상"]',"씨앗 그림책 읽기");
   await fill('.learning-record-form textarea[placeholder="부모가 확인한 사실이나 아이가 설명한 내용을 기록하세요."]',"민들레 그림책을 읽고 씨앗이 이동하는 방법을 이야기했다.");
+  await clickText('책과 AI 도움·근거를 더 기록하기(선택)','summary');
+  await fillLabel('.learning-record-form','함께 읽은 책',book.id);
+  await fillLabel('.learning-record-form','AI가 준 힌트','그림에서 같은 모양을 찾아보자.');
+  await fillLabel('.learning-record-form','근거 확인 여부','true');
+  await fillLabel('.learning-record-form','아이가 다시 설명한 내용','그림과 실제 씨앗의 모양이 닮았다.');
   await evaluate(cdp,'document.querySelector(".learning-record-form").requestSubmit()');
   await waitFor(async()=> (await api(`/v1/children/${childId}/learning-records`)).length === 1,{label:"independent reading record saved through UI"});
   await waitFor(()=>evaluate(cdp,'document.querySelector(".learning-master-list")?.innerText.includes("씨앗 그림책 읽기")'),{label:"reading record appears in independent list"});
+  assert(await evaluate(cdp,'document.querySelector(".learning-detail-panel").innerText.includes("그림과 실제 씨앗의 모양이 닮았다.")'));
+  await capture('independent-learning-evidence-detail','.learning-detail-panel .learning-evidence-details');
   steps.push("UI independent reading record preserves separate record kind");
   await clickText("관찰 기록",'[role="tab"]');
   await waitFor(()=>evaluate(cdp,'document.body.innerText.includes("민들레")'),{label:"activity result in learning records"});
@@ -255,6 +449,10 @@ try {
     return sessions.some((session)=>session.turns?.some((turn)=>turn.role === "assistant" && turn.source_ids?.includes(`record:${resultLog.id}`)));
   },{label:"grounded conversation answer"});
   await capture("grounded-conversation");
+  await evaluate(cdp,'document.querySelector(".conversation-original summary").click()');
+  await waitFor(()=>evaluate(cdp,'document.querySelector(".conversation-original-content pre")?.innerText.includes("민들레")'),{label:"cited current original opens in conversation"});
+  await capture("conversation-original-source",".conversation-original-content");
+  steps.push("UI opens a cited current original with title, event date and body through child-scoped evidence resolution");
   steps.push("UI conversation retrieves real records with source refs; Learning Wiki grounded");
   const retainedConversation=(await api(`/v1/children/${childId}/conversations`))[0];
   await evaluate(cdp,'document.querySelector(".conversation-new-button").click()');
@@ -280,18 +478,48 @@ try {
   await clickText("참고 자료",'[role="tab"]');
   await fill(".resource-form input","민들레 참고 메모");
   await fill(".resource-form textarea","씨앗은 바람에 움직인다. 실제 산책에서 관찰할 질문을 남긴다.");
+  await clickText('출처·분류 설정(선택)','.resource-form summary');
+  await fillLabel('.resource-form','출처 이름','합성 자연 관찰 자료');
+  await fillLabel('.resource-form','출처 URL','https://example.org/seed');
+  await fillLabel('.resource-form','저자·작성자','합성 작성자');
+  await fillLabel('.resource-form','태그','씨앗, 관찰');
+  await fillLabel('.resource-form','사용 범위','shared');
   await evaluate(cdp,'document.querySelector(".resource-form").requestSubmit()');
   await waitFor(async()=> (await api(`/v1/resources?child_id=${childId}`)).some((item)=>item.title === "민들레 참고 메모"),{label:"resource UI create"});
   await clickText("편집",".resource-card button");
   await fill(".resource-edit-panel input","민들레 참고 메모 수정");
+  await clickText('출처·분류 설정(선택)','.resource-edit-panel summary');
+  await fillLabel('.resource-edit-panel','출처 이름','출처 수정 검증');
+  await fillLabel('.resource-edit-panel','사용 범위','child');
   await clickText("수정 저장");
   await waitFor(async()=> (await api(`/v1/resources?child_id=${childId}`)).some((item)=>item.title === "민들레 참고 메모 수정"),{label:"resource UI update"});
+  const editedResource=(await api(`/v1/resources?child_id=${childId}`)).find(item=>item.title==='민들레 참고 메모 수정');
+  assert.equal(editedResource.source_name,'출처 수정 검증');
+  assert.equal(editedResource.child_id,childId);
+  assert.deepEqual(editedResource.tags,['씨앗','관찰']);
   await clickText("상세",".resource-card button");
   await capture("resource-created-and-edited");
   await clickText("삭제",".resource-card button");
   await clickText("자료 삭제",'[role="alertdialog"] button');
-  await waitFor(async()=> (await api(`/v1/resources?child_id=${childId}`)).length === 0,{label:"confirmed resource deletion"});
+  await waitFor(async()=> !(await api(`/v1/resources?child_id=${childId}`)).some(item=>item.id===editedResource.id),{label:"confirmed resource deletion"});
   steps.push("UI reference library create/edit/detail/confirmed delete reaches real Core");
+
+  await navigate("conversation");
+  await fill('.conversation-composer input','씨앗 그림책과 현재 관심사를 연결해 내일 할 활동을 만들어줘');
+  await evaluate(cdp,'document.querySelector(".conversation-composer").requestSubmit()');
+  await waitFor(()=>evaluate(cdp,'[...document.querySelectorAll(".conversation-turn button")].some(node=>node.textContent.trim()==="이 내용으로 활동 만들기")'),{label:"conversation offers explicit material action"});
+  assert.equal((await api(`/v1/children/${childId}/materials`)).length,2,"a conversation proposal must not create a draft without parent action");
+  await clickText('이 내용으로 활동 만들기','.conversation-turn button');
+  await waitForWorkspace(cdp,'materials');
+  await waitFor(()=>evaluate(cdp,'document.querySelector(".material-topic-field input")?.value.includes("씨앗 그림책")'),{label:"conversation topic reaches primary material composer"});
+  assert(await evaluate(cdp,`[...document.querySelectorAll('.resource-grounding-picker input')].some(node=>node.checked && node.closest('label').innerText.includes(${JSON.stringify(book.title)}))`),"visible book source reaches material composer");
+  await evaluate(cdp,'document.querySelector(".material-composer").requestSubmit()');
+  await waitFor(async()=> (await api(`/v1/children/${childId}/materials`)).length === 3,{label:"explicit parent action creates a new material draft from conversation"});
+  const commanded=(await api(`/v1/children/${childId}/materials`)).find(item=>item.id!==material.id&&item.id!==secondMaterial.id);
+  assert.equal(commanded.kind,'reading_activity');
+  assert.notEqual(commanded.status,'approved');
+  assert(commanded.source_refs.includes(`resource:${book.id}`));
+  steps.push("UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft");
 
   await navigate("photos");
   await evaluate(cdp,'(() => { const details=document.querySelector(".photo-create-summary").closest("details"); if(!details.open) details.querySelector("summary").click(); })()');
@@ -361,10 +589,57 @@ try {
   await waitFor(()=>evaluate(cdp,'document.body.innerText.includes("민들레")'),{label:"restored record visible"});
   await capture("restored-records",".timeline-section");
   steps.push("real backup/restore removes newer child, preserves material result/conversation, UI reloads");
+  await verifyDelayedChildIsolation();
+
+  const older=await api(`/v1/children/${childId}/learning-records`,'POST',{
+    kind:'other',title:'기간 선택 검증용 기록',summary:'선택한 아이의 과거 원문 관찰',
+    occurred_at:'2020-06-15T12:00:00Z',
+  });
+  await navigate('backup');
+  await fill('.record-export-form select',childId);
+  await fill('.record-export-form input[type=date]:nth-of-type(1)','2020-01-01');
+  await fill('.record-export-form label:last-child input','2020-12-31');
+  await clickText('선택 기록 내보내기');
+  await waitFor(()=>evaluate(cdp,'Boolean(globalThis.__LIVE_SELECTED_EXPORT__)'),{label:'selected-period ZIP downloaded from real Core'});
+  const selectedZip=join(artifacts,'selected-records.zip');
+  writeFileSync(selectedZip,Buffer.from(await evaluate(cdp,'globalThis.__LIVE_SELECTED_EXPORT__'),'base64'));
+  const zipCheck=spawnSync(python,['-c',`
+import hashlib,json,sys,zipfile
+from pathlib import Path
+from growwise.backup.service import BackupService,InvalidBackup
+with zipfile.ZipFile(sys.argv[1]) as archive:
+ manifest=json.loads(archive.read('growwise-record-export.json'))
+ assert manifest['child_id']==sys.argv[2] and manifest['start_date']=='2020-01-01' and manifest['end_date']=='2020-12-31'
+ assert manifest['restorable_by_app'] is False
+ names=archive.namelist()
+ assert any(sys.argv[3] in name for name in names)
+ assert not any(sys.argv[4] in name or sys.argv[5] in name for name in names)
+ for name,digest in manifest['sha256'].items(): assert hashlib.sha256(archive.read(name)).hexdigest()==digest
+try: BackupService().validate_archive(Path(sys.argv[1]))
+except InvalidBackup: pass
+else: raise AssertionError('selected export must not be accepted as a whole-app restore')
+`,selectedZip,childId,older.id,resultLog.id,second.id],{cwd:root,encoding:'utf8'});
+  assert.equal(zipCheck.status,0,zipCheck.stderr);
+  await capture('selected-records-export','.record-export-section');
+  steps.push('UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it');
+
+  const infant=await api('/v1/children','POST',{nickname:'영아 인쇄 검증',stage:'infant_0_2',age_months:9});
+  const infantMaterial=await api(`/v1/children/${infant.id}/materials`,'POST',{kind:'activity_guide',topic:'소리와 움직임 살펴보기'});
+  await api(`/v1/materials/${infantMaterial.id}/use`,'POST',{});
+  infantMaterial.status='approved';
+  await cdp.send('Page.reload',{});
+  await waitFor(()=>evaluate(cdp,'Boolean(document.querySelector(".workspace-child-picker"))'),{label:'infant profile available'});
+  await fill('.workspace-child-picker select',infant.id);
+  await navigate('materials');
+  await waitFor(()=>evaluate(cdp,`document.querySelector('.material-document-toolbar h3')?.innerText === ${JSON.stringify(infantMaterial.title)}`),{label:'infant activity visible'});
+  assert.equal(await evaluate(cdp,'document.querySelectorAll(".material-presentation-template").length'),0);
+  assert(await evaluate(cdp,'document.querySelector(".material-studio-pane").innerText.includes("활동 전 안전")'));
+  await verifyPrimaryPrint(infantMaterial,'infant-');
+  steps.push('infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces');
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
   assert.deepEqual(errors,[]);
   const buildAssets=await evaluate(cdp,'[...document.querySelectorAll("script[src],link[rel=stylesheet]")].map(element=>element.getAttribute("src")??element.getAttribute("href"))');
-  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and one-pixel PNG; isolated temporary data directory",buildAssets,steps,artifacts};
+  const report={passed:true,transport:"browser IPC adapter -> authenticated actual Core; native runtime checked separately",llm:false,fixture:"synthetic children, observations and one-pixel PNG; isolated temporary data directory",scriptSha256,buildAssets,steps,artifacts};
   writeFileSync(join(artifacts,"report.json"),JSON.stringify(report,null,2));
   console.log(JSON.stringify(report,null,2));
 } catch(error) {

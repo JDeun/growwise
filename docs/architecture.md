@@ -183,8 +183,11 @@ JSON-only fallback 후 동일 Pydantic schema로 검증한다.
 text provider와 embedding runtime은 별도 endpoint/config로 분리한다. 따라서 text generation을 원격
 OpenAI-compatible endpoint로 바꿔도 local Ollama embedding이 자동으로 원격 전환되지 않는다.
 
-기능별 모델을 분리할 수 있다(`generation`, `review`, `embedding`). 원격 공급자는 부모가
-명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을 통과해야 한다.
+현재 설정은 text generation, photo vision, embedding 역할을 분리한다. 대화와 백그라운드
+자료 보강은 같은 text provider를 사용하되 timeout/output/context 예산이 다르다. 자동 안전·
+grounding 검토는 deterministic guard로 수행하며 별도의 AI review 모델 선택 기능은 제공하지
+않는다. 원격 공급자는 부모가 명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을
+통과해야 한다.
 
 ### Provider failure policy
 

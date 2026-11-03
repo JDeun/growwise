@@ -57,7 +57,7 @@ viewport에 따라 반응형으로 변할 수 있지만, 1540px product shell �
 - Conversation: history : chat : utility/backup ≈ 22 : 41 : 37
 
 이 값은 단순 문서 권고가 아니라 `VisualContract.test.ts`에서 CSS 계약으로 회귀 검증한다.
-940px 이하 shell, 각 workspace의 별도 breakpoint에서는 접근성과 clipping 방지를 우선해
+780px 이하 shell, 각 workspace의 별도 breakpoint에서는 접근성과 clipping 방지를 우선해
 단일/다단 반응형 레이아웃으로 전환할 수 있다.
 
 
@@ -204,6 +204,12 @@ application shell geometry를 바꾸지는 않는다.
 도구 고정 revision·측정 범위·화면 너비와 남은 제한을 기록했다. 실제 Core에 연결한
 [최종 14개 흐름](knowledge/experiments/live-core-browser-20261103-final.md)도 같은 최종
 JS/CSS 빌드에서 통과했다. 기본 화면의 결과를 하위 탭과 모든 입력 상태로 일반화하지 않는다.
+
+후속 [하위 상태 검증](knowledge/experiments/design-validation-20261103-deep.md)은
+프로필 3개·학습 기록 2개·자료실 4개 탭과 설정 상세 펼침을 1440/430px에서 확인했다.
+관찰 폼의 제목 단계 누락을 h3→h2로 수정하고, 영향받은 두 너비를 다시 검사해
+`quality` 지적 0건과 가로 넘침 없음을 확인했다. 설정 펼침 검사는 API 키 저장 실행을
+의미하지 않으며, 이전 기본 화면 검증 기록은 그대로 보존한다.
 
 ### 간격과 형태
 

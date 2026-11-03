@@ -9,6 +9,9 @@ import {
   type LearningRecordKind,
 } from "../api";
 import { ChildAvatar } from "../components";
+import {
+  EMPTY_LEARNING_EVIDENCE, LearningEvidenceDetails, LearningEvidenceFields, useLearningBooks,
+} from "../components/LearningEvidence";
 import { AXIS_OPTIONS, stageLabel } from "../presentation";
 import "./LearningRecordWorkspace.css";
 import { StudyTrackingPanel } from "./StudyTrackingPanel";
@@ -54,6 +57,17 @@ export function LearningRecordWorkspace({
   active: boolean;
   embedded?: boolean;
 }) {
+  const { activeChildId } = useActiveChild();
+  return <ChildLearningRecords key={activeChildId} active={active} embedded={embedded} />;
+}
+
+function ChildLearningRecords({
+  active,
+  embedded = false,
+}: {
+  active: boolean;
+  embedded?: boolean;
+}) {
   const {
     children,
     activeChild,
@@ -75,6 +89,8 @@ export function LearningRecordWorkspace({
   const [nextActivity, setNextActivity] = useState("");
   const [tags, setTags] = useState("");
   const [axes, setAxes] = useState<ExperienceAxis[]>([]);
+  const [evidence, setEvidence] = useState(EMPTY_LEARNING_EVIDENCE);
+  const bookState = useLearningBooks(childId);
   const [sharedChildIds, setSharedChildIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -167,6 +183,7 @@ export function LearningRecordWorkspace({
     setInstitution("");
     setSummary("");
     setLearnerWork("");
+    setEvidence(EMPTY_LEARNING_EVIDENCE);
     setProcess("");
     setInterest("");
     setDifficulty("");
@@ -192,6 +209,9 @@ export function LearningRecordWorkspace({
         institution: institution.trim() || null,
         summary: summary.trim(),
         learner_work: learnerWork.trim() || null,
+        ...evidence,
+        ai_hint: evidence.ai_hint.trim() || null,
+        child_reexplanation: evidence.child_reexplanation.trim() || null,
         process: process.trim() || null,
         interest: interest.trim() || null,
         difficulty_note: difficulty.trim() || null,
@@ -321,6 +341,7 @@ export function LearningRecordWorkspace({
                       <p className="learning-work-text">{selectedRecord.learner_work}</p>
                     </div>
                   )}
+                  <LearningEvidenceDetails record={selectedRecord} books={bookState.books} />
                   <div className="learning-detail-context-grid">
                     {selectedRecord.interest && <div><span>흥미</span><p>{selectedRecord.interest}</p></div>}
                     {selectedRecord.difficulty_note && <div><span>어려움</span><p>{selectedRecord.difficulty_note}</p></div>}
@@ -385,6 +406,10 @@ export function LearningRecordWorkspace({
 
             <label><span>무엇을 했고 무엇을 배웠나요? *</span><textarea value={summary} onChange={(event) => setSummary(event.target.value)} maxLength={10000} placeholder="부모가 확인한 사실이나 아이가 설명한 내용을 기록하세요." disabled={busy} /></label>
             <label><span>{kind === "diary" ? "아이의 일기" : kind === "reading_reflection" ? "독서감상문·아이의 글" : "아이 결과물·답변(선택)"}</span><textarea value={learnerWork} onChange={(event) => setLearnerWork(event.target.value)} maxLength={20000} placeholder="아이가 직접 쓴 글이나 답변이 있으면 원문 그대로 남길 수 있습니다." disabled={busy} /></label>
+            <details>
+              <summary>책과 AI 도움·근거를 더 기록하기(선택)</summary>
+              <LearningEvidenceFields value={evidence} onChange={setEvidence} {...bookState} disabled={busy} />
+            </details>
 
             <div className="learning-record-two-column">
               <label><span>학습 과정</span><textarea value={process} onChange={(event) => setProcess(event.target.value)} disabled={busy} /></label>
@@ -434,6 +459,7 @@ export function LearningRecordWorkspace({
                     {(record.subject || record.institution) && <p className="learning-record-meta">{[record.subject, record.institution].filter(Boolean).join(" · ")}</p>}
                     <p>{record.parent_observation}</p>
                     {record.learner_work && <details><summary>아이의 글·결과물 보기</summary><p className="learning-work-text">{record.learner_work}</p></details>}
+                    <LearningEvidenceDetails record={record} books={bookState.books} />
                     <div className="learning-record-tags"><span>{AI_LABEL[record.ai_status ?? "not_requested"] ?? record.ai_status}</span>{record.interest && <span>흥미 · {record.interest}</span>}{record.difficulty_note && <span>어려움 · {record.difficulty_note}</span>}</div>
                   </article>
                 ))}

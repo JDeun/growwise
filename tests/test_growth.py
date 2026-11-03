@@ -95,6 +95,30 @@ def test_growth_map_ignores_other_children_and_old_logs(tmp_path) -> None:
     assert physical.state is CoverageState.RECENTLY_OBSERVED
 
 
+def test_growth_uses_experience_date_with_legacy_creation_fallback(tmp_path) -> None:
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    child = ChildProfile(nickname="합성 날짜", stage=Stage.ELEMENTARY, age_months=96)
+    now = datetime(2026, 11, 3, 12, tzinfo=UTC)
+    for event, created in [
+        (now - timedelta(days=90), now),  # Backfilled old event is outside the window.
+        (now - timedelta(days=1), now - timedelta(days=90)),  # Event date wins over creation.
+        (None, now - timedelta(days=2)),  # Legacy records retain their creation-date meaning.
+        (now + timedelta(days=2), now),  # Future events are not already experienced.
+    ]:
+        store.save(LearningLog(
+            child_id=child.id, parent_observation="합성 관찰",
+            occurred_at=event, created_at=created, updated_at=created,
+            experience_axes=[ExperienceAxis.PHYSICAL],
+        ))
+    result = GrowthMapService(store.index).project(
+        child_id=str(child.id), period_days=30, now=now,
+    )
+    physical = next(item for item in result.axes if item.axis is ExperienceAxis.PHYSICAL)
+    assert result.total_logs_in_period == 2
+    assert physical.first_observed_at == now - timedelta(days=2)
+    assert physical.last_observed_at == now - timedelta(days=1)
+
+
 def test_growth_map_exposes_three_non_diagnostic_layers_for_stage(tmp_path) -> None:
     store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
     child = ChildProfile(nickname="초등", stage=Stage.ELEMENTARY, age_months=108)

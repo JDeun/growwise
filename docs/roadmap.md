@@ -258,8 +258,12 @@ Core/API + Markdown SoT/SQLite projection 기준 기능은 완료됐다. Desktop
 - [x] sample/test data privacy audit (`test_repo_privacy_audit.py` — 구조적 전화/주민번호 + GROWWISE_PII_DENYLIST 실명 감사)
 - [x] reproducible dependency resolution where practical (`uv sync --locked`, `npm ci`, Cargo `--locked`)
 
-**저장소 구현/자동화 상태:** 완료. 남은 `[ ]`는 운영자 실측·실기기·배포 자격증명·장기
-updater 신뢰 키처럼 저장소가 대신 생성하거나 증명하면 안 되는 `operator-only` 항목이다.
+**추가 계약 점검:** [문서→구현 추적](FEATURE_TRACE_AUDIT.md)의 기존9개 누락은 수정하고
+실제 Core/API/UI 경로를 검증했다. 추가 발견한 [아이·기간별 원본 ZIP](record-export.md)은
+구현·API/화면/네이티브 회귀와 [최종21단계 실제 Core 흐름](knowledge/experiments/live-core-browser-20261103-verified.md)을 통과했다.
+추가 출처/부모 결정 시각·영아 worksheet 제외 계약도 검증했다. 이 감사에서 확인한 누락은 모두
+해결했으며 모든 가능한 결함이 없다는 뜻은 아니다. 남은 열린 `[ ]`는 운영자
+실측·실기기·배포 자격증명·장기 updater 신뢰 키처럼 저장소가 대신 증명할 수 없는 항목이다.
 
 ## Definition of Done
 

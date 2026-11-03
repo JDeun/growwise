@@ -42,10 +42,10 @@ export function ProfileWorkspaceHub({
           <h1 id="profile-hub-title">아이 프로필</h1>
           <p>우리 아이의 특별한 성장과 배움의 흐름을 한곳에서 살펴봅니다.</p>
         </div>
-        <button className="primary-button" type="button" onClick={() => onNavigate("learning")}>
+        {activeChild && <button className="primary-button" type="button" onClick={() => onNavigate("learning")}>
           <span aria-hidden="true">＋</span>
           새 기록 추가
-        </button>
+        </button>}
       </header>
 
       {showManage ? (

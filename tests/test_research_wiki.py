@@ -59,7 +59,7 @@ def test_checker_rejects_broken_or_unattributed_references(
     text: str,
     expected: str,
 ) -> None:
-    (wiki_root / "docs/knowledge/broken.md").write_text(text)
+    (wiki_root / "docs/knowledge/broken.md").write_text(text, encoding="utf-8")
     with pytest.raises(ValueError, match=expected):
         wiki.check(wiki_root)
 
@@ -80,7 +80,7 @@ def test_observed_experiment_requires_artifact_and_known_environment(wiki_root: 
     with pytest.raises(ValueError, match="missing observed_on"):
         wiki.check(wiki_root)
     row.update(observed_on="2026-11-03", artifact="docs/README.md", revision="unknown")
-    ledger.write_text(json.dumps(row) + "\n")
+    ledger.write_text(json.dumps(row) + "\n", encoding="utf-8")
     with pytest.raises(ValueError, match="cannot be unknown"):
         wiki.check(wiki_root)
     row.update(
@@ -88,14 +88,19 @@ def test_observed_experiment_requires_artifact_and_known_environment(wiki_root: 
         environment="Python test synthetic fixture",
         outcome="Synthetic metadata accepted in unit test; no real study performed",
     )
-    ledger.write_text(json.dumps(row) + "\n")
+    ledger.write_text(json.dumps(row) + "\n", encoding="utf-8")
     assert wiki.check(wiki_root) >= 5
 
 
-def test_registry_history_allows_append_but_rejects_rewrite(wiki_root: Path) -> None:
+def test_registry_history_allows_append_but_rejects_rewrite(
+    wiki_root: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Git blobs are UTF-8 even on a Windows machine whose default text codec is cp1252.
+    monkeypatch.setattr(subprocess, "_text_encoding", lambda: "cp1252")
     def git(*args: str) -> str:
         return subprocess.run(
-            ["git", *args], cwd=wiki_root, check=True, capture_output=True, text=True
+            ["git", *args], cwd=wiki_root, check=True, capture_output=True, text=True,
+            encoding="utf-8",
         ).stdout.strip()
 
     git("init", "-q")
@@ -116,7 +121,9 @@ def test_registry_history_allows_append_but_rejects_rewrite(wiki_root: Path) -> 
     _append(ledger, row)
     assert wiki.check(wiki_root, base_ref=baseline) >= 6
     ledger.write_text(
-        ledger.read_text().replace('"id": "GW-CURRICULUM-DESIGN"', '"id": "GW-REWRITTEN"', 1)
+        ledger.read_text(encoding="utf-8").replace(
+            '"id": "GW-CURRICULUM-DESIGN"', '"id": "GW-REWRITTEN"', 1
+        ), encoding="utf-8",
     )
     # Avoid stale source refs so the specific history invariant is exercised.
     row = wiki.read_registry(ledger)[0]
@@ -180,9 +187,9 @@ def test_cli_reads_watcher_file_and_reports_invalid_inputs(
     capsys: pytest.CaptureFixture[str],
 ) -> None:
     path = tmp_path / "watcher.json"
-    path.write_text(json.dumps(_watcher_payload()))
+    path.write_text(json.dumps(_watcher_payload()), encoding="utf-8")
     assert wiki.main(["curriculum-candidates", str(path)]) == 0
     assert json.loads(capsys.readouterr().out)["status"] == "candidate"
-    path.write_text("bad JSON")
+    path.write_text("bad JSON", encoding="utf-8")
     assert wiki.main(["curriculum-candidates", str(path)]) == 1
     assert "Research wiki error" in capsys.readouterr().out

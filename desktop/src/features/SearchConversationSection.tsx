@@ -9,8 +9,10 @@ import {
   type ConversationAnswer,
   type ConversationSession,
   type SearchResponse,
+  type MaterialAction,
 } from "../api";
 import { resultText } from "../presentation";
+import { ConversationEvidence as EvidenceChips } from "./ConversationEvidence";
 import "./SearchConversationSection.css";
 
 interface SearchConversationSectionProps {
@@ -27,6 +29,7 @@ interface SearchConversationSectionProps {
   onSearch: (event: FormEvent<HTMLFormElement>) => void;
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateMaterial?: (action: MaterialAction) => void;
   onNewConversation?: () => void;
   onSelectConversation?: (session: ConversationSession) => void;
   backups?: BackupItem[];
@@ -67,35 +70,6 @@ function activeConversationChildId(conversation: ConversationSession | null): st
   return readRememberedChildId(window.localStorage);
 }
 
-function evidenceLabel(sourceId: string, index: number): string {
-  if (sourceId.startsWith("record:") || sourceId.startsWith("learning-log")) {
-    return `기록 ${index + 1}`;
-  }
-  if (sourceId.startsWith("resource:")) return `참고 자료 ${index + 1}`;
-  if (sourceId.startsWith("chunk:")) return `자료 근거 ${index + 1}`;
-  return `근거 ${index + 1}`;
-}
-
-function EvidenceChips({ sourceIds }: { sourceIds: string[] }) {
-  return (
-    <div className="conversation-evidence">
-      <strong>연결된 원본 근거</strong>
-      {sourceIds.length > 0 ? (
-        <>
-          <div className="conversation-source-chips" aria-label={`원본 근거 ${sourceIds.length}건`}>
-            {sourceIds.map((sourceId, index) => (
-              <span key={sourceId} title={sourceId}>{evidenceLabel(sourceId, index)}</span>
-            ))}
-          </div>
-          <small className="muted">답변을 만들 때 다시 확인한 저장 기록과 참고 자료입니다.</small>
-        </>
-      ) : (
-        <span className="muted">연결된 원본 근거가 없습니다.</span>
-      )}
-    </div>
-  );
-}
-
 export function SearchConversationSection({
   searchQuery,
   searchResult,
@@ -110,6 +84,7 @@ export function SearchConversationSection({
   onSearch,
   onConversationQuestionChange,
   onConversation,
+  onCreateMaterial,
   onNewConversation = () => undefined,
   onSelectConversation = () => undefined,
   backups = [],
@@ -316,7 +291,12 @@ export function SearchConversationSection({
               <article className={`conversation-turn is-${turn.role}`} key={`${turn.created_at}-${index}`}>
                 <span className="conversation-turn-role">{turn.role === "user" ? "나" : "GrowWise"}</span>
                 <p>{turn.content}</p>
-                {turn.role === "assistant" && <EvidenceChips sourceIds={turn.source_ids} />}
+                {turn.role === "assistant" && <EvidenceChips childId={historyChildId} sourceIds={turn.source_ids} />}
+                {turn.material_action && onCreateMaterial && (
+                  <button type="button" className="quiet-button" onClick={() => onCreateMaterial(turn.material_action!)}>
+                    이 내용으로 활동 만들기
+                  </button>
+                )}
               </article>
             ))
           ) : (
@@ -333,7 +313,12 @@ export function SearchConversationSection({
                 <article className="conversation-turn is-assistant" key={`${item.session_id}-${index}`}>
                   <span className="conversation-turn-role">GrowWise</span>
                   <p>{item.answer.answer}</p>
-                  <EvidenceChips sourceIds={item.answer.source_ids} />
+                  <EvidenceChips childId={historyChildId} sourceIds={item.answer.source_ids} />
+                  {item.answer.material_action && onCreateMaterial && (
+                    <button type="button" className="quiet-button" onClick={() => onCreateMaterial(item.answer.material_action!)}>
+                      이 내용으로 활동 만들기
+                    </button>
+                  )}
                   {item.answer.insufficient_evidence && (
                     <small className="conversation-insufficient">충분한 원본 근거를 찾지 못했습니다. 기록을 직접 확인해 주세요.</small>
                   )}

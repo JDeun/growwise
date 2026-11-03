@@ -34,6 +34,8 @@ import { useMaterialManagement } from "./use-material-management";
 import { materialAiCompletionNotice, materialAiPending, startMaterialAiPolling } from "./material-ai-polling";
 import { useResourceManagement } from "./use-resource-management";
 import { useSearchConversation } from "./use-search-conversation";
+import { queueMaterialComposition, takeMaterialComposition } from "./material-composition-request";
+import { materialCatalogForStage } from "./material-catalog";
 import { StorageSettings } from "./features/StorageSettings";
 import { LocalModelSettings } from "./features/LocalModelSettings";
 import { ApiKeySettings } from "./features/ApiKeySettings";
@@ -60,6 +62,7 @@ import {
   type CoreRuntimeStatus,
   type ExperienceAxis,
   type GeneratedMaterial,
+  type MaterialAction,
   type GrowthMap,
   type HealthResponse,
   type InfantActivitySuggestions,
@@ -185,6 +188,7 @@ function App({
     setMaterialKind,
     setMaterialTopic,
     setMaterialGoal,
+    setSelectedResourceRefs,
     toggleResourceRef,
     removeResourceRef,
     setRevisionNote,
@@ -208,11 +212,13 @@ function App({
     resourceKind,
     resourceTitle,
     resourceContent,
+    resourceDetails,
     resourceSaving,
     resourceError,
     setResourceKind,
     setResourceTitle,
     setResourceContent,
+    setResourceDetails,
     handleCreateResource,
     handleUpdateResource,
     handleDeleteResource,
@@ -672,6 +678,29 @@ function App({
     window.setTimeout(() => window.print(), 0);
   }
 
+  function handleMaterialAction(action: MaterialAction) {
+    if (!activeChild || !onNavigate) return;
+    queueMaterialComposition(activeChild.id, action);
+    onNavigate("materials");
+  }
+
+  useEffect(() => {
+    if (activeView !== "materials" || !activeChild || childContext.library.kind !== "ready") return;
+    const action = takeMaterialComposition(activeChild.id);
+    if (!action) return;
+    const catalog = materialCatalogForStage(activeChild.stage);
+    setMaterialKind(catalog.some((item) => item.kind === action.material_kind)
+      ? action.material_kind : catalog[0].kind);
+    setMaterialTopic(action.topic);
+    setSelectedResourceRefs(action.source_refs.filter((ref) =>
+      resources.some((resource) => ref === `resource:${resource.id}`),
+    ));
+    announceWrite(action.needs_book_selection
+      ? "활동 주제를 가져왔습니다. 사용할 책이 있다면 참고 자료에서 선택하고 내용을 확인한 뒤 만들어 주세요."
+      : "대화의 주제와 참고 자료를 가져왔습니다. 내용을 확인한 뒤 자료를 만들어 주세요.");
+  }, [activeView, activeChild, childContext.library.kind, resources, setMaterialKind,
+    setMaterialTopic, setSelectedResourceRefs, announceWrite]);
+
   async function handleMaterialResultRecorded() {
     await Promise.all([
       reloadChildContextPart("activities"),
@@ -771,6 +800,7 @@ function App({
               onSearch={handleSearch}
               onConversationQuestionChange={setConversationQuestion}
               onConversation={handleConversation}
+              onCreateMaterial={handleMaterialAction}
               onNewConversation={resetSearchConversation}
               onSelectConversation={selectConversation}
               backups={backups}
@@ -789,6 +819,7 @@ function App({
               resourceKind={resourceKind}
               resourceTitle={resourceTitle}
               resourceContent={resourceContent}
+              resourceDetails={resourceDetails}
               saving={resourceSaving}
               error={resourceError}
               loadState={childContext.library}
@@ -796,6 +827,7 @@ function App({
               onKindChange={setResourceKind}
               onTitleChange={setResourceTitle}
               onContentChange={setResourceContent}
+              onDetailsChange={setResourceDetails}
               onSubmit={handleCreateResource}
               onRetry={() => void reloadChildContextPart("library")}
               onUpdate={handleUpdateResource}
@@ -877,6 +909,7 @@ function App({
 
           {activeChild && showTimeline && (
             <ObservationTimelineSection
+              resources={resources}
               loadState={childContext.observations}
               timeline={timeline}
               activityPlans={activityPlans}

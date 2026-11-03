@@ -2,6 +2,44 @@
   min-width: 0;
 }
 
+.resource-details-fields summary {
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.resource-details-grid {
+  display: grid;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.resource-details-grid :where(input, textarea),
+.resource-scope-field select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.resource-details-grid textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.resource-details-grid small,
+.resource-scope-field p {
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
+  line-height: var(--line-body);
+}
+
+.resource-scope-field p {
+  margin-top: 6px;
+}
+
 .resource-browser-heading,
 .resource-detail-heading,
 .resource-card-heading,

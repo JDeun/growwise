@@ -225,6 +225,17 @@ class HybridRagIndex:
         finally:
             connection.close()
 
+    def source_entity_for_chunk(self, chunk_id: str) -> str | None:
+        """Resolve a citation pointer only; callers must recheck the current original's scope."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT resource_id FROM rag_chunks WHERE chunk_id = ?", (chunk_id,),
+            ).fetchone()
+            return str(row["resource_id"]) if row is not None else None
+        finally:
+            connection.close()
+
     def delete_resource(self, resource_id: str) -> int:
         from growwise.maintenance import DATA_MAINTENANCE
 

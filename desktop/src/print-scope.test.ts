@@ -36,6 +36,6 @@ describe("print rendering scope", () => {
     expect(source).toContain('document.body.setAttribute(PRINT_SCOPE_ATTRIBUTE, "single")');
     expect(source).toContain('card.setAttribute(PRINT_TARGET_ATTRIBUTE, "true")');
     expect(source).toContain('event.currentTarget.closest(".approved-card")');
-    expect(source).toContain("<MaterialContent markdown={material.content_markdown} />");
+    expect(source).toContain("<MaterialContent markdown={materialReadingMarkdown(material.content_markdown)} />");
   });
 });

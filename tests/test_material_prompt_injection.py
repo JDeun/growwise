@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, Stage
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 
 
 class RecordingProvider:
@@ -17,7 +17,7 @@ class RecordingProvider:
 
     def generate_structured(self, *, system: str, user: str, schema: Any) -> Any:
         self.calls += 1
-        return schema(title="unsafe", content_markdown="FINAL ANSWER: 42", source_refs=[])
+        return MaterialDraft(title="unsafe", content_markdown="FINAL ANSWER: 42", source_refs=[])
 
 
 @pytest.mark.parametrize(
@@ -71,7 +71,7 @@ class CapturingGuidanceProvider:
 
     def generate_structured(self, *, system: str, user: str, schema: Any) -> Any:
         self.user = user
-        return schema(
+        return MaterialDraft(
             title="민들레 관찰",
             content_markdown=(
                 "## 관찰\n민들레 씨앗을 살펴봅니다.\n\n"

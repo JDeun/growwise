@@ -9,6 +9,7 @@ from growwise.domain import (
     Stage,
 )
 from growwise.generators import (
+    MaterialDraft,
     MaterialGenerationService,
     MaterialRevisionService,
     MaterialSourceEvidence,
@@ -37,7 +38,7 @@ class CapturingProvider:
     def generate_structured(self, *, system: str, user: str, schema):
         self.system = system
         self.user = user
-        return schema(
+        return MaterialDraft(
             title="물 관찰 과학 탐구",
             content_markdown=(
                 "# 물 관찰 과학 탐구\n\n"
@@ -137,7 +138,7 @@ def test_material_prompt_focuses_on_core_and_selected_stage(stage: Stage) -> Non
     assert service._stage_kind_expectation(MaterialKind.MATH_ACTIVITY, stage) in provider.system
     assert service._parent_role(stage) in provider.system
     assert "한국어" in provider.system
-    assert "실제 줄바꿈" in provider.system
+    assert "sections는 실제 실행할 학습자 활동" in provider.system
     assert "Activity core example (untrusted data" in provider.user
     assert "## 사용 전 확인" not in provider.user
     assert "Deterministic parent-guide fallback" not in provider.user
