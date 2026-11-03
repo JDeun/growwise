@@ -2,7 +2,7 @@
 import assert from "node:assert/strict";
 import { spawn, spawnSync } from "node:child_process";
 import { createHash, randomBytes } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
+import { closeSync, existsSync, mkdtempSync, openSync, readFileSync, readSync, readdirSync, mkdirSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -58,6 +58,7 @@ core.on("error", (error) => { coreErrors += error.message; });
 let server;
 let chrome;
 let cdp;
+let coreServerPid;
 const errors = [];
 const steps = [];
 
@@ -241,6 +242,37 @@ function readProcessRssBytes(pid) {
   return Number.isSafeInteger(bytes) && bytes > 0 ? bytes : null;
 }
 
+function identifyCoreServerPid() {
+  // The Windows venv executable can be a redirecting launcher. Core writes its own PID only after
+  // acquiring the isolated data-directory lock; measure that server, never the launcher stub.
+  let metadata;
+  if (process.platform === "win32") {
+    // msvcrt holds an exclusive byte-range lock at offset0. Read only the unlocked owner suffix.
+    const handle = openSync(join(dataDir,".core.lock"),"r");
+    try {
+      const suffix = Buffer.alloc(32);
+      const length = readSync(handle,suffix,0,suffix.length,1);
+      metadata = "p" + suffix.subarray(0,length).toString("utf8");
+    } finally { closeSync(handle); }
+  } else metadata = readFileSync(join(dataDir,".core.lock"),"utf8");
+  const match = /^pid=([1-9]\d*)\n$/.exec(metadata);
+  const pid = match ? Number(match[1]) : null;
+  assert(Number.isSafeInteger(pid) && pid > 0, "invalid Core lock owner PID");
+  if (process.platform === "win32") {
+    assert(Number.isSafeInteger(core.pid) && core.pid > 0, "invalid Core launcher PID");
+    const ownership = spawnSync("powershell.exe", ["-NoLogo","-NoProfile","-NonInteractive","-Command",
+      `$ErrorActionPreference='Stop'; $current=${pid}; $expected=${core.pid}; $seen=@{}; `
+      + "for($depth=0; $depth -lt 16; $depth++){ if($current -eq $expected){ [Console]::Out.Write('owned'); exit 0 }; "
+      + "if($seen.ContainsKey($current)){ exit 2 }; $seen[$current]=$true; "
+      + "$owner=Get-CimInstance Win32_Process -Filter ('ProcessId = '+$current) -ErrorAction Stop; "
+      + "if($null -eq $owner){ exit 3 }; $current=[int]$owner.ParentProcessId }; exit 4"],
+    {encoding:"utf8",timeout:15000});
+    assert(ownership.status === 0 && ownership.stdout.trim() === "owned",
+      "Core lock owner is not the spawned process or its owned descendant");
+  } else assert.equal(pid,core.pid,"Core lock owner must be the spawned Unix server");
+  return pid;
+}
+
 async function verifyNavigationSoak(childId) {
   const seconds = Number(process.env.GROWWISE_E2E_SOAK_SECONDS ?? 0);
   assert(Number.isFinite(seconds) && seconds >= 0 && seconds <= 3600, "invalid soak duration");
@@ -277,8 +309,10 @@ async function verifyNavigationSoak(childId) {
   const samples = [];
   const warmup = {policy:RSS_WARMUP, cycles:0, samples:[], assessment:{stable:false}};
   const warmupStarted = Date.now();
-  const report = () => ({measurementVersion:3, platform:process.platform,
+  const report = () => ({measurementVersion:4, platform:process.platform,
     coreRssMeasurement:process.platform === "win32" ? "Get-Process.WorkingSet64" : "ps.rss_kib",
+    coreProcessIdentity:{source:"isolated .core.lock owner", spawnedProcess:coreServerPid === core.pid,
+      ownershipVerified:true},
     requestedSeconds:seconds, seededRecords, views,
     warmup, coldBaseline:warmup.samples[0],
     earlyCoreRssGrowthBytes:warmup.samples.length
@@ -289,10 +323,10 @@ async function verifyNavigationSoak(childId) {
     await cdp.send("HeapProfiler.collectGarbage", {});
     const heap = await cdp.send("Runtime.getHeapUsage", {});
     const {metrics} = await cdp.send("Performance.getMetrics", {});
-    const coreRssBytes = readProcessRssBytes(core.pid);
+    const coreRssBytes = readProcessRssBytes(coreServerPid);
     let linuxMemory = {};
     if (process.platform === "linux") {
-      try { linuxMemory = parseLinuxMemoryStatus(readFileSync(`/proc/${core.pid}/status`,"utf8")); }
+      try { linuxMemory = parseLinuxMemoryStatus(readFileSync(`/proc/${coreServerPid}/status`,"utf8")); }
       catch { /* RSS availability is checked independently; optional Linux detail may be absent. */ }
     }
     target.push({elapsedSeconds:Math.round((Date.now()-started)/1000), cycles:completedCycles,
@@ -364,6 +398,9 @@ async function releaseRealResponse(name) {
 }
 
 async function verifyPrimaryPrint(material, artifactPrefix = "") {
+  await waitFor(()=>evaluate(cdp,`!!document.querySelector('.material-workflow-admin')
+    && !!document.querySelector('[data-approved-material-id="${material.id}"]')`),
+  {label:"approved material print surface rendered"});
   assert.equal(await evaluate(cdp, 'document.querySelector(".material-workflow-admin").open'), false);
   const detailsBefore = await evaluate(cdp, '[...document.querySelectorAll(".material-workflow-admin, .material-workflow-admin details")].map(node => node.open)');
   await evaluate(cdp, `(() => {
@@ -469,6 +506,7 @@ try {
     catch { return false; }
   }, {timeoutMs:30000,label:"authenticated real Core startup"});
   assert.equal((await fetch(`${coreUrl}/health`)).status,401);
+  coreServerPid = identifyCoreServerPid();
   steps.push("real Core starts and rejects unauthenticated access");
   server = await startStaticServer({url:coreUrl,token});
   const chromeDir = join(temporary,"chrome");

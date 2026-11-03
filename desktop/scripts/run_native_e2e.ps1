@@ -67,8 +67,8 @@ if ($Worker) {
             $result = $launched.WaitForExit()
         } else {
             # Diagnostics must not replace the original process-start failure.
-            try { $executionContext = [GrowWiseNativeToken.FilteredProcess]::InspectExecutionContext() }
-            catch { $executionContext = @{ inspection_error = $_.Exception.Message } }
+            try { $nativeExecutionFacts = [GrowWiseNativeToken.FilteredProcess]::InspectExecutionContext() }
+            catch { $nativeExecutionFacts = @{ inspection_error = $_.Exception.Message } }
             @{
                 final_integrity_sid = $token.IntegritySid
                 token_is_elevated = $token.IsElevated
@@ -76,7 +76,7 @@ if ($Worker) {
                 elevation_type = $token.ElevationType
                 filtered_worker = [bool]$FilteredWorker
                 requested_task_runlevel = 'Limited'
-                execution_context = $executionContext
+                execution_context = $nativeExecutionFacts
             } | ConvertTo-Json | Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.integrity.json')
             Set-Location -LiteralPath $payload.cwd
             foreach ($entry in $payload.environment.psobject.Properties) {

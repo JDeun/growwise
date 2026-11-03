@@ -6,6 +6,21 @@ $ast = [Management.Automation.Language.Parser]::ParseFile(
     (Join-Path $PSScriptRoot 'run_native_e2e.ps1'), [ref]$tokens, [ref]$parseErrors
 )
 if ($parseErrors.Count -ne 0) { throw ($parseErrors | Out-String) }
+# PowerShell names are case-insensitive; detect writes to its real immutable
+# automatic variables before the filtered worker is sent to a Windows runner.
+foreach ($assignment in $ast.FindAll({
+    param($node)
+    $node -is [Management.Automation.Language.AssignmentStatementAst] -and
+        $node.Left -is [Management.Automation.Language.VariableExpressionAst]
+}, $true)) {
+    $assignedName = $assignment.Left.VariablePath.UserPath
+    $existingVariable = Get-Variable -Name $assignedName -ErrorAction SilentlyContinue
+    if ($null -ne $existingVariable -and
+        ($existingVariable.Options -band ([Management.Automation.ScopedItemOptions]::ReadOnly -bor
+            [Management.Automation.ScopedItemOptions]::Constant))) {
+        throw "Native launcher writes to immutable PowerShell variable: $assignedName"
+    }
+}
 $definition = $ast.Find({
     param($node)
     $node -is [Management.Automation.Language.FunctionDefinitionAst] -and

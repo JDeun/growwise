@@ -21,9 +21,16 @@ steady interval, the harness must observe three samples spanning at least 30 sec
 no observed stability means failure. This observational deadline is not an application startup SLA.
 The subsequent full steady interval retains the Core +32 MiB and post-GC browser +8 MiB growth limits.
 
-Windows reads the measured Core process's `Get-Process.WorkingSet64`; macOS uses `ps` resident KiB
-converted to bytes. The PID comes from the spawned child and must be a positive integer before command
-construction. The harness first verifies its own process can be measured, then requires a positive valid
+Windows reads the actual Core process's `Get-Process.WorkingSet64`; macOS uses `ps` resident KiB
+converted to bytes. The PID comes from Core's own isolated `.core.lock` owner metadata, written after it
+acquires the data-directory lock. On Unix it must equal the spawned PID; on Windows a bounded
+`Get-CimInstance` parent-chain check must reach the spawned process, allowing a Python venv redirecting
+launcher without measuring that stub. Windows reads only metadata bytes after offset zero, preserving
+the exclusive one-byte lock and avoiding a read of its protected region. See the upstream
+[Windows byte-range lock semantics](https://learn.microsoft.com/en-us/windows/win32/api/fileapi/nf-fileapi-lockfile).
+Only numeric PIDs are used; process command lines and environment
+contents are not collected or published. The harness first verifies its own process can be measured,
+then requires a positive valid
 RSS value for every warmup and steady sample. Missing RSS fails rather than silently skipping the guard.
 Reports identify the operating system and RSS method; working-set observations do not establish the
 absence of all slow/native leaks or household-scale performance.
