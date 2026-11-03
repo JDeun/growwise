@@ -131,7 +131,27 @@ class WebDriver:
             ),
             f"click {text}",
         )
-        self.command("POST", f"/element/{element[ELEMENT_KEY]}/click", {})
+        self.click_element(element[ELEMENT_KEY])
+
+    def click_element(self, element: str) -> None:
+        # Edge's default nearest-edge scroll can place the target beneath the
+        # sticky child selector. Require a real pointer hit at its center, then
+        # send the original W3C click; never bypass interception with JS click.
+        wait_for(
+            lambda: self.execute(
+                """
+            const node=arguments[0];
+            node.scrollIntoView({block:'center',inline:'nearest',behavior:'instant'});
+            const box=node.getBoundingClientRect();
+            if(node.disabled || box.width<=0 || box.height<=0) return false;
+            const hit=document.elementFromPoint(box.left+box.width/2,box.top+box.height/2);
+            return hit===node || node.contains(hit);
+        """,
+                {ELEMENT_KEY: element},
+            ),
+            "unobstructed native click target",
+        )
+        self.command("POST", f"/element/{element}/click", {})
 
     def fill(self, selector: str, value: str) -> None:
         wait_for(
@@ -190,7 +210,7 @@ class WebDriver:
 
     def navigate(self, view: str) -> None:
         element = self.element(f"#workspace-nav-{view}")
-        self.command("POST", f"/element/{element}/click", {})
+        self.click_element(element)
         self.workspace(view)
 
     def workspace(self, view: str) -> None:

@@ -123,6 +123,36 @@ def test_native_reveals_lazy_preview_after_its_container_is_rendered(
     assert driver.execute.call_args.args[1] == ".photo-gallery-thumb"
 
 
+def test_native_click_waits_for_a_pointer_hit_then_uses_original_webdriver(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.command = Mock()
+    calls = 0
+
+    def geometry_ready(*_args):
+        nonlocal calls
+        calls += 1
+        driver.command.assert_not_called()
+        return calls == 3
+
+    driver.execute = Mock(side_effect=geometry_ready)
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    driver.click_element("actual-target")
+    assert calls == 3
+    driver.command.assert_called_once_with("POST", "/element/actual-target/click", {})
+
+
+def test_native_navigation_uses_the_same_unobstructed_pointer_path():
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.element = Mock(return_value="nav-target")
+    driver.click_element = Mock()
+    driver.workspace = Mock()
+    driver.navigate("photos")
+    driver.click_element.assert_called_once_with("nav-target")
+    driver.workspace.assert_called_once_with("photos")
+
+
 def test_native_bridge_never_appearing_fails_closed(monkeypatch: pytest.MonkeyPatch):
     driver = native.WebDriver("http://127.0.0.1:4444")
     driver.execute = Mock(return_value=False)
