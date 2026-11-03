@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import UTC, datetime
 from typing import Any, TypedDict
 
 from langgraph.graph import END, START, StateGraph
@@ -17,6 +18,7 @@ class MaterialReviewState(TypedDict, total=False):
     title: str
     decision_status: str
     decision_note: str | None
+    decision_at: str
     projection_degraded: bool
 
 
@@ -44,7 +46,8 @@ def await_parent_review(state: MaterialReviewState) -> MaterialReviewState:
         raise ValueError(f"unsupported parent review decision: {status}")
     note_value = response.get("note")
     note = None if note_value is None else str(note_value)
-    return {"decision_status": status, "decision_note": note}
+    return {"decision_status": status, "decision_note": note,
+            "decision_at": datetime.now(UTC).isoformat()}
 
 
 class ResilientMaterialReviewGraph:

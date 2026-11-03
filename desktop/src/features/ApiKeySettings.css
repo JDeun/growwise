@@ -1,0 +1,41 @@
+.api-key-settings {
+  margin-top: 20px;
+  min-width: 0;
+}
+
+.api-key-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.api-key-editor {
+  display: grid;
+  gap: 8px;
+  padding: 14px;
+  border: 1px solid var(--color-border, #e5e8e5);
+  border-radius: 12px;
+  min-width: 0;
+}
+
+.api-key-editor label {
+  font-weight: var(--weight-semibold);
+}
+
+.api-key-editor input {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--color-border, #e5e8e5);
+  border-radius: 8px;
+  background: var(--color-surface, #fff);
+  color: inherit;
+}
+
+.api-key-editor .button-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}

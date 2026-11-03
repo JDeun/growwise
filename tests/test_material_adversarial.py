@@ -21,7 +21,7 @@ from growwise.domain import (
     ResourceRecord,
     Stage,
 )
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 from growwise.rag import HybridRagIndex
 from growwise.review import InvalidMaterialTransition, MaterialReviewService
 from growwise.storage import EntityStore
@@ -32,7 +32,7 @@ class UnsafeDraftProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "발달 진단 결과",
                 "content_markdown": "또래보다 뒤처졌고 자폐 진단이 필요합니다.",
@@ -46,10 +46,19 @@ class SafeButFabricatedRefProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "고양이 읽기",
-                "content_markdown": "# 활동\n그림을 천천히 함께 봅니다.",
+                "content_markdown": (
+                    "## 함께 그림 보기\n"
+                    "1. 부모가 그림책의 한 장면을 펼치고 "
+                    "아이가 바라보는 곳을 따라가며 기다립니다.\n"
+                    "2. 아이가 손짓하거나 소리를 내면 "
+                    "같은 대상을 짧게 말해 주고 반응을 기다립니다.\n"
+                    "## 부모 관찰\n"
+                    "아이는 어떤 장면에서 시선을 오래 머물렀나요? "
+                    "관심을 거두면 책을 덮고 쉬어 갑니다."
+                ),
                 "source_refs": ["resource:allowed", "resource:invented"],
             }
         )

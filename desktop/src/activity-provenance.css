@@ -5,8 +5,8 @@
 
 .observation-activity-link > span {
   color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .observation-activity-link select {
@@ -25,6 +25,6 @@
   border-radius: 999px;
   background: var(--accent-soft);
   color: #79551e;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-semibold);
 }

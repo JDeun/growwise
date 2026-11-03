@@ -2,12 +2,20 @@ mod background_write_commands;
 mod backup_commands;
 mod child_commands;
 mod core_process;
+mod credential_commands;
 mod discovery_commands;
+mod evidence_commands;
+mod external_commands;
 mod learning_record_commands;
+mod learning_wiki_commands;
 mod link_commands;
 mod material_result_commands;
+mod model_commands;
 mod photo_commands;
+mod record_management_commands;
+mod storage_commands;
 mod study_commands;
+mod updater_commands;
 
 use std::fmt;
 use std::fs;
@@ -18,20 +26,34 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use background_write_commands::{
     create_observation_background, generate_material_background, revise_material_background,
 };
-use backup_commands::{create_backup, export_backup, import_backup, list_backups, restore_backup};
+use backup_commands::{
+    create_backup, export_backup, export_child_records, import_backup, list_backups, restore_backup,
+};
 use child_commands::{
     create_child, delete_child, delete_child_avatar, list_children, set_child_avatar, update_child,
 };
 use core_process::CoreProcessManager;
+use credential_commands::{
+    delete_api_credential, list_api_credentials, save_api_credential, test_api_credential,
+};
 use discovery_commands::{discover_education_resources, save_discovered_resource};
+use evidence_commands::get_conversation_evidence;
+use external_commands::open_external_url;
 use learning_record_commands::{create_learning_record, list_learning_records};
+use learning_wiki_commands::{get_learning_wiki, rebuild_learning_wiki};
 use link_commands::{get_entity_backlinks, share_entity_with_child};
 use material_result_commands::{list_material_results, record_material_result};
+use model_commands::{list_local_models, remove_local_model, set_local_model};
 use photo_commands::{
-    commit_photo_record, create_photo_record, get_photo_asset, list_photo_records,
+    commit_photo_record, create_photo_record, get_photo_asset, get_photo_thumbnail,
+    list_photo_records,
+};
+use record_management_commands::{
+    delete_conversation, delete_entity_link, retry_material_enhancement, retry_photo_record,
 };
 use reqwest::header::{HeaderMap, HeaderValue, AUTHORIZATION};
 use serde::{Deserialize, Serialize};
+use storage_commands::{choose_storage_location, get_storage_location, relocate_storage};
 use study_commands::{
     create_study_plan, get_study_weak_map, list_self_explanations, list_study_mistakes,
     list_study_plans, list_study_progress, list_study_reflections, recommend_study_resources,
@@ -39,6 +61,7 @@ use study_commands::{
     update_study_plan_item_status,
 };
 use tauri::Manager;
+use updater_commands::{app_update_status, check_app_update, install_app_update, AppUpdater};
 
 #[derive(Debug)]
 struct CoreConnection {
@@ -174,6 +197,7 @@ fn client() -> Result<reqwest::Client, String> {
     headers.insert(AUTHORIZATION, authorization);
     reqwest::Client::builder()
         .default_headers(headers)
+        .no_proxy()
         .timeout(std::time::Duration::from_millis(8000))
         .build()
         .map_err(|error| error.to_string())
@@ -196,6 +220,7 @@ pub(crate) async fn post_idempotent_json(
     let key = next_operation_key(operation_label);
     let first = client()?
         .post(&url)
+        .timeout(Duration::from_secs(400))
         .header("Idempotency-Key", key.as_str())
         .json(body)
         .send()
@@ -205,6 +230,7 @@ pub(crate) async fn post_idempotent_json(
         Ok(response) => Ok(response),
         Err(error) if error.is_timeout() || error.is_connect() => client()?
             .post(&url)
+            .timeout(Duration::from_secs(400))
             .header("Idempotency-Key", key.as_str())
             .json(body)
             .send()
@@ -264,32 +290,62 @@ fn is_loopback_url(url: &reqwest::Url) -> bool {
     }
 }
 
-async fn pull_ollama_model(base_url: &str, model_id: &str) -> Result<(), String> {
+fn model_pull_endpoint(base_url: &str) -> Result<reqwest::Url, String> {
     let endpoint = reqwest::Url::parse(&format!("{}/api/pull", base_url.trim_end_matches('/')))
         .map_err(|error| format!("로컬 AI 주소가 올바르지 않습니다: {error}"))?;
-    if !is_loopback_url(&endpoint) {
+    if !is_loopback_url(&endpoint)
+        || !endpoint.username().is_empty()
+        || endpoint.password().is_some()
+        || endpoint.query().is_some()
+        || endpoint.fragment().is_some()
+    {
         return Err("GrowWise는 자동 모델 준비를 로컬 Ollama에서만 허용합니다.".to_string());
     }
+    Ok(endpoint)
+}
+
+fn validate_model_pull_result(status: reqwest::StatusCode, body: &[u8]) -> Result<(), String> {
+    if !status.is_success() {
+        let bounded: String = String::from_utf8_lossy(body).chars().take(1024).collect();
+        return Err(format!("AI 모델 준비에 실패했습니다 ({status}): {bounded}"));
+    }
+    let result: serde_json::Value = serde_json::from_slice(body)
+        .map_err(|error| format!("AI 모델 준비 결과가 올바르지 않습니다: {error}"))?;
+    if let Some(error) = result.get("error").filter(|error| !error.is_null()) {
+        let bounded: String = error.to_string().chars().take(1024).collect();
+        return Err(format!("AI 모델 준비에 실패했습니다: {bounded}"));
+    }
+    if result.get("status").and_then(serde_json::Value::as_str) != Some("success") {
+        return Err("AI 모델 준비가 완료되었다는 응답을 받지 못했습니다.".to_string());
+    }
+    Ok(())
+}
+
+async fn pull_ollama_model(base_url: &str, model_id: &str) -> Result<(), String> {
+    let endpoint = model_pull_endpoint(base_url)?;
 
     let client = reqwest::Client::builder()
         .timeout(Duration::from_secs(60 * 60))
+        .redirect(reqwest::redirect::Policy::none())
+        .no_proxy()
         .build()
         .map_err(|error| error.to_string())?;
-    let response = client
+    let mut response = client
         .post(endpoint)
         .json(&serde_json::json!({"model": model_id, "stream": false}))
         .send()
         .await
         .map_err(|error| format!("AI 모델 준비 요청에 실패했습니다: {error}"))?;
 
-    if response.status().is_success() {
-        Ok(())
-    } else {
-        let status = response.status();
-        let body = response.text().await.unwrap_or_default();
-        let bounded: String = body.chars().take(1024).collect();
-        Err(format!("AI 모델 준비에 실패했습니다 ({status}): {bounded}"))
+    let status = response.status();
+    let mut body = Vec::new();
+    while let Some(chunk) = response.chunk().await.map_err(|error| error.to_string())? {
+        if body.len() + chunk.len() > 64 * 1024 {
+            return Err("AI 모델 준비 결과 응답이 너무 큽니다.".to_string());
+        }
+        body.extend_from_slice(&chunk);
     }
+    validate_model_pull_result(status, &body)
 }
 
 #[tauri::command]
@@ -748,10 +804,14 @@ async fn get_board_book_recommendations(child_id: String) -> Result<serde_json::
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
+        .manage(AppUpdater::default())
         .setup(|app| {
+            updater_commands::register(app.handle())?;
             let resource_dir = app.path().resource_dir()?;
-            let data_dir = app.path().app_data_dir()?;
-            fs::create_dir_all(&data_dir)?;
+            let default_data_dir = app.path().app_data_dir()?;
+            fs::create_dir_all(&default_data_dir)?;
+            let data_dir = storage_commands::configured_data_dir(&default_data_dir)
+                .map_err(std::io::Error::other)?;
             let manager = CoreProcessManager::ensure_started(&resource_dir, &data_dir)
                 .map_err(std::io::Error::other)?;
             CORE_CONNECTION
@@ -767,8 +827,29 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             core_health,
+            app_update_status,
+            check_app_update,
+            install_app_update,
             core_runtime_status,
             prepare_local_ai,
+            get_storage_location,
+            choose_storage_location,
+            relocate_storage,
+            get_learning_wiki,
+            get_conversation_evidence,
+            open_external_url,
+            rebuild_learning_wiki,
+            list_local_models,
+            remove_local_model,
+            set_local_model,
+            list_api_credentials,
+            save_api_credential,
+            delete_api_credential,
+            test_api_credential,
+            delete_conversation,
+            delete_entity_link,
+            retry_photo_record,
+            retry_material_enhancement,
             create_child,
             update_child,
             set_child_avatar,
@@ -823,6 +904,7 @@ pub fn run() {
             list_photo_records,
             commit_photo_record,
             get_photo_asset,
+            get_photo_thumbnail,
             discover_education_resources,
             save_discovered_resource,
             share_entity_with_child,
@@ -831,15 +913,68 @@ pub fn run() {
             create_backup,
             restore_backup,
             export_backup,
+            export_child_records,
             import_backup
         ])
-        .run(tauri::generate_context!())
-        .expect("error while running GrowWise desktop application");
+        .build(tauri::generate_context!())
+        .expect("error while building GrowWise desktop application")
+        .run(|handle, event| {
+            if matches!(
+                event,
+                tauri::RunEvent::Exit | tauri::RunEvent::ExitRequested { .. }
+            ) {
+                if let Some(manager) = handle.try_state::<CoreProcessManager>() {
+                    if let Err(error) = manager.shutdown() {
+                        eprintln!("GrowWise Core 종료 확인 실패: {error}");
+                    }
+                }
+            }
+        });
 }
 
 #[cfg(test)]
 mod tests {
-    use super::next_operation_key;
+    use super::{model_pull_endpoint, next_operation_key, validate_model_pull_result};
+
+    #[test]
+    fn model_preparation_rejects_remote_or_ambiguous_endpoints() {
+        for endpoint in [
+            "https://remote.invalid",
+            "http://127.0.0.1@remote.invalid",
+            "http://user:password@127.0.0.1:11434",
+            "http://127.0.0.1:11434?redirect=remote",
+            "http://127.0.0.1:11434#fragment",
+            "file:///tmp/models",
+        ] {
+            assert!(model_pull_endpoint(endpoint).is_err(), "{endpoint}");
+        }
+        for endpoint in [
+            "http://127.0.0.1:11434",
+            "http://localhost:11434/",
+            "http://[::1]:11434",
+        ] {
+            assert_eq!(model_pull_endpoint(endpoint).unwrap().path(), "/api/pull");
+        }
+    }
+
+    #[test]
+    fn model_preparation_requires_a_confirmed_success_response() {
+        use reqwest::StatusCode;
+        assert!(validate_model_pull_result(StatusCode::OK, br#"{"status":"success"}"#).is_ok());
+        for body in [
+            br#"{"error":"download failed"}"#.as_slice(),
+            br#"{"status":"success","error":"download failed"}"#,
+            br#"{"status":"pulling manifest"}"#,
+            br#"{}"#,
+            b"not JSON",
+        ] {
+            assert!(validate_model_pull_result(StatusCode::OK, body).is_err());
+        }
+        assert!(validate_model_pull_result(StatusCode::FOUND, br#"{"status":"success"}"#).is_err());
+        let error =
+            validate_model_pull_result(StatusCode::BAD_REQUEST, &vec![b'x'; 4096]).unwrap_err();
+        assert!(error.len() < 1200);
+    }
 
     #[test]
     fn operation_keys_are_unique() {

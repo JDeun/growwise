@@ -90,13 +90,30 @@
 
 .workspace-search-trigger span {
   flex: 1;
-  color: #89938e;
-  font-size: 10px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
   line-height: 1;
 }
 
 .workspace-notifications {
   position: relative;
+}
+
+.workspace-child-picker {
+  min-width: 0;
+  max-width: 160px;
+}
+
+.workspace-child-picker select {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-button);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--font-size-control);
 }
 
 .workspace-icon-button {
@@ -113,7 +130,7 @@
 .workspace-icon-button[aria-expanded="true"] {
   border-color: rgba(47, 143, 107, 0.24);
   background: #f5faf7;
-  color: #2f8f6b;
+  color: var(--primary-strong);
 }
 
 .workspace-notification-popover {
@@ -138,13 +155,13 @@
 
 .workspace-notification-popover strong {
   color: #2b2a28;
-  font-size: 11px;
+  font-size: var(--font-size-meta);
 }
 
 .workspace-notification-popover p {
-  color: #89918d;
-  font-size: 9.5px;
-  line-height: 1.45;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .workspace-topbar-avatar {
@@ -209,7 +226,7 @@
   }
 }
 
-@media (max-width: 940px) {
+@media (max-width: 780px) {
   .workspace-shell-root {
     grid-template-columns: minmax(0, 1fr);
     width: min(100% - 24px, 1180px);
@@ -264,10 +281,10 @@
   padding: 0 4px;
   border: 2px solid #fff;
   border-radius: 999px;
-  background: #2f8f6b;
+  background: var(--primary-strong);
   color: #fff;
-  font-size: 7px;
-  font-weight: 800;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
   line-height: 1;
 }
 
@@ -279,9 +296,9 @@
 }
 
 .workspace-notification-heading > span {
-  color: #2f8f6b;
-  font-size: 8px;
-  font-weight: 780;
+  color: var(--primary-strong);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .workspace-notification-list {
@@ -313,20 +330,20 @@
 
 .workspace-notification-list button > span {
   overflow: hidden;
-  font-size: 8.5px;
+  font-size: var(--font-size-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .workspace-notification-list button > strong {
   min-width: 18px;
-  color: #2f8f6b;
-  font-size: 9px;
+  color: var(--primary-strong);
+  font-size: var(--font-size-control);
   text-align: right;
 }
 
 .workspace-notification-list button > em {
-  color: #85908a;
-  font-size: 13px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-control);
   font-style: normal;
 }

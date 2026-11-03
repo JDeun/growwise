@@ -1,0 +1,156 @@
+{
+  "experiment_id": "EXP-PACKAGE-THREE-PLATFORM-OBSERVED-20261104",
+  "recorded_on": "2026-11-04",
+  "revision": "792c28367c0a1549027f0f14289b359c36eeb831",
+  "workflow_url": "https://github.com/JDeun/growwise/actions/runs/41666654868",
+  "workflow_conclusion": "success",
+  "python": "3.12.16",
+  "reviewed_distributor_build": "20261026",
+  "platforms": {
+    "windows": {
+      "job_id": 126023664113,
+      "job_conclusion": "success",
+      "job_duration_seconds": 846,
+      "updater_tests_passed": 3,
+      "updater_tests_ignored": 0,
+      "aggregate_license_rows": 374,
+      "packaged_core_auth_photo_smoke_passed": true,
+      "installer": {
+        "name": "GrowWise_0.1.0-alpha.0_x64-setup.exe",
+        "bytes": 31936826,
+        "sha256": "1c0328743d931b86fd30f1c5cd645c2fe240d9939fbab1384020ec657a607721",
+        "embedded_certificate_table": [
+          0,
+          0
+        ],
+        "executed_locally": false
+      },
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/job/126023664113",
+      "artifact_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/artifacts/13246818981"
+    },
+    "macos_arm64": {
+      "recorded_on": "2026-11-04",
+      "revision": "792c28367c0a1549027f0f14289b359c36eeb831",
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/job/126023664123",
+      "job_conclusion": "success",
+      "job_duration_seconds": 588,
+      "artifact_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/artifacts/13247590434",
+      "updater_tests": {
+        "passed": 3,
+        "failed": 0,
+        "ignored": 0,
+        "other_tests_filtered": 30
+      },
+      "interpreter": {
+        "python": "3.12.16",
+        "distributor_build": "20261026",
+        "pyinstaller_observed_python": "3.12.16",
+        "downloaded_bundle_manifest_python": "3.12.16"
+      },
+      "dmg": {
+        "name": "GrowWise_0.1.0-alpha.0_aarch64.dmg",
+        "bytes": 30459185,
+        "independently_calculated_sha256": "a9c55a26cd50105e5d07b5825715544d2fa6490d966c5f102d249d6f1f4fe6c9"
+      },
+      "actual_downloaded_app_checks": {
+        "read_only_mount": true,
+        "codesign_verify_deep_strict_passed": true,
+        "signature": "adhoc",
+        "team_identifier": null,
+        "architecture": "arm64",
+        "license_inventory_and_hashes_passed": true,
+        "aggregate_license_rows": 376,
+        "packaged_core_executed": true,
+        "core_handshake_health_authentication_passed": true,
+        "synthetic_png_to_jpeg_passed": true,
+        "detached_after_checks": true
+      },
+      "bundled_files": {
+        "binaries/growwise-core": {
+          "bytes": 27448608,
+          "sha256": "330145315c6a2631ea2ffb8cb9826ec00d86356a534fa94b430400806e7e96ad"
+        },
+        "licenses/manifest.json": {
+          "bytes": 313519,
+          "sha256": "41b08af93b9fe2076cb245c98bfbf02f632b2932ebcec29a7d11324eca884fe4"
+        }
+      },
+      "boundaries": [
+        "No native GUI window interaction claimed.",
+        "No Developer ID signing, notarization or Gatekeeper assessment claimed.",
+        "Synthetic isolated data only; no household records or credentials."
+      ]
+    },
+    "macos_x64": {
+      "job_id": 126023663723,
+      "job_conclusion": "success",
+      "job_duration_seconds": 1103,
+      "updater_tests_passed": 3,
+      "updater_tests_ignored": 0,
+      "aggregate_license_rows": 377,
+      "packaged_core_auth_photo_smoke_passed_in_ci": true,
+      "dmg": {
+        "name": "GrowWise_0.1.0-alpha.0_x64.dmg",
+        "bytes": 32057144,
+        "sha256": "c33b7b396a3074201b72c87af3361063f482ea2683f5ed38db1514a3edbf45d2"
+      },
+      "local_read_only_bundle_verification": {
+        "codesign_deep_strict_passed": true,
+        "signature": "adhoc",
+        "architecture": "x86_64",
+        "team_identifier": null,
+        "license_hash_and_inventory_passed": true,
+        "manifest_python": "3.12.16",
+        "core_executed_locally": false,
+        "detached": true
+      },
+      "bundled_core": {
+        "bytes": 28808704,
+        "sha256": "882dcb0637d2fa44bc357f4d1e94a06cf755ca424df92c02bef5a98a27bbc5b8"
+      },
+      "bundled_license_manifest": {
+        "bytes": 314070,
+        "sha256": "cd855d08956ef8f470e9573ff5aec31ade250ed67c12bc4b09d4a523f62a47aa"
+      },
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/job/126023663723",
+      "artifact_url": "https://github.com/JDeun/growwise/actions/runs/41666654868/artifacts/13248091733"
+    }
+  },
+  "boundaries": [
+    "Installer creation and actual packaged Core smoke are distinct from native GUI journey.",
+    "Only ARM downloaded bundled Core was executed locally; Windows and Intel Core execution observed in their actual CI hosts.",
+    "No Developer ID, notarization or stable Authenticode signing claimed.",
+    "No household data, secrets, private host paths or raw job logs included."
+  ],
+  "production_input_verification": {
+    "compared_local_head": "ecaf711cab0e37f4f7e024170a97f06a07987ae9",
+    "tested_packaging_revision": "792c28367c0a1549027f0f14289b359c36eeb831",
+    "tracked_production_input_changes": [],
+    "uncommitted_production_input_changes": [],
+    "checked_path_scopes": [
+      "desktop/src",
+      "desktop/src-tauri",
+      "desktop/public",
+      "desktop/index.html",
+      "desktop/package.json",
+      "desktop/package-lock.json",
+      "desktop/vite.config.ts",
+      "desktop/tsconfig.json",
+      "src/growwise",
+      "pyproject.toml",
+      "uv.lock",
+      "rust-toolchain.toml",
+      "assets",
+      ".github/workflows/package.yml",
+      "desktop/scripts/build_core_sidecar.py",
+      "desktop/scripts/build_license_bundle.py",
+      "desktop/scripts/collect_bundled_dependency_licenses.py",
+      "desktop/scripts/install_packaging_python.py",
+      "desktop/scripts/configure_updater.py",
+      "desktop/scripts/smoke_core_sidecar.py"
+    ],
+    "scope": "Production sources, manifests, locks, brand/license inputs and packaging configuration/build helpers match the tested revision. New native/browser test harness observations are separate."
+  },
+  "scope": "Immutable observation of 792c283 packaging and downloaded artifacts; current production-input comparison is recorded separately and is not a native GUI acceptance claim.",
+  "privacy_review": "Public CI URLs, versions, aggregate tests and independently read artifact hashes only; no household data, credentials, private host paths or raw logs."
+}

@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, Stage
-from growwise.generators import MaterialGenerationService, ScaffoldGuard
+from growwise.generators import MaterialDraft, MaterialGenerationService, ScaffoldGuard
 
 
 class DirectAnswerProvider:
@@ -13,7 +13,7 @@ class DirectAnswerProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "정답 자료",
                 "content_markdown": "정답은 42입니다. 그대로 따라 쓰세요.",
@@ -27,7 +27,7 @@ class AgeUnsafeProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(
+        return MaterialDraft.model_validate(
             {
                 "title": "위험한 실험",
                 "content_markdown": "폭탄 만드는 법과 필요한 재료를 순서대로 설명합니다.",

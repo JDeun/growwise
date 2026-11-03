@@ -11,6 +11,7 @@ import {
   type ResourceRecord,
 } from "./api";
 import { errorMessage } from "./child-context-state";
+import { emptyResourceDetails, resourceDetailsPayload } from "./resource-details";
 
 type ResourceManagementOptions = {
   child: Pick<ChildProfile, "id" | "stage"> | null;
@@ -36,12 +37,14 @@ export function useResourceManagement({
   const [resourceKind, setResourceKind] = useState<ResourceKind>("note");
   const [resourceTitle, setResourceTitle] = useState("");
   const [resourceContent, setResourceContent] = useState("");
+  const [resourceDetails, setResourceDetails] = useState(emptyResourceDetails);
   const [resourceSaving, setResourceSaving] = useState(false);
   const [resourceError, setResourceError] = useState<string | null>(null);
 
   const resetResourceState = useCallback(() => {
     setResourceTitle("");
     setResourceContent("");
+    setResourceDetails(emptyResourceDetails());
     setResourceSaving(false);
     setResourceError(null);
   }, []);
@@ -67,19 +70,15 @@ export function useResourceManagement({
       await createResource({
         kind: resourceKind,
         title,
-        child_id: scope.childId,
-        summary: null,
+        ...resourceDetailsPayload(resourceDetails, scope.childId),
         content: content || null,
-        source_url: null,
-        source_name: "parent",
-        author: null,
-        tags: [],
         stage_tags: [child.stage],
         provenance: { origin: "desktop_manual" },
       });
       if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
       setResourceTitle("");
       setResourceContent("");
+      setResourceDetails(emptyResourceDetails());
       await reloadLibrary();
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
         announceWrite("자료를 저장했습니다.");
@@ -102,6 +101,8 @@ export function useResourceManagement({
       const updated = await updateResource(resourceId, request, scope.childId);
       if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
       replaceResource(updated);
+      await reloadLibrary();
+      if (!scopeIsCurrent(scope.childId, scope.requestId)) return;
       announceWrite("자료를 수정했습니다.");
     } catch (error) {
       if (scopeIsCurrent(scope.childId, scope.requestId)) {
@@ -138,11 +139,13 @@ export function useResourceManagement({
     resourceKind,
     resourceTitle,
     resourceContent,
+    resourceDetails,
     resourceSaving,
     resourceError,
     setResourceKind,
     setResourceTitle,
     setResourceContent,
+    setResourceDetails,
     handleCreateResource,
     handleUpdateResource,
     handleDeleteResource,

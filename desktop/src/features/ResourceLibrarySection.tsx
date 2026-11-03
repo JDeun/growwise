@@ -5,6 +5,9 @@ import type { ViewLoadState } from "../child-context-state";
 import { ConfirmDialog, EntityLinkPanel, ViewStateNotice } from "../components";
 import type { ResourceCreateInput, ResourceKind, ResourceRecord } from "../api";
 import { canMutateResourceInChildView, resourceScopeLabel } from "../resource-scope";
+import { emptyResourceDetails, resourceDetailsDraft, resourceDetailsPayload, type ResourceDetailsDraft } from "../resource-details";
+import { ResourceDetailsFields, ResourceScopeField } from "../components/ResourceDetailsFields";
+import { ExternalSourceLink } from "../components/ExternalSourceLink";
 import "./ResourceLibrarySection.css";
 
 type ResourceKindFilter = "all" | ResourceKind;
@@ -46,6 +49,7 @@ interface ResourceLibrarySectionProps {
   resourceKind: ResourceKind;
   resourceTitle: string;
   resourceContent: string;
+  resourceDetails: ResourceDetailsDraft;
   saving: boolean;
   error: string | null;
   loadState: ViewLoadState;
@@ -53,6 +57,7 @@ interface ResourceLibrarySectionProps {
   onKindChange: (value: ResourceKind) => void;
   onTitleChange: (value: string) => void;
   onContentChange: (value: string) => void;
+  onDetailsChange: (value: ResourceDetailsDraft) => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   onRetry: () => void;
   onUpdate: (resourceId: string, request: ResourceCreateInput) => Promise<void>;
@@ -63,6 +68,7 @@ export function ResourceLibrarySection({
   resourceKind,
   resourceTitle,
   resourceContent,
+  resourceDetails,
   saving,
   error,
   loadState,
@@ -70,6 +76,7 @@ export function ResourceLibrarySection({
   onKindChange,
   onTitleChange,
   onContentChange,
+  onDetailsChange,
   onSubmit,
   onRetry,
   onUpdate,
@@ -84,6 +91,7 @@ export function ResourceLibrarySection({
   const [editKind, setEditKind] = useState<ResourceKind>("note");
   const [editTitle, setEditTitle] = useState("");
   const [editContent, setEditContent] = useState("");
+  const [editDetails, setEditDetails] = useState(emptyResourceDetails);
   const [editError, setEditError] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ResourceRecord | null>(null);
   const [mutationBusy, setMutationBusy] = useState(false);
@@ -94,6 +102,12 @@ export function ResourceLibrarySection({
   );
   const selectedResource =
     resources.find((resource) => resource.id === selectedResourceId) ?? null;
+
+  useEffect(() => {
+    setEditingResource(null);
+    setDeleteTarget(null);
+    setSelectedResourceId(null);
+  }, [activeChildId]);
 
   useEffect(() => {
     if (
@@ -110,6 +124,7 @@ export function ResourceLibrarySection({
     setEditKind(resource.kind);
     setEditTitle(resource.title);
     setEditContent(resource.content ?? "");
+    setEditDetails(resourceDetailsDraft(resource));
     setEditError(null);
   }
 
@@ -121,24 +136,24 @@ export function ResourceLibrarySection({
       setEditError("자료 제목을 입력해 주세요.");
       return;
     }
+    if (editDetails.scope === "child" && !activeChildId) {
+      setEditError("현재 아이를 먼저 선택해 주세요.");
+      return;
+    }
     setMutationBusy(true);
     setEditError(null);
     try {
       await onUpdate(editingResource.id, {
         kind: editKind,
         title,
-        child_id: editingResource.child_id,
-        summary: editingResource.summary,
+        ...resourceDetailsPayload(editDetails, activeChildId ?? ""),
         content: editContent.trim() || null,
-        source_url: editingResource.source_url,
-        source_name: editingResource.source_name,
-        author: editingResource.author,
-        tags: editingResource.tags,
         stage_tags: editingResource.stage_tags,
         provenance: editingResource.provenance,
       });
       setEditingResource(null);
-    } catch {
+    } catch (cause) {
+      setEditError(cause instanceof Error ? cause.message : "자료 수정에 실패했습니다.");
       // App owns the operation error notice. Keep the editor open so the parent can retry.
     } finally {
       setMutationBusy(false);
@@ -164,13 +179,13 @@ export function ResourceLibrarySection({
     <section className="resource-section">
       <div className="resource-grid">
         <form className="resource-form" onSubmit={onSubmit}>
-          <p className="card-label">참고 자료 추가</p>
-          <h3>나중에 다시 쓸 자료를 저장합니다.</h3>
+          <h2>나중에 다시 쓸 자료를 저장합니다.</h2>
           <p className="muted">책, 교육과정, 웹 자료나 직접 적은 메모를 한곳에 모아 검색하고 학습 자료를 만들 때 참고할 수 있습니다.</p>
           <label>
             <span>종류</span>
             <select
               value={resourceKind}
+              disabled={saving || mutationBusy}
               onChange={(event) => onKindChange(event.target.value as ResourceKind)}
             >
               {Object.entries(RESOURCE_KIND_LABELS).map(([value, label]) => (
@@ -182,6 +197,7 @@ export function ResourceLibrarySection({
             <span>제목</span>
             <input
               value={resourceTitle}
+              disabled={saving || mutationBusy}
               onChange={(event) => onTitleChange(event.target.value)}
               maxLength={500}
             />
@@ -190,10 +206,15 @@ export function ResourceLibrarySection({
             <span>내용</span>
             <textarea
               value={resourceContent}
+              disabled={saving || mutationBusy}
+              maxLength={500000}
               onChange={(event) => onContentChange(event.target.value)}
               placeholder="자료의 핵심 내용이나 메모"
             />
           </label>
+          <ResourceDetailsFields value={resourceDetails} onChange={onDetailsChange} disabled={saving || mutationBusy} />
+          <ResourceScopeField value={resourceDetails.scope}
+            onChange={(scope) => onDetailsChange({ ...resourceDetails, scope })} disabled={saving || mutationBusy} />
           <button className="primary-button" type="submit" disabled={saving || mutationBusy}>
             {saving ? "저장 중…" : "자료 저장"}
           </button>
@@ -203,12 +224,11 @@ export function ResourceLibrarySection({
         <div className="resource-browser">
           <div className="resource-browser-heading">
             <div>
-              <p className="card-label">저장된 참고 자료</p>
-              <h3>
+              <h2>
                 {loadState.kind === "ready"
                   ? `${filteredResources.length} / ${resources.length}건`
                   : "자료 목록"}
-              </h3>
+              </h2>
             </div>
             {loadState.kind === "ready" && (query || kindFilter !== "all") && (
               <button
@@ -364,8 +384,7 @@ export function ResourceLibrarySection({
                 <aside className="resource-detail" aria-label="선택한 자료 상세">
                   <div className="resource-detail-heading">
                     <div>
-                      <p className="card-label">자료 상세</p>
-                      <h4>{selectedResource.title}</h4>
+                      <h3>{selectedResource.title}</h3>
                     </div>
                     <button
                       className="quiet-button"
@@ -397,7 +416,7 @@ export function ResourceLibrarySection({
                     </p>
                   )}
                   {selectedResource.source_url && (
-                    <p className="resource-source-url">{selectedResource.source_url}</p>
+                    <p className="resource-source-url"><ExternalSourceLink href={selectedResource.source_url}>외부 원문 열기</ExternalSourceLink></p>
                   )}
                   {selectedResource.summary && <p>{selectedResource.summary}</p>}
                   {selectedResource.content && <pre>{selectedResource.content}</pre>}
@@ -425,7 +444,6 @@ export function ResourceLibrarySection({
         <form className="resource-edit-panel" onSubmit={(event) => void handleUpdate(event)}>
           <div className="resource-detail-heading">
             <div>
-              <p className="card-label">자료 편집</p>
               <h3>자료 수정</h3>
             </div>
             <button
@@ -442,6 +460,7 @@ export function ResourceLibrarySection({
               <span>종류</span>
               <select
                 value={editKind}
+                disabled={mutationBusy}
                 onChange={(event) => setEditKind(event.target.value as ResourceKind)}
               >
                 {Object.entries(RESOURCE_KIND_LABELS).map(([value, label]) => (
@@ -453,6 +472,7 @@ export function ResourceLibrarySection({
               <span>제목</span>
               <input
                 value={editTitle}
+                disabled={mutationBusy}
                 onChange={(event) => setEditTitle(event.target.value)}
                 maxLength={500}
               />
@@ -460,8 +480,12 @@ export function ResourceLibrarySection({
           </div>
           <label>
             <span>내용</span>
-            <textarea value={editContent} onChange={(event) => setEditContent(event.target.value)} />
+            <textarea value={editContent} maxLength={500000} disabled={mutationBusy}
+              onChange={(event) => setEditContent(event.target.value)} />
           </label>
+          <ResourceDetailsFields value={editDetails} onChange={setEditDetails} disabled={mutationBusy} />
+          <ResourceScopeField value={editDetails.scope}
+            onChange={(scope) => setEditDetails({ ...editDetails, scope })} disabled={mutationBusy} />
           {editError && <p className="form-error" role="alert">{editError}</p>}
           <button className="primary-button" type="submit" disabled={mutationBusy}>
             {mutationBusy ? "저장 중…" : "수정 저장"}

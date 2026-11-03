@@ -16,8 +16,8 @@
 .print-toolbar span {
   max-width: 210px;
   color: var(--ink-soft);
-  font-size: 11px;
-  line-height: 1.4;
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
 }
 
 @media (max-width: 700px) {
@@ -37,6 +37,16 @@
 
   body * {
     visibility: hidden !important;
+  }
+
+  .approved-card .entity-link-panel,
+  .approved-card .material-card-heading,
+  .approved-card .material-heading-statuses,
+  .approved-card button,
+  .approved-card input,
+  .approved-card select,
+  .approved-card textarea {
+    display: none !important;
   }
 
   body[data-growwise-print-scope="approved"] .material-workspace,

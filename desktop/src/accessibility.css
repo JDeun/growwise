@@ -14,7 +14,7 @@
   border-radius: 10px;
   background: var(--surface);
   color: var(--primary-strong);
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
   text-decoration: none;
   transform: translateY(-160%);
   transition: transform 120ms ease;

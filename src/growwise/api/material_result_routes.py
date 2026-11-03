@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
+from growwise.api.learning_record_fields import validate_learning_book
 from growwise.config import Settings
 from growwise.domain.links import EntityLinkRelation
 from growwise.domain.models import (
@@ -48,6 +49,10 @@ class MaterialResultRequest(BaseModel):
     outcome: MaterialUseOutcome = MaterialUseOutcome.COMPLETED
     observation: str = Field(min_length=1, max_length=10_000)
     learner_work: str | None = Field(default=None, max_length=10_000)
+    book_id: UUID | None = None
+    ai_hint: str | None = Field(default=None, max_length=4_000)
+    evidence_checked: bool | None = None
+    child_reexplanation: str | None = Field(default=None, max_length=10_000)
     process: str | None = Field(default=None, max_length=10_000)
     child_question: str | None = Field(default=None, max_length=4_000)
     interest: str | None = Field(default=None, max_length=2_000)
@@ -312,6 +317,7 @@ def record_material_result(
         if store.index.get_entity(str(material.child_id), entity_type="child_profile") is None:
             raise HTTPException(status_code=404, detail="child_not_found")
         material = _approved_material(store, material_id)
+        validate_learning_book(book_id=request.book_id, child_id=material.child_id, store=store)
         photos = _photo_records_for_result(
             store=store,
             child_id=material.child_id,
@@ -364,6 +370,10 @@ def record_material_result(
                 title=material.title,
                 parent_observation=request.observation,
                 learner_work=request.learner_work,
+                book_id=request.book_id,
+                ai_hint=request.ai_hint,
+                evidence_checked=request.evidence_checked,
+                child_reexplanation=request.child_reexplanation,
                 process=request.process,
                 child_question=request.child_question,
                 interest=request.interest,

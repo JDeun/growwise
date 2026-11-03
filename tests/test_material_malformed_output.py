@@ -5,7 +5,7 @@ from typing import Any
 import pytest
 
 from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 
 
 def _child() -> ChildProfile:
@@ -22,7 +22,7 @@ class _StructuredProvider:
         return "unused"
 
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
-        return schema.model_validate(self.payload)
+        return MaterialDraft.model_validate(self.payload)
 
 
 class _RaisingProvider:
@@ -74,7 +74,14 @@ def test_wellformed_draft_is_accepted():
         _StructuredProvider(
             {
                 "title": "고양이 읽기",
-                "content_markdown": "# 활동\n그림을 천천히 함께 보고 질문을 하나만 합니다.",
+                "content_markdown": (
+                    "## 그림에서 질문 찾기\n"
+                    "1. 그림책을 함께 보고 아이가 궁금한 장면을 하나 골라 충분히 살펴봅니다.\n"
+                    "2. 앞뒤 장면을 비교하고 눈에 띄는 차이를 아이가 자기 말로 설명해 봅니다.\n"
+                    "## 생각 이어가기\n"
+                    "다음 장면에서는 어떤 일이 일어날까요? "
+                    "그림 속 단서와 다른 가능성을 함께 찾아봅니다."
+                ),
                 "source_refs": ["resource:book-1"],
             }
         )

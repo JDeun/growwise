@@ -10,6 +10,7 @@ import {
   type DiscoverySuggestion,
 } from "../discovery-api";
 import "./DiscoveryWorkspace.css";
+import { ExternalSourceLink } from "../components/ExternalSourceLink";
 
 const CATEGORY_LABEL: Record<DiscoveryCategory, string> = {
   book: "도서",
@@ -155,7 +156,6 @@ export function DiscoveryWorkspace({ active }: Props) {
       <section className="workspace discovery-card">
         <div className="section-heading">
           <div>
-            <p className="card-label">교육 자료 발견</p>
             <h2 id="discovery-title">아이의 현재 맥락에서 다음 자료 찾기</h2>
             <p className="muted">
               관심사와 최근 기록은 로컬에서 후보 순위를 정하는 데 사용합니다. 외부 공개 소스에는
@@ -305,9 +305,9 @@ export function DiscoveryWorkspace({ active }: Props) {
                           <p>{suggestion.attribution}</p>
                           <p>{suggestion.license_note}</p>
                           {suggestion.source_url && (
-                            <a href={suggestion.source_url} target="_blank" rel="noreferrer">
+                            <ExternalSourceLink href={suggestion.source_url}>
                               원 출처 열기
-                            </a>
+                            </ExternalSourceLink>
                           )}
                         </details>
                         <button

@@ -1,6 +1,8 @@
 import sqlite3
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
+import pytest
 from uuid6 import uuid7
 
 from growwise.domain import ChildProfile, LearningLog, ResourceKind, ResourceRecord, Stage
@@ -144,3 +146,60 @@ def test_shared_projection_queries_survive_sqlite_variable_ceiling(tmp_path: Pat
     )
     assert target_resource_id is not None
     assert [item["id"] for item in results] == [target_resource_id]
+
+
+def test_limited_list_decodes_only_selected_owned_global_and_shared_rows(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    projection = SQLiteProjection(tmp_path / "index.sqlite3")
+    viewer, owner = uuid7(), uuid7()
+    now = datetime.now(UTC)
+    expected = []
+    with projection._connection() as connection:
+        for number in range(1000):
+            resource = ResourceRecord(
+                child_id=viewer if number % 2 else owner,
+                kind=ResourceKind.NOTE, title=f"합성 자료 {number}", content="합성 원문",
+                updated_at=now - timedelta(seconds=number),
+            )
+            projection._upsert_on(
+                connection, resource.model_dump(mode="json"), tmp_path / f"{resource.id}.md",
+            )
+            if number % 2:
+                expected.append(str(resource.id))
+            elif number == 0:
+                link = EntityLink(
+                    child_id=viewer, source_id=resource.id, target_id=viewer,
+                    relation=EntityLinkRelation.CHILD_SCOPE,
+                )
+                projection._upsert_on(
+                    connection, link.model_dump(mode="json"), tmp_path / f"{link.id}.md",
+                )
+                expected.append(str(resource.id))
+        common = ResourceRecord(
+            kind=ResourceKind.NOTE, title="공통 자료", content="합성 원문",
+            updated_at=now + timedelta(seconds=1),
+        )
+        projection._upsert_on(
+            connection, common.model_dump(mode="json"), tmp_path / f"{common.id}.md",
+        )
+
+    decoded = 0
+    decode = projection._decode_projection_row
+
+    def count_decode(connection: sqlite3.Connection, row: sqlite3.Row) -> dict | None:
+        nonlocal decoded
+        decoded += 1
+        return decode(connection, row)
+
+    monkeypatch.setattr(projection, "_decode_projection_row", count_decode)
+    own_and_shared = projection.list_entities(entity_type="resource", child_id=str(viewer), limit=8)
+    assert [item["id"] for item in own_and_shared] == expected[:8]
+    assert decoded == 8
+    decoded = 0
+    with_global = projection.list_entities(
+        entity_type="resource", child_id=str(viewer), include_global=True, limit=8,
+    )
+    assert [item["id"] for item in with_global] == [str(common.id), *expected[:7]]
+    assert decoded == 8
+    assert projection.list_entities(entity_type="resource", child_id=str(viewer), limit=0) == []

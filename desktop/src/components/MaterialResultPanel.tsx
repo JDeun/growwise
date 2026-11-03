@@ -12,6 +12,9 @@ import {
   type PhotoActivityRecord,
 } from "../api";
 import { ensureMaterialQuest } from "../material-quest";
+import {
+  EMPTY_LEARNING_EVIDENCE, LearningEvidenceDetails, LearningEvidenceFields, useLearningBooks,
+} from "./LearningEvidence";
 import { AXIS_OPTIONS } from "../presentation";
 import "./MaterialResultPanel.css";
 
@@ -55,6 +58,8 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
   const [outcome, setOutcome] = useState<MaterialUseOutcome>("completed");
   const [observation, setObservation] = useState("");
   const [learnerWork, setLearnerWork] = useState("");
+  const [evidence, setEvidence] = useState(EMPTY_LEARNING_EVIDENCE);
+  const bookState = useLearningBooks(material.child_id);
   const [process, setProcess] = useState("");
   const [childQuestion, setChildQuestion] = useState("");
   const [interest, setInterest] = useState("");
@@ -155,6 +160,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     setOutcome("completed");
     setObservation("");
     setLearnerWork("");
+    setEvidence(EMPTY_LEARNING_EVIDENCE);
     setProcess("");
     setChildQuestion("");
     setInterest("");
@@ -236,6 +242,9 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
         outcome,
         observation: mainObservation,
         learner_work: learnerWork.trim() || null,
+        ...evidence,
+        ai_hint: evidence.ai_hint.trim() || null,
+        child_reexplanation: evidence.child_reexplanation.trim() || null,
         process: process.trim() || null,
         child_question: childQuestion.trim() || null,
         interest: interest.trim() || null,
@@ -269,7 +278,6 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
     <section className="material-quest" aria-label={`${material.title} 활동 사용 기록`}>
       <div className="material-quest-heading">
         <div>
-          <span className="material-quest-kicker">활동 기록</span>
           <strong>자료 사용과 결과</strong>
           <small>이 자료를 실제로 사용한 상태와 결과를 이어서 기록합니다.</small>
         </div>
@@ -353,6 +361,14 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
               {hasResult ? "결과 추가 기록" : "활동 결과 기록"}
             </button>
           </div>
+          {results.length > 0 && <details className="material-result-history">
+            <summary>저장한 결과 {results.length}건 자세히 보기</summary>
+            {results.map((record) => <article key={record.id}>
+              <p>{record.parent_observation}</p>
+              {record.learner_work && <p>{record.learner_work}</p>}
+              <LearningEvidenceDetails record={record} books={bookState.books} />
+            </article>)}
+          </details>}
         </>
       )}
 
@@ -389,6 +405,7 @@ export function MaterialResultPanel({ material, onRecorded }: MaterialResultPane
 
           <details className="material-result-more">
             <summary>더 자세히 기록</summary>
+            <LearningEvidenceFields value={evidence} onChange={setEvidence} {...bookState} disabled={busy} />
                       <fieldset className="material-result-outcomes">
                         <legend>이번 기록의 진행 결과</legend>
                         {([

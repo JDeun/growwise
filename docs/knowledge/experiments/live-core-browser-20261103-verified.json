@@ -1,0 +1,83 @@
+{
+  "passed": true,
+  "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+  "llm": false,
+  "fixture": "synthetic children, observations and one-pixel PNG; isolated temporary data directory",
+  "scriptSha256": "c9f8399aa33715bad66edbdb02f023153ffdf5eb0d37871bb49b46539f96d4a9",
+  "buildAssets": [
+    "/assets/index-sPNT3rGa.js",
+    "/assets/index-BdlIcUq0.css"
+  ],
+  "steps": [
+    "real Core starts and rejects unauthenticated access",
+    "UI first-run profile persists and enters materials",
+    "UI background generation saves template; explicit use passes real review gate",
+    "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+    "UI one-line result writes authoritative learning record",
+    "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+    "UI independent reading record preserves separate record kind",
+    "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+    "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+    "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+    "UI confirmed conversation deletion preserves another conversation and original source records",
+    "UI direct search returns actual child-scoped records without an LLM",
+    "UI reference library create/edit/detail/confirmed delete reaches real Core",
+    "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+    "UI actual PNG upload, manual draft, parent confirmation and saved asset rendering pass",
+    "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+    "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+    "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated",
+    "UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it",
+    "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+    "infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces"
+  ],
+  "observed_on": "2026-11-03",
+  "status": "observed",
+  "repository_revision": "e3c3b3b19d9fa23a42d976e39f7fee48af211d4b",
+  "working_tree": "modified",
+  "supersedes": "EXP-LIVE-UI-COMPLETION-OBSERVED-20261103",
+  "build_asset_sha256": {
+    "/assets/index-sPNT3rGa.js": "b3095f812619d3aeb31bab252646d77cbede3e034171d0f1bdb18aa4eb2300c7",
+    "/assets/index-BdlIcUq0.css": "8aa7564acdec929958e10927b86b400207e764d727cc94d7eda91e8070f5061f"
+  },
+  "new_screenshots_inspected": [
+    "selected-records-export.png",
+    "infant-primary-approved-material-print.png"
+  ],
+  "artifacts_summary": {
+    "selected-records.zip": {
+      "bytes": 1701,
+      "sha256": "5016f1db3cd17466f0df7d13ac73e450f8d8675e6423737e65b8aad39deeee58"
+    },
+    "approved-material.pdf": {
+      "bytes": 468737,
+      "sha256": "2c4e1509ccd7424d81df33d4b6f67e24be5b118ff97b4a24f7b74c22b6b561ad"
+    },
+    "infant-approved-material.pdf": {
+      "bytes": 440320,
+      "sha256": "5ec9f771c22d73a2b8deab127c39f1a7efdca28586c6c75e06d81d5db846f5af",
+      "pages": 6,
+      "text_inspected_with": "macOS PDFKit; parent safety, review time and generator version present"
+    }
+  },
+  "selected_export": {
+    "start_date": "2020-01-01",
+    "end_date": "2020-12-31",
+    "record_count": 2,
+    "asset_count": 0,
+    "member_count": 3,
+    "hashes_rechecked": true,
+    "full_restore_rejected_by_journey": true
+  },
+  "verification_scope": {
+    "core_regression": "2140 passed, 1 skipped; integration agent reported",
+    "frontend_regression": "278 passed; integration agent reported",
+    "native_regression": "26 passed, 3 manual tests ignored by default; those manual smokes were separately run earlier",
+    "limitations": [
+      "IPC browser adapter; OS save/print dialogs and packaged Windows runtime not exercised here",
+      "LLM/embedding/vision/public enrichment disabled; not educational field-effectiveness or universal model-quality evidence",
+      "21 asserted steps include the shared print assertion twice for elementary and infant profiles; no claim of21 unique features",
+      "Only the two newly added critical screenshots were independently re-inspected for this follow-up;17 predecessor captures were inspected in the earlier run"
+    ]
+  }
+}

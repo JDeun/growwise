@@ -35,10 +35,12 @@ describe("ChildProfileSection first-run onboarding", () => {
   it("frames the first child as the only required setup", () => {
     const markup = renderFirstRun();
 
-    expect(markup).toContain("빠른 시작");
-    expect(markup).toContain("닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다");
-    expect(markup).toContain("첫 프로필");
+    expect(markup).toContain('id="child-profile-title">첫 아이 프로필 만들기</h2>');
+    expect(markup).toContain("닉네임과 교육 단계만 있으면 됩니다. 생년월일은 선택입니다.");
     expect(markup).toContain("첫 프로필 저장");
+    expect(markup.indexOf("첫 프로필 저장")).toBeLessThan(markup.indexOf('class="onboarding-optional"'));
+    expect(markup).not.toContain("onboarding-steps");
+    expect(markup).not.toContain("verification-card");
   });
 
   it("prefers birth date while keeping manual age and grade as optional fallback", () => {
@@ -53,12 +55,20 @@ describe("ChildProfileSection first-run onboarding", () => {
   it("keeps AI optional without exposing implementation setup commands", () => {
     const markup = renderFirstRun();
 
-    expect(markup).toContain("AI는 선택 사항");
     expect(markup).toContain("AI 보조 기능 · 선택");
-    expect(markup).toContain("나중에 설정에서 사용 가능 상태를 확인할 수 있습니다");
+    expect(markup).toContain('<details class="onboarding-optional"><summary>');
+    expect(markup).toContain("AI 없이도 기록과 기본 활동 자료를 사용할 수 있습니다");
+    expect(markup).toContain("나중에 설정에서 AI 보조 기능을 준비할 수 있습니다");
     expect(markup).not.toContain("Core-only");
     expect(markup).not.toContain("ollama serve");
     expect(markup).not.toContain("ollama pull");
+  });
+
+  it("explains why first-profile saving is unavailable while connecting", () => {
+    const markup = renderFirstRun(false);
+
+    expect(markup).toContain('role="status">앱을 준비하고 있습니다. 연결되면 프로필을 저장할 수 있습니다.');
+    expect(markup).toContain('type="submit" disabled="">첫 프로필 저장');
   });
 });
 
@@ -109,7 +119,7 @@ describe("ChildProfileSection product profile layout", () => {
       </ActiveChildProvider>,
     );
 
-    expect(markup).toContain("아이 목록");
+    expect(markup).toContain('aria-labelledby="child-roster-title"');
     expect(markup).toContain("프로필을 선택해 기록 맥락을 바꿉니다");
     expect(markup).toContain("수아");
     expect(markup).toContain("민준");

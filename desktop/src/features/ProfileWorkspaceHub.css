@@ -16,22 +16,17 @@
 .profile-hub-heading p {
   margin: 0;
 }
-
-.profile-hub-heading .eyebrow {
-  margin-bottom: 6px;
-}
-
 .profile-hub-heading h1 {
   color: #2b2a28;
-  font-size: 25px;
-  font-weight: 780;
-  letter-spacing: -0.045em;
+  font-size: var(--font-size-page);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
 }
 
 .profile-hub-heading > div > p:last-child {
   margin-top: 5px;
-  color: #77807b;
-  font-size: 11px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
 }
 
 .profile-hub-heading .primary-button {
@@ -41,7 +36,7 @@
   min-height: 36px;
   padding: 8px 13px;
   border-radius: 10px;
-  font-size: 9px;
+  font-size: var(--font-size-control);
 }
 
 .profile-hub-layout {
@@ -74,7 +69,7 @@
 .profile-summary-card .child-avatar {
   width: 112px;
   height: 112px;
-  font-size: 24px;
+  font-size: var(--font-size-control);
   box-shadow: 0 12px 28px rgba(47, 86, 68, .10);
 }
 
@@ -90,13 +85,13 @@
 
 .profile-summary-identity h2 {
   color: #2b2a28;
-  font-size: 17px;
-  letter-spacing: -.035em;
+  font-size: var(--font-size-section);
+  letter-spacing: var(--tracking-heading);
 }
 
 .profile-summary-identity p {
-  color: #83908a;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
 }
 
 .profile-child-switcher {
@@ -108,9 +103,9 @@
 
 .profile-child-switcher span,
 .profile-summary-section > span {
-  color: #84908a;
-  font-size: 8px;
-  font-weight: 780;
+  color: var(--ink-soft);
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .profile-child-switcher select {
@@ -121,14 +116,14 @@
   background: #fff;
   color: #425048;
   padding: 0 9px;
-  font-size: 9px;
+  font-size: var(--font-size-meta);
 }
 
 .profile-edit-button {
   width: 100%;
   min-height: 34px;
   padding: 7px 10px;
-  font-size: 9px;
+  font-size: var(--font-size-control);
 }
 
 .profile-summary-section {
@@ -151,17 +146,17 @@
   border-radius: 999px;
   background: #edf6f1;
   color: #39745d;
-  font-size: 8px;
+  font-size: var(--font-size-control);
   font-style: normal;
-  font-weight: 720;
+  font-weight: var(--weight-bold);
 }
 
 .profile-summary-section small,
 .profile-summary-section p,
 .profile-summary-section li {
-  color: #737e78;
-  font-size: 8.5px;
-  line-height: 1.5;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .profile-summary-section p {
@@ -182,8 +177,8 @@
   background: transparent;
   color: #477662;
   cursor: pointer;
-  font-size: 8.5px;
-  font-weight: 720;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .profile-content-card {
@@ -204,10 +199,10 @@
   border: 0;
   border-bottom: 2px solid transparent;
   background: transparent;
-  color: #86908b;
+  color: var(--ink-soft);
   cursor: pointer;
-  font-size: 9.5px;
-  font-weight: 720;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .profile-content-tabs button.is-active {
@@ -258,6 +253,20 @@
   min-width: 0;
 }
 
+.profile-hub.is-managing .profile-hub-core > .app-shell {
+  width: 100%;
+  padding: 0;
+}
+
+.profile-hub.is-managing .profile-hub-core .workspace {
+  margin-top: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
 .profile-manage-toolbar {
   display: flex;
   justify-content: flex-end;
@@ -266,7 +275,7 @@
 
 .profile-manage-toolbar .quiet-button {
   padding: 7px 10px;
-  font-size: 9px;
+  font-size: var(--font-size-control);
 }
 
 .profile-hub.is-managing .profile-hub-core .child-profile-section {
@@ -334,17 +343,17 @@
   min-height: 34px;
   padding: 7px 10px;
   border-radius: 9px;
-  font-size: 9px;
+  font-size: var(--font-size-control);
 }
 
 .profile-manage-link {
   padding: 3px 0;
   border: 0;
   background: transparent;
-  color: #718079;
+  color: var(--ink-soft);
   cursor: pointer;
-  font-size: 8px;
-  font-weight: 680;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-semibold);
   text-decoration: underline;
   text-underline-offset: 3px;
 }
@@ -371,21 +380,26 @@
 }
 
 .profile-tab-context span {
-  color: #2f8f6b;
-  font-size: 8px;
-  font-weight: 800;
+  color: var(--primary-strong);
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-bold);
 }
 
 .profile-tab-context strong {
   color: #344139;
-  font-size: 11px;
+  font-size: var(--font-size-body);
 }
 
 .profile-tab-context p {
   margin: 0;
-  color: #7d8782;
-  font-size: 9px;
-  line-height: 1.5;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
+}
+
+.learning-wiki-panel {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .profile-hub[data-profile-tab="records"] .profile-tab-context {

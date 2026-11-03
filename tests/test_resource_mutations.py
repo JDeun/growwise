@@ -1,11 +1,14 @@
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from threading import Event
 
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
 
-from growwise.api import resource_routes
+from growwise.api import link_routes, resource_routes
 from growwise.domain import ChildProfile, ResourceKind, ResourceRecord, Stage
+from growwise.domain.links import EntityLinkRelation
 from growwise.rag import HybridRagIndex, ResourceIngestor
 from growwise.services.entity_links import EntityLinkService
 from growwise.storage import EntityStore
@@ -27,6 +30,24 @@ def _request(title: str, content: str) -> resource_routes.ResourceUpdateRequest:
         content=content,
         provenance={"origin": "mutation-test"},
     )
+
+
+def test_resource_projection_cleanup_failure_does_not_log_source_identifiers(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    resource = _resource()
+    store.save(resource)
+
+    class UnavailableProjection:
+        def delete_resource(self, _resource_id):
+            raise OSError("synthetic retrieval projection unavailable")
+
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", UnavailableProjection)
+    assert resource_routes.delete_resource(resource.id, store) == {"deleted": True}
+    assert "source deletion remains authoritative" in caplog.text
+    assert str(resource.id) not in caplog.text
+    assert store.index.get_entity(str(resource.id), entity_type="resource") is None
 
 
 def test_resource_update_and_delete_keep_markdown_sqlite_and_rag_in_sync(
@@ -233,3 +254,189 @@ def test_resource_update_revalidates_forged_request_before_source_write(tmp_path
     indexed = store.index.get_entity(str(original.id), entity_type="resource")
     assert indexed is not None
     assert indexed["title"] == original.title
+
+
+def test_resource_create_and_edit_persist_optional_metadata_and_scope(tmp_path, monkeypatch):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    rag = HybridRagIndex(tmp_path / "rag.sqlite3")
+    child = ChildProfile(nickname="소유 아이", stage=Stage.ELEMENTARY)
+    store.save(child)
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", lambda: rag)
+    monkeypatch.setattr(
+        resource_routes,
+        "get_resource_idempotency_store",
+        lambda: resource_routes.SQLiteIdempotencyStore(tmp_path / "idempotency.sqlite3"),
+    )
+    created = resource_routes.create_resource(
+        resource_routes.ResourceCreateRequest(
+            kind=ResourceKind.BOOK,
+            title="달 관찰",
+            child_id=child.id,
+            summary="달의 모양",
+            content="함께 관찰",
+            source_name="도서관",
+            source_url="https://example.org/book",
+            author="김작가",
+            tags=["과학", "관찰"],
+        ),
+        store,
+        idempotency_key=None,
+    )
+    assert created.child_id == child.id
+    assert created.author == "김작가"
+    assert store.markdown.load(store.markdown.path_for(created), ResourceRecord).tags == [
+        "과학",
+        "관찰",
+    ]
+
+    updated = resource_routes.update_resource(
+        created.id,
+        resource_routes.ResourceUpdateRequest(
+            kind=ResourceKind.BOOK,
+            title="달 관찰 수정",
+            child_id=None,
+            summary="수정 요약",
+            content="함께 관찰",
+            source_name="새 출처",
+            source_url="https://example.org/new",
+            author="이작가",
+            tags=["자연"],
+        ),
+        store,
+        acting_child_id=child.id,
+    )
+    persisted = store.markdown.load(store.markdown.path_for(updated), ResourceRecord)
+    assert persisted.child_id is None
+    assert persisted.summary == "수정 요약"
+    assert persisted.source_name == "새 출처"
+    assert persisted.source_url == "https://example.org/new"
+    assert persisted.author == "이작가"
+    assert persisted.tags == ["자연"]
+
+
+def test_narrowing_global_scope_revokes_child_grants_and_stale_global_rag(tmp_path, monkeypatch):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    rag = HybridRagIndex(tmp_path / "rag.sqlite3")
+    owner = ChildProfile(nickname="현재 아이", stage=Stage.ELEMENTARY)
+    sibling = ChildProfile(nickname="다른 아이", stage=Stage.ELEMENTARY)
+    store.save(owner)
+    store.save(sibling)
+    original = _resource()
+    store.save(original)
+    ResourceIngestor(rag).ingest(original)
+    EntityLinkService(store).share_with_children(source_id=original.id, child_ids=[sibling.id])
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", lambda: rag)
+    # The old global chunks must disappear even when best-effort re-ingestion is unavailable.
+    monkeypatch.setattr(
+        rag, "replace_resource", lambda *_: (_ for _ in ()).throw(OSError("offline"))
+    )
+    resource_routes.update_resource(
+        original.id,
+        resource_routes.ResourceUpdateRequest(
+            kind=original.kind,
+            title=original.title,
+            content=original.content,
+            child_id=owner.id,
+        ),
+        store,
+        acting_child_id=owner.id,
+    )
+    assert resource_routes.list_resources(store, child_id=sibling.id) == []
+    assert (
+        store.index.list_entity_links(
+            source_id=str(original.id),
+            relation=EntityLinkRelation.CHILD_SCOPE.value,
+        )
+        == []
+    )
+    assert rag.search(query="legacytoken", child_id=str(sibling.id)) == []
+    assert store.index.get_entity(str(original.id))["child_id"] == str(owner.id)
+
+
+def test_resource_scope_change_cannot_promote_a_shared_child_record_or_transfer_to_sibling(
+    tmp_path,
+    monkeypatch,
+):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    owner = ChildProfile(nickname="소유 아이", stage=Stage.ELEMENTARY)
+    sibling = ChildProfile(nickname="다른 아이", stage=Stage.ELEMENTARY)
+    store.save(owner)
+    store.save(sibling)
+    original = _resource().model_copy(update={"child_id": owner.id})
+    store.save(original)
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", lambda: None)
+    for target, actor in [(None, sibling.id), (sibling.id, owner.id)]:
+        with pytest.raises(HTTPException) as error:
+            resource_routes.update_resource(
+                original.id,
+                resource_routes.ResourceUpdateRequest(
+                    kind=original.kind, title="forged", child_id=target
+                ),
+                store,
+                acting_child_id=actor,
+            )
+        assert error.value.status_code == 403
+    assert store.index.get_entity(str(original.id))["child_id"] == str(owner.id)
+
+
+def test_concurrent_share_rechecks_owner_after_global_scope_is_narrowed(tmp_path, monkeypatch):
+    store = EntityStore(tmp_path / "records", tmp_path / "index.sqlite3")
+    rag = HybridRagIndex(tmp_path / "rag.sqlite3")
+    owner = ChildProfile(nickname="소유 아이", stage=Stage.ELEMENTARY)
+    sibling = ChildProfile(nickname="공유 요청 아이", stage=Stage.ELEMENTARY)
+    store.save(owner)
+    store.save(sibling)
+    original = _resource()
+    store.save(original)
+    ResourceIngestor(rag).ingest(original)
+    monkeypatch.setattr(resource_routes, "get_resource_rag_index", lambda: rag)
+    narrowing = Event()
+    continue_narrowing = Event()
+    checking_share_owner = Event()
+    original_delete = rag.delete_resource
+    original_owner_check = link_routes._require_child_scope_owner
+
+    def paused_delete(resource_id):
+        narrowing.set()
+        assert continue_narrowing.wait(5)
+        return original_delete(resource_id)
+
+    def checked_owner(**kwargs):
+        checking_share_owner.set()
+        return original_owner_check(**kwargs)
+
+    monkeypatch.setattr(rag, "delete_resource", paused_delete)
+    monkeypatch.setattr(link_routes, "_require_child_scope_owner", checked_owner)
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        narrow = pool.submit(
+            resource_routes.update_resource,
+            original.id,
+            resource_routes.ResourceUpdateRequest(
+                kind=original.kind,
+                title=original.title,
+                child_id=owner.id,
+            ),
+            store,
+            acting_child_id=owner.id,
+        )
+        assert narrowing.wait(5)
+        share = pool.submit(
+            link_routes.create_entity_link,
+            link_routes.EntityLinkCreateRequest(
+                source_id=original.id,
+                target_id=sibling.id,
+                relation=EntityLinkRelation.CHILD_SCOPE,
+                acting_child_id=sibling.id,
+            ),
+            store,
+        )
+        try:
+            # Ownership cannot be checked against the still-global source while narrowing holds it.
+            assert not checking_share_owner.wait(0.1)
+        finally:
+            continue_narrowing.set()
+        assert narrow.result(timeout=5).child_id == owner.id
+        with pytest.raises(HTTPException) as error:
+            share.result(timeout=5)
+        assert error.value.status_code == 403
+    assert store.index.list_entity_links(source_id=str(original.id)) == []

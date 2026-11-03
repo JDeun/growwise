@@ -21,13 +21,21 @@ describe("MaterialContent", () => {
     // ~20k inline tokens in one paragraph used to recurse to a RangeError; the
     // iterative renderer must handle it as plain rendering.
     const html = render("*a* ".repeat(20000));
-    expect(html).toContain("<em>a</em>");
+    expect(html.match(/<em>a<\/em>/g)?.length).toBe(20000);
   });
 
   it("renders emphasis and inline code", () => {
     const html = render("**중요**한 `topic` 를 봅니다");
     expect(html).toContain("<strong>중요</strong>");
     expect(html).toContain("<code>topic</code>");
+  });
+
+  it("keeps code literal and preserves nested emphasis with either delimiter", () => {
+    const html = render("`**literal**` **bold _inside_** __bold *inside*__ tail");
+    expect(html).toContain("<code>**literal**</code>");
+    expect(html).toContain("<strong>bold <em>inside</em></strong>");
+    expect(html.match(/<strong>/g)?.length).toBe(2);
+    expect(html).toContain(" tail</p>");
   });
 
   it("renders a Markdown table as an accessible table", () => {

@@ -17,6 +17,7 @@ from growwise.model import ModelProvider
 from growwise.model.privacy import provider_is_loopback
 from growwise.rag import HybridRagIndex, chunk_resource
 from growwise.services.entity_links import EntityLinkService
+from growwise.source_snapshot import current_source_payloads
 from growwise.storage import EntityStore
 
 logger = logging.getLogger(__name__)
@@ -258,16 +259,16 @@ visible in the evidence; do not invent curriculum facts. Return the requested st
                 child_id=child_id,
                 limit=_MAX_SOURCES,
             ):
-                if entity_type == "activity_plan" and payload.get("status") in {
-                    "suggested",
-                    "skipped",
-                    "archived",
-                }:
-                    continue
                 candidates[str(payload["id"])] = payload
 
+        current = current_source_payloads(
+            self.store.index, child_id=child_id, entity_ids=list(candidates),
+        )
+
         ordered = sorted(
-            candidates.values(),
+            (payload for payload in current.values()
+             if payload.get("entity_type") != "activity_plan"
+             or payload.get("status") not in {"suggested", "skipped", "archived"}),
             key=lambda payload: str(
                 payload.get("occurred_at")
                 or payload.get("completed_at")

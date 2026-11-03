@@ -32,8 +32,8 @@
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary-strong);
-  font-size: 11px;
-  font-weight: 800;
+  font-size: var(--font-size-label);
+  font-weight: var(--weight-bold);
 }
 
 .growth-summary {
@@ -60,21 +60,21 @@
 }
 
 .growth-summary span {
-  font-size: 11px;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .growth-summary strong {
-  font-size: 24px;
-  line-height: 1.1;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
 }
 
 .growth-summary small,
 .growth-section-heading p,
 .growth-layer-heading small,
 .growth-layer-empty {
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .growth-coverage,
@@ -105,7 +105,7 @@
 
 .growth-axis-label strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-size-control);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -113,7 +113,7 @@
 .growth-axis-label span {
   flex: 0 0 auto;
   color: var(--ink-soft);
-  font-size: 11px;
+  font-size: var(--font-size-control);
 }
 
 .growth-axis-track {
@@ -161,15 +161,15 @@
   padding: 13px 14px;
   cursor: pointer;
   color: var(--primary-strong);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .growth-explainability > div {
   padding: 0 14px 14px;
   color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.6;
+  font-size: var(--font-size-control);
+  line-height: var(--line-control);
 }
 
 .growth-explainability p,

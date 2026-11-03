@@ -7,6 +7,8 @@ from typing import Annotated
 from pydantic import BaseModel, Field
 
 from growwise.model import ModelProvider
+from growwise.source_snapshot import current_rag_hits
+from growwise.storage import SQLiteProjection
 
 from .index import HybridRagIndex
 
@@ -58,9 +60,11 @@ Return concise Korean when the question is Korean."""
         self,
         *,
         index: HybridRagIndex,
+        entity_index: SQLiteProjection,
         provider: ModelProvider | None,
     ) -> None:
         self.index = index
+        self.entity_index = entity_index
         self.provider = provider
 
     def ask(
@@ -77,6 +81,7 @@ Return concise Korean when the question is Korean."""
             limit=limit,
             shared_resource_ids=shared_resource_ids,
         )
+        hits = current_rag_hits(self.entity_index, hits=hits, child_id=child_id)
         if not hits:
             return GroundedAnswer(
                 answer="관련 근거를 찾지 못했습니다.",

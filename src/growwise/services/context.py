@@ -7,9 +7,12 @@ from pydantic import BaseModel, Field
 
 from growwise.model import ModelProvider
 from growwise.rag import HybridRagIndex
+from growwise.source_snapshot import current_source_payloads, rag_hits_from_payloads
 from growwise.storage import SQLiteProjection
 
 from .graph_context import GraphContextExpander
+from .record_time import record_time
+from .search import NaturalLanguageSearch
 
 _AnswerText = Annotated[str, Field(min_length=1, max_length=20_000)]
 _SourceId = Annotated[str, Field(min_length=1, max_length=500)]
@@ -69,6 +72,8 @@ _ENTITY_TEXT_FIELDS = (
     ("learner_work", "아이 글·결과물"),
     ("process", "과정"),
     ("child_question", "아이 질문·반응"),
+    ("ai_hint", "부모가 기록한 AI 힌트"),
+    ("child_reexplanation", "아이의 자기 언어 재설명"),
     ("interest", "흥미"),
     ("difficulty_note", "어려움"),
     ("next_activity", "다음 활동"),
@@ -108,6 +113,18 @@ def _entity_text(payload: dict) -> str:
     """Compose bounded evidence without dropping learner-authored work behind a summary field."""
     sections: list[str] = []
     remaining = _ENTITY_TEXT_LIMIT
+    event_time = record_time(payload)
+    if event_time is not None:
+        remaining = _append_bounded_section(
+            sections, label="경험·기록 시각", value=event_time.astimezone().isoformat(),
+            remaining=remaining,
+        )
+    checked = payload.get("evidence_checked")
+    if isinstance(checked, bool):
+        remaining = _append_bounded_section(
+            sections, label="부모의 근거 확인 기록",
+            value="확인함" if checked else "아직 확인하지 않음", remaining=remaining,
+        )
     for key, label in _ENTITY_TEXT_FIELDS:
         value = payload.get(key)
         if not isinstance(value, str) or not value.strip() or remaining <= 0:
@@ -173,13 +190,17 @@ concise Korean for Korean questions."""
         self.graph = GraphContextExpander(entity_index)
 
     def ask(self, *, child_id: str, query: str, limit: int = 8) -> ContextAnswer:
-        records = self.entity_index.search_entities(
+        search = NaturalLanguageSearch(self.entity_index).search(
             child_id=child_id,
-            query_text=query,
+            query=query,
             entity_types=_RAW_CONTEXT_ENTITY_TYPES,
             limit=limit,
         )
-        wiki_records = self.entity_index.search_entities(
+        records = search.results
+        # A date/axis/last-event request must not regain excluded originals through a derived Wiki,
+        # an unrelated RAG chunk, or a graph neighbor after strict filtering and result limiting.
+        constrained = search.plan.constrained
+        wiki_records = [] if constrained else self.entity_index.search_entities(
             child_id=child_id,
             query_text=query,
             entity_types=("learning_wiki",),
@@ -187,7 +208,7 @@ concise Korean for Korean questions."""
         )
         records.extend(wiki_records)
 
-        chunks = self.rag_index.search(
+        chunks = [] if constrained else self.rag_index.search(
             query=query,
             child_id=child_id,
             limit=limit,
@@ -196,11 +217,27 @@ concise Korean for Korean questions."""
 
         seed_ids = [str(record["id"]) for record in records]
         seed_ids.extend(str(chunk["resource_id"]) for chunk in chunks if chunk.get("resource_id"))
-        graph_neighbors = self.graph.expand(
+        graph_neighbors = [] if constrained else self.graph.expand(
             child_id=child_id,
             seed_ids=seed_ids,
             limit=min(6, max(2, limit // 2)),
         )
+
+        # Search/graph/RAG results are candidate pointers, not current evidence. Take one short
+        # source snapshot after retrieval so deletes, edits and sharing changes during retrieval
+        # cannot send cached text to the model. Network inference runs after these locks release.
+        current = current_source_payloads(
+            self.entity_index, child_id=child_id,
+            entity_ids=[str(record["id"]) for record in records]
+            + [str(chunk.get("resource_id") or "") for chunk in chunks]
+            + [str(neighbor["id"]) for neighbor in graph_neighbors],
+        )
+        records = [current[str(record["id"])] for record in records
+                   if str(record["id"]) in current
+                   and (not constrained or search.plan.matches(current[str(record["id"])]))]
+        chunks = rag_hits_from_payloads(chunks, current)
+        graph_neighbors = [{**neighbor, **current[str(neighbor["id"])]}
+                           for neighbor in graph_neighbors if str(neighbor["id"]) in current]
 
         sources: list[tuple[str, str]] = []
         for record in records:

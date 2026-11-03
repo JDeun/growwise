@@ -18,19 +18,19 @@
   border-radius: 999px;
   background: var(--primary-soft);
   color: var(--primary-strong);
-  font-weight: 800;
+  font-weight: var(--weight-bold);
 }
 
 .view-state-notice strong {
   display: block;
-  font-size: 13px;
+  font-size: var(--font-size-control);
 }
 
 .view-state-notice p {
   margin: 4px 0 0;
   color: var(--ink-soft);
-  font-size: 12px;
-  line-height: 1.55;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .view-state-error {

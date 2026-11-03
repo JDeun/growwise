@@ -201,7 +201,9 @@ def rebuild_rag_projection(settings: Settings) -> int:
     """
     store = EntityStore(settings.records_dir, settings.index_path)
     embedding = None
-    if settings.embedding_features_enabled:
+    if settings.embedding_features_enabled and settings.embedding_provider.casefold().replace(
+        "-", "_"
+    ) == "ollama":
         try:
             embedding = OllamaEmbeddingProvider(
                 model=settings.embedding_model_id,

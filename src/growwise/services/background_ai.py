@@ -1,8 +1,9 @@
 from __future__ import annotations
 
+import logging
 import threading
 from collections.abc import Callable
-from contextlib import suppress
+from contextlib import nullcontext, suppress
 from datetime import UTC, datetime
 from time import sleep
 
@@ -15,17 +16,22 @@ from growwise.domain import (
     ResourceRecord,
 )
 from growwise.generators import MaterialGenerationService, MaterialSourceEvidence
-from growwise.jobs import Job, SQLiteJobQueue
+from growwise.jobs import Job, JobStatus, SQLiteJobQueue
+from growwise.material_versions import material_mutation
 from growwise.model import ModelProvider
+from growwise.model.privacy import provider_is_loopback
 from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
+from growwise.services.learning_wiki import LearningWikiService
 from growwise.services.material_feedback import MaterialFeedbackService
 from growwise.services.observation import ObservationEnricher
+from growwise.services.visibility import entity_visible_to_child
 from growwise.storage import EntityStore
 
 OBSERVATION_ENRICHMENT_JOB = "observation_enrichment"
 MATERIAL_ENHANCEMENT_JOB = "material_enhancement"
 _TEXT_JOB_TYPES = (OBSERVATION_ENRICHMENT_JOB, MATERIAL_ENHANCEMENT_JOB)
 _MATERIAL_SOURCE_EXCERPT_CHARS = 4_000
+logger = logging.getLogger(__name__)
 
 
 class StaleJobClaim(RuntimeError):
@@ -72,6 +78,7 @@ class BackgroundAiJobRunner:
                 return
             for job_type in _TEXT_JOB_TYPES:
                 self.queue.recover_running(job_type=job_type, max_attempts=self.max_attempts)
+            self._recover_source_statuses()
             self._stop.clear()
             self._thread = threading.Thread(
                 target=self._run,
@@ -79,6 +86,51 @@ class BackgroundAiJobRunner:
                 daemon=True,
             )
             self._thread.start()
+
+    def _recover_source_statuses(self) -> None:
+        store = self.store_factory()
+        after_id = ""
+        while payloads := store.index.pending_ai_entities(after_id=after_id):
+            after_id = str(payloads[-1]["id"])
+            for payload in payloads:
+                entity = (GeneratedMaterial.model_validate(payload)
+                          if payload["entity_type"] == "generated_material"
+                          else LearningLog.model_validate(payload))
+                lock = (material_mutation(entity.id) if isinstance(entity, GeneratedMaterial)
+                        else nullcontext())
+                with lock:
+                    latest = store.index.get_entity(str(entity.id))
+                    if latest is None:
+                        continue
+                    if payload["entity_type"] == "generated_material":
+                        entity = GeneratedMaterial.model_validate(latest)
+                        job_type, resource_key = MATERIAL_ENHANCEMENT_JOB, "material_id"
+                    else:
+                        entity = LearningLog.model_validate(latest)
+                        job_type, resource_key = OBSERVATION_ENRICHMENT_JOB, "log_id"
+                    job = self.queue.get(entity.ai_job_id) if entity.ai_job_id is not None else None
+                    valid_job = (
+                        job is not None and job.job_type == job_type
+                        and str(job.payload.get(resource_key)) == str(entity.id)
+                        and str(job.payload.get("child_id")) == str(entity.child_id)
+                    )
+                    status = AiEnhancementStatus.FAILED
+                    if valid_job and job is not None:
+                        status = {
+                            JobStatus.PENDING: AiEnhancementStatus.QUEUED,
+                            JobStatus.RUNNING: AiEnhancementStatus.RUNNING,
+                            JobStatus.COMPLETED: AiEnhancementStatus.COMPLETED,
+                            JobStatus.CANCELLED: AiEnhancementStatus.SKIPPED,
+                            JobStatus.FAILED: AiEnhancementStatus.FAILED,
+                        }[job.status]
+                    if isinstance(entity, GeneratedMaterial) and entity.status not in {
+                        MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING,
+                    }:
+                        status = AiEnhancementStatus.SKIPPED
+                    if status is not entity.ai_status:
+                        entity.ai_status = status
+                        entity.updated_at = datetime.now(UTC)
+                        store.save(entity)
 
     def stop(self) -> None:
         self._stop.set()
@@ -136,6 +188,8 @@ class BackgroundAiJobRunner:
         return job.claim_token
 
     def _renew_claim(self, job: Job) -> str:
+        if self._stop.is_set():
+            raise StaleJobClaim("background worker stopped")
         token = self._claim_token(job)
         if not self.queue.heartbeat(
             job.id,
@@ -144,6 +198,16 @@ class BackgroundAiJobRunner:
         ):
             raise StaleJobClaim("background job claim is no longer current")
         return token
+
+    def _heartbeat(self, job: Job, finished: threading.Event) -> None:
+        interval = min(30.0, max(0.1, self.lease_seconds / 3))
+        while not finished.wait(interval) and not self._stop.is_set():
+            try:
+                self._renew_claim(job)
+            except StaleJobClaim:
+                return
+            except Exception:
+                logger.warning("background AI lease heartbeat temporarily unavailable")
 
     def _run(self) -> None:
         while not self._stop.is_set():
@@ -162,6 +226,14 @@ class BackgroundAiJobRunner:
 
     def _process(self, job: Job) -> None:
         token = self._claim_token(job)
+        finished = threading.Event()
+        heartbeat = threading.Thread(
+            target=self._heartbeat,
+            args=(job, finished),
+            name="growwise-ai-job-heartbeat",
+            daemon=True,
+        )
+        heartbeat.start()
         try:
             if job.job_type == OBSERVATION_ENRICHMENT_JOB:
                 self._enrich_observation(job)
@@ -183,18 +255,22 @@ class BackgroundAiJobRunner:
             # fenced terminal transition so a stale worker cannot cancel a newer reclaimed attempt.
             self.queue.fail(job.id, token, "source entity removed while background job was running")
         except Exception as exc:
-            error = f"{type(exc).__name__}: {exc}"
+            # Provider errors can include credential-bearing URLs or private prompt fragments.
+            error = f"{type(exc).__name__}: background AI enhancement failed"
             try:
                 self._renew_claim(job)
+                if job.attempts < self.max_attempts:
+                    self._mark_retryable(job, error)
+                    if self.queue.retry(job.id, token, error):
+                        sleep(min(5.0, max(0.5, self.poll_interval_seconds * 2)))
+                else:
+                    self._mark_failed(job)
+                    self.queue.fail(job.id, token, error)
             except StaleJobClaim:
                 return
-            if job.attempts < self.max_attempts:
-                self._mark_retryable(job, error)
-                if self.queue.retry(job.id, token, error):
-                    sleep(min(5.0, max(0.5, self.poll_interval_seconds * 2)))
-            else:
-                self._mark_failed(job)
-                self.queue.fail(job.id, token, error)
+        finally:
+            finished.set()
+            heartbeat.join(timeout=1.0)
 
     def _enrich_observation(self, job: Job) -> None:
         child_id = str(job.payload.get("child_id", "")).strip()
@@ -258,10 +334,7 @@ class BackgroundAiJobRunner:
         if str(material.child_id) != child_id:
             raise ValueError("material enhancement child scope mismatch")
         if material.status not in {MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING}:
-            self._renew_claim(job)
-            material.ai_status = AiEnhancementStatus.SKIPPED
-            material.updated_at = datetime.now(UTC)
-            store.save(material)
+            self._mark_material_status(job, AiEnhancementStatus.SKIPPED)
             return
 
         child_payload = store.index.get_entity(child_id, entity_type="child_profile")
@@ -270,17 +343,13 @@ class BackgroundAiJobRunner:
         child = ChildProfile.model_validate(child_payload)
         provider = self.provider_factory()
         if provider is None:
-            self._renew_claim(job)
-            material.ai_status = AiEnhancementStatus.SKIPPED
-            material.updated_at = datetime.now(UTC)
-            store.save(material)
+            self._mark_material_status(job, AiEnhancementStatus.SKIPPED)
             return
 
-        self._renew_claim(job)
-        material.ai_status = AiEnhancementStatus.RUNNING
-        material.ai_job_id = job.id
-        material.updated_at = datetime.now(UTC)
-        store.save(material)
+        current = self._mark_material_status(job, AiEnhancementStatus.RUNNING)
+        if current is None or current.ai_status is not AiEnhancementStatus.RUNNING:
+            return
+        material = current
 
         evidence = self._material_source_evidence(material=material, store=store)
         feedback = MaterialFeedbackService(store.index).snapshot(child_id=child_id)
@@ -290,6 +359,12 @@ class BackgroundAiJobRunner:
         feedback_guidance = feedback.generation_guidance()
         if feedback_guidance:
             guidance_parts.append(feedback_guidance)
+        if provider_is_loopback(provider):
+            try:
+                wiki = LearningWikiService(store).refresh(child_id)
+                guidance_parts.append(wiki.content_markdown[:6_000])
+            except Exception:
+                logger.warning("Learning Wiki unavailable; retaining material fallback context")
         generation_guidance = "\n".join(guidance_parts) or None
 
         with BACKGROUND_AI_LOCK:
@@ -302,8 +377,10 @@ class BackgroundAiJobRunner:
                 source_refs=material.source_refs,
                 source_evidence=evidence,
             )
-        if candidate.generator_mode == "template_fallback":
-            raise RuntimeError("material model generation failed")
+        if candidate.generator_mode != "llm_enhanced":
+            raise RuntimeError(
+                f"material enhancement did not pass review: {candidate.generator_mode}"
+            )
 
         # The model call may outlive the original lease. Fence the generated candidate before it can
         # overwrite a record now owned by another retry attempt.
@@ -311,26 +388,33 @@ class BackgroundAiJobRunner:
 
         # Re-read after inference. A parent may have approved/rejected/edited the material while the
         # model was running; background work must never mutate a record after that decision.
-        current_payload = store.index.get_entity(material_id, entity_type="generated_material")
-        if current_payload is None:
-            raise KeyError("material_not_found")
-        current = GeneratedMaterial.model_validate(current_payload)
-        if current.status not in {MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING}:
-            current.ai_status = AiEnhancementStatus.SKIPPED
+        with material_mutation(material.id):
+            self._renew_claim(job)
+            current_payload = store.index.get_entity(material_id, entity_type="generated_material")
+            if current_payload is None:
+                raise KeyError("material_not_found")
+            current = GeneratedMaterial.model_validate(current_payload)
+            if current.status not in {MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING}:
+                current.ai_status = AiEnhancementStatus.SKIPPED
+                current.updated_at = datetime.now(UTC)
+                store.save(current)
+                return
+
+            if current.parent_material_id is None:
+                current.title = candidate.title
+            current.content_markdown = candidate.content_markdown
+            current.parent_guide_markdown = feedback.with_parent_guide(
+                candidate.parent_guide_markdown
+            )
+            current.source_refs = candidate.source_refs
+            current.curriculum_targets = candidate.curriculum_targets
+            current.generator_mode = candidate.generator_mode
+            current.generator_version = candidate.generator_version
+            current.model_provider = candidate.model_provider
+            current.model_id = candidate.model_id
+            current.ai_status = AiEnhancementStatus.COMPLETED
             current.updated_at = datetime.now(UTC)
             store.save(current)
-            return
-
-        if current.parent_material_id is None:
-            current.title = candidate.title
-        current.content_markdown = candidate.content_markdown
-        current.parent_guide_markdown = feedback.with_parent_guide(candidate.parent_guide_markdown)
-        current.source_refs = candidate.source_refs
-        current.curriculum_targets = candidate.curriculum_targets
-        current.generator_mode = candidate.generator_mode
-        current.ai_status = AiEnhancementStatus.COMPLETED
-        current.updated_at = datetime.now(UTC)
-        store.save(current)
 
     @staticmethod
     def _material_source_evidence(
@@ -345,6 +429,11 @@ class BackgroundAiJobRunner:
                 entity_type="resource",
             )
             if payload is None:
+                continue
+            if not entity_visible_to_child(
+                store.index, entity_id=str(payload["id"]), child_id=str(material.child_id),
+                entity_type="resource",
+            ):
                 continue
             resource = ResourceRecord.model_validate(payload)
             parts: list[str] = []
@@ -364,8 +453,8 @@ class BackgroundAiJobRunner:
         return evidence
 
     def _mark_retryable(self, job: Job, _error: str) -> None:
-        store = self.store_factory()
         if job.job_type == OBSERVATION_ENRICHMENT_JOB:
+            store = self.store_factory()
             entity_id = str(job.payload.get("log_id", ""))
             payload = store.index.get_entity(entity_id, entity_type="learning_log")
             if payload is not None:
@@ -374,17 +463,11 @@ class BackgroundAiJobRunner:
                 log.updated_at = datetime.now(UTC)
                 store.save(log)
         elif job.job_type == MATERIAL_ENHANCEMENT_JOB:
-            entity_id = str(job.payload.get("material_id", ""))
-            payload = store.index.get_entity(entity_id, entity_type="generated_material")
-            if payload is not None:
-                material = GeneratedMaterial.model_validate(payload)
-                material.ai_status = AiEnhancementStatus.QUEUED
-                material.updated_at = datetime.now(UTC)
-                store.save(material)
+            self._mark_material_status(job, AiEnhancementStatus.QUEUED)
 
     def _mark_failed(self, job: Job) -> None:
-        store = self.store_factory()
         if job.job_type == OBSERVATION_ENRICHMENT_JOB:
+            store = self.store_factory()
             entity_id = str(job.payload.get("log_id", ""))
             payload = store.index.get_entity(entity_id, entity_type="learning_log")
             if payload is not None:
@@ -393,10 +476,30 @@ class BackgroundAiJobRunner:
                 log.updated_at = datetime.now(UTC)
                 store.save(log)
         elif job.job_type == MATERIAL_ENHANCEMENT_JOB:
-            entity_id = str(job.payload.get("material_id", ""))
-            payload = store.index.get_entity(entity_id, entity_type="generated_material")
-            if payload is not None:
-                material = GeneratedMaterial.model_validate(payload)
-                material.ai_status = AiEnhancementStatus.FAILED
-                material.updated_at = datetime.now(UTC)
-                store.save(material)
+            self._mark_material_status(job, AiEnhancementStatus.FAILED)
+
+    def _mark_material_status(
+        self, job: Job, status: AiEnhancementStatus
+    ) -> GeneratedMaterial | None:
+        store = self.store_factory()
+        entity_id = str(job.payload.get("material_id", ""))
+        payload = store.index.get_entity(entity_id, entity_type="generated_material")
+        if payload is None:
+            return None
+        material = GeneratedMaterial.model_validate(payload)
+        with material_mutation(material.id):
+            self._renew_claim(job)
+            latest = store.index.get_entity(entity_id, entity_type="generated_material")
+            if latest is None:
+                return None
+            material = GeneratedMaterial.model_validate(latest)
+            if str(material.child_id) != str(job.payload.get("child_id")):
+                raise ValueError("material enhancement child scope mismatch")
+            material.ai_status = (status if material.status in {
+                MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING,
+            } else AiEnhancementStatus.SKIPPED)
+            if material.ai_status is AiEnhancementStatus.RUNNING:
+                material.ai_job_id = job.id
+            material.updated_at = datetime.now(UTC)
+            store.save(material)
+            return material

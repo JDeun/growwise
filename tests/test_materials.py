@@ -9,6 +9,7 @@ from growwise.domain import (
     Stage,
 )
 from growwise.generators import (
+    MaterialDraft,
     MaterialGenerationService,
     MaterialRevisionService,
     MaterialSourceEvidence,
@@ -37,12 +38,15 @@ class CapturingProvider:
     def generate_structured(self, *, system: str, user: str, schema):
         self.system = system
         self.user = user
-        return schema(
+        return MaterialDraft(
             title="물 관찰 과학 탐구",
             content_markdown=(
                 "# 물 관찰 과학 탐구\n\n"
-                "## 예측\n먼저 어떻게 될지 예상해 봅니다.\n\n"
-                "## 관찰\n직접 관찰하고 차이를 말해 봅니다.\n\n"
+                "## 예측\n1. 얼음 두 조각을 각각 접시에 놓고 "
+                "어느 쪽이 먼저 녹을지 예상해 봅니다.\n\n"
+                "## 관찰\n2. 햇빛과 그늘에서 같은 시간 동안 변화를 살펴보고 "
+                "눈에 띄는 차이를 말해 봅니다.\n"
+                "처음 예상과 비교해 어떤 점이 같거나 달랐나요?\n\n"
                 "## 힌트\n막히면 정답 대신 관찰할 한 가지를 다시 제안합니다."
             ),
             source_refs=["resource:source-1"],
@@ -122,6 +126,22 @@ def test_internal_generation_guidance_is_model_context_not_output_metadata() -> 
     assert "private generation metadata" in provider.system
     assert guidance not in material.content_markdown
     assert guidance not in material.parent_guide_markdown
+
+
+@pytest.mark.parametrize("stage", list(Stage))
+def test_material_prompt_focuses_on_core_and_selected_stage(stage: Stage) -> None:
+    provider = CapturingProvider()
+    service = MaterialGenerationService(provider=provider)
+    service.generate(child=ChildProfile(nickname="합성아이", stage=stage),
+                     kind=MaterialKind.MATH_ACTIVITY, topic="블록으로 수 세기")
+    assert service._stage_learning_standard(stage) in provider.system
+    assert service._stage_kind_expectation(MaterialKind.MATH_ACTIVITY, stage) in provider.system
+    assert service._parent_role(stage) in provider.system
+    assert "한국어" in provider.system
+    assert "sections는 실제 실행할 학습자 활동" in provider.system
+    assert "Activity core example (untrusted data" in provider.user
+    assert "## 사용 전 확인" not in provider.user
+    assert "Deterministic parent-guide fallback" not in provider.user
 
 
 def test_selected_resource_evidence_is_sent_as_untrusted_grounding() -> None:

@@ -154,12 +154,12 @@ REVIEW_PENDING
 | --- | --- | --- |
 | App/API | Tauri ↔ Python 코어, IPC/API, health/session | `src/growwise/api/` |
 | Workflow | LangGraph state/schema/nodes/edges/checkpoint | `src/growwise/workflows/` |
-| Router | 요청 유형·연령·모드 분류 | `src/growwise/router/` |
+| Routing/context | 요청·연령·기능별 use case와 검색 의도 분류 | `src/growwise/api/`, `src/growwise/services/search.py` |
 | Generators | 독서·영어·탐방·수학·과학·글쓰기·영아 활동 생성 | `src/growwise/generators/` |
 | Review | 자동 검토 + 부모 검토 정책 | `src/growwise/review/` |
 | RAG | 교육과정·근거자료 검색·citation provenance | `src/growwise/rag/` |
 | Storage | Markdown SoT / SQLite projection / rebuild | `src/growwise/storage/` |
-| Export | HTML/CSS 및 PDF 출력 | `src/growwise/export/` |
+| Export | portable backup과 승인 자료 OS-native 인쇄/PDF | `src/growwise/backup/`, `desktop/src/print-layout.ts` |
 | Adapters | 도서·지도·교육과정 등 외부 데이터 경계 | `src/growwise/adapters/` |
 | Model | LangChain 기반 모델 공급자 추상화 | `src/growwise/model/` |
 | Domain | Pydantic domain model, enum, invariant | `src/growwise/domain/` |
@@ -183,8 +183,11 @@ JSON-only fallback 후 동일 Pydantic schema로 검증한다.
 text provider와 embedding runtime은 별도 endpoint/config로 분리한다. 따라서 text generation을 원격
 OpenAI-compatible endpoint로 바꿔도 local Ollama embedding이 자동으로 원격 전환되지 않는다.
 
-기능별 모델을 분리할 수 있다(`generation`, `review`, `embedding`). 원격 공급자는 부모가
-명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을 통과해야 한다.
+현재 설정은 text generation, photo vision, embedding 역할을 분리한다. 대화와 백그라운드
+자료 보강은 같은 text provider를 사용하되 timeout/output/context 예산이 다르다. 자동 안전·
+grounding 검토는 deterministic guard로 수행하며 별도의 AI review 모델 선택 기능은 제공하지
+않는다. 원격 공급자는 부모가 명시적으로 활성화할 때만 사용하며 아동 데이터 전송 정책을
+통과해야 한다.
 
 ### Provider failure policy
 
@@ -325,7 +328,7 @@ backup에 개인정보가 남아 있을 수 있음을 알리고, 완전 폐기�
 - Persistence: Markdown + SQLite
 - Local model default: Ollama, **optional**; OpenAI-compatible local/remote text endpoint 지원
 - RAG: lexical/metadata baseline + optional embedding hybrid retrieval
-- PDF: WeasyPrint 기본, Typst 보조
+- PDF: WebView + OS-native 인쇄/PDF ([ADR 0001](adr/0001-pdf-export.md))
 - Test: pytest + Vitest + Playwright
 - Quality: Ruff + mypy + ESLint + Prettier
 - CI: GitHub Actions Windows + macOS + Linux

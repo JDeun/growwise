@@ -47,17 +47,19 @@ SQLite는 이 Markdown을 읽어 언제든 재생성 가능한 projection/index�
 
 | 엔티티 | 설명 | 주요 필드 |
 | --- | --- | --- |
-| `child_profile` | 로컬 학습자 프로필 | stage, 월령/연령 범주, 관심사, 언어 수준, 주의점, ai_exposure_level |
-| `book` | 도서 메타데이터 | title, author, topic, source/provenance, read_at |
-| `activity` | 재사용 가능한 활동 템플릿 | type, goals, estimated_duration, materials, curriculum_tags |
-| `activity_plan` | 아이별 활동/퀘스트 인스턴스 | child_id, activity_id, status, optional schedule |
-| `generated_material` | AI/규칙 기반 생성 산출물 | content, generator, sources, status, version |
-| `learning_log` | 핵심 학습/관찰 기록 | process, parent_observation, evidence, reexplanation, next_activity |
-| `competency_observation` | 성장 지도 계산용 관찰 이벤트 | layer, axis, tags, observed_at, source_log_id |
-| `parent_review` | human review 결과 | decision, checklist, notes, reviewed_at |
-| `workflow_run` | LangGraph 실행 추적 | workflow_type, checkpoint/thread id, status, errors |
-| `institution_profile` | 후속 기관용 | 기관 설정 |
-| `classroom_context` | 후속 기관용 | 학급 맥락 |
+| `child_profile` | 로컬 학습자 프로필 | stage, birth_date/age_months/grade, 언어, interests/preferences, learning_goals, notes |
+| `resource` (`kind=book` 등) | 도서·웹·메모·공식 근거 | title, author, summary/content, source_url, tags, provenance; 독서 시각은 연결된 LearningLog.occurred_at |
+| 활동 템플릿 | 별도 저장 엔티티가 아닌 generator catalog | kind/stage/topic별 결정적 활동 본문과 교안 |
+| `activity_plan` | 아이별 활동/퀘스트 인스턴스 | child_id, title, status, source_refs, 경험 축, 시작/완료/건너뜀 시각 |
+| `generated_material` | AI/규칙 기반 생성 산출물 | content_markdown, parent_guide_markdown, generator_mode, source_refs, status, version |
+| `learning_log` | 핵심 학습/관찰 기록 | occurred_at, process, parent_observation, book_id, ai_hint, evidence_checked, child_reexplanation, next_activity |
+| 경험 커버리지 | 별도 competency_observation 엔티티가 아닌 재계산 projection | LearningLog.experience_axes/tags/occurred_at → GrowthMap의 layer/axis/count |
+| 부모 검토 | 별도 parent_review 엔티티가 아닌 산출물 상태·검토 checkpoint | GeneratedMaterial.status/review_note + LangGraph 검토 상태 |
+| `workflow_run` | LangGraph 실행 추적 | workflow_type, thread_id, status, attempt_count, input_ref/output_ref, last_error_code |
+
+이 표는 현재 저장 모델을 설명한다. 초기 설계의 `ai_exposure_level`은 현재 typed profile
+필드가 아니며 AI 사용 관련 부모 메모는 `notes`에 기록할 수 있다. `institution_profile`과
+`classroom_context`는 후속 기관용 설계 후보이며 현재 사용 가능한 저장 엔티티가 아니다.
 
 ## 발달 단계
 
@@ -113,35 +115,41 @@ class MaterialStatus(StrEnum):
 
 ## GeneratedMaterial provenance
 
-최소 필드:
+실제 저장 필드:
 
-- `id`, `child_id`, `material_type`
-- `content`
-- `status`
-- `version`
-- `model_provider`, `model_id`
-- `prompt_template_id` 또는 generator version
-- `source_refs[]`
-- `workflow_run_id`
+- `id`, `child_id`, `kind`, `content_markdown`, `status`, `version`
+- `generator_mode`, `generator_version`: 기본 구성·AI 보강·부모 수정 여부와 생성 규칙 버전
+- `model_provider`, `model_id`: AI 보강이 실제 채택된 경우의 provider와 모델 식별자
+- `source_refs[]`, `parent_material_id`: 실제 근거와 이전 버전 계보
+- `ai_job_id`: 백그라운드 생성에 사용한 실제 durable job ID. 동기 생성이나 이전 자료에는 없을 수 있다.
+- `review_decision`, `reviewed_at`, `review_note`: 실제 부모 결정과 그 시각·메모
 - `created_at`, `updated_at`
 
 `source_refs`는 citation fabrication을 검증할 수 있도록 실제 retriever/adaptor 결과와 연결된다.
+자료 생성은 별도 `workflow_run_id`를 만들었다고 가정하지 않는다. 백그라운드 실행 연결은
+`ai_job_id`로 추적하며, 자료 검토 checkpoint는 자료 ID를 사용한다. 기본 양식이나 실패 후
+fallback은 시도했던 모델을 작성 모델로 표시하지 않는다. 부모 수정본은 새로운 producer를
+`parent_edit`로 기록하고 모델 식별자를 비우며, 원본의 provenance는 이전 버전 계보에 남긴다.
+이 필드가 없는 이전 자료도 읽을 수 있고, 알 수 없는 모델·검토 시각을 추정해 채우지 않는다.
 
 ## ParentReview
 
 | 필드 | 의미 |
 | --- | --- |
-| `material_id` | 검토 대상 |
-| `decision` | approve / revise / reject |
-| `age_appropriate` | 연령 적합 |
-| `sensitive_content_ok` | 민감 내용 |
-| `privacy_ok` | 개인정보 |
-| `scaffold_ok` | 정답 대납 여부 |
-| `grounding_ok` | 근거/출처 확인 |
-| `notes` | 수정 메모 |
-| `reviewed_at` | 검토 시각 |
+| `GeneratedMaterial.id` | 검토 대상 |
+| `status` | 현재 상태. 보관하면 `archived`가 된다. |
+| `review_decision` | 마지막 실제 부모 결정: approved / revision_requested / rejected |
+| `review_note` | 선택적 수정·거절 메모 |
+| `reviewed_at` | 실제 부모 결정 시각. 보관이나 다른 갱신으로 덮어쓰지 않는다. |
+
+부모의 **이 활동 사용하기** 또는 상세 검토 결정은 명시적 사용 승인·수정 요청·거절이다.
+연령 적합성, 민감 내용, 개인정보, scaffold, grounding은 검토 기준이며 개별 부모 확인
+checkbox나 통과 인증으로 저장하지 않는다. 자동 생성 시 적용하는 안전·출처·구조 gate도
+부모의 교육적 적합성 판단을 대신하지 않는다.
 
 LangGraph human-in-the-loop checkpoint와 연결해 앱 재시작 후에도 검토를 이어간다.
+실제 checkpoint 결정에는 `decision_status`, `decision_note`, `decision_at`을 남기며,
+정본 자료의 결정·시각은 checkpoint 복구 가능 여부와 무관하게 보존한다.
 
 ## LearningWiki — 파생 장기 맥락
 
@@ -169,7 +177,7 @@ GrowWise의 중심은 활동지 자체보다 **아이의 질문·시도·부모 
 
 | 필드 | 뜻 |
 | --- | --- |
-| `date` | 기록 날짜 |
+| `occurred_at?` | 실제 사건 날짜/시각, 이전 기록은 created_at으로 대체 |
 | `activity_plan_id?` | 관련 활동 |
 | `book_id?` | 관련 책 |
 | `child_question` | 아이가 만든 질문, 영아는 비어 있을 수 있음 |
@@ -198,17 +206,21 @@ GrowWise의 중심은 활동지 자체보다 **아이의 질문·시도·부모 
 3. 연령 적응형 축: 영아 발달영역 / 학령기 교과·역량
 
 표시 값은 정답률이나 또래 대비가 아니라 일정 기간의 **경험/관찰 커버리지와 다양성**이다.
-원본은 `learning_log`와 `competency_observation`, radar 값은 재계산 가능한 projection이다.
+현재 원본은 `learning_log`의 경험 축·태그·관찰이며, radar 값은 재계산 가능한 projection이다.
+별도의 `competency_observation` entity를 저장하지 않는다.
 
 ## WorkflowRun
 
-LangGraph 실행의 재현·복구를 위해 기록한다.
+`WorkflowRun`의 실제 저장 필드는 다음과 같다. 현재 동기 관찰 수집 경로
+(`api/main.py`의 `observation_ingest`)가 생성·완료/실패와 출력 기록 ref를 저장한다.
+자료 background 작업의 실행 식별자는 이 entity가 아니라 자료의 `ai_job_id`와 durable queue에
+있고, 자료 검토 재개 상태는 LangGraph checkpoint에 있다.
 
 - `workflow_type`
-- `thread_id/checkpoint_id`
+- `thread_id` (checkpoint 자체는 LangGraph checkpointer에 보관)
 - `child_id`
-- `input_ref`
-- `state` (`running`, `waiting_review`, `completed`, `failed`, `cancelled`)
+- `input_ref?`, `output_ref?`
+- `status` (`running`, `waiting_review`, `completed`, `failed`, `cancelled`)
 - `attempt_count`
 - `last_error_code?`
 - `created_at`, `updated_at`
@@ -220,10 +232,15 @@ LLM의 전체 chain-of-thought는 저장하지 않는다. 제품에 필요한 �
 
 ```text
 child_profile
- ├─ activity_plan ─→ learning_log ─→ competency_observation
- ├─ generated_material ─→ parent_review
- │          └────────────→ workflow_run
- └─ book ────────────────→ learning_log
+ ├─ activity_plan ─→ learning_log (관찰·과정·경험 축)
+ ├─ generated_material (status/review_decision/reviewed_at/review_note)
+ │          └────────────→ ai_job_id + durable queue / LangGraph review checkpoint
+ ├─ observation_ingest ─→ workflow_run ─→ learning_log (output_ref)
+ ├─ resource(kind=book) ─→ learning_log.book_id
+ └─ photo_activity_record ─→ photo_asset / learning_log
+
+entity_link ─→ 원본 간 provenance / 다른 아이와의 child_scope 공유
+learning_wiki ─→ 원본 source_refs에서 다시 계산하는 파생 문서
 ```
 
 ## Markdown SoT + SQLite Projection
@@ -231,6 +248,9 @@ child_profile
 - 원본 파일 write는 temp file → fsync 가능한 범위 → atomic rename 패턴을 사용한다.
 - 인덱스 쓰기 실패가 원본 쓰기를 손상시키면 안 된다.
 - SQLite를 지운 뒤 Markdown만으로 rebuild하는 테스트를 CI에 둔다.
-- Markdown parse 실패 파일은 격리하고 diagnostics를 제공한다.
+- Markdown parse 실패 파일은 인덱스 rebuild에서 건너뛰고 `last_rebuild_skipped`에 보고한다.
+  원본을 자동으로 이동·삭제하지 않는다. 지원하지 않는 schema version은 rebuild를 중단하고
+  이전 인덱스를 보존한다. `.bak` 세대 복구는 검증 후 명시적으로 수행한다.
 - `schema_version`별 migration/parser를 제공해 오래된 기록을 잃지 않는다.
-- export는 child scope와 기간을 지정해 portable Markdown bundle로 만들 수 있어야 한다.
+- child scope와 기간별 원본 Markdown·참조 asset ZIP은 [기록 내보내기](record-export.md)를 따른다.
+  전체 백업과 다른 manifest를 사용하며 전체 복원에 넣을 수 없다.

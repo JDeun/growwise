@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import os
+import shutil
+import sqlite3
+from pathlib import Path
 
 import pytest
 
@@ -84,6 +87,33 @@ def test_relocate_moves_records_and_rebuilds_index(tmp_path) -> None:
     # The rebuilt index must match a fresh rebuild from the moved Markdown SoT.
     fresh = SQLiteProjection(tmp_path / "verify.sqlite3")
     assert fresh.rebuild(dest_root) == count
+
+
+def test_desktop_copy_dirty_marker_rebases_projection_before_first_use(tmp_path: Path) -> None:
+    source = tmp_path / "source"
+    child, count = _seed(source / "records", source / "index.sqlite3")
+    target = tmp_path / "target"
+    shutil.copytree(source, target)
+    # Desktop copies all databases while Core is stopped, then persists this recovery marker.
+    dirty = target / "index.sqlite3.dirty"
+    dirty.write_bytes(b"dirty\n")
+    # The retained source may later be disconnected or removed by its owner.
+    source.rename(tmp_path / "retained-source")
+
+    relocated = EntityStore(target / "records", target / "index.sqlite3")
+    assert not dirty.exists()
+    with sqlite3.connect(target / "index.sqlite3") as connection:
+        paths = connection.execute("SELECT source_path FROM entities").fetchall()
+        assert len(paths) == count
+        assert all(Path(row[0]).is_relative_to(target / "records") for row in paths)
+        connection.execute(
+            "UPDATE entities SET payload_json = ? WHERE id = ?", ("broken JSON", str(child.id))
+        )
+
+    # Row-level corruption recovery must read the destination Markdown, never the old path.
+    recovered = relocated.index.get_entity(str(child.id), entity_type="child_profile")
+    assert recovered is not None
+    assert recovered["nickname"] == child.nickname
 
 
 def test_relocate_refuses_to_clobber_non_empty_destination(tmp_path) -> None:

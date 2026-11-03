@@ -15,9 +15,11 @@ from growwise.api.background_ai import (
     queue_learning_log_enrichment,
     queue_material_enhancement,
 )
+from growwise.api.dependencies import get_store
 from growwise.config import Settings
 from growwise.domain import (
     ActivityPlan,
+    AiEnhancementStatus,
     ChildProfile,
     ExperienceAxis,
     GeneratedMaterial,
@@ -67,6 +69,29 @@ class BackgroundMaterialRequest(BaseModel):
 
 class BackgroundRevisionRequest(BaseModel):
     note: str | None = Field(default=None, max_length=2000)
+
+
+@router.post("/materials/{material_id}/retry-enhancement", response_model=GeneratedMaterial)
+@serialize_material_successor
+def retry_material_enhancement(
+    material_id: UUID,
+    store: Annotated[EntityStore, Depends(get_store)],
+) -> GeneratedMaterial:
+    payload = store.index.get_entity(str(material_id), entity_type="generated_material")
+    if payload is None:
+        raise HTTPException(status_code=404, detail="material_not_found")
+    material = GeneratedMaterial.model_validate(payload)
+    if material.status not in {MaterialStatus.DRAFT, MaterialStatus.REVIEW_PENDING}:
+        raise HTTPException(status_code=409, detail="reviewed_material_is_immutable")
+    if material.ai_status in {AiEnhancementStatus.QUEUED, AiEnhancementStatus.RUNNING}:
+        return material
+    if material.ai_status is not AiEnhancementStatus.FAILED:
+        raise HTTPException(status_code=409, detail="material_enhancement_not_failed")
+    if queue_material_enhancement(material=material, store=store) is None:
+        material.ai_status = AiEnhancementStatus.FAILED
+        store.save(material)
+        raise HTTPException(status_code=503, detail="model_unavailable")
+    return material
 
 
 @lru_cache

@@ -3,9 +3,9 @@ import { createReadStream, existsSync, mkdtempSync, readFileSync, rmSync } from 
 import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { extname, join, resolve } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
-const ROOT = resolve(new URL("..", import.meta.url).pathname);
+const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const DIST = join(ROOT, "dist");
 const ARTIFACTS = join(ROOT, "artifacts", "browser-e2e");
 const HOST = "127.0.0.1";
@@ -29,10 +29,32 @@ function contentType(file) {
   }[extname(file)] ?? "application/octet-stream";
 }
 
-function startStaticServer() {
+function startStaticServer(core = null) {
   invariant(existsSync(DIST), "desktop/dist is missing; run npm run build first");
-  const server = createServer((req, res) => {
+  const csp = JSON.parse(readFileSync(join(ROOT, "src-tauri", "tauri.conf.json"), "utf8")).app.security.csp;
+  const server = createServer(async (req, res) => {
     const raw = new URL(req.url ?? "/", BASE_URL).pathname;
+    if (core && raw.startsWith("/__e2e/core/")) {
+      try {
+        const path = (req.url ?? "").slice("/__e2e/core".length);
+        invariant(path.startsWith("/v1/") || path === "/health", "invalid Core test route");
+        const chunks = [];
+        let size = 0;
+        for await (const chunk of req) {
+          size += chunk.length;
+          invariant(size <= 2 * 1024 * 1024, "E2E request too large");
+          chunks.push(chunk);
+        }
+        const response = await fetch(`${core.url}${path}`, {
+          method: req.method,
+          headers: { Authorization: `Bearer ${core.token}`, "Content-Type": "application/json" },
+          body: chunks.length ? Buffer.concat(chunks) : undefined,
+        });
+        res.writeHead(response.status, { "Content-Type": response.headers.get("content-type") ?? "application/octet-stream", "Cache-Control": "no-store" });
+        res.end(Buffer.from(await response.arrayBuffer()));
+      } catch (error) { res.writeHead(502).end(JSON.stringify({ error: error.message })); }
+      return;
+    }
     const relative = raw === "/" ? "index.html" : raw.replace(/^\/+/, "");
     const candidate = resolve(DIST, relative);
     if (!candidate.startsWith(resolve(DIST))) {
@@ -40,7 +62,7 @@ function startStaticServer() {
       return;
     }
     const file = existsSync(candidate) ? candidate : join(DIST, "index.html");
-    res.writeHead(200, { "Content-Type": contentType(file), "Cache-Control": "no-store" });
+    res.writeHead(200, { "Content-Type": contentType(file), "Cache-Control": "no-store", "Content-Security-Policy": csp });
     createReadStream(file).pipe(res);
   });
   return new Promise((resolveServer, reject) => {
@@ -52,6 +74,8 @@ function startStaticServer() {
 function findChrome() {
   const candidates = [
     process.env.CHROME_BIN,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    process.env.PROGRAMFILES && join(process.env.PROGRAMFILES, "Google/Chrome/Application/chrome.exe"),
     "/usr/bin/google-chrome",
     "/usr/bin/google-chrome-stable",
     "/usr/bin/chromium",
@@ -79,7 +103,11 @@ async function waitFor(fn, { timeoutMs = 15_000, intervalMs = 100, label = "cond
 
 class Cdp {
   constructor(url) {
-    this.url = url;
+    const endpoint = new URL(url);
+    invariant(endpoint.protocol === "ws:" && endpoint.hostname === "127.0.0.1"
+      && endpoint.port && !endpoint.username && !endpoint.password
+      && endpoint.pathname.startsWith("/devtools/"), "CDP must use a local Chrome debugger");
+    this.url = endpoint.href;
     this.nextId = 1;
     this.pending = new Map();
     this.listeners = new Map();
@@ -311,6 +339,11 @@ const mockSource = `
       model_provider: "ollama",
     },
     core_runtime_status: { started_by_desktop: true },
+    get_storage_location: "/tmp/growwise-synthetic-e2e",
+    list_local_models: [],
+    list_api_credentials: ["data4library", "google_books", "national_library", "krdict", "data_go_kr", "model"]
+      .map((service_id) => ({ service_id, configured: false, source: "none", supported: true })),
+    app_update_status: { configured: false, current_version: "0.1.0-alpha.0", checked: false, available_version: null, notes: null },
     list_children: [fixtures.child, fixtures.sibling],
     get_growth_map: fixtures.growth,
     list_observations: [fixtures.log],
@@ -321,6 +354,8 @@ const mockSource = `
     list_activity_observations: [fixtures.log],
     list_photo_records: [fixtures.photoRecord],
     get_photo_asset: fixtures.avatarAsset,
+    get_photo_thumbnail: { ...fixtures.avatarAsset, mime_type:"image/jpeg", width:1, height:1,
+      data_base64: "/9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAgGBgcGBQgHBwcJCQgKDBQNDAsLDBkSEw8UHRofHh0aHBwgJC4nICIsIxwcKDcpLDAxNDQ0Hyc5PTgyPC4zNDL/2wBDAQkJCQwLDBgNDRgyIRwhMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjIyMjL/wAARCAABAAEDASIAAhEBAxEB/8QAFQABAQAAAAAAAAAAAAAAAAAAAAb/xAAUEAEAAAAAAAAAAAAAAAAAAAAA/8QAFQEBAQAAAAAAAAAAAAAAAAAAAgX/xAAUEQEAAAAAAAAAAAAAAAAAAAAA/9oADAMBAAIRAxEAPwCfAFGf/9k=" },
     list_conversations: [fixtures.conversation],
     list_backups: [{
       archive: "growwise-e2e.zip",
@@ -348,6 +383,12 @@ const mockSource = `
   globalThis.__TAURI_INTERNALS__ = {
     invoke: async (command, args) => {
       globalThis.__GROWWISE_E2E_INVOKES__.push({ command, args: clone(args ?? {}) });
+      // Native updater transport only: no package download/install is performed by this fixture.
+      if (globalThis.__GROWWISE_E2E_UPDATER_TEST__) {
+        if (command === "app_update_status") return { configured: true, current_version: "0.1.0-alpha.0", checked: false, available_version: null, notes: null };
+        if (command === "check_app_update") return { configured: true, current_version: "0.1.0-alpha.0", checked: true, available_version: "1.0.0", notes: "Synthetic update note" };
+        if (command === "install_app_update") return new Promise((_resolve, reject) => { globalThis.__GROWWISE_E2E_REJECT_UPDATE__ = reject; });
+      }
       if (Object.prototype.hasOwnProperty.call(responses, command)) return clone(responses[command]);
       if (command === "create_conversation") return clone(fixtures.conversation);
       if (command === "append_conversation_turn") {
@@ -380,6 +421,20 @@ async function evaluate(cdp, expression) {
     throw new Error(result.exceptionDetails.text || "browser evaluation failed");
   }
   return result.result?.value;
+}
+
+let nextCallGroup = 1;
+async function evaluateWithArguments(cdp, fn, ...args) {
+  const objectGroup = `growwise-e2e-${nextCallGroup++}`;
+  try {
+    const global = await cdp.send("Runtime.evaluate", {expression:"globalThis", objectGroup});
+    const result = await cdp.send("Runtime.callFunctionOn", {
+      objectId:global.result.objectId, functionDeclaration:fn.toString(),
+      arguments:args.map(value=>({value})), returnByValue:true, awaitPromise:true,
+    });
+    if (result.exceptionDetails) throw new Error(result.exceptionDetails.text || "browser call failed");
+    return result.result?.value;
+  } finally { await cdp.send("Runtime.releaseObjectGroup", {objectGroup}); }
 }
 
 async function waitForWorkspace(cdp, view) {
@@ -508,15 +563,72 @@ async function main() {
     await waitForWorkspace(cdp, "home");
 
     const views = ["home", "profile", "learning", "materials", "photos", "conversation", "backup", "settings", "help"];
-    const visualViews = new Set(["home", "profile", "learning", "materials", "conversation"]);
+    const visualViews = new Set(["home", "profile", "learning", "materials", "conversation", "settings"]);
     for (const view of views) {
       if (view !== "home") {
         await evaluate(cdp, `document.querySelector("#workspace-nav-${view}")?.click(); true`);
         await waitForWorkspace(cdp, view);
       }
       await assertLayoutHealth(cdp, view);
+      if (view === "photos") {
+        // A saved draft must open its parent confirmation even after the first
+        // gallery record arrives. Hidden details must not pass via JS .click().
+        const reviewPoint = await evaluate(cdp, `(() => {
+          const button=[...document.querySelectorAll('.photo-gallery-actions button')]
+            .find(node=>node.textContent.trim()==='초안 검토');
+          if(!button) return null;
+          button.scrollIntoView({block:'center',behavior:'instant'});
+          const box=button.getBoundingClientRect();
+          return {x:box.left+box.width/2,y:box.top+box.height/2};
+        })()`);
+        invariant(reviewPoint, "saved photo draft review action is missing");
+        await cdp.send("Input.dispatchMouseEvent", {type:"mousePressed",...reviewPoint,button:"left",clickCount:1});
+        await cdp.send("Input.dispatchMouseEvent", {type:"mouseReleased",...reviewPoint,button:"left",clickCount:1});
+        await waitFor(() => evaluate(cdp, `(() => {
+          const details=document.querySelector('.photo-workspace-card');
+          const confirm=[...details.querySelectorAll('button')]
+            .find(node=>node.textContent.trim()==='확인하고 관찰 기록으로 저장');
+          return details.open && confirm?.checkVisibility() && !confirm.disabled;
+        })()`), {label:"saved photo draft opens visible parent confirmation"});
+      }
+      if (view === "settings") {
+        await waitFor(() => evaluate(cdp, 'document.querySelector(".updater-settings")?.innerText.includes("설정되지 않았습니다")'),
+          { label: "unconfigured updater state" });
+      }
       if (visualViews.has(view)) await screenshot(cdp, view);
     }
+
+    // Installing must keep a protected focus boundary until restart or a visible failure.
+    await evaluate(cdp, 'document.querySelector("#workspace-nav-home").click(); globalThis.__GROWWISE_E2E_UPDATER_TEST__ = true; true');
+    await waitForWorkspace(cdp, "home");
+    await evaluate(cdp, 'document.querySelector("#workspace-nav-settings").click(); true');
+    await waitForWorkspace(cdp, "settings");
+    await waitFor(() => evaluate(cdp, 'Boolean([...document.querySelectorAll(".updater-settings button")].find(button => button.textContent === "새 버전 확인"))'), { label: "update check action" });
+    await evaluate(cdp, '[...document.querySelectorAll(".updater-settings button")].find(button => button.textContent === "새 버전 확인").click(); true');
+    await waitFor(() => evaluate(cdp, 'document.querySelector(".updater-settings").innerText.includes("새 버전 1.0.0")'), { label: "available update" });
+    await evaluate(cdp, '[...document.querySelectorAll(".updater-settings button")].find(button => button.textContent === "다운로드·설치…").click(); true');
+    await waitFor(() => evaluate(cdp, 'Boolean(document.querySelector("[role=alertdialog]"))'), { label: "explicit update confirmation" });
+    invariant(await evaluate(cdp, '!globalThis.__GROWWISE_E2E_INVOKES__.some(item => item.command === "install_app_update")'), "installation ran before confirmation");
+    await evaluate(cdp, 'document.querySelector("[role=alertdialog] .primary-button").click(); true');
+    await waitFor(() => evaluate(cdp, 'Boolean(globalThis.__GROWWISE_E2E_REJECT_UPDATE__)'), { label: "pending native install fixture" });
+    await waitFor(() => evaluate(cdp, 'Boolean(document.activeElement?.closest("[role=alertdialog]")) && [...document.querySelectorAll("[role=alertdialog] button")].every(button => button.disabled)'), { label: "busy dialog focus committed" });
+    for (const key of ["Tab", "Escape", "Tab"]) {
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key, code: key });
+      await cdp.send("Input.dispatchKeyEvent", { type: "keyUp", key, code: key });
+    }
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", x: 3, y: 3, button: "left", clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", x: 3, y: 3, button: "left", clickCount: 1 });
+    const navPoint = await evaluate(cdp, '(() => { const rect = document.querySelector("#workspace-nav-profile").getBoundingClientRect(); return { x: rect.x + rect.width / 2, y: rect.y + rect.height / 2 }; })()');
+    await cdp.send("Input.dispatchMouseEvent", { type: "mousePressed", ...navPoint, button: "left", clickCount: 1 });
+    await cdp.send("Input.dispatchMouseEvent", { type: "mouseReleased", ...navPoint, button: "left", clickCount: 1 });
+    invariant(await evaluate(cdp, 'Boolean(document.querySelector(".settings-product-workspace"))'), "busy update allowed background navigation");
+    await cdp.send("Input.dispatchKeyEvent", { type: "keyDown", key: "Tab", code: "Tab" });
+    invariant(await evaluate(cdp, 'Boolean(document.activeElement?.closest("[role=alertdialog]"))'), "busy update focus escaped to background inputs");
+    invariant(await evaluate(cdp, '[...document.querySelectorAll("[role=alertdialog] button")].every(button => button.disabled)'), "busy update allowed another confirmation/cancel");
+    await screenshot(cdp, "updater-installing");
+    await evaluate(cdp, 'globalThis.__GROWWISE_E2E_REJECT_UPDATE__(new Error("Synthetic interrupted download")); true');
+    await waitFor(() => evaluate(cdp, '!document.querySelector("[role=alertdialog]") && document.querySelector(".updater-settings [role=alert]")?.innerText.includes("Synthetic interrupted download")'), { label: "update failure restores editable UI" });
+    await evaluate(cdp, 'globalThis.__GROWWISE_E2E_UPDATER_TEST__ = false; true');
 
     // Global search affordance and Ctrl/Cmd+K must both enter Conversation.
     await evaluate(cdp, 'document.querySelector("#workspace-nav-home")?.click(); true');
@@ -578,4 +690,6 @@ async function main() {
   }
 }
 
-await main();
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) await main();
+
+export { Cdp, evaluate, evaluateWithArguments, findChrome, mockSource, screenshot, startStaticServer, waitFor, waitForWorkspace };

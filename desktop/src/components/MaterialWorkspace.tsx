@@ -11,9 +11,11 @@ import type {
   Stage,
 } from "../api";
 import { materialCatalogForStage, materialCatalogItem } from "../material-catalog";
+import { materialAiPending } from "../material-ai-polling";
 import { EmptyState } from "./EmptyState";
 import { EntityLinkPanel } from "./EntityLinkPanel";
 import { MaterialContent } from "./MaterialContent";
+import { materialReadingMarkdown } from "../material-reading-view";
 import { MaterialCurriculumTargets } from "./MaterialCurriculumTargets";
 import { MaterialKindGuide } from "./MaterialKindGuide";
 import { MaterialParentGuide } from "./MaterialParentGuide";
@@ -67,6 +69,7 @@ interface MaterialWorkspaceProps {
   onToggleResource: (resourceId: string) => void;
   onGenerate: (event: FormEvent<HTMLFormElement>) => void;
   onUse?: (materialId: string) => void;
+  onRetryAi?: (materialId: string) => void;
   onReview: (materialId: string, status: MaterialStatus) => void;
   onRevisionNoteChange: (materialId: string, note: string) => void;
   onRevise: (materialId: string) => void;
@@ -121,7 +124,9 @@ function MaterialHeading({
   onFocus?: () => void;
   showWorkflow?: boolean;
 }) {
-  const aiStatus = material.ai_status ?? "not_requested";
+  const aiStatus = material.ai_status === "completed" && material.generator_mode !== "llm_enhanced"
+    ? "failed"
+    : material.ai_status ?? "not_requested";
   return (
     <div className="material-card-heading">
       <div>
@@ -130,7 +135,11 @@ function MaterialHeading({
             <span className={`material-status status-${material.status}`}>
               {STATUS_LABELS[material.status]}
             </span>
-            <span className={`material-ai-status ai-${aiStatus}`}>{AI_STATUS_LABELS[aiStatus]}</span>
+            <span className={`material-ai-status ai-${aiStatus}`}>
+              {material.generator_mode === "llm_enhanced" && !materialAiPending(material)
+                ? "AI 보조 완료"
+                : AI_STATUS_LABELS[aiStatus]}
+            </span>
           </div>
         )}
         <h4>{material.title}</h4>
@@ -151,6 +160,45 @@ function MaterialHeading({
   );
 }
 
+function MaterialAiNotice({ material, busy, onRetryAi }: {
+  material: GeneratedMaterial;
+  busy: boolean;
+  onRetryAi?: (materialId: string) => void;
+}) {
+  const pending = materialAiPending(material);
+  const enhanced = material.generator_mode === "llm_enhanced";
+  if (!pending && !enhanced && (!material.ai_status || material.ai_status === "not_requested")
+    && !material.generator_mode.startsWith("template_")) return null;
+  const accepting = ["draft", "review_pending"].includes(material.status);
+  const title = pending
+    ? accepting
+      ? material.ai_status === "queued" ? "AI 학습 자료 대기 중" : "AI 학습 자료 작성·검토 중"
+      : "선택한 자료를 유지합니다"
+    : enhanced ? "AI 보조 자료 준비됨" : "기본 템플릿을 유지했습니다";
+  return (
+    <div className="material-ai-notice" role="status" aria-live="polite">
+      <strong>{title}</strong>
+      <p>
+        {pending
+          ? accepting
+            ? "지금 보이는 내용은 기본 템플릿입니다. AI는 백그라운드에서 자료를 작성·검토하며, 준비되면 이 화면에 자동으로 반영합니다."
+            : "부모가 선택한 뒤에는 진행 중인 AI 결과로 이 자료를 바꾸지 않습니다."
+          : enhanced
+            ? "AI 보조가 적용된 자료입니다. 활동 내용과 부모 가이드·근거를 확인해 주세요."
+            : "AI 보조 결과가 적용되지 않았습니다. 현재 자료는 기본 템플릿이며 AI 완성본이 아닙니다."}
+      </p>
+      {pending && accepting && (
+        <p>기본 템플릿으로 먼저 사용하면 진행 중인 AI 결과는 이 자료에 적용하지 않습니다.</p>
+      )}
+      {material.ai_status === "failed" && accepting && onRetryAi && (
+        <button type="button" className="quiet-button" disabled={busy} onClick={() => onRetryAi(material.id)}>
+          {busy ? "다시 시작 중…" : "AI 보강 다시 시도"}
+        </button>
+      )}
+    </div>
+  );
+}
+
 function MaterialLinks({ material }: { material: GeneratedMaterial }) {
   return (
     <EntityLinkPanel
@@ -165,19 +213,21 @@ function MaterialCore({
   material,
   resources,
   compact = false,
+  stage,
 }: {
   material: GeneratedMaterial;
   resources: ResourceRecord[];
   compact?: boolean;
+  stage: Stage;
 }) {
   return (
     <>
       <div className={`material-preview${compact ? " compact" : ""}`}>
-        <MaterialContent markdown={material.content_markdown} />
+        <MaterialContent markdown={materialReadingMarkdown(material.content_markdown)} />
       </div>
       <details className="material-supporting-details">
         <summary>부모용 안내·근거 보기</summary>
-        <MaterialParentGuide material={material} />
+        <MaterialParentGuide material={material} stage={stage} />
         <MaterialCurriculumTargets targets={material.curriculum_targets} />
         <MaterialSources material={material} resources={resources} />
         <MaterialLinks material={material} />
@@ -235,7 +285,14 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
 
 
   function printApprovedCard(material: GeneratedMaterial, card: Element | null) {
-    if (!card) return;
+    if (!card || material.status !== "approved") return;
+
+    const closedDetails: HTMLDetailsElement[] = [];
+    for (let parent = card.parentElement; parent; parent = parent.parentElement) {
+      if (parent instanceof HTMLDetailsElement && !parent.open) closedDetails.push(parent);
+    }
+    card.querySelectorAll<HTMLDetailsElement>("details:not([open])").forEach((node) => closedDetails.push(node));
+    closedDetails.forEach((node) => { node.open = true; });
 
     document
       .querySelectorAll(`[${PRINT_TARGET_ATTRIBUTE}="true"]`)
@@ -244,6 +301,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     document.body.setAttribute(PRINT_SCOPE_ATTRIBUTE, "single");
 
     const cleanup = () => {
+      closedDetails.forEach((node) => { node.open = false; });
       card.removeAttribute(PRINT_TARGET_ATTRIBUTE);
       document.body.removeAttribute(PRINT_SCOPE_ATTRIBUTE);
       window.removeEventListener("afterprint", cleanup);
@@ -262,7 +320,6 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
     <section className="material-workspace" aria-labelledby="materials-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">학습 자료</p>
           <h2 id="materials-title">아이에게 필요한 활동을 만들고 바로 사용합니다.</h2>
           <p className="muted">
             주제만 정하면 연령과 학습 맥락에 맞춘 자료를 준비합니다. 먼저 활동 내용만 확인하고
@@ -276,8 +333,23 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
         <section className="material-document-canvas" aria-label="선택한 학습 자료 미리보기">
           <div className="material-document-toolbar">
             <div>
-              <p className="card-label">Document canvas</p>
               <h3>{focusedMaterial?.title ?? "아직 생성한 자료가 없습니다."}</h3>
+              {focusedMaterial && materials.length > 1 && (
+                <label className="material-document-picker">
+                  <span>학습 자료 선택</span>
+                  <select
+                    aria-label="학습 자료 선택"
+                    value={focusedMaterial.id}
+                    onChange={(event) => { setFocusedMaterialId(event.target.value); setStudioTab("content"); }}
+                  >
+                    {materials.map((material) => (
+                      <option key={material.id} value={material.id}>
+                        {material.title} · {material.version}번째 버전
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             </div>
             {focusedMaterial && (
               <div className="material-primary-actions">
@@ -289,11 +361,22 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     disabled={busy}
                     onClick={() => onUse(focusedMaterial.id)}
                   >
-                    {busy ? "준비 중…" : "이 활동 사용하기"}
+                    {busy ? "준비 중…" : materialAiPending(focusedMaterial)
+                      ? "기본 템플릿으로 먼저 사용" : "이 활동 사용하기"}
                   </button>
                 )}
                 {focusedMaterial.status === "approved" && (
-                  <span className="badge">사용 준비됨</span>
+                  <>
+                    <span className="badge">사용 준비됨</span>
+                    <button
+                      type="button"
+                      className="primary-button"
+                      disabled={busy}
+                      onClick={() => printApprovedCard(focusedMaterial, document.querySelector(`[data-approved-material-id="${focusedMaterial.id}"]`))}
+                    >
+                      인쇄 / PDF 내보내기
+                    </button>
+                  </>
                 )}
               </div>
             )}
@@ -301,6 +384,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
 
           {focusedMaterial ? (
             <>
+              <MaterialAiNotice material={focusedMaterial} busy={busy} onRetryAi={props.onRetryAi} />
               <div className="material-studio-tabs" role="tablist" aria-label="자료 미리보기 탭">
                 {([
                   ["content", "자료"],
@@ -321,9 +405,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               </div>
               <div className="material-studio-pane">
                 {studioTab === "content" && (
-                  <MaterialContent markdown={focusedMaterial.content_markdown} />
+                  <MaterialContent markdown={materialReadingMarkdown(focusedMaterial.content_markdown)} />
                 )}
-                {studioTab === "guide" && <MaterialParentGuide material={focusedMaterial} />}
+                {studioTab === "guide" && <MaterialParentGuide material={focusedMaterial} stage={stage} />}
                 {studioTab === "sources" && (
                   <>
                     <MaterialSources material={focusedMaterial} resources={resources} />
@@ -334,6 +418,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
               </div>
               {focusedMaterial.status === "approved" && (
                 <MaterialResultPanel
+                  key={focusedMaterial.id}
                   material={focusedMaterial}
                   onRecorded={onResultRecorded}
                 />
@@ -342,7 +427,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           ) : (
             <div className="material-document-empty">
               <span aria-hidden="true">✦</span>
-              <strong>오른쪽에서 첫 학습 자료를 만들어 보세요.</strong>
+              <strong>‘새 자료 만들기’에서 첫 활동을 준비해 보세요.</strong>
               <p>주제를 입력하면 이곳에서 바로 활동 내용을 확인할 수 있습니다.</p>
             </div>
           )}
@@ -352,7 +437,6 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
           <div className="material-control-panel__heading">
             <span className="material-control-panel__spark" aria-hidden="true">✦</span>
             <div>
-              <p className="card-label">활동 만들기</p>
               <h3>새 자료 만들기</h3>
               <p>주제와 목표를 정하면 아이에게 맞는 활동 자료를 준비합니다.</p>
             </div>
@@ -481,7 +565,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     drafts.map((material) => (
                       <article className="material-card draft-card" key={material.id}>
                         <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                        <MaterialCore material={material} resources={resources} compact />
+                        <MaterialCore material={material} resources={resources} stage={stage} compact />
                         <div className="material-actions">
                           <button
                             type="button"
@@ -530,7 +614,7 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     reviewQueue.map((material) => (
                       <article className="material-card review-card" key={material.id}>
                         <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                        <MaterialCore material={material} resources={resources} />
+                        <MaterialCore material={material} resources={resources} stage={stage} />
                         {material.review_note && (
                           <p className="review-note">
                             <strong>검토 메모</strong> {material.review_note}
@@ -602,9 +686,9 @@ export function MaterialWorkspace(props: MaterialWorkspaceProps) {
                     />
                   ) : (
                     approved.map((material) => (
-                      <article className="material-card approved-card" key={material.id}>
+                      <article className="material-card approved-card" data-approved-material-id={material.id} key={material.id}>
                         <MaterialHeading material={material} onFocus={() => { setFocusedMaterialId(material.id); setStudioTab("content"); }} />
-                        <MaterialCore material={material} resources={resources} compact />
+                        <MaterialCore material={material} resources={resources} stage={stage} compact />
                         <div className="material-actions">
                           <button
                             className="primary-button"

@@ -2,11 +2,12 @@
   --bg: #fbf9f6;
   --surface: #ffffff;
   --ink: #2b2a28;
-  --ink-soft: #6f746f;
+  --ink-soft: #5c6b62;
   --primary: #2f8f6b;
   --leaf: #a7d7a0;
   --stone: #9ca3af;
   --primary-strong: #247356;
+  --primary-hover: #1d6048;
   --primary-soft: #edf6f1;
   --accent: #6f98c5;
   --accent-soft: #edf3fa;
@@ -35,7 +36,23 @@
   --font-sans: Pretendard, Inter, ui-sans-serif, system-ui, -apple-system,
     BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, monospace;
-  --line-body: 1.6;
+  --font-size-page: 1.75rem;
+  --font-size-section: 1.375rem;
+  --font-size-card: 1.125rem;
+  --font-size-body: 1rem;
+  --font-size-control: 0.875rem;
+  --font-size-meta: 0.8125rem;
+  --font-size-label: 0.75rem;
+  --font-size-data: 1.75rem;
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+  --line-body: 1.7;
+  --line-heading: 1.35;
+  --line-control: 1.5;
+  --tracking-heading: -0.025em;
+  --measure-prose: 68ch;
 
   /* Approved GrowWise product composition */
   --product-shell-max: 1540px;

@@ -43,8 +43,14 @@ class MaterialReviewService:
                 f"material transition {material.status.value} -> {target.value} is not allowed"
             )
         material.status = target
-        material.review_note = note
+        if target is not MaterialStatus.ARCHIVED or note is not None:
+            material.review_note = note
         material.updated_at = datetime.now(UTC)
+        if target in {
+            MaterialStatus.APPROVED, MaterialStatus.REJECTED, MaterialStatus.REVISION_REQUESTED,
+        }:
+            material.reviewed_at = material.updated_at
+            material.review_decision = target.value
         return material
 
     def approve_for_use(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import secrets
@@ -32,6 +33,37 @@ def authorized_request(url: str, token: str) -> urllib.request.Request:
         headers={"Authorization": f"Bearer {token}"},
         method="GET",
     )
+
+
+def assert_packaged_photo_thumbnail(base_url: str, token: str) -> None:
+    """Exercise Pillow codecs inside the frozen binary, not the build interpreter."""
+    def request(path: str, payload: dict | None = None) -> dict:
+        data = json.dumps(payload).encode("utf-8") if payload is not None else None
+        req = urllib.request.Request(
+            base_url + path, data=data,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            method="POST" if payload is not None else "GET",
+        )
+        with urllib.request.urlopen(req, timeout=10) as response:
+            return json.load(response)
+
+    child = request("/v1/children", {"nickname": "synthetic package smoke", "stage": "elementary"})
+    pixel = (
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42Y"
+        "AAAAASUVORK5CYII="
+    )
+    photo = request(f"/v1/children/{child['id']}/photo-records", {
+        "files": [{"filename": "synthetic.png", "mime_type": "image/png", "data_base64": pixel}],
+        "manual_observation": "Synthetic package thumbnail validation", "ai_assist": False,
+    })
+    thumbnail = request(
+        f"/v1/children/{child['id']}/photo-assets/{photo['record']['photo_asset_ids'][0]}/thumbnail"
+    )
+    image = base64.b64decode(thumbnail["data_base64"], validate=True)
+    if (thumbnail["mime_type"] != "image/jpeg" or not image.startswith(b"\xff\xd8")
+            or (thumbnail["width"], thumbnail["height"]) != (1, 1)):
+        raise RuntimeError("packaged Pillow thumbnail validation failed")
+    print("packaged photo thumbnail ok: synthetic PNG -> bounded JPEG")
 
 
 def wait_until_healthy(
@@ -138,9 +170,12 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
                 "GROWWISE_API_HOST": "127.0.0.1",
                 "GROWWISE_API_PORT": str(port),
                 "GROWWISE_SESSION_TOKEN": token,
+                "GROWWISE_PARENT_PID": str(os.getpid()),
                 "GROWWISE_DATA_DIR": str(temp / "data"),
                 "GROWWISE_LLM_FEATURES_ENABLED": "false",
                 "GROWWISE_EMBEDDING_FEATURES_ENABLED": "false",
+                "GROWWISE_VISION_FEATURES_ENABLED": "false",
+                "GROWWISE_PUBLIC_ENRICHMENT_ENABLED": "false",
             }
         )
         try:
@@ -168,6 +203,7 @@ def smoke(binary: Path, *, timeout_seconds: float) -> None:
                         health = response.read().decode("utf-8")
                     print(payload)
                     print(health)
+                    assert_packaged_photo_thumbnail(base_url, token)
                 finally:
                     stop_process(process)
         except Exception:

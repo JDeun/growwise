@@ -2,6 +2,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import type { ResourceRecord } from "../api";
+import { emptyResourceDetails } from "../resource-details";
 import { filterResources, ResourceLibrarySection } from "./ResourceLibrarySection";
 
 const resources: ResourceRecord[] = [
@@ -52,6 +53,7 @@ describe("ResourceLibrarySection", () => {
         resourceKind="note"
         resourceTitle=""
         resourceContent=""
+        resourceDetails={emptyResourceDetails()}
         saving={false}
         error={null}
         loadState={{ kind: "ready" }}
@@ -59,6 +61,7 @@ describe("ResourceLibrarySection", () => {
         onKindChange={vi.fn()}
         onTitleChange={vi.fn()}
         onContentChange={vi.fn()}
+        onDetailsChange={vi.fn()}
         onSubmit={vi.fn()}
         onRetry={vi.fn()}
         onUpdate={vi.fn(async () => undefined)}
@@ -67,6 +70,10 @@ describe("ResourceLibrarySection", () => {
     );
 
     expect(html).toContain("자료 검색");
+    expect(html).toContain("출처·분류 설정(선택)");
+    expect(html).toContain("저자·작성자");
+    expect(html).toContain('value="child" selected=""');
+    expect(html).toContain("이 기기의 모든 아이와 공유");
     expect(html).toContain("종류 필터");
     expect((html.match(/>상세<\/button>/g) ?? []).length).toBe(2);
     expect((html.match(/>편집<\/button>/g) ?? []).length).toBe(2);

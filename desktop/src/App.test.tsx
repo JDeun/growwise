@@ -16,8 +16,8 @@ describe("App feature composition", () => {
     expect(html).toContain("AI 보조 기능");
     expect(html).toContain("홈에서 첫 아이 프로필을 만들면");
     expect(html).toContain("설정");
-    expect(html).toContain("가족 설정");
-    expect(html).toContain("개인정보와 삭제");
+    expect(html).toContain('id="profile-management-title">아이 프로필 관리</h2>');
+    expect(html).toContain("<h2>아이 데이터 영구 삭제</h2>");
     expect(html).not.toContain("AI와 대화하기");
     expect(html).not.toContain("새 활동 후보");
     expect(html).not.toContain("참고 자료 추가");

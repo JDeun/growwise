@@ -1,0 +1,17 @@
+.external-source-link {
+  display: inline-grid;
+  gap: 4px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.external-source-link a {
+  color: var(--primary-strong);
+  font-size: var(--font-size-control);
+}
+
+.external-source-link small {
+  color: var(--danger);
+  font-size: var(--font-size-meta);
+  line-height: var(--line-control);
+}

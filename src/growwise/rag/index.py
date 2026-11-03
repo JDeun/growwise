@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import sqlite3
+import threading
 from collections.abc import Iterable
 from datetime import date
 from pathlib import Path
+from uuid import uuid4
 
 from .chunking import ResourceChunk
 from .embeddings import EmbeddingProvider
@@ -14,6 +17,7 @@ from .temporal import hierarchical_temporal_order, temporal_tier
 _MAX_QUERY_TERMS = 32
 _MAX_QUERY_TERM_CHARS = 128
 _SQLITE_IN_CHUNK = 400
+_VECTOR_REFRESH_LOCK = threading.Lock()
 
 
 def _decode_tags(value: object) -> list[str]:
@@ -51,6 +55,24 @@ def cosine_similarity(left: list[float], right: list[float]) -> float:
     return dot / (left_norm * right_norm)
 
 
+def _vector(value: object, dimensions: int | None = None) -> list[float] | None:
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (TypeError, ValueError):
+            return None
+    if not isinstance(value, list) or not value:
+        return None
+    if dimensions is not None and len(value) != dimensions:
+        return None
+    if any(
+        isinstance(item, bool) or not isinstance(item, (int, float)) or not math.isfinite(item)
+        for item in value
+    ):
+        return None
+    return [float(item) for item in value]
+
+
 def _fts_query(terms: list[str]) -> str:
     """Treat parent-entered text as literals and use token-prefix matching.
 
@@ -76,6 +98,9 @@ class HybridRagIndex:
         self.path = path
         self._data_generation = DATA_MAINTENANCE.generation
         self.embedding = embedding
+        self._refresh_thread: threading.Thread | None = None
+        # Providers without a stable model/endpoint identity cannot reuse vectors across instances.
+        self._opaque_embedding_identity = uuid4().hex
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self._fts_available = False
         self._ensure_schema()
@@ -119,6 +144,7 @@ class HybridRagIndex:
                     source_name TEXT,
                     tags_json TEXT NOT NULL,
                     embedding_json TEXT,
+                    embedding_identity TEXT,
                     recorded_at TEXT
                 )
                 """
@@ -129,6 +155,8 @@ class HybridRagIndex:
             }
             if "recorded_at" not in columns:
                 connection.execute("ALTER TABLE rag_chunks ADD COLUMN recorded_at TEXT")
+            if "embedding_identity" not in columns:
+                connection.execute("ALTER TABLE rag_chunks ADD COLUMN embedding_identity TEXT")
             connection.execute(
                 "CREATE INDEX IF NOT EXISTS idx_rag_resource ON rag_chunks(resource_id)"
             )
@@ -200,6 +228,17 @@ class HybridRagIndex:
         finally:
             connection.close()
 
+    def source_entity_for_chunk(self, chunk_id: str) -> str | None:
+        """Resolve a citation pointer only; callers must recheck the current original's scope."""
+        connection = self._connect()
+        try:
+            row = connection.execute(
+                "SELECT resource_id FROM rag_chunks WHERE chunk_id = ?", (chunk_id,),
+            ).fetchone()
+            return str(row["resource_id"]) if row is not None else None
+        finally:
+            connection.close()
+
     def delete_resource(self, resource_id: str) -> int:
         from growwise.maintenance import DATA_MAINTENANCE
 
@@ -259,6 +298,7 @@ class HybridRagIndex:
             raise ValueError("replace_resource expects chunks from exactly one resource")
 
         vectors: list[list[float] | None] = [None] * len(chunks)
+        identity = self._embedding_identity()
         if self.embedding is not None:
             try:
                 embedded = self.embedding.embed_documents([chunk.text for chunk in chunks])
@@ -282,8 +322,9 @@ class HybridRagIndex:
                     """
                     INSERT INTO rag_chunks (
                         chunk_id, resource_id, child_id, title, text,
-                        source_url, source_name, tags_json, embedding_json, recorded_at
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        source_url, source_name, tags_json, embedding_json, recorded_at,
+                        embedding_identity
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         chunk.chunk_id,
@@ -296,6 +337,7 @@ class HybridRagIndex:
                         tags_json,
                         json.dumps(vector) if vector is not None else None,
                         chunk.recorded_at,
+                        identity if vector is not None else None,
                     ),
                 )
                 if self._fts_available:
@@ -322,6 +364,106 @@ class HybridRagIndex:
             connection.close()
         return len(chunks)
 
+    def _embedding_identity(self) -> str | None:
+        if self.embedding is None:
+            return None
+        model = getattr(self.embedding, "model", None)
+        endpoint = getattr(self.embedding, "base_url", None)
+        if not isinstance(model, str) or not isinstance(endpoint, str):
+            return self._opaque_embedding_identity
+        provider = type(self.embedding)
+        identity = [f"{provider.__module__}.{provider.__qualname__}", model, endpoint.rstrip("/")]
+        return hashlib.sha256(json.dumps(identity).encode()).hexdigest()
+
+    def _refresh_vectors(self, rows: list[dict], identity: str, dimensions: int) -> bool:
+        from growwise.maintenance import DATA_MAINTENANCE
+
+        if self.embedding is None:
+            return False
+        stale = [row for row in rows if row["embedding_identity"] != identity
+                 or _vector(row["embedding_json"], dimensions) is None]
+        for offset in range(0, len(stale), 32):
+            batch = stale[offset : offset + 32]
+            try:
+                vectors = self.embedding.embed_documents([row["text"] for row in batch])
+            except Exception:
+                return False
+            if not isinstance(vectors, list) or len(vectors) != len(batch):
+                return False
+            try:
+                with DATA_MAINTENANCE.mutation(expected_generation=self._data_generation):
+                    connection = self._connect()
+                    try:
+                        with connection:
+                            for row, value in zip(batch, vectors, strict=True):
+                                vector = _vector(value, dimensions)
+                                if vector is None:
+                                    continue
+                                encoded = json.dumps(vector)
+                                # Inference ran outside the transaction; never attach old-text
+                                # vectors to a chunk replaced by a concurrent source update.
+                                updated = connection.execute(
+                                    "UPDATE rag_chunks SET embedding_json = ?, "
+                                    "embedding_identity = ? WHERE chunk_id = ? AND text = ?",
+                                    (encoded, identity, row["chunk_id"], row["text"]),
+                                )
+                                if updated.rowcount:
+                                    row["embedding_json"] = encoded
+                                    row["embedding_identity"] = identity
+                    finally:
+                        connection.close()
+            except sqlite3.Error:
+                return False
+        return True
+
+    def _schedule_vector_refresh(
+        self, *, child_id: str | None, shared_resource_ids: tuple[str, ...],
+        identity: str, dimensions: int,
+    ) -> None:
+        # One worker and no waiting queue keep repeated searches from retaining full corpora.
+        if not _VECTOR_REFRESH_LOCK.acquire(blocking=False):
+            return
+
+        def refresh() -> None:
+            from growwise.maintenance import DATA_MAINTENANCE, StaleDataGeneration
+            from growwise.services.background_ai_lock import BACKGROUND_AI_LOCK
+
+            after = ""
+            try:
+                while self._data_generation == DATA_MAINTENANCE.generation:
+                    connection = self._connect()
+                    try:
+                        rows = self._scoped_rows(
+                            connection, child_id=child_id,
+                            shared_resource_ids=shared_resource_ids,
+                            after_chunk_id=after, limit=32,
+                        )
+                    finally:
+                        connection.close()
+                    if not rows:
+                        return
+                    after = str(rows[-1]["chunk_id"])
+                    with BACKGROUND_AI_LOCK:
+                        if self._data_generation != DATA_MAINTENANCE.generation:
+                            return
+                        if not self._refresh_vectors(
+                            [dict(row) for row in rows], identity, dimensions,
+                        ):
+                            return
+            except (sqlite3.Error, StaleDataGeneration):
+                return
+            finally:
+                _VECTOR_REFRESH_LOCK.release()
+
+        self._refresh_thread = threading.Thread(
+            target=refresh, name="growwise-embedding-refresh", daemon=True,
+        )
+        try:
+            self._refresh_thread.start()
+        except RuntimeError:
+            _VECTOR_REFRESH_LOCK.release()
+            raise
+
     @staticmethod
     def _normalized_shared_ids(shared_resource_ids: Iterable[str] | None) -> tuple[str, ...]:
         return tuple(dict.fromkeys(str(resource_id) for resource_id in shared_resource_ids or ()))
@@ -338,26 +480,30 @@ class HybridRagIndex:
         *,
         child_id: str | None,
         shared_resource_ids: Iterable[str] | None,
+        after_chunk_id: str = "",
+        limit: int | None = None,
     ) -> list[sqlite3.Row]:
         # Keep every explicitly shared resource visible without constructing one unbounded IN
         # clause. SQLite's host-parameter ceiling varies by build/platform.
+        suffix = " AND chunk_id > ? ORDER BY chunk_id LIMIT ?" if limit is not None else ""
+        page_params: tuple[str | int, ...] = (after_chunk_id, limit) if limit is not None else ()
         rows = connection.execute(
-            "SELECT * FROM rag_chunks WHERE child_id IS NULL OR child_id = ?",
-            (child_id,),
+            "SELECT * FROM rag_chunks WHERE (child_id IS NULL OR child_id = ?)" + suffix,
+            (child_id, *page_params),
         ).fetchall()
         seen = {str(row["chunk_id"]) for row in rows}
         shared_ids = cls._normalized_shared_ids(shared_resource_ids)
         for id_chunk in cls._id_chunks(shared_ids):
             placeholders = ",".join("?" for _ in id_chunk)
             for row in connection.execute(
-                f"SELECT * FROM rag_chunks WHERE resource_id IN ({placeholders})",
-                id_chunk,
+                f"SELECT * FROM rag_chunks WHERE resource_id IN ({placeholders})" + suffix,
+                (*id_chunk, *page_params),
             ).fetchall():
                 chunk_id = str(row["chunk_id"])
                 if chunk_id not in seen:
                     seen.add(chunk_id)
                     rows.append(row)
-        return rows
+        return sorted(rows, key=lambda row: str(row["chunk_id"]))[:limit] if limit else rows
 
     def _lexical_candidates(
         self,
@@ -436,11 +582,13 @@ class HybridRagIndex:
     ) -> list[dict]:
         if limit <= 0:
             return []
+        shared_resource_ids = self._normalized_shared_ids(shared_resource_ids)
         query_terms = _normalize_query_terms(query)
         query_vector: list[float] | None = None
+        identity = self._embedding_identity()
         if self.embedding is not None:
             try:
-                query_vector = self.embedding.embed_query(query)
+                query_vector = _vector(self.embedding.embed_query(query))
             except Exception:
                 query_vector = None
         if not query_terms and query_vector is None:
@@ -467,18 +615,21 @@ class HybridRagIndex:
         finally:
             connection.close()
 
+        source_rows = [dict(row) for row in rows]
+        needs_refresh = query_vector is not None and identity is not None and any(
+            row["embedding_identity"] != identity
+            or _vector(row["embedding_json"], len(query_vector)) is None
+            for row in source_rows
+        )
         ranked: list[tuple[float, dict]] = []
-        for row in rows:
+        for row in source_rows:
             tags = _decode_tags(row["tags_json"])
             haystack = " ".join((str(row["title"]), str(row["text"]), *tags)).casefold()
             lexical = float(sum(haystack.count(term) for term in query_terms))
             vector_score = 0.0
-            if query_vector is not None and row["embedding_json"]:
-                try:
-                    stored_vector = json.loads(row["embedding_json"])
-                except (TypeError, ValueError, json.JSONDecodeError):
-                    stored_vector = []
-                if isinstance(stored_vector, list):
+            if query_vector is not None and row["embedding_identity"] == identity:
+                stored_vector = _vector(row["embedding_json"], len(query_vector))
+                if stored_vector is not None:
                     vector_score = cosine_similarity(query_vector, stored_vector)
             if lexical <= 0 and vector_score <= 0:
                 continue
@@ -506,9 +657,17 @@ class HybridRagIndex:
         # irrelevant chunk because only positive lexical/vector matches reach this list.
         ranked.sort(key=lambda item: item[0], reverse=True)
         relevant = [payload for _, payload in ranked]
-        return hierarchical_temporal_order(
+        result = hierarchical_temporal_order(
             relevant,
             timestamp=lambda item: item.get("recorded_at"),
             limit=limit,
             reference_date=reference_date,
         )
+        if needs_refresh:
+            assert query_vector is not None and identity is not None
+            self._schedule_vector_refresh(
+                child_id=child_id,
+                shared_resource_ids=self._normalized_shared_ids(shared_resource_ids),
+                identity=identity, dimensions=len(query_vector),
+            )
+        return result

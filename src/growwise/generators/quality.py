@@ -5,7 +5,14 @@ from dataclasses import dataclass
 
 from growwise.domain import MaterialKind, Stage
 
-_HEADING_RE = re.compile(r"(?m)^#{1,6}\s+\S")
+from .pedagogy import (
+    infant_requires_schoolwork,
+    infant_requires_target_response,
+    instruction_issues,
+)
+
+_HEADING_RE = re.compile(r"(?m)^#{1,6}\s+(.+)$")
+_STEP_RE = re.compile(r"(?m)^\s*\d+[.)]\s+(.+)$")
 _PLACEHOLDER_RE = re.compile(
     r"(?i)(?:\bTODO\b|\bTBD\b|\[insert[^\]]*\]|여기에\s*(?:입력|작성)|placeholder)"
 )
@@ -15,6 +22,21 @@ _CANDIDATE_INTERNAL_MARKERS = (
     "infant_0_2",
     "preschool_3_5",
 )
+# Fixed-width lookarounds and a bounded run: no unbounded Korean-prefix backtracking.
+_MIXED_WORD = re.compile(r"(?<=[가-힣])[\u3400-\u4dbf\u4e00-\u9fff]{1,8}(?=[가-힣])")
+
+
+def _unexpected_mixed_word(text: str, grounding_context: str) -> bool:
+    if re.search(r"한자|한문|중국어|일본어", grounding_context):
+        return False
+    for match in _MIXED_WORD.finditer(text):
+        start = match.start()
+        # Preserve a supplied literal spelling or mixed-script proper name, with Korean particles.
+        while start > 0 and match.start() - start < 40 and "가" <= text[start - 1] <= "힣":
+            start -= 1
+        if text[start:match.end()] not in grounding_context:
+            return True
+    return False
 
 _REQUIRED_CONTENT_HEADINGS = (
     "오늘의 목표",
@@ -63,22 +85,34 @@ class MaterialQualityGate:
         stage: Stage,
         content_markdown: str,
         parent_guide_markdown: str = "",
+        grounding_context: str = "",
     ) -> MaterialQualityResult:
-        del kind
         text = content_markdown.strip()
         generated_text = f"{content_markdown}\n{parent_guide_markdown}"
         issues: list[str] = []
-        del stage
         substantive = re.sub(r"(?m)^#{1,6}\s+.*$", "", text).strip()
-        if len(substantive) < 12:
+        if len(substantive) < 80:
             issues.append("candidate_core_too_short")
-        if len(_HEADING_RE.findall(text)) < 1:
+        if len({heading.strip().casefold() for heading in _HEADING_RE.findall(text)}) < 2:
             issues.append("candidate_core_missing_structure")
+        if sum(len(step.strip()) >= 12 for step in _STEP_RE.findall(text)) < 2:
+            issues.append("candidate_core_missing_executable_steps")
+        if not re.search(r"[?？]", text):
+            issues.append("candidate_core_missing_question")
+        if kind is MaterialKind.ENGLISH_CARD and not any(
+            word.casefold() not in {"ai", "growwise", "english", "markdown"}
+            for word in re.findall(r"\b[A-Za-z]{2,}\b", substantive)
+        ):
+            issues.append("candidate_core_missing_target_language")
         if _PLACEHOLDER_RE.search(generated_text):
             issues.append("candidate_core_contains_placeholder")
+        if _unexpected_mixed_word(generated_text, grounding_context):
+            issues.append("candidate_core_unexpected_mixed_script_word")
         folded = generated_text.casefold()
         if any(marker in folded for marker in _CANDIDATE_INTERNAL_MARKERS):
             issues.append("candidate_core_exposes_internal_metadata")
+        issues.extend(instruction_issues(kind, stage, text, parent_guide_markdown,
+                                          grounding_context))
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))
 
     def assess_published(
@@ -88,6 +122,7 @@ class MaterialQualityGate:
         content_markdown: str,
         parent_guide_markdown: str,
         source_refs: list[str],
+        stage: Stage | None = None,
     ) -> MaterialQualityResult:
         issues: list[str] = []
         if len(title.strip()) < 2:
@@ -106,5 +141,13 @@ class MaterialQualityGate:
             issues.append("content_too_short")
         if len(parent_guide_markdown.strip()) < 1_000:
             issues.append("guide_too_short")
+        if stage is Stage.INFANT_0_2 and infant_requires_schoolwork(
+            f"{content_markdown}\n{parent_guide_markdown}"
+        ):
+            issues.append("published_infant_requires_independent_schoolwork")
+        if stage is Stage.INFANT_0_2 and infant_requires_target_response(
+            f"{content_markdown}\n{parent_guide_markdown}"
+        ):
+            issues.append("published_infant_requires_target_response")
 
         return MaterialQualityResult(ready=not issues, issues=tuple(issues))

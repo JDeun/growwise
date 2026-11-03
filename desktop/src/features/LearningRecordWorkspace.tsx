@@ -1,4 +1,4 @@
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { useActiveChild } from "../active-child-context";
 import {
@@ -9,9 +9,13 @@ import {
   type LearningRecordKind,
 } from "../api";
 import { ChildAvatar } from "../components";
+import {
+  EMPTY_LEARNING_EVIDENCE, LearningEvidenceDetails, LearningEvidenceFields, useLearningBooks,
+} from "../components/LearningEvidence";
 import { AXIS_OPTIONS, stageLabel } from "../presentation";
 import "./LearningRecordWorkspace.css";
 import { StudyTrackingPanel } from "./StudyTrackingPanel";
+import { startSerialPolling } from "../serial-polling";
 
 const AI_POLL_INTERVAL_MS = 1500;
 
@@ -54,6 +58,17 @@ export function LearningRecordWorkspace({
   active: boolean;
   embedded?: boolean;
 }) {
+  const { activeChildId } = useActiveChild();
+  return <ChildLearningRecords key={activeChildId} active={active} embedded={embedded} />;
+}
+
+function ChildLearningRecords({
+  active,
+  embedded = false,
+}: {
+  active: boolean;
+  embedded?: boolean;
+}) {
   const {
     children,
     activeChild,
@@ -75,12 +90,15 @@ export function LearningRecordWorkspace({
   const [nextActivity, setNextActivity] = useState("");
   const [tags, setTags] = useState("");
   const [axes, setAxes] = useState<ExperienceAxis[]>([]);
+  const [evidence, setEvidence] = useState(EMPTY_LEARNING_EVIDENCE);
+  const bookState = useLearningBooks(childId);
   const [sharedChildIds, setSharedChildIds] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [selectedRecordId, setSelectedRecordId] = useState<string | null>(null);
+  const pollInFlight = useRef(false);
 
   const siblings = useMemo(
     () => children.filter((child) => child.id !== childId),
@@ -130,21 +148,15 @@ export function LearningRecordWorkspace({
   }, [active, childId, loadRecords]);
 
   useEffect(() => {
-    if (!active || !childId || !hasPendingAi) return;
-    let cancelled = false;
-    const poll = () => {
-      void listLearningRecords(childId)
-        .then((nextRecords) => {
-          if (!cancelled) setRecords(nextRecords);
-        })
-        .catch(() => undefined);
-    };
-    const timer = window.setInterval(poll, AI_POLL_INTERVAL_MS);
-    return () => {
-      cancelled = true;
-      window.clearInterval(timer);
-    };
-  }, [active, childId, hasPendingAi]);
+    if (!active || !childId || !hasPendingAi || busy || loading) return;
+    return startSerialPolling({
+      intervalMs: AI_POLL_INTERVAL_MS, inFlight: pollInFlight,
+      poll: async (isCurrent) => {
+        const nextRecords = await listLearningRecords(childId);
+        if (isCurrent()) setRecords(nextRecords);
+      },
+    });
+  }, [active, childId, hasPendingAi, busy, loading]);
 
   function toggleAxis(axis: ExperienceAxis) {
     setAxes((current) =>
@@ -167,6 +179,7 @@ export function LearningRecordWorkspace({
     setInstitution("");
     setSummary("");
     setLearnerWork("");
+    setEvidence(EMPTY_LEARNING_EVIDENCE);
     setProcess("");
     setInterest("");
     setDifficulty("");
@@ -192,6 +205,9 @@ export function LearningRecordWorkspace({
         institution: institution.trim() || null,
         summary: summary.trim(),
         learner_work: learnerWork.trim() || null,
+        ...evidence,
+        ai_hint: evidence.ai_hint.trim() || null,
+        child_reexplanation: evidence.child_reexplanation.trim() || null,
         process: process.trim() || null,
         interest: interest.trim() || null,
         difficulty_note: difficulty.trim() || null,
@@ -224,7 +240,6 @@ export function LearningRecordWorkspace({
     <section className={`learning-record-workspace${embedded ? " is-embedded" : ""}`} aria-labelledby="learning-record-title">
       <div className="section-heading learning-record-heading">
         <div>
-          <p className="eyebrow">LEARNING RECORDS</p>
           <h2 id="learning-record-title">아이의 배움 기록을 한 화면에서 살펴봅니다.</h2>
           <p className="muted">
             프로필과 기록 목록, 선택한 기록의 상세 맥락을 함께 보고 필요한 경우 새 기록을 이어서 작성합니다.
@@ -241,7 +256,6 @@ export function LearningRecordWorkspace({
             <aside className="learning-profile-panel" aria-label="현재 아이 프로필">
               <ChildAvatar child={activeChild} size="lg" />
               <div className="learning-profile-copy">
-                <p className="card-label">현재 아이</p>
                 <h3>{activeChild?.nickname ?? "아이 선택"}</h3>
                 <p>{activeChild ? stageLabel(activeChild.stage) : "프로필을 선택해 주세요"}</p>
               </div>
@@ -267,7 +281,6 @@ export function LearningRecordWorkspace({
             <section className="learning-master-panel" aria-labelledby="learning-master-title">
               <div className="learning-panel-heading">
                 <div>
-                  <p className="card-label">기록 목록</p>
                   <h3 id="learning-master-title">최근 학습 기록</h3>
                 </div>
                 <span>{records.length}건</span>
@@ -304,7 +317,6 @@ export function LearningRecordWorkspace({
                 <>
                   <div className="learning-detail-heading">
                     <div>
-                      <p className="card-label">{kindLabel(selectedRecord.record_kind ?? "other")}</p>
                       <h3 id="learning-detail-title">{selectedRecord.title ?? "제목 없는 기록"}</h3>
                       <span>{displayDate(selectedRecord)}</span>
                     </div>
@@ -325,6 +337,7 @@ export function LearningRecordWorkspace({
                       <p className="learning-work-text">{selectedRecord.learner_work}</p>
                     </div>
                   )}
+                  <LearningEvidenceDetails record={selectedRecord} books={bookState.books} />
                   <div className="learning-detail-context-grid">
                     {selectedRecord.interest && <div><span>흥미</span><p>{selectedRecord.interest}</p></div>}
                     {selectedRecord.difficulty_note && <div><span>어려움</span><p>{selectedRecord.difficulty_note}</p></div>}
@@ -389,6 +402,10 @@ export function LearningRecordWorkspace({
 
             <label><span>무엇을 했고 무엇을 배웠나요? *</span><textarea value={summary} onChange={(event) => setSummary(event.target.value)} maxLength={10000} placeholder="부모가 확인한 사실이나 아이가 설명한 내용을 기록하세요." disabled={busy} /></label>
             <label><span>{kind === "diary" ? "아이의 일기" : kind === "reading_reflection" ? "독서감상문·아이의 글" : "아이 결과물·답변(선택)"}</span><textarea value={learnerWork} onChange={(event) => setLearnerWork(event.target.value)} maxLength={20000} placeholder="아이가 직접 쓴 글이나 답변이 있으면 원문 그대로 남길 수 있습니다." disabled={busy} /></label>
+            <details>
+              <summary>책과 AI 도움·근거를 더 기록하기(선택)</summary>
+              <LearningEvidenceFields value={evidence} onChange={setEvidence} {...bookState} disabled={busy} />
+            </details>
 
             <div className="learning-record-two-column">
               <label><span>학습 과정</span><textarea value={process} onChange={(event) => setProcess(event.target.value)} disabled={busy} /></label>
@@ -429,7 +446,7 @@ export function LearningRecordWorkspace({
           <StudyTrackingPanel />
 
           <section className="learning-record-history learning-record-history--legacy" aria-labelledby="learning-history-title">
-            <div className="section-heading compact"><div><p className="eyebrow">HISTORY</p><h3 id="learning-history-title">최근 학습 기록</h3></div><span className="badge">{records.length}건</span></div>
+            <div className="section-heading compact"><div><h3 id="learning-history-title">최근 학습 기록</h3></div><span className="badge">{records.length}건</span></div>
             {loading ? <p className="muted">기록을 불러오는 중…</p> : records.length === 0 ? <p className="muted">아직 별도 학습 기록이 없습니다.</p> : (
               <div className="learning-record-list">
                 {records.map((record) => (
@@ -438,6 +455,7 @@ export function LearningRecordWorkspace({
                     {(record.subject || record.institution) && <p className="learning-record-meta">{[record.subject, record.institution].filter(Boolean).join(" · ")}</p>}
                     <p>{record.parent_observation}</p>
                     {record.learner_work && <details><summary>아이의 글·결과물 보기</summary><p className="learning-work-text">{record.learner_work}</p></details>}
+                    <LearningEvidenceDetails record={record} books={bookState.books} />
                     <div className="learning-record-tags"><span>{AI_LABEL[record.ai_status ?? "not_requested"] ?? record.ai_status}</span>{record.interest && <span>흥미 · {record.interest}</span>}{record.difficulty_note && <span>어려움 · {record.difficulty_note}</span>}</div>
                   </article>
                 ))}

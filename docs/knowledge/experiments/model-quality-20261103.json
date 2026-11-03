@@ -1,0 +1,163 @@
+{
+  "observed_on": "2026-11-03",
+  "evidence_status": "observed; single synthetic sample per production model; no field-effectiveness claim",
+  "environment": {
+    "os": "macOS arm64",
+    "unified_memory_gb": 16,
+    "python": "3.12.13",
+    "ollama": "0.40.3",
+    "other_model_concurrency": "one model resident at a time"
+  },
+  "fixture": {
+    "stage": "elementary",
+    "kind": "math_activity",
+    "topic": "블록으로 수 세기",
+    "interests": [
+      "동물"
+    ],
+    "age_months": null,
+    "source_refs": [],
+    "real_household_data": false
+  },
+  "repository_revision": "modified working tree based on 5c92dac76c32a8910dee6461556354c822713d33",
+  "production_runs": [
+    {
+      "model": "hf.co/google/gemma-4-12B-it-qat-q4_0-gguf:Q4_0",
+      "ollama_manifest_digest": "18a4d9511d9965d973356e62310a2793771c22456be408cc06a05f04a6376acd",
+      "model_bytes": 7150993832,
+      "model_details": {
+        "parent_model": "",
+        "format": "gguf",
+        "family": "gemma4",
+        "families": [
+          "gemma4"
+        ],
+        "parameter_size": "11.9B",
+        "quantization_level": "Q4_0",
+        "context_length": 262144,
+        "embedding_length": 3840,
+        "runner": "ggml"
+      },
+      "provider": "ollama",
+      "temperature": 0.1,
+      "reasoning": false,
+      "context_tokens": 8192,
+      "max_output_tokens": 4096,
+      "timeout_seconds": 600,
+      "warmup_rounds": 0,
+      "measured_repeats": 1,
+      "random_seed": "not set; nondeterministic model generation",
+      "latency_seconds": 95.51144633442163,
+      "generator_mode": "llm_enhanced",
+      "core_issues": [],
+      "published_issues": [],
+      "scaffold": "ScaffoldCheck(safe=True, violations=())",
+      "unsafe": false,
+      "malformed": false,
+      "candidate": {
+        "title": "블록으로 동물 친구 수 세기",
+        "content_markdown": "## 동물 친구들의 집 만들기\n\n1. 좋아하는 동물 블록이나 인형을 준비하고, 동물들이 살 수 있는 집을 블록으로 쌓아 보세요. 집을 다 만든 후에, 이 집에 들어갈 수 있는 동물 친구들이 모두 몇 명인지 블록을 하나씩 옮기며 세어 보세요.\n\n2. 만약 동물 친구들이 더 많이 온다면 집이 더 커져야 할까요? 아니면 다른 방법이 있을까요? 동물 친구의 수를 늘려보며 집의 크기나 모양이 어떻게 변해야 할지 직접 블록을 조작하며 시도해 보세요.\n\n어떤 방법으로 동물 친구들의 수를 세었나요? 그리고 친구들이 더 많이 올 때 집을 어떻게 바꿀지 생각한 이유를 설명해 주세요.\n\n## 나만의 수 세기 방법 기록하기\n\n1. 방금 동물 친구들의 수를 세었을 때 사용한 방법(예: 손가락으로 짚으며 세기, 옆으로 한 줄씩 옮기며 세기 등)을 그림이나 짧은 글로 표현해 보세요.\n\n2. 친구와 다른 방법으로 수를 셀 수도 있을까요? 내가 사용한 방법 말고 또 다른 방법이 있다면 무엇이 있을지 자유롭게 상상해서 말해 보세요.",
+        "parent_guide_markdown": "부모님은 아이가 스스로 블록을 조작하며 수를 세는 과정을 충분히 지켜봐 주세요. 아이가 숫자를 정확히 맞히는 것보다, '하나씩 옮기며 세기'나 '손가락으로 짚기'와 같은 자신만의 전략을 찾아내는 것이 중요합니다. \n\n아이가 수를 세는 데 어려움을 느낀다면 바로 정답을 알려주기보다, \"동물 친구를 하나씩 옆으로 옮기면서 세어볼까?\"와 같이 구체적인 행동을 제안해 주세요. 아이가 집의 크기를 조절할 때 고민한다면, \"동물이 많아지면 공간이 더 필요할까?\"라는 질문을 통해 아이가 스스로 해결책을 찾도록 기다려 주세요.",
+        "source_refs": []
+      },
+      "published": {
+        "title": "블록으로 동물 친구 수 세기",
+        "content_markdown": "# 블록으로 수 세기 수학 놀이\n\n> GrowWise 활동 자료 · 부모가 내용을 확인한 뒤 사용합니다.\n\n## 오늘의 목표\n- 목표: 구체적인 활동과 기록을 연결해 주제를 탐색하고 자신의 방법과 근거를 설명한다.\n- 교육과정 연결: 수학\n- 적용 교육과정: 2022 개정 초·중등학교 교육과정(2024 일부개정)\n- 기준 고시: 국가교육위원회고시 제2024-3호\n- 결과를 빨리 맞히는 것보다 관찰·시도·설명 과정에 집중합니다.\n\n## 예상 시간\n- 20~35분 내외 · 아이의 상태와 몰입에 따라 더 짧게 끝내도 됩니다.\n\n## 준비물\n- 수를 세거나 비교할 수 있는 실물·조작물\n- 그림이나 표를 그릴 종이와 필기도구\n- 필요하면 자·타이머 등 간단한 측정 도구\n\n## 단계별 활동 기준\n- 학습 수준: 구체물과 실제 경험에서 시작해 그림·표·짧은 글 같은 표현으로 옮기고, 자신이 사용한 방법과 이유를 설명합니다.\n- 자료 유형 기준: 실물·그림·표·식 중 적절한 표현을 사용하고 해결 방법을 설명합니다.\n\n## 활동 자료\n### 동물 친구들의 집 만들기\n\n1. 좋아하는 동물 블록이나 인형을 준비하고, 동물들이 살 수 있는 집을 블록으로 쌓아 보세요. 집을 다 만든 후에, 이 집에 들어갈 수 있는 동물 친구들이 모두 몇 명인지 블록을 하나씩 옮기며 세어 보세요.\n\n2. 만약 동물 친구들이 더 많이 온다면 집이 더 커져야 할까요? 아니면 다른 방법이 있을까요? 동물 친구의 수를 늘려보며 집의 크기나 모양이 어떻게 변해야 할지 직접 블록을 조작하며 시도해 보세요.\n\n어떤 방법으로 동물 친구들의 수를 세었나요? 그리고 친구들이 더 많이 올 때 집을 어떻게 바꿀지 생각한 이유를 설명해 주세요.\n\n### 나만의 수 세기 방법 기록하기\n\n1. 방금 동물 친구들의 수를 세었을 때 사용한 방법(예: 손가락으로 짚으며 세기, 옆으로 한 줄씩 옮기며 세기 등)을 그림이나 짧은 글로 표현해 보세요.\n\n2. 친구와 다른 방법으로 수를 셀 수도 있을까요? 내가 사용한 방법 말고 또 다른 방법이 있다면 무엇이 있을지 자유롭게 상상해서 말해 보세요.\n\n## 막힐 때 힌트\n1. 이미 알고 있는 것과 구해야 하는 것을 한 가지씩 표시합니다.\n2. 실물·그림·표 중 하나로 바꾸어 관계를 다시 봅니다.\n3. 더 작은 예시를 해결한 뒤 사용한 방법을 원래 활동에 적용합니다.\n\n## 돌아보기\n- 어떤 방법으로 시작했고 중간에 무엇을 바꾸었나요?\n- 관찰·그림·표·식·문장 중 어떤 것이 생각을 가장 잘 보여 주었나요?\n- 다음에 조건을 하나 바꾼다면 무엇을 확인하고 싶은가요?\n\n## 더 해보기\n- 수나 조건을 하나만 바꾸어 같은 해결 방법이 통하는지 비교합니다.\n",
+        "parent_guide_markdown": "# 부모용 교안 · 블록으로 수 세기 수학 놀이\n\n> 이 교안은 활동을 대신 수행하는 정답지가 아니라, 부모가 준비·질문·관찰·난이도 조절을 일관되게 할 수 있도록 돕는 진행 문서입니다.\n\n## 수업 개요\n| 항목 | 내용 |\n| --- | --- |\n| 주제 | 블록으로 수 세기 |\n| 대상 | 초등 |\n| 예상 시간 | 20~35분 내외 |\n| 교육과정 연결 | 수학 |\n\n## 핵심 목표\n- 구체적인 활동과 기록을 연결해 주제를 탐색하고 자신의 방법과 근거를 설명한다.\n- 학습자가 자신의 방식으로 관찰·시도·설명하도록 돕고, 결과보다 사고 과정을 기록합니다.\n- 진행 원칙: 정답을 말하기보다 더 작은 수·실물·그림으로 힌트 수준을 낮춥니다.\n\n## 단계별 진행 기준\n- 학습자 수행 기준: 구체물과 실제 경험에서 시작해 그림·표·짧은 글 같은 표현으로 옮기고, 자신이 사용한 방법과 이유를 설명합니다.\n- 자료 유형 기준: 실물·그림·표·식 중 적절한 표현을 사용하고 해결 방법을 설명합니다.\n- 부모 역할: 부모는 비계를 제공하는 조력자입니다. 막힌 지점에서만 질문·구체물·예시로 한 단계씩 돕고 다시 아이에게 결정권을 돌려줍니다.\n\n## 준비 체크리스트\n- [ ] 수를 세거나 비교할 수 있는 실물·조작물\n- [ ] 그림이나 표를 그릴 종이와 필기도구\n- [ ] 필요하면 자·타이머 등 간단한 측정 도구\n- [ ] 오늘 아이의 컨디션과 공간의 안전 요소를 확인합니다.\n- [ ] 선택한 참고 자료가 있다면 사실·출처·사용 범위를 한 번 더 확인합니다.\n\n## 진행 시나리오\n1. **도입** — 주제와 연결된 실물·사진·책·경험을 짧게 제시하고 아이가 먼저 반응할 시간을 줍니다.\n2. **탐색** — 한 번에 한 과제나 질문만 제시하고, 말·그림·몸짓·실물 조작 등 다양한 반응 방식을 허용합니다.\n3. **정리** — 아이가 발견한 것과 남은 질문을 자신의 말로 정리하게 하고 다음 활동 후보를 하나만 남깁니다.\n\n## 활동 중 부모가 할 일\n- 설명하기 전에 아이가 먼저 보고, 만지고, 말하거나 질문할 시간을 줍니다.\n- 맞고 틀림을 즉시 판정하기보다 '어떻게 생각했어?', '무엇을 보고 그렇게 생각했어?'처럼 근거를 묻습니다.\n- 아이가 스스로 한 선택과 전략을 구체적으로 되짚어 줍니다.\n- 집중이 끊기면 분량을 줄이거나 중단하고, 완료 자체를 목표로 삼지 않습니다.\n\n## 질문·힌트 사다리\n1. **열린 질문** — '무엇이 보이니?', '어떤 점이 궁금해?'처럼 관찰을 엽니다.\n2. **초점 질문** — 비교할 두 대상이나 한 가지 단서만 좁혀 제시합니다.\n3. **구체 힌트** — 실물·그림·더 작은 예시를 보여 주되 마지막 판단은 아이가 하게 둡니다.\n4. **부모 모델링** — 필요할 때만 한 단계의 생각 과정을 소리 내어 보여 주고 다시 아이 차례로 넘깁니다.\n\n## 관찰할 것\n- 오래 머문 장면, 반복해서 선택한 대상, 스스로 만든 규칙\n- 아이가 실제로 한 질문과 설명, 사용한 전략\n- 쉽게 해결한 지점과 힌트가 필요했던 지점\n- 예상과 실제가 달랐을 때 수정한 생각이나 행동\n\n## 난이도 조절\n### 더 쉽게\n- 선택지를 줄이고, 과제를 한 단계로 나누고, 실물이나 그림을 먼저 사용합니다.\n- 말로 답하기 어렵다면 가리키기·배치하기·그리기 등 다른 표현 방식을 허용합니다.\n\n### 더 깊게\n- 조건을 하나만 바꾸어 비교하거나, 다른 방법이 가능한지 설명하게 합니다.\n- 선택한 근거 자료가 있다면 아이가 찾은 생각과 근거 자료의 정보를 서로 비교합니다.\n\n## 안전·중단 기준\n- 신체 활동·실험·외출은 보호자가 재료, 장소, 날씨, 알레르기 및 연령 적합성을 직접 확인합니다.\n- 피로, 불안, 짜증, 흥미 저하가 뚜렷하면 즉시 중단하거나 다른 시간으로 옮깁니다.\n- 활동 결과를 능력·성향의 고정된 평가로 해석하지 않습니다.\n\n## 활동 후 GrowWise에 남길 것\n- 부모 관찰 한두 문장\n- 아이가 실제로 사용한 방법과 질문·반응\n- 흥미를 보인 점, 어려워한 지점, 효과가 있었던 힌트\n- 다음에 이어 볼 활동 또는 새로 생긴 질문\n- 필요하면 사진 또는 결과물에 대한 설명\n\n## 근거·출처\n- 선택한 근거 자료 없음 · 일반 활동 구조와 교육과정 정렬을 기반으로 구성\n\n## 맞춤 진행 메모\n부모님은 아이가 스스로 블록을 조작하며 수를 세는 과정을 충분히 지켜봐 주세요. 아이가 숫자를 정확히 맞히는 것보다, '하나씩 옮기며 세기'나 '손가락으로 짚기'와 같은 자신만의 전략을 찾아내는 것이 중요합니다.\n\n아이가 수를 세는 데 어려움을 느낀다면 바로 정답을 알려주기보다, \"동물 친구를 하나씩 옆으로 옮기면서 세어볼까?\"와 같이 구체적인 행동을 제안해 주세요. 아이가 집의 크기를 조절할 때 고민한다면, \"동물이 많아지면 공간이 더 필요할까?\"라는 질문을 통해 아이가 스스로 해결책을 찾도록 기다려 주세요.\n\n## 사용 전 확인\n- [ ] 주제·표현·분량이 오늘 아이에게 적절한지 부모가 직접 확인했습니다.\n- [ ] 사실 정보와 참고 자료의 맥락을 확인했고, 출처가 없는 내용을 사실처럼 단정하지 않습니다.\n- [ ] 준비물과 활동 환경의 안전 조건을 확인했습니다.\n- [ ] 아이가 원하지 않거나 피로해하면 중단할 수 있도록 계획했습니다.\n- [ ] 활동 후 결과가 아니라 과정과 질문을 기록할 준비가 되어 있습니다.\n",
+        "source_refs": [],
+        "status": "review_pending",
+        "generator_mode": "llm_enhanced"
+      }
+    },
+    {
+      "model": "qwen3.5:2b",
+      "ollama_manifest_digest": "dfaf2605162e689c8cac330dc4a190c4c50ad30aa47814a8fe9b79fa5127e97e",
+      "model_bytes": 3117475695,
+      "model_details": {
+        "parent_model": "",
+        "format": "safetensors",
+        "family": "",
+        "families": null,
+        "parameter_size": "",
+        "quantization_level": "mxfp8",
+        "runner": "mlx"
+      },
+      "provider": "ollama",
+      "temperature": 0.1,
+      "reasoning": false,
+      "context_tokens": 8192,
+      "max_output_tokens": 4096,
+      "timeout_seconds": 600,
+      "warmup_rounds": 0,
+      "measured_repeats": 1,
+      "random_seed": "not set; nondeterministic model generation",
+      "latency_seconds": 10.910638417117298,
+      "generator_mode": "template_quality_fallback",
+      "core_issues": [
+        "candidate_core_too_short",
+        "candidate_core_missing_structure",
+        "candidate_core_missing_executable_steps",
+        "candidate_core_missing_question"
+      ],
+      "published_issues": [],
+      "scaffold": "ScaffoldCheck(safe=True, violations=())",
+      "unsafe": false,
+      "malformed": false,
+      "candidate": {
+        "title": "블록으로 수 세기",
+        "content_markdown": "**준비**: 블록을 손가락으로 만질 수 있는 물건이나 그림으로 바꿉니다. (예: 작은 돌, 종이를 자른 조각 등)",
+        "parent_guide_markdown": "",
+        "source_refs": []
+      },
+      "published": {
+        "title": "블록으로 수 세기 수학 놀이",
+        "content_markdown": "# 블록으로 수 세기 수학 놀이\n\n> GrowWise 활동 자료 · 부모가 내용을 확인한 뒤 사용합니다.\n\n## 오늘의 목표\n- 목표: 구체적인 활동과 기록을 연결해 주제를 탐색하고 자신의 방법과 근거를 설명한다.\n- 교육과정 연결: 수학\n- 적용 교육과정: 2022 개정 초·중등학교 교육과정(2024 일부개정)\n- 기준 고시: 국가교육위원회고시 제2024-3호\n- 결과를 빨리 맞히는 것보다 관찰·시도·설명 과정에 집중합니다.\n\n## 예상 시간\n- 20~35분 내외 · 아이의 상태와 몰입에 따라 더 짧게 끝내도 됩니다.\n\n## 준비물\n- 수를 세거나 비교할 수 있는 실물·조작물\n- 그림이나 표를 그릴 종이와 필기도구\n- 필요하면 자·타이머 등 간단한 측정 도구\n\n## 단계별 활동 기준\n- 학습 수준: 구체물과 실제 경험에서 시작해 그림·표·짧은 글 같은 표현으로 옮기고, 자신이 사용한 방법과 이유를 설명합니다.\n- 자료 유형 기준: 실물·그림·표·식 중 적절한 표현을 사용하고 해결 방법을 설명합니다.\n\n## 활동 자료\n### 준비\n- `블록으로 수 세기`을 손으로 만질 수 있는 물건이나 그림으로 바꿉니다.\n\n### 문제 탐색\n1. 먼저 무엇을 알고 있는지 말하거나 가리키게 합니다.\n2. 한 번에 한 조건만 바꾸어 비교합니다.\n3. 막히면 정답 대신 더 작은 예시나 그림 힌트를 줍니다.\n\n### 설명하기\n- 어떻게 생각했는지 말·그림·물건 배치 중 편한 방식으로 표현합니다.\n- 다른 방법이 가능한지 함께 찾아봅니다.\n\n## 막힐 때 힌트\n1. 이미 알고 있는 것과 구해야 하는 것을 한 가지씩 표시합니다.\n2. 실물·그림·표 중 하나로 바꾸어 관계를 다시 봅니다.\n3. 더 작은 예시를 해결한 뒤 사용한 방법을 원래 활동에 적용합니다.\n\n## 돌아보기\n- 어떤 방법으로 시작했고 중간에 무엇을 바꾸었나요?\n- 관찰·그림·표·식·문장 중 어떤 것이 생각을 가장 잘 보여 주었나요?\n- 다음에 조건을 하나 바꾼다면 무엇을 확인하고 싶은가요?\n\n## 더 해보기\n- 수나 조건을 하나만 바꾸어 같은 해결 방법이 통하는지 비교합니다.\n",
+        "parent_guide_markdown": "# 부모용 교안 · 블록으로 수 세기 수학 놀이\n\n> 이 교안은 활동을 대신 수행하는 정답지가 아니라, 부모가 준비·질문·관찰·난이도 조절을 일관되게 할 수 있도록 돕는 진행 문서입니다.\n\n## 수업 개요\n| 항목 | 내용 |\n| --- | --- |\n| 주제 | 블록으로 수 세기 |\n| 대상 | 초등 |\n| 예상 시간 | 20~35분 내외 |\n| 교육과정 연결 | 수학 |\n\n## 핵심 목표\n- 구체적인 활동과 기록을 연결해 주제를 탐색하고 자신의 방법과 근거를 설명한다.\n- 학습자가 자신의 방식으로 관찰·시도·설명하도록 돕고, 결과보다 사고 과정을 기록합니다.\n- 진행 원칙: 정답을 말하기보다 더 작은 수·실물·그림으로 힌트 수준을 낮춥니다.\n\n## 단계별 진행 기준\n- 학습자 수행 기준: 구체물과 실제 경험에서 시작해 그림·표·짧은 글 같은 표현으로 옮기고, 자신이 사용한 방법과 이유를 설명합니다.\n- 자료 유형 기준: 실물·그림·표·식 중 적절한 표현을 사용하고 해결 방법을 설명합니다.\n- 부모 역할: 부모는 비계를 제공하는 조력자입니다. 막힌 지점에서만 질문·구체물·예시로 한 단계씩 돕고 다시 아이에게 결정권을 돌려줍니다.\n\n## 준비 체크리스트\n- [ ] 수를 세거나 비교할 수 있는 실물·조작물\n- [ ] 그림이나 표를 그릴 종이와 필기도구\n- [ ] 필요하면 자·타이머 등 간단한 측정 도구\n- [ ] 오늘 아이의 컨디션과 공간의 안전 요소를 확인합니다.\n- [ ] 선택한 참고 자료가 있다면 사실·출처·사용 범위를 한 번 더 확인합니다.\n\n## 진행 시나리오\n1. **도입** — 주제와 연결된 실물·사진·책·경험을 짧게 제시하고 아이가 먼저 반응할 시간을 줍니다.\n2. **탐색** — 한 번에 한 과제나 질문만 제시하고, 말·그림·몸짓·실물 조작 등 다양한 반응 방식을 허용합니다.\n3. **정리** — 아이가 발견한 것과 남은 질문을 자신의 말로 정리하게 하고 다음 활동 후보를 하나만 남깁니다.\n\n## 활동 중 부모가 할 일\n- 설명하기 전에 아이가 먼저 보고, 만지고, 말하거나 질문할 시간을 줍니다.\n- 맞고 틀림을 즉시 판정하기보다 '어떻게 생각했어?', '무엇을 보고 그렇게 생각했어?'처럼 근거를 묻습니다.\n- 아이가 스스로 한 선택과 전략을 구체적으로 되짚어 줍니다.\n- 집중이 끊기면 분량을 줄이거나 중단하고, 완료 자체를 목표로 삼지 않습니다.\n\n## 질문·힌트 사다리\n1. **열린 질문** — '무엇이 보이니?', '어떤 점이 궁금해?'처럼 관찰을 엽니다.\n2. **초점 질문** — 비교할 두 대상이나 한 가지 단서만 좁혀 제시합니다.\n3. **구체 힌트** — 실물·그림·더 작은 예시를 보여 주되 마지막 판단은 아이가 하게 둡니다.\n4. **부모 모델링** — 필요할 때만 한 단계의 생각 과정을 소리 내어 보여 주고 다시 아이 차례로 넘깁니다.\n\n## 관찰할 것\n- 오래 머문 장면, 반복해서 선택한 대상, 스스로 만든 규칙\n- 아이가 실제로 한 질문과 설명, 사용한 전략\n- 쉽게 해결한 지점과 힌트가 필요했던 지점\n- 예상과 실제가 달랐을 때 수정한 생각이나 행동\n\n## 난이도 조절\n### 더 쉽게\n- 선택지를 줄이고, 과제를 한 단계로 나누고, 실물이나 그림을 먼저 사용합니다.\n- 말로 답하기 어렵다면 가리키기·배치하기·그리기 등 다른 표현 방식을 허용합니다.\n\n### 더 깊게\n- 조건을 하나만 바꾸어 비교하거나, 다른 방법이 가능한지 설명하게 합니다.\n- 선택한 근거 자료가 있다면 아이가 찾은 생각과 근거 자료의 정보를 서로 비교합니다.\n\n## 안전·중단 기준\n- 신체 활동·실험·외출은 보호자가 재료, 장소, 날씨, 알레르기 및 연령 적합성을 직접 확인합니다.\n- 피로, 불안, 짜증, 흥미 저하가 뚜렷하면 즉시 중단하거나 다른 시간으로 옮깁니다.\n- 활동 결과를 능력·성향의 고정된 평가로 해석하지 않습니다.\n\n## 활동 후 GrowWise에 남길 것\n- 부모 관찰 한두 문장\n- 아이가 실제로 사용한 방법과 질문·반응\n- 흥미를 보인 점, 어려워한 지점, 효과가 있었던 힌트\n- 다음에 이어 볼 활동 또는 새로 생긴 질문\n- 필요하면 사진 또는 결과물에 대한 설명\n\n## 근거·출처\n- 선택한 근거 자료 없음 · 일반 활동 구조와 교육과정 정렬을 기반으로 구성\n\n## 사용 전 확인\n- [ ] 주제·표현·분량이 오늘 아이에게 적절한지 부모가 직접 확인했습니다.\n- [ ] 사실 정보와 참고 자료의 맥락을 확인했고, 출처가 없는 내용을 사실처럼 단정하지 않습니다.\n- [ ] 준비물과 활동 환경의 안전 조건을 확인했습니다.\n- [ ] 아이가 원하지 않거나 피로해하면 중단할 수 있도록 계획했습니다.\n- [ ] 활동 후 결과가 아니라 과정과 질문을 기록할 준비가 되어 있습니다.\n",
+        "source_refs": [],
+        "status": "review_pending",
+        "generator_mode": "template_quality_fallback"
+      }
+    }
+  ],
+  "prior_diagnostic": {
+    "model": "qwen3.5:2b",
+    "reasoning": "model default; earlier prompt/profile",
+    "context_tokens": "server default 4096",
+    "max_output_tokens": 8192,
+    "latency_seconds": 263.2722466252744,
+    "done_reason": "length",
+    "eval_count": 8192,
+    "prompt_eval_count": 2430,
+    "final_response_content": "",
+    "generator_mode": "template_fallback",
+    "result": "empty final JSON; structured parser failed after output-budget exhaustion; not a network timeout"
+  },
+  "memory_observation": {
+    "scope": "host-wide wired memory sampled during Gemma call, not model RSS or a peak measurement",
+    "approximate_wired_gib": 12.3,
+    "interpretation": "little headroom on the observed 16 GB host; not a blanket recommendation for 16 GB devices"
+  },
+  "source_sha256": {
+    "src/growwise/model/ollama.py": "37762cd2e298a547afd61d3f06b5e8ce24f7d8c70e6ee570a80f00e3b9df384d",
+    "src/growwise/model/factory.py": "9471bc3fd18d2b7863e0aa2a317a25a71545fa5a372c73422acdd7ae535d5272",
+    "src/growwise/config.py": "8c38349e3b43f2477d2dc2fe744e2d2c817078801c7e6d4b8ede5be85c60cc83",
+    "src/growwise/generators/material.py": "7b41b7856da4e63fcf8c2264435d968319d223c45d779f044a71b2e9ad10726e",
+    "src/growwise/generators/quality.py": "42ffd29a64583145eb39c66cd55a3e91d6520e15f8bbd8cfb429ad4943657623",
+    "scripts/benchmark_model.py": "cb02c49fd3a0342a7f8e5430afabed4be63bdfe46ce3b19c0ccac2f18872efc1"
+  },
+  "review": {
+    "reviewer": "implementation agent; coordinating agent also inspected Gemma sample",
+    "acceptance_scope": "Gemma sample is a parent-review draft; Qwen sample rejected without weakening quality gates",
+    "rubric": {
+      "Gemma": "Executable block counting/grouping and added-animal house exploration; child chooses and records strategy; open comparison questions; parent waits and offers a small hint; no supplied final answer or apparent counting error; no invented sources.",
+      "Qwen": "Only a preparation sentence, no substantive activity sequence/headings/open question. Correctly rejected."
+    },
+    "limitations": [
+      "No parent/teacher field trial or measured learning outcome",
+      "One topic, one stage, one kind; other models/stages/kinds not established",
+      "No warm-up or latency distribution; model-load time included",
+      "No fixed random seed; repeated outputs and latency may differ",
+      "No Windows/Linux or offline/model-vision comparison in this experiment"
+    ]
+  }
+}

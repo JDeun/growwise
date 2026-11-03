@@ -3,6 +3,30 @@
   gap: 4px;
 }
 
+.record-export-section h2 {
+  margin: 0 0 8px;
+}
+
+.record-export-section > .muted + .muted {
+  margin-top: 8px;
+}
+
+.record-export-form {
+  display: grid;
+  gap: 12px;
+  justify-items: start;
+}
+
+.record-export-form .field-grid {
+  width: 100%;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+}
+
+.record-export-help {
+  max-width: var(--measure-prose);
+  font-size: var(--font-size-meta);
+}
+
 .profile-management-form {
   display: grid;
   gap: 14px;
@@ -27,8 +51,8 @@
   gap: 7px;
   align-content: start;
   color: var(--ink-soft);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-semibold);
 }
 
 .field-grid .field-span {
@@ -50,13 +74,13 @@
 .field-grid textarea {
   resize: vertical;
   min-height: 84px;
-  line-height: 1.55;
+  line-height: var(--line-body);
 }
 
 .field-help {
   color: var(--ink-muted);
-  font-size: 11px;
-  font-weight: 500;
+  font-size: var(--font-size-meta);
+  font-weight: var(--weight-medium);
 }
 
 .profile-management-actions {
@@ -65,7 +89,7 @@
 
 .profile-management-footnote {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-size-control);
 }
 
 .danger-button {
@@ -74,7 +98,7 @@
   background: var(--danger);
   color: #fff;
   padding: 10px 14px;
-  font-weight: 700;
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -105,23 +129,18 @@
 .data-management-page-heading p {
   margin: 0;
 }
-
-.data-management-page-heading .eyebrow {
-  margin-bottom: 6px;
-}
-
 .data-management-page-heading h1 {
   color: #2b2a28;
-  font-size: 25px;
-  font-weight: 780;
-  letter-spacing: -0.045em;
+  font-size: var(--font-size-page);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
 }
 
 .data-management-page-heading > div > p:last-child {
   margin-top: 5px;
-  color: #77807b;
-  font-size: 11px;
-  line-height: 1.55;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .backup-status-card {
@@ -142,13 +161,13 @@
 
 .backup-status-card span,
 .backup-status-card small {
-  color: #7b8580;
-  font-size: 9px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-meta);
 }
 
 .backup-status-card strong {
   color: #2b2a28;
-  font-size: 14px;
+  font-size: var(--font-size-control);
 }
 
 .backup-status-icon {
@@ -158,9 +177,9 @@
   height: 38px;
   border-radius: 50%;
   background: #e3f3ec;
-  color: #2f8f6b;
-  font-size: 15px;
-  font-weight: 800;
+  color: var(--primary-strong);
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 @media (max-width: 620px) {
@@ -189,22 +208,17 @@
 .settings-product-heading p {
   margin: 0;
 }
-
-.settings-product-heading .eyebrow {
-  margin-bottom: 6px;
-}
-
 .settings-product-heading h1 {
   color: #2b2a28;
-  font-size: 25px;
-  font-weight: 780;
-  letter-spacing: -0.045em;
+  font-size: var(--font-size-page);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-heading);
 }
 
 .settings-product-heading > div > p:last-child {
   margin-top: 5px;
-  color: #77807b;
-  font-size: 11px;
+  color: var(--ink-soft);
+  font-size: var(--font-size-body);
 }
 
 .settings-product-workspace > .status-grid {
@@ -221,7 +235,7 @@
 
 .settings-product-workspace > .status-grid .status-title {
   margin: 14px 0 6px;
-  font-size: 17px;
+  font-size: var(--font-size-body);
 }
 
 .settings-product-workspace > .data-management-section--settings {

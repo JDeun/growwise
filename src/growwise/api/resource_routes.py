@@ -14,6 +14,7 @@ from uuid6 import uuid7
 
 from growwise.config import Settings
 from growwise.domain import ResourceKind, ResourceRecord, Stage
+from growwise.domain.links import EntityLinkRelation
 from growwise.domain.models import TagText
 from growwise.idempotency import (
     IdempotencyConflict,
@@ -24,6 +25,7 @@ from growwise.idempotency import (
 from growwise.maintenance import DATA_MAINTENANCE
 from growwise.rag import HybridRagIndex, OllamaEmbeddingProvider, ResourceIngestor
 from growwise.services.entity_links import EntityLinkService
+from growwise.services.entity_lock import entity_operation_lock
 from growwise.storage import EntityStore
 
 router = APIRouter(prefix="/resources", tags=["resources"])
@@ -58,7 +60,8 @@ class ResourceCreateRequest(_ResourcePayload):
 
 
 class ResourceUpdateRequest(_ResourcePayload):
-    pass
+    # Omission preserves the existing owner; explicit null makes a resource device-wide.
+    child_id: UUID | None = None
 
 
 @lru_cache
@@ -77,11 +80,17 @@ def _get_resource_rag_index(generation: int) -> HybridRagIndex:
     del generation
     settings = get_resource_settings()
     embedding = None
-    if settings.embedding_features_enabled:
+    if (
+        settings.embedding_features_enabled
+        and settings.embedding_provider.casefold().replace("-", "_") == "ollama"
+    ):
         try:
             embedding = OllamaEmbeddingProvider(
                 model=settings.embedding_model_id,
-                base_url=settings.model_base_url,
+                base_url=settings.embedding_base_url,
+                timeout_seconds=settings.embedding_timeout_seconds,
+                failure_threshold=settings.model_circuit_failure_threshold,
+                recovery_seconds=settings.model_circuit_recovery_seconds,
             )
         except Exception:
             logger.exception("embedding provider unavailable; resource RAG will use lexical search")
@@ -138,9 +147,10 @@ def create_resource(
     store: Annotated[EntityStore, Depends(get_resource_store)],
     idempotency_key: Annotated[str | None, Header(alias="Idempotency-Key", max_length=200)] = None,
 ) -> ResourceRecord:
-    if request.child_id is not None and store.index.get_entity(
-        str(request.child_id), entity_type="child_profile"
-    ) is None:
+    if (
+        request.child_id is not None
+        and store.index.get_entity(str(request.child_id), entity_type="child_profile") is None
+    ):
         raise HTTPException(status_code=404, detail="child_not_found")
 
     idempotency_store = get_resource_idempotency_store()
@@ -204,6 +214,7 @@ def list_resources(
     return store.index.list_entities(
         entity_type="resource",
         child_id=str(child_id) if child_id else None,
+        include_global=child_id is not None,
     )
 
 
@@ -214,26 +225,49 @@ def update_resource(
     store: Annotated[EntityStore, Depends(get_resource_store)],
     acting_child_id: UUID | None = None,
 ) -> ResourceRecord:
-    current = _resource(store, resource_id)
-    _require_mutation_scope(current, acting_child_id=acting_child_id)
-    try:
-        updated = ResourceRecord.model_validate(
-            {
-                **current.model_dump(mode="python"),
-                **request.model_dump(mode="python"),
-                "updated_at": datetime.now(UTC),
-            }
-        )
-    except ValidationError as exc:
-        # Defense in depth: never persist an update that bypassed request-model validation or
-        # became invalid after DTO/domain constraints drift apart in a future change.
-        raise HTTPException(status_code=422, detail=exc.errors(include_url=False)) from exc
+    with store.mutation_window(), entity_operation_lock(resource_id):
+        current = _resource(store, resource_id)
+        _require_mutation_scope(current, acting_child_id=acting_child_id)
+        # Never transfer ownership into another child's scope through a forged edit payload.
+        values = request.model_dump(mode="python")
+        if "child_id" not in request.model_fields_set:
+            values.pop("child_id", None)
+        elif request.child_id is not None:
+            if request.child_id != acting_child_id:
+                raise HTTPException(status_code=403, detail="resource_target_scope_forbidden")
+            if store.index.get_entity(str(request.child_id), entity_type="child_profile") is None:
+                raise HTTPException(status_code=404, detail="child_not_found")
+        try:
+            updated = ResourceRecord.model_validate(
+                {
+                    **current.model_dump(mode="python"),
+                    **values,
+                    "updated_at": datetime.now(UTC),
+                }
+            )
+        except ValidationError as exc:
+            # Defense in depth: never persist an update that bypassed request-model validation or
+            # became invalid after DTO/domain constraints drift apart in a future change.
+            raise HTTPException(status_code=422, detail=exc.errors(include_url=False)) from exc
 
-    # Source first. A stale or unavailable retrieval projection can be rebuilt; the user's saved
-    # library record cannot be reconstructed from RAG and therefore remains authoritative.
-    store.save(updated)
-    ResourceIngestor(get_resource_rag_index()).ingest(updated)
-    return updated
+        # Restricting a global resource must also revoke old per-child visibility grants. Do this
+        # while the source is still global, so a cleanup failure cannot leave a private-looking
+        # source with live grants to another child's search/material generation.
+        if current.child_id is None and updated.child_id is not None:
+            # Ingestion below is deliberately best-effort. Remove formerly global chunks first
+            # so an embedding/index failure cannot keep old shared evidence visible afterwards.
+            get_resource_rag_index().delete_resource(str(resource_id))
+            links = EntityLinkService(store)
+            for grant in store.index.list_entity_links(
+                source_id=str(resource_id), relation=EntityLinkRelation.CHILD_SCOPE.value
+            ):
+                links.delete(UUID(grant["id"]))
+
+        # Source first. A stale or unavailable retrieval projection can be rebuilt; the user's saved
+        # library record cannot be reconstructed from RAG and therefore remains authoritative.
+        store.save(updated)
+        ResourceIngestor(get_resource_rag_index()).ingest(updated)
+        return updated
 
 
 @router.delete("/{resource_id}")
@@ -242,19 +276,19 @@ def delete_resource(
     store: Annotated[EntityStore, Depends(get_resource_store)],
     acting_child_id: UUID | None = None,
 ) -> dict[str, bool]:
-    current = _resource(store, resource_id)
-    _require_mutation_scope(current, acting_child_id=acting_child_id)
-    if not store.delete(current):
-        raise HTTPException(status_code=404, detail="resource_not_found")
+    with store.mutation_window(), entity_operation_lock(resource_id):
+        current = _resource(store, resource_id)
+        _require_mutation_scope(current, acting_child_id=acting_child_id)
+        if not store.delete(current):
+            raise HTTPException(status_code=404, detail="resource_not_found")
 
-    # Source deletion is the successful mutation. Retrieval cleanup is best-effort because RAG is
-    # disposable; graph links are authoritative relationship records and are removed afterwards.
-    try:
-        get_resource_rag_index().delete_resource(str(resource_id))
-    except Exception:
-        logger.exception(
-            "RAG projection delete failed for resource %s; source deletion remains authoritative",
-            resource_id,
-        )
-    EntityLinkService(store).delete_for_entities({str(resource_id)})
-    return {"deleted": True}
+        # Source deletion is the successful mutation. RAG cleanup is best-effort; graph links are
+        # authoritative relationship records and are removed afterwards.
+        try:
+            get_resource_rag_index().delete_resource(str(resource_id))
+        except Exception:
+            logger.exception(
+                "RAG projection delete failed; source deletion remains authoritative",
+            )
+        EntityLinkService(store).delete_for_entities({str(resource_id)})
+        return {"deleted": True}

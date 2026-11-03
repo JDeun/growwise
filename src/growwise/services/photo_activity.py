@@ -187,6 +187,23 @@ class PhotoAssetStore:
         self.assets_root = assets_root
         self.max_file_bytes = max_file_bytes
 
+    @staticmethod
+    def _canonical_child_id(child_id: str) -> str:
+        try:
+            return str(UUID(child_id))
+        except (ValueError, TypeError, AttributeError) as exc:
+            raise PhotoValidationError("invalid_child_id") from exc
+
+    def _child_directory(self, namespace: str, child_id: str) -> Path:
+        child_id = self._canonical_child_id(child_id)
+        root = self.assets_root.resolve()
+        directory = root / namespace / child_id
+        if (root / namespace).is_symlink() or directory.is_symlink():
+            raise PhotoValidationError("unsafe_photo_path")
+        if not directory.resolve().is_relative_to(root):
+            raise PhotoValidationError("unsafe_photo_path")
+        return directory
+
     def store(
         self,
         *,
@@ -195,6 +212,7 @@ class PhotoAssetStore:
         namespace: str = "photos",
         asset_id: UUID | None = None,
     ) -> tuple[PhotoAsset, bool]:
+        child_id = self._canonical_child_id(child_id)
         if not upload.data:
             raise PhotoValidationError("empty_image")
         if len(upload.data) > self.max_file_bytes:
@@ -209,7 +227,9 @@ class PhotoAssetStore:
         digest = hashlib.sha256(upload.data).hexdigest()
         extension = _MIME_EXTENSION[detected_mime]
         relative = Path(namespace) / child_id / f"{digest}{extension}"
-        target = self.assets_root / relative
+        target = self._child_directory(namespace, child_id) / relative.name
+        if target.is_symlink():
+            raise PhotoValidationError("unsafe_photo_path")
         target.parent.mkdir(parents=True, exist_ok=True)
         created = not target.exists()
         if created:
@@ -253,7 +273,10 @@ class PhotoAssetStore:
         root = self.assets_root.resolve()
         if path != root and root not in path.parents:
             raise PhotoValidationError("unsafe_photo_path")
-        data = path.read_bytes()
+        with path.open("rb") as handle:
+            data = handle.read(self.max_file_bytes + 1)
+        if len(data) > self.max_file_bytes:
+            raise PhotoValidationError("image_too_large")
         if hashlib.sha256(data).hexdigest() != asset.sha256:
             raise PhotoValidationError("photo_integrity_mismatch")
         return data
@@ -270,9 +293,10 @@ class PhotoAssetStore:
         return True
 
     def delete_child(self, child_id: str) -> int:
+        child_id = self._canonical_child_id(child_id)
         count = 0
         for namespace in ("photos", "avatars"):
-            directory = self.assets_root / namespace / child_id
+            directory = self._child_directory(namespace, child_id)
             if not directory.exists():
                 continue
             count += sum(1 for path in directory.rglob("*") if path.is_file())

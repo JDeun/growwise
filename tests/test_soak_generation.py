@@ -9,8 +9,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from material_quality_fixtures import observed_draft_for_request
+
 from growwise.domain import ChildProfile, MaterialKind, MaterialStatus, Stage
-from growwise.generators import MaterialGenerationService
+from growwise.generators import MaterialDraft, MaterialGenerationService
 
 _CYCLES = 1500
 _KINDS = list(MaterialKind)
@@ -20,7 +22,14 @@ _CASES: list[tuple[dict[str, Any] | None, str]] = [
     (
         {
             "title": "안전 자료",
-            "content_markdown": "# 활동\n그림을 함께 보고 열린 질문을 하나만 합니다.",
+            "content_markdown": (
+                "## 함께 살펴보기\n"
+                "1. 관심 있는 대상을 하나 고르고 모양과 색을 아이의 속도에 맞추어 관찰합니다.\n"
+                "2. 비슷한 다른 대상과 나란히 놓고 어떤 점이 같고 다른지 천천히 살펴봅니다.\n"
+                "## 생각 이어가기\n"
+                "무엇을 더 살펴보고 싶나요? "
+                "아이가 말이나 손짓으로 고른 방향에 따라 짧게 이어갑니다."
+            ),
             "source_refs": [],
         },
         "llm_enhanced",
@@ -63,7 +72,9 @@ class _RotatingProvider:
     def generate_structured(self, *, system: str, user: str, schema: type[Any]) -> Any:
         if self.payload is None:
             raise ValueError("model returned unparseable output")
-        return schema.model_validate(self.payload)
+        if self.payload is _CASES[0][0]:
+            return observed_draft_for_request(user)
+        return MaterialDraft.model_validate(self.payload)
 
 
 def test_generation_soak_stays_safe_and_stable() -> None:

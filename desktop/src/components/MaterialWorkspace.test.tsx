@@ -1,7 +1,7 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
 
-import type { GeneratedMaterial } from "../api";
+import type { GeneratedMaterial, Stage } from "../api";
 import { MaterialWorkspace } from "./MaterialWorkspace";
 
 const noop = () => undefined;
@@ -22,11 +22,12 @@ const base: GeneratedMaterial = {
   version_note: null,
 };
 
-function render(materials: GeneratedMaterial[]) {
+function render(materials: GeneratedMaterial[], editingMaterialId: string | null = null, stage?: Stage) {
   return renderToStaticMarkup(
     <MaterialWorkspace
       materials={materials}
       resources={[]}
+      stage={stage}
       materialKind="reading_activity"
       topic="고양이"
       goal=""
@@ -34,7 +35,7 @@ function render(materials: GeneratedMaterial[]) {
       busy={false}
       error={null}
       revisionNotes={{}}
-      editingMaterialId={null}
+      editingMaterialId={editingMaterialId}
       onKindChange={noop}
       onTopicChange={noop}
       onGoalChange={noop}
@@ -52,6 +53,29 @@ function render(materials: GeneratedMaterial[]) {
 }
 
 describe("MaterialWorkspace", () => {
+  it("omits worksheets from infant previews and printable approved cards", () => {
+    const html = render([{ ...base, kind: "activity_guide", status: "approved" }], null, "infant_0_2");
+    expect(html).toContain("인쇄 / PDF 내보내기");
+    expect(html).not.toContain("material-presentation-template");
+    expect(html).not.toContain("material-presentation-writing-space");
+  });
+  it("projects standard publications in the primary and printable reading views while preserving raw edits", () => {
+    const material = {
+      ...base,
+      status: "approved" as const,
+      content_markdown: "# 고양이 읽기\n\n> GrowWise 활동 자료 · 부모가 내용을 확인한 뒤 사용합니다.\n\n## 오늘의 목표\n- 목표: 고양이 관찰하기\n- 교육과정 연결: 자연탐구\n- 적용 교육과정: 교육과정 정보\n- 기준 고시: 고시 정보\n\n## 준비물\n- 그림책\n\n## 단계별 활동 기준\n- 학습 수준: 관찰과 설명\n\n## 활동 자료\n1. 고양이의 움직임을 그려 봅니다.\n",
+      parent_guide_markdown: "## 부모가 확인할 활동 기준\n활동 기준은 부모 가이드에서 확인합니다.",
+    };
+    const reading = render([material]);
+    expect(reading).not.toContain("교육과정 연결: 자연탐구");
+    expect(reading).not.toContain("학습 수준: 관찰과 설명");
+    expect((reading.match(/고양이의 움직임을 그려 봅니다/g) ?? []).length).toBe(2);
+    expect(reading).toContain("활동 기준은 부모 가이드에서 확인합니다.");
+    const editing = render([material], material.id);
+    expect(editing).toContain("교육과정 연결: 자연탐구");
+    expect(editing).toContain("학습 수준: 관찰과 설명");
+  });
+
   it("separates draft, parent-review, and approved-use stages", () => {
     const html = render([
       { ...base, id: "draft", status: "draft" },
@@ -64,8 +88,8 @@ describe("MaterialWorkspace", () => {
     expect(html).toContain("부모 검토로 보내기");
     expect(html).toContain("승인하고 사용");
     expect(html).toContain("인쇄 / PDF 내보내기");
-    expect(html).toContain("Document canvas");
-    expect(html).toContain("활동 만들기");
+    expect(html).toContain('aria-label="선택한 학습 자료 미리보기"');
+    expect(html).toContain("<h3>새 자료 만들기</h3>");
     expect(html).toContain("이 활동 사용하기");
     expect(html).toContain('role="tablist"');
     expect(html).toContain("부모 가이드");

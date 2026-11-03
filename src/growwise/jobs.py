@@ -238,28 +238,39 @@ class SQLiteJobQueue:
         *,
         now_iso: str,
         max_attempts: int,
+        job_types: tuple[str, ...] | None,
     ) -> None:
+        # Retry budgets belong to the worker's job types. A photo worker must not exhaust a
+        # material job using its independently configured attempt limit (or vice versa).
+        type_clause = ""
+        type_params: tuple[str, ...] = ()
+        if job_types:
+            type_clause = f" AND job_type IN ({','.join('?' for _ in job_types)})"
+            type_params = job_types
         connection.execute(
-            """
+            f"""
             UPDATE jobs
             SET status = ?, started_at = NULL, updated_at = ?, lease_expires_at = NULL,
                 claim_token = NULL,
                 last_error = COALESCE(last_error, 'worker lease expired; job returned to pending')
             WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
               AND attempts < ?
+              {type_clause}
             """,
-            (JobStatus.PENDING, now_iso, JobStatus.RUNNING, now_iso, max_attempts),
+            (JobStatus.PENDING, now_iso, JobStatus.RUNNING, now_iso, max_attempts, *type_params),
         )
         connection.execute(
-            """
+            f"""
             UPDATE jobs
             SET status = ?, finished_at = ?, updated_at = ?, lease_expires_at = NULL,
                 claim_token = NULL,
                 last_error = COALESCE(last_error, 'job lease expired after maximum attempts')
             WHERE status = ? AND lease_expires_at IS NOT NULL AND lease_expires_at <= ?
               AND attempts >= ?
+              {type_clause}
             """,
-            (JobStatus.FAILED, now_iso, now_iso, JobStatus.RUNNING, now_iso, max_attempts),
+            (JobStatus.FAILED, now_iso, now_iso, JobStatus.RUNNING, now_iso,
+             max_attempts, *type_params),
         )
 
     def claim_next(
@@ -289,6 +300,7 @@ class SQLiteJobQueue:
                 connection,
                 now_iso=now_iso,
                 max_attempts=max_attempts,
+                job_types=job_types,
             )
             if job_types:
                 placeholders = ",".join("?" for _ in job_types)

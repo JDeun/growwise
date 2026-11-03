@@ -27,6 +27,9 @@ jobs:
           cache: pip
       - name: Install uv
         run: python -m pip install "uv==0.12.13"
+      - name: Install reviewed Python runtime
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
       - name: Sync locked development environment
         run: uv sync --locked --extra dev
       - name: Verify lock is current
@@ -55,6 +58,9 @@ jobs:
           cache: pip
       - name: Install uv
         run: python -m pip install "uv==0.12.13"
+      - name: Install reviewed Python runtime
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
       - name: Sync locked development environment
         run: uv sync --locked --extra dev
       - name: Install pinned coverage tool
@@ -78,6 +84,9 @@ jobs:
           cache: pip
       - name: Install uv
         run: python -m pip install "uv==0.12.13"
+      - name: Install reviewed Python runtime
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
       - name: Verify lock is current
         run: uv lock --check
       - name: Export exact locked runtime graph
@@ -86,10 +95,23 @@ jobs:
           --format requirements-txt --output-file /tmp/growwise-runtime.txt
       - name: Python vulnerability audit
         run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-runtime.txt
+      - name: Export exact locked development and build graph
+        run: >-
+          uv export --locked --no-dev --no-emit-project --no-hashes
+          --extra dev --extra hygiene --extra desktop-build
+          --format requirements-txt --output-file /tmp/growwise-tooling.txt
+      - name: Development and build vulnerability audit
+        run: uv run --locked --extra hygiene pip-audit --strict -r /tmp/growwise-tooling.txt
       - name: Python license inventory
         run: uv run --locked --extra hygiene pip-licenses --format=json --with-urls > /tmp/growwise-python-licenses.json
       - name: Enforce Python license policy
         run: python scripts/check_license_policy.py --ecosystem python --input /tmp/growwise-python-licenses.json
+      - name: Verify locked runtime notices
+        env:
+          UV_PROJECT_ENVIRONMENT: /tmp/growwise-runtime-notices
+        run: |
+          uv sync --locked
+          uv run --no-sync python scripts/generate_notice.py --check
 
   desktop-frontend:
     runs-on: ubuntu-latest
@@ -188,13 +210,33 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Isolate managed Python installation
+        shell: bash
+        run: echo "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" >> "$GITHUB_ENV"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
           cache: pip
-      - name: Install sidecar build dependencies
-        run: python -m pip install -e ".[desktop-build]"
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: "22"
+      - name: Install pinned packaging toolchains
+        run: |
+          python -m pip install "uv==0.12.13"
+          rustup toolchain install 1.98.1 --profile minimal
+          rustup default 1.98.1
+          npm install --global npm@11.6.2
+      - name: Install exact reviewed Python distribution
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
+      - name: Install locked clean sidecar and attribution sources
+        run: |
+          uv sync --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}"
+          npm ci --prefix desktop --omit=dev --no-audit --no-fund
+          cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
       - name: Build Core executable
-        run: python desktop/scripts/build_core_sidecar.py
+        run: uv run --no-sync python desktop/scripts/build_core_sidecar.py
+      - name: Verify bundled runtime license texts
+        run: uv run --no-sync python desktop/scripts/build_license_bundle.py --check
       - name: Smoke authenticated bundled Core
-        run: python desktop/scripts/smoke_core_sidecar.py --timeout 30
+        run: uv run --no-sync python desktop/scripts/smoke_core_sidecar.py --timeout 30

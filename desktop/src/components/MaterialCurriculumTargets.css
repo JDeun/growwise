@@ -9,8 +9,8 @@
   padding: 9px 11px;
   cursor: pointer;
   color: var(--primary-strong);
-  font-size: 12px;
-  font-weight: 750;
+  font-size: var(--font-size-control);
+  font-weight: var(--weight-bold);
 }
 
 .material-curriculum-list {
@@ -34,15 +34,15 @@
 }
 
 .material-curriculum-list strong {
-  font-size: 12px;
+  font-size: var(--font-size-control);
 }
 
 .material-curriculum-list span,
 .material-curriculum-list small,
 .material-curriculum-list p {
   color: var(--ink-soft);
-  font-size: 11px;
-  line-height: 1.5;
+  font-size: var(--font-size-body);
+  line-height: var(--line-body);
 }
 
 .material-curriculum-list p {

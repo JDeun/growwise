@@ -45,7 +45,7 @@ def ensure_material_quest(
         raise ValueError("material_must_be_approved_before_quest")
 
     child_id = str(material.child_id)
-    with child_operation_lock(child_id):
+    with store.mutation_window(), child_operation_lock(child_id):
         if store.index.get_entity(child_id, entity_type="child_profile") is None:
             raise KeyError("material_child_not_found")
 

@@ -1,0 +1,291 @@
+{
+  "observed_on": "2026-11-03",
+  "status": "observed",
+  "extends": "EXP-DESIGN-OBSERVED-20261103",
+  "code_revision": "e3c3b3b19d9fa23a42d976e39f7fee48af211d4b",
+  "tool": {
+    "name": "Impeccable",
+    "version": "4.8.0",
+    "revision": "9fadc41729c38fd47d7ae622b501558653f9d2e9",
+    "telemetry": "DO_NOT_TRACK=1"
+  },
+  "fixture": "Existing synthetic browser E2E IPC responses; production React; no household data",
+  "initial_scan": [
+    {
+      "width": 1440,
+      "view": "profile",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "학습 기록"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 5
+    },
+    {
+      "width": 1440,
+      "view": "profile",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "발달 분석"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 9
+    },
+    {
+      "width": 1440,
+      "view": "profile",
+      "tab_index": 2,
+      "visible_selected_tabs": [
+        "성장 리포트"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 1440,
+      "view": "learning",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "학습 기록독서 · 학교 · 자율학습 · 과제"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 1440,
+      "view": "learning",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "관찰 기록일상의 발견 · 경험 축 · 타임라인"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [
+        {
+          "kind": "skipped-heading",
+          "detail": "<h1> \"학습 기록\" followed by <h3> \"의미 있는 관찰만 기록합니다.\" (missing h2)"
+        }
+      ],
+      "style_warning_count": 2
+    },
+    {
+      "width": 1440,
+      "view": "materials",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "활동 자료만들기 · 사용 · 기록",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 1440,
+      "view": "materials",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "활동 관리추천 · 진행 · 결과",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 6
+    },
+    {
+      "width": 1440,
+      "view": "materials",
+      "tab_index": 2,
+      "visible_selected_tabs": [
+        "참고 자료내 자료와 출처",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 1
+    },
+    {
+      "width": 1440,
+      "view": "materials",
+      "tab_index": 3,
+      "visible_selected_tabs": [
+        "자료 찾기책 · 교육과정 · 탐방",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 1
+    },
+    {
+      "width": 1440,
+      "view": "settings",
+      "tab_index": 0,
+      "visible_selected_tabs": [],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 12
+    },
+    {
+      "width": 430,
+      "view": "profile",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "학습 기록"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 5
+    },
+    {
+      "width": 430,
+      "view": "profile",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "발달 분석"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 9
+    },
+    {
+      "width": 430,
+      "view": "profile",
+      "tab_index": 2,
+      "visible_selected_tabs": [
+        "성장 리포트"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 430,
+      "view": "learning",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "학습 기록독서 · 학교 · 자율학습 · 과제"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 430,
+      "view": "learning",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "관찰 기록일상의 발견 · 경험 축 · 타임라인"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [
+        {
+          "kind": "skipped-heading",
+          "detail": "<h1> \"학습 기록\" followed by <h3> \"의미 있는 관찰만 기록합니다.\" (missing h2)"
+        }
+      ],
+      "style_warning_count": 2
+    },
+    {
+      "width": 430,
+      "view": "materials",
+      "tab_index": 0,
+      "visible_selected_tabs": [
+        "활동 자료만들기 · 사용 · 기록",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 4
+    },
+    {
+      "width": 430,
+      "view": "materials",
+      "tab_index": 1,
+      "visible_selected_tabs": [
+        "활동 관리추천 · 진행 · 결과",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 6
+    },
+    {
+      "width": 430,
+      "view": "materials",
+      "tab_index": 2,
+      "visible_selected_tabs": [
+        "참고 자료내 자료와 출처",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 1
+    },
+    {
+      "width": 430,
+      "view": "materials",
+      "tab_index": 3,
+      "visible_selected_tabs": [
+        "자료 찾기책 · 교육과정 · 탐방",
+        "자료"
+      ],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 1
+    },
+    {
+      "width": 430,
+      "view": "settings",
+      "tab_index": 0,
+      "visible_selected_tabs": [],
+      "document_overflow": -15,
+      "quality_findings": [],
+      "style_warning_count": 12
+    }
+  ],
+  "fix": {
+    "component": "ObservationGrowthSection",
+    "before": "h1 followed by h3; missing h2",
+    "after": "section heading h2; CSS role remains18px",
+    "source": "desktop/src/features/ObservationGrowthSection.tsx",
+    "css": "desktop/src/features/ObservationGrowthSection.css"
+  },
+  "affected_state_rescan": [
+    {
+      "width": 1440,
+      "quality": [],
+      "overflow": -15,
+      "assets": [
+        "index-0ik4L8yG.js",
+        "index-BzyA4bcz.css"
+      ]
+    },
+    {
+      "width": 430,
+      "quality": [],
+      "overflow": -15,
+      "assets": [
+        "index-0ik4L8yG.js",
+        "index-BzyA4bcz.css"
+      ]
+    }
+  ],
+  "scope": [
+    "Profile3tabs, learning2tabs, materials4tabs, settingswithalldetailsopen, eachat1440and430CSSpx.",
+    "Settingsdetailrenderonly;noAPIkeysaveorOSstoremutation.",
+    "430CSSpxisreflowcheck,notbrowserzoomcertification."
+  ],
+  "manual_review": "Implementation agent inspected deep photos/profiledevelopment/materialsdiscovery and430pxobservation screenshots.",
+  "limitations": [
+    "Initial20state scan retains its two occurrences of the same heading issue. Only affected observation state rescanned afterfix.",
+    "Nested-cardstylewarningsremain;nozeroallwarningsclaim.",
+    "This fixture-based rendered check does not rerun authenticated actualCore14stepjourney; earlier exactasset evidence is preserved."
+  ],
+  "raw_sha256": {
+    "initial": "a5cd629d0c6cb6a1ab037041061846da70541a97d0fedb0869ee723869d404bd",
+    "affected_rescan": "c1719310920953193238c6e6b27ae242821bad2716a1fa84f0a769e1dac28bb0"
+  }
+}

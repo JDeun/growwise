@@ -1,0 +1,76 @@
+{
+  "experiment_id": "EXP-WINDOWS-PACKAGE-OBSERVED-20261104",
+  "recorded_on": "2026-11-04",
+  "observed_ci_finished_at": "2026-11-03T15:31:06Z",
+  "recording_timezone": "Asia/Seoul",
+  "revision": "b07417502a87cb0f3955731cd4bed3a7c7c43baf",
+  "scope": "Successful Windows package job and independently downloaded NSIS file only; not a whole-workflow, installer-execution or native-GUI acceptance claim.",
+  "ci": {
+    "run_url": "https://github.com/JDeun/growwise/actions/runs/41662105505",
+    "job_url": "https://github.com/JDeun/growwise/actions/runs/41662105505/job/126007996703",
+    "job_conclusion": "success",
+    "job_duration_seconds": 862,
+    "downloaded_job_log_sha256": "7a47069404360791f3e6f947db1854532a5d2eaef68208f44e8c8d2911a347c9",
+    "source_log_redistributed": false
+  },
+  "updater_tests": {
+    "passed": 3,
+    "failed": 0,
+    "ignored": 0,
+    "other_tests_filtered": 29,
+    "test_names": [
+      "release_updates_require_secure_config_and_explicit_operation_serialization",
+      "verifies_real_public_signature_and_rejects_tampered_bytes_or_signature_before_install",
+      "interrupted_oversized_or_redirected_downloads_fail_without_installing"
+    ],
+    "test_harness": "Cargo --no-run compiled real Rust library harness; SDK embedded verified Common Controls v6 manifest; exact harness executed directly with updater_commands::tests filter."
+  },
+  "interpreter": {
+    "python": "3.12.16",
+    "distributor_build": "20261026",
+    "managed_install_observed": true,
+    "pyinstaller_observed_python": "3.12.16"
+  },
+  "license_bundle": {
+    "verified": true,
+    "aggregate_rows": 374,
+    "count_scope": "All bundled ecosystem/package rows; not a Python-only package count.",
+    "verification": "Inventory and raw-file hashes checked by build_license_bundle.py --check in the actual Windows build environment."
+  },
+  "packaged_core_smoke": {
+    "passed": true,
+    "protocol_version": 1,
+    "unauthenticated_request_rejected": true,
+    "authenticated_handshake_and_health": true,
+    "core_only": true,
+    "ai_features_disabled": true,
+    "synthetic_png_to_bounded_jpeg": true,
+    "script": "desktop/scripts/smoke_core_sidecar.py"
+  },
+  "installer": {
+    "artifact_name": "growwise-windows-x64",
+    "artifact_url": "https://github.com/JDeun/growwise/actions/runs/41662105505/artifacts/13246155583",
+    "retention_days_configured": 14,
+    "uploaded_zip_bytes_from_ci": 31928366,
+    "uploaded_zip_sha256_from_ci": "549f9eeaddce30bcb9c5c3285675ace0203d73752b61717c433d759eb7c79f23",
+    "name": "GrowWise_0.1.0-alpha.0_x64-setup.exe",
+    "downloaded_file_bytes": 31937700,
+    "downloaded_file_sha256": "91351244f381d70436c3abdb66b6c94444636740ceb1d4c0aebb38809ee421f9",
+    "independent_download_platform": "macOS arm64",
+    "mz_and_pe_headers_present": true,
+    "nsis_format_marker_present": true,
+    "pe_stub_machine": "0x14c",
+    "certificate_table_offset": 0,
+    "certificate_table_size": 0,
+    "executed_or_installed_locally": false
+  },
+  "claim_boundaries": [
+    "No claim that the NSIS format marker is a digital signature.",
+    "No embedded Authenticode certificate observed; stable signing and update-release keys are not claimed.",
+    "PE machine records the NSIS stub; payload architecture was not independently re-extracted.",
+    "Actual native WebView user journey remains separate from packaged Core smoke.",
+    "Historical Python 3.12.13 and pre-migration security evidence is retained unchanged.",
+    "Subsequent commits and CI runs are not assigned this observed result."
+  ],
+  "privacy_review": "Public CI URLs, versions, aggregate results and artifact hashes only; no household records, credentials, user SIDs, private host paths or redistributed raw logs."
+}

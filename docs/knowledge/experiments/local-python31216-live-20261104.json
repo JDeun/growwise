@@ -1,0 +1,247 @@
+{
+  "experiment_id": "EXP-LOCAL-31216-LIVE-OBSERVED-20261104",
+  "recorded_at": "2026-11-03T15:08:12.806391+00:00",
+  "observed_report_written_at": "2026-11-04T00:00:01.688294+09:00",
+  "source_state": "Frozen working tree matching09fc4f9; exact script/browser/metric-helper/Core hashes retained in original report and Core source rechecked at collection",
+  "scope": "Coordinator-executed production browser+authenticated actual Core with explicitly selected private Python3.12.16; artifact independently inspected and the same private interpreter version checked. Not native-packaged WebView, installer/signing or hosted-model evaluation.",
+  "original_report_sha256": "459fee6d42917478c598bc273a16142dd6f9b2448c2c6fb5bd53d6248a2c1658",
+  "original_report_preservation": "Every original report field/value retained, including duplicate final metric sample; only local artifact output path replaced with a placeholder. Original report bytes remain private and unmodified.",
+  "runtime": {
+    "python": "3.12.16",
+    "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+    "expat": "expat_2.9.0"
+  },
+  "runtime_verification": "Independent -I stdlib version probe against the same explicit private interpreter path from the coordinator launch command, after journey completion. No XML content or filesystem/runtime path output captured.",
+  "launch": {
+    "working_directory": "desktop",
+    "sanitized_command": "env GROWWISE_E2E_ARTIFACTS=<isolated-artifacts> GROWWISE_E2E_PYTHON=<isolated-python-3.12.16>/bin/python GROWWISE_E2E_SOAK_SECONDS=120 GROWWISE_E2E_SOAK_RECORDS=1000 npm run test:live",
+    "private_exact_command_sha256": "aa877d03dc8cc28227c7ec30ec2840a6226809040682cf2eddb7c6e3c5f8478c",
+    "binding": "live_e2e.mjs explicitly uses GROWWISE_E2E_PYTHON for the spawned Core. The coordinator executed that explicit-env command; this metadata is not a self-reported interpreter field originally emitted by the journey."
+  },
+  "summary": {
+    "asserted_steps": 22,
+    "seeded_records": 1000,
+    "workspaces": 8,
+    "warmup_seconds": 91,
+    "warmup_cycles": 48,
+    "early_core_rss_growth_bytes": 6307840,
+    "steady_seconds": 120,
+    "steady_cycles": 64,
+    "terminal_core_rss_growth_bytes": -4833280,
+    "terminal_post_gc_browser_heap_growth_bytes": 240104,
+    "total_observation_seconds": 211
+  },
+  "original_report_sanitized": {
+    "passed": true,
+    "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+    "llm": false,
+    "fixture": "synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",
+    "scriptSha256": "3b724ae0c47771adf85b454a7f79d121f1745ffee40ef14cc8669d16e9db5707",
+    "browserHelperSha256": "d082e39a6ddeb04766ce60712e416b2be220391ebbcd7c0fa34a4106c7d01389",
+    "soakMetricsSha256": "8a5579f0b35a3b366bc739cde49e490dc08e1bffc92eaad5a536960c7bd7b415",
+    "coreSourceSha256": "1d6fac4c8b7710b8a64dd36cc71437b267efc7633f57cb37cdb8e26d519e58fc",
+    "nativeCsp": "default-src 'self'; connect-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+    "buildAssets": [
+      "/assets/index-CuQeaFzA.js",
+      "/assets/index-o_Tz_q_5.css"
+    ],
+    "steps": [
+      "real Core starts and rejects unauthenticated access",
+      "UI first-run profile persists and enters materials",
+      "UI background generation saves template; explicit use passes real review gate",
+      "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+      "UI one-line result writes authoritative learning record",
+      "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+      "UI independent reading record preserves separate record kind",
+      "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+      "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+      "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+      "UI confirmed conversation deletion preserves another conversation and original source records",
+      "UI direct search returns actual child-scoped records without an LLM",
+      "UI reference library create/edit/detail/confirmed delete reaches real Core",
+      "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+      "UI actual PNG upload, parent confirmation and bounded JPEG thumbnails pass; original PNG remains byte-identical and UI never fetches full originals",
+      "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+      "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+      "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated",
+      "UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it",
+      "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+      "infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces",
+      "actual Core/UI navigation soak: 1000 added records, observed RSS plateau after 91s, then 64 cycles across 8 workspaces for 120s, bounded post-GC heap and Core RSS"
+    ],
+    "artifacts": "<isolated local artifacts>",
+    "navigationSoak": {
+      "measurementVersion": 2,
+      "requestedSeconds": 120,
+      "seededRecords": 1000,
+      "views": [
+        "home",
+        "profile",
+        "learning",
+        "materials",
+        "photos",
+        "conversation",
+        "backup",
+        "help"
+      ],
+      "warmup": {
+        "policy": {
+          "maximumSeconds": 120,
+          "sampleIntervalSeconds": 15,
+          "minimumSpanSeconds": 30,
+          "maximumSpreadBytes": 524288,
+          "sampleCount": 3
+        },
+        "cycles": 48,
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5195828,
+            "coreRssBytes": 185139200,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 15,
+            "cycles": 8,
+            "heapUsedBytes": 5413176,
+            "coreRssBytes": 188137472,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 30,
+            "cycles": 16,
+            "heapUsedBytes": 5623344,
+            "coreRssBytes": 190840832,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 45,
+            "cycles": 24,
+            "heapUsedBytes": 5653436,
+            "coreRssBytes": 190840832,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 60,
+            "cycles": 32,
+            "heapUsedBytes": 5763564,
+            "coreRssBytes": 191381504,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 75,
+            "cycles": 40,
+            "heapUsedBytes": 5867844,
+            "coreRssBytes": 191447040,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 91,
+            "cycles": 48,
+            "heapUsedBytes": 5891024,
+            "coreRssBytes": 191447040,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          }
+        ],
+        "assessment": {
+          "stable": true,
+          "spanSeconds": 31,
+          "spreadBytes": 65536,
+          "sustainedGrowth": false
+        }
+      },
+      "coldBaseline": {
+        "elapsedSeconds": 0,
+        "cycles": 0,
+        "heapUsedBytes": 5195828,
+        "coreRssBytes": 185139200,
+        "Documents": 3,
+        "JSEventListeners": 167,
+        "Nodes": 305
+      },
+      "earlyCoreRssGrowthBytes": 6307840,
+      "totalElapsedSeconds": 211,
+      "samples": [
+        {
+          "elapsedSeconds": 0,
+          "cycles": 0,
+          "heapUsedBytes": 5891024,
+          "coreRssBytes": 191447040,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        {
+          "elapsedSeconds": 30,
+          "cycles": 16,
+          "heapUsedBytes": 5963404,
+          "coreRssBytes": 191447040,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        {
+          "elapsedSeconds": 60,
+          "cycles": 32,
+          "heapUsedBytes": 6134680,
+          "coreRssBytes": 186613760,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        {
+          "elapsedSeconds": 90,
+          "cycles": 48,
+          "heapUsedBytes": 6152808,
+          "coreRssBytes": 186613760,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        {
+          "elapsedSeconds": 120,
+          "cycles": 64,
+          "heapUsedBytes": 6131128,
+          "coreRssBytes": 186613760,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        {
+          "elapsedSeconds": 120,
+          "cycles": 64,
+          "heapUsedBytes": 6131128,
+          "coreRssBytes": 186613760,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        }
+      ],
+      "cycles": 64
+    }
+  },
+  "limits": [
+    "22 asserted steps include the shared print assertion twice; not22independent business features.",
+    "Browser IPC adapter replaces native transport only; Core data/security remain actual. This is not the Windows native-token or packaged-Tauri journey.",
+    "Models, vision, embeddings and public enrichment disabled; no real provider keys, child records or photographs.",
+    "No new screenshot-by-screenshot design audit, learning-effect trial or real household dogfooding claimed.",
+    "RSS terminal decrease does not establish a memory improvement or absence of every leak. Existing120second warmup and Core32MiB/browser8MiB steady budgets unchanged.",
+    "Library-version verification does not execute malicious ZIP/TLS/XML exploit tests or establish all security properties.",
+    "Latest Linux09fc4f9 CI remains a separate run; its result is not claimed in this local artifact."
+  ]
+}

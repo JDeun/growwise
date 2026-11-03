@@ -1,4 +1,5 @@
 import sqlite3
+from datetime import datetime
 
 from langgraph.checkpoint.sqlite import SqliteSaver
 from langgraph.types import Command
@@ -26,4 +27,5 @@ def test_material_review_interrupts_and_resumes_from_sqlite_checkpoint(tmp_path)
 
     assert resumed["decision_status"] == "approved"
     assert resumed["decision_note"] == "검토 완료"
+    assert datetime.fromisoformat(resumed["decision_at"]).tzinfo is not None
     connection.close()

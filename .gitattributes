@@ -1,0 +1,6 @@
+# Reviewed license overrides are copied verbatim and verified by SHA-256 on every platform.
+assets/licenses/** -text
+# Preserve exact upstream bytes, including their valid Markdown underline and trailing spaces.
+assets/licenses/python-standalone/openssl-3.5.7/AUTHORS.md conflict-marker-size=32
+assets/licenses/python-standalone/openssl-3.5.9/AUTHORS.md conflict-marker-size=32
+assets/licenses/rust-overrides/selectors-0.38.0/SPDX-MPL-2.0.txt whitespace=-blank-at-eol

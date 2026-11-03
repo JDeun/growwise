@@ -1,0 +1,75 @@
+{
+  "experiment_id": "EXP-PYTHON-RUNTIME-SECURITY-20261103",
+  "recorded_on": "2026-11-03",
+  "repository_head_when_recorded": "afaa98c14b6fc0ebe58f7114af29fa0d1dc80fb7",
+  "source_state": "Uncommitted minimum-version metadata change on the recorded HEAD; release-distribution migration is a separate concurrent task.",
+  "scope": "Official CPython security fixes, source call-site review and exact lock metadata comparison. No malicious-input exploit or Python 3.12.16 packaged application success claimed.",
+  "advisories": [
+    {
+      "fixed_in": "3.12.15",
+      "cves": ["CVE-2026-15310"],
+      "primary_urls": ["https://www.python.org/downloads/release/python-31215/", "https://github.com/python/cpython/issues/156002"],
+      "issue": "ZIP bzip2/LZMA decompression can allocate unbounded output before requested-read and declared-size clipping.",
+      "app_call_sites": ["src/growwise/backup/service.py:295", "src/growwise/backup/service.py:300", "src/growwise/backup/service.py:449", "src/growwise/backup/service.py:543"],
+      "exposure": "Parent explicitly selects a restore ZIP. Existing archive size/path metadata checks and bounded manifest read do not replace the upstream decompressor fix; supported compression types are not restricted here.",
+      "verification": "Call sites and upstream description inspected; exploit not executed."
+    },
+    {
+      "fixed_in": "3.12.16",
+      "cves": ["CVE-2026-115557"],
+      "primary_urls": ["https://www.python.org/downloads/release/python-31216/", "https://github.com/python/cpython/issues/160040"],
+      "issue": "SSL distrusts compromised eMudhra intermediate CA keys.",
+      "app_call_sites": ["src/growwise/model/openai_compatible.py:116", "src/growwise/model/openai_compatible.py:125", "src/growwise/adapters/http.py:143"],
+      "exposure": "Explicitly configured remote model uses urllib HTTPS for Bearer-authenticated requests; optional public-data adapters use urllib HTTPS. Same-origin redirect and size bounds do not provide the missing TLS distrust rule. Local-only Ollama is not assigned the same remote TLS exposure.",
+      "verification": "Call sites and upstream description inspected; certificate attack not executed."
+    },
+    {
+      "fixed_in": "3.12.16",
+      "cves": ["CVE-2026-77214", "CVE-2026-102633"],
+      "primary_urls": ["https://www.python.org/downloads/release/python-31216/", "https://github.com/python/cpython/issues/158876"],
+      "issue": "Bundled Expat updated to 2.9.0 for security fixes.",
+      "app_call_sites": ["src/growwise/adapters/krdict.py:96", "src/growwise/adapters/heritage_palace.py:118"],
+      "exposure": "Optional external XML adapters parse bounded upstream text with ElementTree.fromstring; HTTPS and input-size caps do not substitute for parser fixes.",
+      "verification": "Parser call sites and upstream security release inspected; specific XML exploits not reproduced in GrowWise."
+    }
+  ],
+  "metadata_verification": {
+    "previous_requires_python": ">=3.12",
+    "new_requires_python": ">=3.12.16",
+    "previous_package_count": 108,
+    "new_package_count": 108,
+    "complete_package_objects_equal": true,
+    "canonical_package_graph_sha256": "09c47614cdcc2268d56b5d12d3d9e0db2914e61c98a0dd63720ec05f397f1434",
+    "canonicalization": "json.dumps(parsed_uv_lock['package'], sort_keys=True, separators=(',', ':')), UTF-8",
+    "uv_version": "0.12.13",
+    "uv_execution": "Isolated cached uv tool; no host shim or shared virtual-environment changes.",
+    "resolver_interpreter": "Existing Python 3.13.13 used only for lock resolution; not a claim of packaged runtime security.",
+    "lock_generation_passed": true,
+    "offline_lock_check_passed": true,
+    "new_dependency_selection": false
+  },
+  "source_sha256": {
+    "pyproject.toml": "8a1e3a02f2319190e23ecc0f2f84a29a4e0fc89e680c6c146e79775c3578f1b6",
+    "uv.lock": "78032e6615e935a3012d24f6e0409fe968e4c1eff8bbdc19f63f439c563f012f",
+    "src/growwise/backup/service.py": "bc693a66196b1b3c033a956249faccb745685efd92d49e436a650a701bd5b486",
+    "src/growwise/model/openai_compatible.py": "03578f50041e132623f0d8347e098f0fabeaf54d2dce32bf06a8847e2c8bc42a",
+    "src/growwise/adapters/http.py": "c1a4bb5944c19c49f959a3fde88c22d88cfdbd016ca7c86ac60b865582cf8a18",
+    "src/growwise/adapters/krdict.py": "f1561206f34b35a3d0e40842f88b7f6a75af3f8fc53a050bd2c7a0b5d4bfe918",
+    "src/growwise/adapters/heritage_palace.py": "c0f4328475338d36d8f8d3a269e3dd3f442dd1cccb642f5a5a79a0e89e05045e"
+  },
+  "previous_package_evidence": {
+    "artifact": "docs/knowledge/experiments/package-validation-20261103.md",
+    "experiment_id": "EXP-PACKAGE-VALIDATION-OBSERVED-20261103",
+    "interpreter": "3.12.13",
+    "distributor_build": "20260623",
+    "historical_observations_retained": true,
+    "release_runtime_security_suitability_superseded": true
+  },
+  "pending_at_recording": [
+    "Exact official Python 3.12.16 distributor provenance and bundled native attribution update",
+    "Fresh Windows and macOS package CI on the new runtime",
+    "Actual new-runtime packaged Core smoke and installer verification"
+  ],
+  "new_python_3_12_16_package_success_claimed": false,
+  "privacy_review": "Public upstream references, repository paths and source hashes only; no family records, credentials, user SIDs or private host paths."
+}

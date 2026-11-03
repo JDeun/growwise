@@ -36,8 +36,9 @@ validation.
 
 A stable tag such as `v1.0.0` has a stricter trust boundary than a prerelease tag such as
 `v1.0.0-beta.1`: stable packaging fails before bundling unless production signing credentials are
-available for both macOS and Windows. If the updater release overlay is activated, the stable
-preflight also requires the long-lived Tauri updater private key.
+available for both macOS and Windows. Stable preflight also requires activated updater configuration, its committed native Cargo feature,
+a valid public key and the long-lived Tauri updater private signing key. A stable build with updater
+artifacts disabled is rejected.
 
 ## Stable release overlay
 
@@ -46,9 +47,10 @@ with updater artifacts disabled so normal development and prerelease packaging d
 updater trust root.
 
 After the operator creates and safely backs up the long-lived updater signing key,
-`desktop/scripts/configure_updater.py` changes that overlay to enable updater artifacts and adds the
-updater plugin to the Rust shell. The script also runs `cargo check`, which refreshes `Cargo.lock` and
-validates the generated Rust dependency wiring.
+`desktop/scripts/configure_updater.py` changes that overlay to enable updater artifacts and `build.features=["updater"]`. The optional
+plugin, native IPC commands and Settings UI are already committed. The script runs
+`cargo check --locked --features updater`; failure restores the previous overlay. It does not create
+a key or modify Rust source/lockfiles during activation.
 
 ## macOS signing and notarization
 
@@ -109,46 +111,80 @@ For a stable version, `--platform` is mandatory and the same two commands additi
 platform-specific production signing environment. Run both platform checks before creating the stable
 tag; a bare stable `--tag` check intentionally fails rather than reporting an ambiguous success.
 
-The preflight also validates the stable release overlay. When
-`bundle.createUpdaterArtifacts=true`, the overlay must contain a non-empty updater public key and at
-least one absolute HTTPS endpoint, and stable packaging requires `TAURI_SIGNING_PRIVATE_KEY`.
+The preflight also validates the stable release overlay. Stable tags require `bundle.createUpdaterArtifacts=true`, the native updater build feature, a
+Tauri/minisign public key and at least one credential-free HTTPS endpoint. TLS bypasses and downgrades
+are rejected; `requireSignedVersion=true` binds the announced version to the signed artifact.
+Stable packaging requires `TAURI_SIGNING_PRIVATE_KEY`; zero or partial signed updater sets cannot
+publish a stable release. Tauri CLI2.12+ is required and the locked CLI version is checked.
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is optional when the updater key was created without a password.
 
 ## Local package check
 
-From the repository root, install Python 3.12+, Node.js 22+, Rust stable, and the locked project
-dependencies. Then:
+Run from the repository root with Node.js22/npm11.6.2, Rust1.98.1 and Python3.12.16 or a newer
+supported security-patched Python available. Use a fresh private interpreter/build environment;
+shared development environments are deliberately rejected. The installer reads the authoritative
+version, build, official catalog URL and SHA from
+`assets/licenses/python-standalone/provenance.json`. It verifies the catalog bytes and lets uv
+verify the archive checksum. `--no-bin --no-registry` keeps the managed installation from changing
+host Python shortcuts or Windows registry entries.
+
+macOS/Linux, using **Bash**:
 
 ```bash
-python -m pip install "uv==0.12.13"
-uv sync --locked --extra desktop-build
-python desktop/scripts/check_release_readiness.py
+set -euo pipefail
+growwise_package_dir="$(mktemp -d "${TMPDIR:-/tmp}/growwise-package.XXXXXX")"
+export UV_PYTHON_INSTALL_DIR="$growwise_package_dir/python"
+export UV_PROJECT_ENVIRONMENT="$growwise_package_dir/venv"
+python3 -m pip install "uv==0.12.13"
+python3 desktop/scripts/install_packaging_python.py
+growwise_package_python="$(python3 desktop/scripts/install_packaging_python.py --print-version)"
+uv sync --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python"
+rustup toolchain install 1.98.1 --profile minimal
+cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
+npm ci --prefix desktop --no-audit --no-fund
+python3 desktop/scripts/check_release_readiness.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/build_core_sidecar.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/build_license_bundle.py --check
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/smoke_core_sidecar.py
 cd desktop
-npm ci
 npm run tauri -- icon ../assets/brand/growwise-symbol.svg
-cd ..
-uv run python desktop/scripts/build_core_sidecar.py
-uv run python desktop/scripts/smoke_core_sidecar.py
-```
-
-Build the ordinary validation package from `desktop/`:
-
-```bash
-# Windows
-npm run tauri -- build --bundles nsis
-
-# macOS
 npm run tauri -- build --bundles dmg
 ```
 
-To reproduce the stable overlay locally after signing credentials are available, append:
+The final DMG command is for macOS; Linux CI validates the frozen Core without a desktop installer.
 
-```bash
---config src-tauri/tauri.release.conf.json
+Windows, using **PowerShell7.4+**:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
+$growwisePackageDir = Join-Path $env:TEMP ('growwise-package-' + [guid]::NewGuid().ToString('N'))
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $growwisePackageDir 'python'
+$env:UV_PROJECT_ENVIRONMENT = Join-Path $growwisePackageDir 'venv'
+python -m pip install "uv==0.12.13"
+python desktop/scripts/install_packaging_python.py
+$growwisePackagePython = python desktop/scripts/install_packaging_python.py --print-version
+uv sync --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython
+rustup toolchain install 1.98.1 --profile minimal
+cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
+npm ci --prefix desktop --no-audit --no-fund
+python desktop/scripts/check_release_readiness.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/build_core_sidecar.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/build_license_bundle.py --check
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/smoke_core_sidecar.py
+Push-Location desktop
+npm run tauri -- icon ../assets/brand/growwise-symbol.svg
+npm run tauri -- build --bundles nsis
+Pop-Location
 ```
 
-The application is local-first and the packaged Core smoke test explicitly verifies that startup
-does not require an LLM provider.
+Node packages and Cargo source must be installed **before** building Core because its bundled
+attribution resource includes the production frontend/native dependency graph. Every uv run keeps
+the locked `desktop-build` extra; an implicit sync must not remove PyInstaller before the build.
+These ordinary validation packages do not require a signing key or activate automatic updates.
+For a later stable build with credentials prepared, add
+`--config src-tauri/tauri.release.conf.json` to the Tauri build command. The packaged Core smoke
+verifies authenticated startup and a real synthetic PNG-to-JPEG thumbnail without an LLM provider.
 
 ## Updater activation
 
@@ -170,9 +206,8 @@ The configurator:
 
 - enables `bundle.createUpdaterArtifacts` only in `tauri.release.conf.json`,
 - writes the public key and HTTPS update endpoint,
-- adds `tauri-plugin-updater = "2"` to the Rust dependencies,
-- wires the updater plugin into the Tauri builder, and
-- runs `cargo check` so `Cargo.lock` and Rust wiring are updated together.
+- enables the committed optional `updater` Cargo feature in the release overlay, and
+- runs `cargo check --locked --features updater`, rolling the overlay back if compilation fails.
 
 The default endpoint is:
 
@@ -193,3 +228,29 @@ to the normalized assets in that same GitHub Release.
 
 The remaining updater work is operational trust validation on packaged clients; see
 `docs/operator-handoff.md` and `docs/operational-validation.md`.
+
+
+## Installed application update flow
+
+Settings → **앱 업데이트** shows the installed version and whether this build has an activated trust
+root. **새 버전 확인** queries only the compiled release endpoint. It sends app/platform metadata,
+not child records or Core credentials. **다운로드·설치…** requires an explicit confirmation naming
+installation and restart. The WebView cannot supply an endpoint, key or installer path.
+
+The native command downloads one package with strict HTTPS, at most5HTTPS redirect hops and a512MiB limit, then
+uses the upstream updater to verify its signature and signed app version. Download/signature failure
+leaves Core running and performs no install. Only verified bytes reach the serialized Core shutdown/
+installation boundary; installation failure restarts the previous Core at its existing data root,
+port and token. macOS restarts after install; the Windows installer handles its own restart after
+Core is stopped. Model files, records and API credentials are separate from application packages.
+
+PR/preview builds keep updater support unconfigured. Unit fixtures cover unconfigured/no-update/
+available states, native IPC and escaped release notes. Upstream public signature vectors and local
+interrupted/oversized/redirect fixtures verify rejection paths without generating a private key or
+installing test packages. These checks do not replace a signed end-to-end update on packaged clients.
+
+Every package job compiles the updater feature even when building an unsigned validation installer.
+Stable jobs additionally verify macOS codesign/Gatekeeper/stapled notarization and Windows
+Authenticode/timestamp after building. The packaged Core smoke uploads a synthetic PNG and requests
+a JPEG thumbnail, exercising frozen Pillow plugins as well as authenticated startup/parent-watchdog
+imports. Source-level tests alone are not claimed as a packaged-platform runtime pass.

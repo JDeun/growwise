@@ -23,7 +23,6 @@ export function MaterialsWorkspaceHub({ app, renderDiscovery }: MaterialsWorkspa
     <section className="materials-hub" data-material-tab={tab} aria-labelledby="materials-hub-title">
       <header className="materials-hub-heading">
         <div>
-          <p className="eyebrow">LEARNING MATERIALS</p>
           <h1 id="materials-hub-title">자료실</h1>
           <p>아이에게 필요한 활동 자료를 만들고, 참고 자료와 외부 자료를 한곳에서 관리합니다.</p>
         </div>

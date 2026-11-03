@@ -292,6 +292,7 @@ def get_material(
 
 
 @router.post("/v1/materials/{material_id}/review", response_model=GeneratedMaterial)
+@serialize_material_successor
 def review_material(
     material_id: UUID,
     request: MaterialReviewRequest,
@@ -331,6 +332,7 @@ def review_material(
 
 
 @router.post("/v1/materials/{material_id}/use", response_model=GeneratedMaterial)
+@serialize_material_successor
 def use_material(
     material_id: UUID,
     store: Annotated[EntityStore, Depends(get_store)],

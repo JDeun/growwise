@@ -1,17 +1,19 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 
-import { ViewStateNotice } from "../components";
+import { ConfirmDialog, ViewStateNotice } from "../components";
+import { deleteConversation } from "../record-actions-api";
+import { useOptionalActiveChild, readRememberedChildId } from "../active-child-context";
 import {
   listConversations,
   type BackupItem,
   type ConversationAnswer,
   type ConversationSession,
   type SearchResponse,
+  type MaterialAction,
 } from "../api";
 import { resultText } from "../presentation";
+import { ConversationEvidence as EvidenceChips } from "./ConversationEvidence";
 import "./SearchConversationSection.css";
-
-const LAST_CHILD_KEY = "growwise:last-child-id";
 
 interface SearchConversationSectionProps {
   searchQuery: string;
@@ -27,6 +29,7 @@ interface SearchConversationSectionProps {
   onSearch: (event: FormEvent<HTMLFormElement>) => void;
   onConversationQuestionChange: (value: string) => void;
   onConversation: (event: FormEvent<HTMLFormElement>) => void;
+  onCreateMaterial?: (action: MaterialAction) => void;
   onNewConversation?: () => void;
   onSelectConversation?: (session: ConversationSession) => void;
   backups?: BackupItem[];
@@ -64,36 +67,7 @@ function conversationSessionTime(session: ConversationSession): string | null {
 function activeConversationChildId(conversation: ConversationSession | null): string | null {
   if (conversation) return conversation.child_id;
   if (typeof window === "undefined") return null;
-  return window.localStorage.getItem(LAST_CHILD_KEY);
-}
-
-function evidenceLabel(sourceId: string, index: number): string {
-  if (sourceId.startsWith("record:") || sourceId.startsWith("learning-log")) {
-    return `기록 ${index + 1}`;
-  }
-  if (sourceId.startsWith("resource:")) return `참고 자료 ${index + 1}`;
-  if (sourceId.startsWith("chunk:")) return `자료 근거 ${index + 1}`;
-  return `근거 ${index + 1}`;
-}
-
-function EvidenceChips({ sourceIds }: { sourceIds: string[] }) {
-  return (
-    <div className="conversation-evidence">
-      <strong>연결된 원본 근거</strong>
-      {sourceIds.length > 0 ? (
-        <>
-          <div className="conversation-source-chips" aria-label={`원본 근거 ${sourceIds.length}건`}>
-            {sourceIds.map((sourceId, index) => (
-              <span key={sourceId} title={sourceId}>{evidenceLabel(sourceId, index)}</span>
-            ))}
-          </div>
-          <small className="muted">답변을 만들 때 다시 확인한 저장 기록과 참고 자료입니다.</small>
-        </>
-      ) : (
-        <span className="muted">연결된 원본 근거가 없습니다.</span>
-      )}
-    </div>
-  );
+  return readRememberedChildId(window.localStorage);
 }
 
 export function SearchConversationSection({
@@ -110,6 +84,7 @@ export function SearchConversationSection({
   onSearch,
   onConversationQuestionChange,
   onConversation,
+  onCreateMaterial,
   onNewConversation = () => undefined,
   onSelectConversation = () => undefined,
   backups = [],
@@ -126,7 +101,18 @@ export function SearchConversationSection({
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [selectedHistoryId, setSelectedHistoryId] = useState<string | null>(null);
   const [newConversationMode, setNewConversationMode] = useState(false);
-  const historyChildId = activeConversationChildId(conversation);
+  const sharedChild = useOptionalActiveChild();
+  const historyChildId = sharedChild?.activeChildId ?? activeConversationChildId(conversation);
+  const visibleHistory = conversationHistory.filter((session) => session.child_id === historyChildId);
+  const currentChildId = useRef(historyChildId);
+  currentChildId.current = historyChildId;
+  const [deleteTarget, setDeleteTarget] = useState<ConversationSession | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  useEffect(() => {
+    setDeleteTarget(null);
+    setDeleting(false);
+  }, [historyChildId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -178,9 +164,34 @@ export function SearchConversationSection({
   }
 
   const selectedHistory = useMemo(
-    () => conversationHistory.find((session) => session.id === selectedHistoryId) ?? null,
-    [conversationHistory, selectedHistoryId],
+    () => conversationHistory.find((session) =>
+      session.id === selectedHistoryId && session.child_id === historyChildId,
+    ) ?? null,
+    [conversationHistory, selectedHistoryId, historyChildId],
   );
+  const activeConversation = conversation?.child_id === historyChildId ? conversation : null;
+  const deletableSession = activeConversation ?? selectedHistory;
+
+  async function handleDelete() {
+    if (!deleteTarget || deleting || conversationBusy) return;
+    const childId = historyChildId;
+    setDeleting(true);
+    setHistoryError(null);
+    try {
+      await deleteConversation(deleteTarget.id);
+      if (currentChildId.current !== childId) return;
+      setConversationHistory((sessions) => sessions.filter((session) => session.id !== deleteTarget.id));
+      setDeleteTarget(null);
+      handleNewConversation();
+    } catch (cause) {
+      if (currentChildId.current === childId) {
+        setHistoryError(cause instanceof Error ? cause.message : String(cause));
+        setDeleteTarget(null);
+      }
+    } finally {
+      if (currentChildId.current === childId) setDeleting(false);
+    }
+  }
   const latestBackup = useMemo(
     () =>
       [...backups].sort(
@@ -193,7 +204,6 @@ export function SearchConversationSection({
     <section className="conversation-workspace-grid" aria-labelledby="conversation-workspace-title">
       <header className="conversation-product-heading">
         <div>
-          <p className="eyebrow">GROUNDED CONVERSATION</p>
           <h2 id="conversation-workspace-title">AI와 대화하기</h2>
           <p>아이의 기록과 저장한 참고 자료를 다시 확인해 근거가 연결된 답변을 만듭니다.</p>
         </div>
@@ -202,10 +212,9 @@ export function SearchConversationSection({
       <aside className="conversation-history-pane" aria-label="대화 목록">
         <div className="conversation-pane-heading">
           <div>
-            <p className="card-label">대화 목록</p>
             <h3>이전 대화</h3>
           </div>
-          <span>{conversationHistory.length}</span>
+          <span>{visibleHistory.length}</span>
         </div>
 
         <button
@@ -218,25 +227,33 @@ export function SearchConversationSection({
           새 대화
         </button>
 
+        {deletableSession && (
+          <button type="button" className="quiet-button" disabled={conversationBusy || deleting}
+            onClick={() => setDeleteTarget(deletableSession)}>
+            선택한 대화 삭제
+          </button>
+        )}
+
         {historyLoading && (
           <ViewStateNotice kind="loading" title="대화 기록을 불러오는 중입니다." description="현재 아이의 저장된 대화를 확인합니다." />
         )}
         {historyError && (
           <ViewStateNotice kind="error" title="대화 기록을 불러오지 못했습니다." description={historyError} />
         )}
-        {!historyLoading && !historyError && conversationHistory.length === 0 && (
+        {!historyLoading && !historyError && visibleHistory.length === 0 && (
           <ViewStateNotice kind="empty" title="저장된 대화가 없습니다." description="중앙 입력창에서 첫 질문을 보내면 대화가 저장됩니다." />
         )}
 
-        {conversationHistory.length > 0 && (
+        {visibleHistory.length > 0 && (
           <div className="conversation-session-list" role="list" aria-label="저장된 대화">
-            {conversationHistory.map((session) => {
+            {visibleHistory.map((session) => {
               const time = conversationSessionTime(session);
               const isCurrent = conversation?.id === session.id;
               return (
                 <button
                   className={`conversation-session-button${selectedHistoryId === session.id ? " is-selected" : ""}`}
                   type="button"
+                  disabled={conversationBusy || deleting}
                   key={session.id}
                   onClick={() => {
                     setNewConversationMode(false);
@@ -263,7 +280,6 @@ export function SearchConversationSection({
       <section className="conversation-chat-pane" aria-label="대화 내용">
         <div className="conversation-pane-heading conversation-chat-heading">
           <div>
-            <p className="card-label">대화</p>
             <h3>{selectedHistory ? conversationSessionLabel(selectedHistory) : "무엇이든 물어보세요"}</h3>
           </div>
           {selectedHistory && <span>{Math.ceil(selectedHistory.turns.length / 2)}개 질문</span>}
@@ -275,7 +291,12 @@ export function SearchConversationSection({
               <article className={`conversation-turn is-${turn.role}`} key={`${turn.created_at}-${index}`}>
                 <span className="conversation-turn-role">{turn.role === "user" ? "나" : "GrowWise"}</span>
                 <p>{turn.content}</p>
-                {turn.role === "assistant" && <EvidenceChips sourceIds={turn.source_ids} />}
+                {turn.role === "assistant" && <EvidenceChips childId={historyChildId} sourceIds={turn.source_ids} />}
+                {turn.material_action && onCreateMaterial && (
+                  <button type="button" className="quiet-button" onClick={() => onCreateMaterial(turn.material_action!)}>
+                    이 내용으로 활동 만들기
+                  </button>
+                )}
               </article>
             ))
           ) : (
@@ -286,13 +307,18 @@ export function SearchConversationSection({
             </div>
           )}
 
-          {conversationAnswers.length > 0 && selectedHistory?.id !== conversation?.id && (
+          {activeConversation && conversationAnswers.length > 0 && selectedHistory?.id !== activeConversation.id && (
             <div className="conversation-live" aria-label="현재 대화 답변">
               {conversationAnswers.map((item, index) => (
                 <article className="conversation-turn is-assistant" key={`${item.session_id}-${index}`}>
                   <span className="conversation-turn-role">GrowWise</span>
                   <p>{item.answer.answer}</p>
-                  <EvidenceChips sourceIds={item.answer.source_ids} />
+                  <EvidenceChips childId={historyChildId} sourceIds={item.answer.source_ids} />
+                  {item.answer.material_action && onCreateMaterial && (
+                    <button type="button" className="quiet-button" onClick={() => onCreateMaterial(item.answer.material_action!)}>
+                      이 내용으로 활동 만들기
+                    </button>
+                  )}
                   {item.answer.insufficient_evidence && (
                     <small className="conversation-insufficient">충분한 원본 근거를 찾지 못했습니다. 기록을 직접 확인해 주세요.</small>
                   )}
@@ -348,7 +374,6 @@ export function SearchConversationSection({
           <div className="conversation-utility-heading">
             <span className="conversation-utility-icon" aria-hidden="true">↺</span>
             <div>
-              <p className="card-label">Backup</p>
               <h3>대화와 기록 백업</h3>
               <p>기록·사진·대화 상태를 하나의 로컬 백업으로 보관합니다.</p>
             </div>
@@ -392,7 +417,6 @@ export function SearchConversationSection({
         </section>
 
         <section className="conversation-utility-card">
-          <p className="card-label">Grounding policy</p>
           <h3>답변은 저장된 원본을 다시 확인합니다.</h3>
           <p>이전 AI 답변 대신 기록과 참고 자료를 매번 다시 찾아 근거를 표시합니다.</p>
           <div className="conversation-policy-badges">
@@ -402,6 +426,10 @@ export function SearchConversationSection({
           </div>
         </section>
       </aside>
+      <ConfirmDialog open={deleteTarget !== null} title="선택한 대화를 삭제할까요?"
+        description="이 대화의 질문과 답변을 삭제합니다. 아이의 원본 기록과 참고 자료는 보존됩니다."
+        confirmLabel="대화 삭제" destructive busy={deleting}
+        onCancel={() => setDeleteTarget(null)} onConfirm={() => void handleDelete()} />
     </section>
   );
 }

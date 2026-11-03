@@ -1,0 +1,3 @@
+# Invalid synthetic fixture: Base64 of literal "secret key", never a credential.
+# Match only this historical commit/file/rule/line; future findings remain scanned.
+0ee43914512b466308ddcd24ec8e138d4856cac2:tests/test_configure_updater.py:generic-api-key:58

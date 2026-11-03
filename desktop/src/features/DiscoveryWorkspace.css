@@ -21,7 +21,7 @@
 }
 
 .discovery-form label > span {
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
 }
 
 .discovery-form input,
@@ -41,7 +41,7 @@
 
 .discovery-location-options > summary {
   cursor: pointer;
-  font-weight: 650;
+  font-weight: var(--weight-semibold);
 }
 
 .discovery-location-options > p {
@@ -84,7 +84,7 @@
 
 .discovery-source-list span {
   color: var(--muted);
-  font-size: 0.875rem;
+  font-size: var(--font-size-meta);
 }
 
 .discovery-results {
@@ -133,7 +133,7 @@
 .discovery-result-card details p,
 .discovery-result-card details a {
   margin-top: var(--space-2);
-  font-size: 0.875rem;
+  font-size: var(--font-size-body);
 }
 
 @media (max-width: 900px) {
@@ -157,8 +157,8 @@
   background: #fff;
   color: #344139;
   font: inherit;
-  font-size: 9.5px;
-  line-height: 1.35;
+  font-size: var(--font-size-body);
+  line-height: var(--line-control);
   outline: none;
 }
 
@@ -169,7 +169,7 @@
 }
 
 .discovery-form input::placeholder {
-  color: #a0a7a3;
+  color: var(--ink-soft);
 }
 
 .discovery-location-options {

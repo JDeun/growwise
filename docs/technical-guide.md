@@ -46,7 +46,7 @@ Domain / Storage / RAG / Workflow / Model adapters
 | 영역 | 기술 |
 | --- | --- |
 | Desktop | Tauri 2, React, TypeScript, Vite |
-| Core | Python 3.12+, FastAPI, Pydantic v2 |
+| Core | Python 3.12.16+, FastAPI, Pydantic v2 |
 | Workflow | LangChain, LangGraph |
 | Storage | Markdown + SQLite |
 | RAG | lexical baseline + optional embeddings |
@@ -63,7 +63,7 @@ Domain / Storage / RAG / Workflow / Model adapters
 
 권장 도구:
 
-- Python 3.12+
+- Python 3.12.16+
 - uv
 - Node.js 22+
 - Rust stable
@@ -71,12 +71,30 @@ Domain / Storage / RAG / Workflow / Model adapters
 - macOS에서는 Xcode Command Line Tools
 - Windows에서는 Tauri 요구 빌드 도구와 WebView2
 
-저장소 루트에서:
+저장소의 `.python-version`은 검증한 보안 패치 버전3.12.16을 선택한다. uv0.12.13의 기본
+카탈로그에는 이 버전이 없으므로, 이미 설치하지 않았다면 먼저 저장소 루트에서 공식 SHA가
+고정된 관리형 배포물을 설치한다. 호스트 Python 바로가기나 레지스트리는 바꾸지 않는다.
+
+macOS/Linux Bash:
 
 ```bash
 python -m pip install "uv==0.12.13"
+export UV_PYTHON_INSTALL_DIR="${XDG_DATA_HOME:-$HOME/.local/share}/growwise/dev-python"
+python desktop/scripts/install_packaging_python.py
 uv sync --locked --extra dev --extra desktop-build
 ```
+
+Windows PowerShell:
+
+```powershell
+python -m pip install "uv==0.12.13"
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $env:LOCALAPPDATA 'GrowWiseDevPython'
+python desktop/scripts/install_packaging_python.py
+uv sync --locked --extra dev --extra desktop-build
+```
+
+배포 파일을 만들 때는 개발 환경과 구분된
+[깨끗한 패키징 환경](release.md#local-package-check)을 사용한다.
 
 Desktop 의존성:
 

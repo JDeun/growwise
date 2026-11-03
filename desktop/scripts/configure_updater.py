@@ -1,38 +1,54 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import json
 import subprocess
+import tomllib
 from pathlib import Path
 from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parents[2]
 RELEASE_CONFIG = ROOT / "desktop/src-tauri/tauri.release.conf.json"
 CARGO_TOML = ROOT / "desktop/src-tauri/Cargo.toml"
-LIB_RS = ROOT / "desktop/src-tauri/src/lib.rs"
 
 
 def _read_public_key(path: Path) -> str:
     key = path.read_text(encoding="utf-8").strip()
     if not key:
         raise RuntimeError("updater public key file is empty")
+    try:
+        lines = base64.b64decode(key, validate=True).decode("utf-8").strip().splitlines()
+        raw = base64.b64decode(lines[-1], validate=True)
+        if len(lines) != 2 or not lines[0].startswith("untrusted comment:") or (
+            len(raw) != 42 or raw[:2] != b"Ed"
+        ):
+            raise ValueError("invalid public key")
+    except (ValueError, UnicodeError, IndexError, binascii.Error) as exc:
+        raise RuntimeError(
+            "provide the generated Tauri public key, not a path or private key"
+        ) from exc
     return key
 
 
 def _validate_endpoint(endpoint: str) -> str:
     value = endpoint.strip()
     parsed = urlparse(value)
-    if parsed.scheme != "https" or not parsed.netloc:
+    if (parsed.scheme != "https" or not parsed.hostname or parsed.username or parsed.password
+            or parsed.fragment or any(ord(char) < 32 for char in value)):
         raise RuntimeError("updater endpoint must be an absolute HTTPS URL")
     return value
 
 
 def _release_config(public_key: str, endpoint: str) -> dict[str, object]:
     return {
+        "build": {"features": ["updater"]},
         "bundle": {"createUpdaterArtifacts": True},
         "plugins": {
             "updater": {
                 "pubkey": public_key,
+                "requireSignedVersion": True,
                 "endpoints": [endpoint],
                 "windows": {"installMode": "passive"},
             }
@@ -47,44 +63,9 @@ def _write_release_config(path: Path, public_key: str, endpoint: str) -> None:
     )
 
 
-def _patch_cargo(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8")
-    if "tauri-plugin-updater" in text:
-        return False
-
-    marker = 'tauri-plugin-dialog = "2"\n'
-    if marker in text:
-        updated = text.replace(marker, marker + 'tauri-plugin-updater = "2"\n', 1)
-    else:
-        dependencies = "[dependencies]\n"
-        if dependencies not in text:
-            raise RuntimeError("Cargo.toml does not contain a [dependencies] section")
-        updated = text.replace(
-            dependencies,
-            dependencies + 'tauri-plugin-updater = "2"\n',
-            1,
-        )
-    path.write_text(updated, encoding="utf-8")
-    return True
-
-
-def _patch_lib(path: Path) -> bool:
-    text = path.read_text(encoding="utf-8")
-    updater = ".plugin(tauri_plugin_updater::Builder::new().build())"
-    if updater in text:
-        return False
-
-    marker = "        .plugin(tauri_plugin_dialog::init())\n"
-    if marker not in text:
-        raise RuntimeError("lib.rs Tauri builder marker was not found")
-    updated = text.replace(marker, marker + f"        {updater}\n", 1)
-    path.write_text(updated, encoding="utf-8")
-    return True
-
-
 def _cargo_check() -> None:
     subprocess.run(
-        ["cargo", "check", "--manifest-path", str(CARGO_TOML)],
+        ["cargo", "check", "--locked", "--features", "updater", "--manifest-path", str(CARGO_TOML)],
         cwd=ROOT,
         check=True,
     )
@@ -92,24 +73,24 @@ def _cargo_check() -> None:
 
 def configure(public_key_file: Path, endpoint: str, *, run_cargo: bool = True) -> None:
     public_key = _read_public_key(public_key_file)
+    with CARGO_TOML.open("rb") as handle:
+        cargo = tomllib.load(handle)
+    if "dep:tauri-plugin-updater" not in cargo.get("features", {}).get("updater", []):
+        raise RuntimeError("the native updater feature must be present before activation")
+    previous = RELEASE_CONFIG.read_bytes() if RELEASE_CONFIG.exists() else None
     _write_release_config(RELEASE_CONFIG, public_key, endpoint)
-    cargo_changed = _patch_cargo(CARGO_TOML)
-    lib_changed = _patch_lib(LIB_RS)
-
-    if run_cargo:
-        _cargo_check()
-
-    changed = ["desktop/src-tauri/tauri.release.conf.json"]
-    if cargo_changed:
-        changed.append("desktop/src-tauri/Cargo.toml")
+    try:
         if run_cargo:
-            changed.append("desktop/src-tauri/Cargo.lock")
-    if lib_changed:
-        changed.append("desktop/src-tauri/src/lib.rs")
+            _cargo_check()
+    except Exception:
+        if previous is None:
+            RELEASE_CONFIG.unlink(missing_ok=True)
+        else:
+            RELEASE_CONFIG.write_bytes(previous)
+        raise
 
     print("GrowWise updater activation files prepared:")
-    for item in changed:
-        print(f"- {item}")
+    print("- desktop/src-tauri/tauri.release.conf.json")
     print("Next operator-only step: store TAURI_SIGNING_PRIVATE_KEY in GitHub Actions secrets.")
 
 

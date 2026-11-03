@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 from growwise.config import Settings
 from growwise.domain.links import EntityLink, EntityLinkRelation
 from growwise.services.entity_links import EntityLinkError, EntityLinkService
+from growwise.services.entity_lock import entity_operation_lock
 from growwise.storage import EntityStore
 
 router = APIRouter(tags=["entity-links"])
@@ -53,24 +54,25 @@ def create_entity_link(
     request: EntityLinkCreateRequest,
     store: Annotated[EntityStore, Depends(get_link_store)],
 ) -> dict[str, object]:
-    if request.relation is EntityLinkRelation.CHILD_SCOPE:
-        _require_child_scope_owner(
-            store=store,
-            source_id=request.source_id,
-            acting_child_id=request.acting_child_id,
-        )
-    try:
-        link = EntityLinkService(store).create(
-            source_id=request.source_id,
-            target_id=request.target_id,
-            relation=request.relation,
-            label=request.label,
-        )
-    except EntityLinkError as exc:
-        detail = str(exc)
-        status_code = 404 if detail.endswith("_not_found") else 422
-        raise HTTPException(status_code=status_code, detail=detail) from exc
-    return link.model_dump(mode="json")
+    with store.mutation_window(), entity_operation_lock(request.source_id):
+        if request.relation is EntityLinkRelation.CHILD_SCOPE:
+            _require_child_scope_owner(
+                store=store,
+                source_id=request.source_id,
+                acting_child_id=request.acting_child_id,
+            )
+        try:
+            link = EntityLinkService(store).create(
+                source_id=request.source_id,
+                target_id=request.target_id,
+                relation=request.relation,
+                label=request.label,
+            )
+        except EntityLinkError as exc:
+            detail = str(exc)
+            status_code = 404 if detail.endswith("_not_found") else 422
+            raise HTTPException(status_code=status_code, detail=detail) from exc
+        return link.model_dump(mode="json")
 
 
 @router.get("/links/{entity_id}")
@@ -92,11 +94,15 @@ def delete_entity_link(
     payload = store.index.get_entity(str(link_id), entity_type="entity_link")
     if payload is None:
         return {"deleted": False}
-    link = EntityLink.model_validate(payload)
-    if link.relation is EntityLinkRelation.CHILD_SCOPE:
-        _require_child_scope_owner(
-            store=store,
-            source_id=link.source_id,
-            acting_child_id=acting_child_id,
-        )
-    return {"deleted": EntityLinkService(store).delete(link_id)}
+    with store.mutation_window(), entity_operation_lock(UUID(payload["source_id"])):
+        payload = store.index.get_entity(str(link_id), entity_type="entity_link")
+        if payload is None:
+            return {"deleted": False}
+        link = EntityLink.model_validate(payload)
+        if link.relation is EntityLinkRelation.CHILD_SCOPE:
+            _require_child_scope_owner(
+                store=store,
+                source_id=link.source_id,
+                acting_child_id=acting_child_id,
+            )
+        return {"deleted": EntityLinkService(store).delete(link_id)}

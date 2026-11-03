@@ -7,6 +7,7 @@ import {
   type EntityBacklinks,
 } from "../api";
 import "./EntityLinkPanel.css";
+import { deleteEntityLink } from "../record-actions-api";
 
 interface EntityLinkPanelProps {
   entityId: string;
@@ -73,6 +74,23 @@ export function EntityLinkPanel({
     }
   }
 
+  async function handleUnshare(childId: string) {
+    const link = graph?.outgoing.find((item) =>
+      item.link.relation === "child_scope" && item.link.target_id === childId,
+    )?.link;
+    if (!link || !canManageScope || !activeChildId || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteEntityLink(link.id, activeChildId);
+      await refresh();
+    } catch (cause) {
+      setError(messageFrom(cause));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <div className="entity-link-panel">
       <button
@@ -94,7 +112,14 @@ export function EntityLinkPanel({
           {linkedChildren.length > 0 && (
             <div className="entity-link-chip-list" aria-label="연결된 아이">
               {linkedChildren.map((child) => (
-                <span key={child.id}>{child.nickname || child.id}</span>
+                <span key={child.id}>
+                  {child.nickname || child.id}
+                  {canManageScope && (
+                    <button type="button" className="quiet-button" disabled={busy}
+                      aria-label={`${child.nickname || child.id} 연결 해제`}
+                      onClick={() => void handleUnshare(child.id)}>연결 해제</button>
+                  )}
+                </span>
               ))}
             </div>
           )}

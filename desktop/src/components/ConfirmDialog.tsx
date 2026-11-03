@@ -1,6 +1,8 @@
 import { useEffect, useRef, type KeyboardEvent } from "react";
+import { createPortal } from "react-dom";
 
 import { focusTrapIndex, isDismissKey } from "../a11y";
+import "./ConfirmDialog.css";
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -28,7 +30,8 @@ export function ConfirmDialog({
 
   useEffect(() => {
     if (!open) return;
-    cancelRef.current?.focus();
+    if (busy) dialogRef.current?.focus();
+    else cancelRef.current?.focus();
     const onKeyDown = (event: globalThis.KeyboardEvent) => {
       if (isDismissKey(event.key) && !busy) onCancel();
     };
@@ -39,6 +42,12 @@ export function ConfirmDialog({
   // Keep Tab / Shift+Tab inside the modal so keyboard focus cannot land on the
   // page behind the backdrop while the dialog is open.
   function handleFocusTrap(event: KeyboardEvent<HTMLElement>) {
+    event.stopPropagation();
+    if (isDismissKey(event.key)) {
+      event.preventDefault();
+      if (!busy) onCancel();
+      return;
+    }
     if (event.key !== "Tab") return;
     const focusable = dialogRef.current?.querySelectorAll<HTMLElement>(
       'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
@@ -59,8 +68,11 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
-    <div className="dialog-backdrop" role="presentation" onMouseDown={() => !busy && onCancel()}>
+  const dialog = (
+    <div className="dialog-backdrop" role="presentation" onMouseDown={(event) => {
+      if (busy) { event.preventDefault(); dialogRef.current?.focus(); }
+      else onCancel();
+    }}>
       <section
         ref={dialogRef}
         className="confirm-dialog"
@@ -90,4 +102,5 @@ export function ConfirmDialog({
       </section>
     </div>
   );
+  return typeof document === "undefined" ? dialog : createPortal(dialog, document.body);
 }

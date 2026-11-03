@@ -116,10 +116,26 @@ Desktop UX는 삭제할 child를 선택하고 해당 nickname을 다시 입력�
    한도 아래로 chunk한다.
 8. RAG/외부 cache/SQLite projection은 disposable state이므로 손상 row 또는 malformed DB를
    정본/재조회 가능한 상태에서 self-heal한다.
+9. RAG hit는 순위와 원본 ID를 찾는 포인터다. 답변/대화/원문 보기에는 cached chunk 본문을
+   신뢰하지 않고 현재 Markdown의 ID·타입·존재·아이 소유권·공유 grant를 다시 확인한다.
+   삭제·수정 후 RAG 정리가 실패해도 이전 본문을 모델에 보내지 않는다. 인덱스가 남아 있어도
+   원본 또는 공유 grant가 삭제·손상되었으면 fail-closed로 제외한다.
+
+현재 원문 snapshot은 데이터 정비 lease와 짧은 entity/path lock 안에서 확인한다. SQLite
+포인터 조회를 닫은 뒤 Markdown path lock을 취하므로 writer의 path→projection 순서와
+교착하지 않는다. 모든 잠금은 모델 네트워크 요청 전에 해제한다. snapshot 이후의 수정·삭제는
+다음 요청에 적용하며, 이미 전달을 시작한 원격 요청의 내용을 회수할 수 있다고 보장하지 않는다.
+`tests/test_rag_current_sources.py`는 두 답변 경로와 원문 API에서 실패·지연·공유 철회 및 모델
+요청 중 쓰기 가능 여부를 검증한다.
 
 ## 7. Learning Wiki provenance와 자기참조 방지
 
 Learning Wiki는 장기 맥락을 누적하지만 원본 기록보다 높은 신뢰도의 정본이 아니다.
+
+현재 Wiki 파일이 남아 있어도 참조한 원본이 삭제·수정되거나 공유가 철회되면 옛 요약을
+모델에 전달하지 않는다. 답변 snapshot은 Wiki가 참조한 원본과 현재 공유 권한도 확인하고,
+원본 fingerprint가 일치할 때만 그 요약을 사용한다. Wiki 재생성 입력도 현재 Markdown과
+raw 공유 grant로 재검증하므로 오래된 projection으로 철회된 기록을 다시 요약하지 않는다.
 
 - Wiki refresh 입력은 child-scoped authoritative record로 제한한다.
 - 기존 `learning_wiki` 자체를 다음 Wiki synthesis의 evidence로 넣지 않는다.
@@ -179,6 +195,15 @@ AI는 optional dependency다.
 - invalid domain payload는 standalone Core와 desktop secure API 모두 422로 수렴시킨다.
 - public-data HTTP adapter는 HTTPS endpoint만 허용하고 redirect가 동일 HTTPS origin을 벗어나면 거부한다.
 - 오류 응답을 UI에 전달할 때 무제한 body를 그대로 포함하지 않는다.
+- 사진 목록은 원본 Base64를 일괄 조회하지 않는다. 아이 소유권을 확인한 별도 thumbnail API가
+  메타데이터 없는 최대 384px/128KiB JPEG만 반환하며 원본 파일은 변경하지 않는다. 서버의 원본
+  읽기·디코더는 한 번에 하나, 화면의 지연 요청은 최대 두 개, LRU 캐시는 32개로 제한한다.
+- 업로드 전 선택 미리보기도 header만 읽어 크기를 확인하고 `createImageBitmap`의 resize 옵션으로
+  축소한다. 선택/아이 변경을 가로질러 디코더는 하나만 실행하며 bitmap을 닫고 파생 Blob URL을
+  해제한다. 지원하지 않는 WebView에는 파일명/선택 완료 표시를 남기며 원본 이미지로 우회하지 않는다.
+  원본 `File` 전송은 유지한다. 브라우저 내부 디코더의 순간 메모리까지 고정한다고 주장하지 않는다.
+- 사진/학습 기록의 상태 조회는 이전 요청이 완료된 뒤 다음 timer를 예약한다. 느린 조회가
+  겹치거나 매번 이전 결과를 무효화하지 않으며, 작업공간/아이 변경 뒤 늦은 상태 갱신을 취소한다.
 
 목표는 메모리/디스크 폭주, pathological prompt, 거대한 local IPC payload가 장기 데이터베이스에 들어가는 것을 입구에서 차단하는 것이다.
 

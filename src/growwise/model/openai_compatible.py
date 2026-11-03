@@ -5,7 +5,7 @@ import re
 from typing import Any, cast
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlparse, urlunparse
-from urllib.request import Request, urlopen
+from urllib.request import HTTPRedirectHandler, ProxyHandler, Request, build_opener
 
 from .privacy import is_loopback_endpoint
 from .provider import ModelProvider, T
@@ -22,6 +22,12 @@ class OpenAICompatibleError(RuntimeError):
         self.status_code = status_code
 
 
+class _NoModelRedirect(HTTPRedirectHandler):
+    def redirect_request(self, req, fp, code, msg, headers, newurl):
+        # A redirect must not forward credentials or escape an explicitly configured local origin.
+        return None
+
+
 def _chat_completions_url(base_url: str) -> str:
     raw = base_url.strip()
     if not raw:
@@ -29,6 +35,8 @@ def _chat_completions_url(base_url: str) -> str:
     parsed = urlparse(raw)
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("OpenAI-compatible model_base_url must be an http(s) URL")
+    if parsed.username is not None or parsed.password is not None:
+        raise ValueError("OpenAI-compatible model_base_url must not embed credentials")
 
     path = parsed.path.rstrip("/")
     if path.endswith("/chat/completions"):
@@ -88,6 +96,11 @@ class OpenAICompatibleProvider(ModelProvider):
             )
         if self.api_key and parsed.scheme != "https" and not loopback:
             raise ValueError("API-key authenticated remote model endpoints must use HTTPS")
+        self._opener = (
+            build_opener(_NoModelRedirect(), ProxyHandler({}))
+            if loopback
+            else build_opener(_NoModelRedirect())
+        )
 
         self._circuit = FailureCircuit(
             failure_threshold=failure_threshold,
@@ -109,7 +122,7 @@ class OpenAICompatibleProvider(ModelProvider):
             method="POST",
         )
         try:
-            with urlopen(request, timeout=self.timeout_seconds) as response:  # noqa: S310
+            with self._opener.open(request, timeout=self.timeout_seconds) as response:
                 raw = response.read(_MAX_RESPONSE_BYTES + 1)
         except HTTPError as exc:
             raise OpenAICompatibleError(

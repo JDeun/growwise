@@ -2,6 +2,7 @@ import js from "@eslint/js";
 import globals from "globals";
 import tseslint from "typescript-eslint";
 
+// shortcut: override vulnerable minimatch 10 until ESLint and TypeScript ESLint require 11.0.1+.
 export default tseslint.config(
   {
     ignores: ["dist/**", "src-tauri/**"],

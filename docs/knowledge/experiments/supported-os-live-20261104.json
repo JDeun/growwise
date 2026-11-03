@@ -1,0 +1,709 @@
+{
+  "experiment_id": "EXP-SUPPORTED-OS-LIVE-OBSERVED-20261104",
+  "recorded_at": "2026-11-03T16:27:20.044582+00:00",
+  "scope": "Actual supported-OS browser IPC adapter to authenticated Core. IntelMac full strict-memory pass; Windows verified actual Core owner but300s RSS setup failure. No new product source changes or model calls.",
+  "revision": "48ba79b9776a63433cc9ff4183d635df78908f56",
+  "url": "https://github.com/JDeun/growwise/actions/runs/41671460632",
+  "platform_alignment": "General-user desktop targets Windows/macOS. Historical Linux failures remain unchanged diagnostics, not relabeled passes.",
+  "runtime_attribution": {
+    "macos-15-intel": "Actualjob sync Using CPython3.12.16; repository .venv spawned by harness",
+    "windows-latest": "Actualjob sync Using CPython3.12.16; repository .venv launcher spawns actual server, independently verified from lock owner and boundedCIMancestry",
+    "limitation": "Cached setup-python3.12.10 label is not used for runtime attribution. No new cloudSSL/Expat probe or runtime exploit test."
+  },
+  "macos_intel": {
+    "conclusion": "success",
+    "job_url": "https://github.com/JDeun/growwise/actions/runs/41671460632/job/126040633038",
+    "original_report_sha256": "9439ce73ee22bfd9538b73be510cd5655c27764faae40598193a4db900ee4be5",
+    "original_complete_job_log_sha256": "b4a3870b4e99b78664ff814b572735e1f2a62220a6faaabf4c6777aa9e2823a4",
+    "report": {
+      "passed": true,
+      "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+      "llm": false,
+      "fixture": "synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",
+      "scriptSha256": "181bfed0b22e2e14c439b2664ac6a66f9168aa879676753c27245cc7ab6093f6",
+      "browserHelperSha256": "d082e39a6ddeb04766ce60712e416b2be220391ebbcd7c0fa34a4106c7d01389",
+      "soakMetricsSha256": "d4c710f5714089567016d8e4cda2064b0ebdccd140fad6c9b0eefafee6844e54",
+      "coreSourceSha256": "7673a6c0ade9df1e4108a0a6078ef7eba488c507b824463c2cef5645f0e8706f",
+      "nativeCsp": "default-src 'self'; connect-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "buildAssets": [
+        "/assets/index-CuQeaFzA.js",
+        "/assets/index-o_Tz_q_5.css"
+      ],
+      "steps": [
+        "real Core starts and rejects unauthenticated access",
+        "UI first-run profile persists and enters materials",
+        "UI background generation saves template; explicit use passes real review gate",
+        "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+        "UI one-line result writes authoritative learning record",
+        "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+        "UI independent reading record preserves separate record kind",
+        "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+        "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+        "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+        "UI confirmed conversation deletion preserves another conversation and original source records",
+        "UI direct search returns actual child-scoped records without an LLM",
+        "UI reference library create/edit/detail/confirmed delete reaches real Core",
+        "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+        "UI actual PNG upload, parent confirmation and bounded JPEG thumbnails pass; original PNG remains byte-identical and UI never fetches full originals",
+        "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+        "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+        "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated",
+        "UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it",
+        "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+        "infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces",
+        "actual Core/UI navigation soak: 1000 added records, observed RSS plateau after 163s, then 26 cycles across 8 workspaces for 122s, bounded post-GC heap and Core RSS"
+      ],
+      "artifacts": "<isolated CI artifacts>",
+      "navigationSoak": {
+        "measurementVersion": 4,
+        "platform": "darwin",
+        "coreRssMeasurement": "ps.rss_kib",
+        "coreProcessIdentity": {
+          "source": "isolated .core.lock owner",
+          "spawnedProcess": true,
+          "ownershipVerified": true
+        },
+        "requestedSeconds": 120,
+        "seededRecords": 1000,
+        "views": [
+          "home",
+          "profile",
+          "learning",
+          "materials",
+          "photos",
+          "conversation",
+          "backup",
+          "help"
+        ],
+        "warmup": {
+          "policy": {
+            "maximumSeconds": 300,
+            "sampleIntervalSeconds": 15,
+            "minimumSpanSeconds": 30,
+            "maximumSpreadBytes": 524288,
+            "sampleCount": 3
+          },
+          "cycles": 27,
+          "samples": [
+            {
+              "elapsedSeconds": 0,
+              "cycles": 0,
+              "heapUsedBytes": 5279656,
+              "coreRssBytes": 147632128,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 18,
+              "cycles": 2,
+              "heapUsedBytes": 5325392,
+              "coreRssBytes": 152018944,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 34,
+              "cycles": 5,
+              "heapUsedBytes": 5392964,
+              "coreRssBytes": 150106112,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 307
+            },
+            {
+              "elapsedSeconds": 53,
+              "cycles": 8,
+              "heapUsedBytes": 5468736,
+              "coreRssBytes": 153460736,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 72,
+              "cycles": 11,
+              "heapUsedBytes": 5493360,
+              "coreRssBytes": 151429120,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 88,
+              "cycles": 14,
+              "heapUsedBytes": 5614188,
+              "coreRssBytes": 153088000,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 108,
+              "cycles": 17,
+              "heapUsedBytes": 5680780,
+              "coreRssBytes": 151494656,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 307
+            },
+            {
+              "elapsedSeconds": 125,
+              "cycles": 20,
+              "heapUsedBytes": 5686860,
+              "coreRssBytes": 152838144,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 307
+            },
+            {
+              "elapsedSeconds": 146,
+              "cycles": 24,
+              "heapUsedBytes": 5701968,
+              "coreRssBytes": 152518656,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 307
+            },
+            {
+              "elapsedSeconds": 163,
+              "cycles": 27,
+              "heapUsedBytes": 5692304,
+              "coreRssBytes": 152834048,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 307
+            }
+          ],
+          "assessment": {
+            "stable": true,
+            "spanSeconds": 38,
+            "spreadBytes": 319488,
+            "sustainedGrowth": false
+          }
+        },
+        "coldBaseline": {
+          "elapsedSeconds": 0,
+          "cycles": 0,
+          "heapUsedBytes": 5279656,
+          "coreRssBytes": 147632128,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        "earlyCoreRssGrowthBytes": 5201920,
+        "totalElapsedSeconds": 286,
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5686264,
+            "coreRssBytes": 152834048,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 35,
+            "cycles": 7,
+            "heapUsedBytes": 5804696,
+            "coreRssBytes": 153194496,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 70,
+            "cycles": 15,
+            "heapUsedBytes": 5868280,
+            "coreRssBytes": 153116672,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 104,
+            "cycles": 22,
+            "heapUsedBytes": 5878888,
+            "coreRssBytes": 153300992,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 122,
+            "cycles": 26,
+            "heapUsedBytes": 5919692,
+            "coreRssBytes": 153284608,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 307
+          }
+        ],
+        "cycles": 26
+      }
+    },
+    "verified_summary": {
+      "assertion_count": 22,
+      "warmup_seconds": 163,
+      "steady_seconds": 122,
+      "steady_cycles": 26,
+      "all_sample_RSS_valid_positive": true,
+      "all_observed_steady_RSS_and_heap_samples_within_existing_budgets": true,
+      "Core RSS start": 152834048,
+      "Core RSS end": 153284608,
+      "Core RSS change": 450560,
+      "post-GC browser heap change": 233428,
+      "peak observed Core RSS growth": 466944,
+      "peak observed heap growth": 233428
+    }
+  },
+  "windows": {
+    "conclusion": "failure",
+    "job_url": "https://github.com/JDeun/growwise/actions/runs/41671460632/job/126040632507",
+    "original_navigation_artifact_sha256": "8231eff62fbdfb18531db6e813d814b99d12e115f0bb3f5bc1308bbabb446236",
+    "original_complete_job_log_sha256": "8c22855fa4227852f0f40603fe1d8cea1979adead1465c20b2c629ce09f74a88",
+    "navigation_soak": {
+      "measurementVersion": 4,
+      "platform": "win32",
+      "coreRssMeasurement": "Get-Process.WorkingSet64",
+      "coreProcessIdentity": {
+        "source": "isolated .core.lock owner",
+        "spawnedProcess": false,
+        "ownershipVerified": true
+      },
+      "requestedSeconds": 120,
+      "seededRecords": 1000,
+      "views": [
+        "home",
+        "profile",
+        "learning",
+        "materials",
+        "photos",
+        "conversation",
+        "backup",
+        "help"
+      ],
+      "warmup": {
+        "policy": {
+          "maximumSeconds": 300,
+          "sampleIntervalSeconds": 15,
+          "minimumSpanSeconds": 30,
+          "maximumSpreadBytes": 524288,
+          "sampleCount": 3
+        },
+        "cycles": 126,
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5203252,
+            "coreRssBytes": 129810432,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 17,
+            "cycles": 7,
+            "heapUsedBytes": 5411268,
+            "coreRssBytes": 125739008,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 33,
+            "cycles": 14,
+            "heapUsedBytes": 5584352,
+            "coreRssBytes": 125820928,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 50,
+            "cycles": 21,
+            "heapUsedBytes": 5667972,
+            "coreRssBytes": 124645376,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 66,
+            "cycles": 28,
+            "heapUsedBytes": 5689480,
+            "coreRssBytes": 123527168,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 83,
+            "cycles": 35,
+            "heapUsedBytes": 5764896,
+            "coreRssBytes": 123801600,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 99,
+            "cycles": 42,
+            "heapUsedBytes": 5843536,
+            "coreRssBytes": 130125824,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 116,
+            "cycles": 49,
+            "heapUsedBytes": 5859336,
+            "coreRssBytes": 125984768,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 132,
+            "cycles": 56,
+            "heapUsedBytes": 5901316,
+            "coreRssBytes": 118591488,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 148,
+            "cycles": 63,
+            "heapUsedBytes": 5936124,
+            "coreRssBytes": 114388992,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 165,
+            "cycles": 70,
+            "heapUsedBytes": 5930168,
+            "coreRssBytes": 106602496,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 181,
+            "cycles": 77,
+            "heapUsedBytes": 6032708,
+            "coreRssBytes": 112435200,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 197,
+            "cycles": 84,
+            "heapUsedBytes": 6033848,
+            "coreRssBytes": 113926144,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 213,
+            "cycles": 91,
+            "heapUsedBytes": 6123160,
+            "coreRssBytes": 105295872,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 230,
+            "cycles": 98,
+            "heapUsedBytes": 6139016,
+            "coreRssBytes": 115048448,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 246,
+            "cycles": 105,
+            "heapUsedBytes": 6141180,
+            "coreRssBytes": 113987584,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 263,
+            "cycles": 112,
+            "heapUsedBytes": 6144460,
+            "coreRssBytes": 114184192,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 280,
+            "cycles": 119,
+            "heapUsedBytes": 6146732,
+            "coreRssBytes": 113328128,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 296,
+            "cycles": 126,
+            "heapUsedBytes": 6177060,
+            "coreRssBytes": 112148480,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          }
+        ],
+        "assessment": {
+          "stable": false,
+          "spanSeconds": 33,
+          "spreadBytes": 2035712,
+          "sustainedGrowth": false
+        }
+      },
+      "coldBaseline": {
+        "elapsedSeconds": 0,
+        "cycles": 0,
+        "heapUsedBytes": 5203252,
+        "coreRssBytes": 129810432,
+        "Documents": 3,
+        "JSEventListeners": 167,
+        "Nodes": 305
+      },
+      "earlyCoreRssGrowthBytes": -17661952,
+      "totalElapsedSeconds": 296,
+      "samples": []
+    },
+    "interpretation": {
+      "actual_server_not_launcher_verified": true,
+      "unlocked_lock_metadata_suffix_read_and_CIMancestry_executed_successfully": true,
+      "warmup_cycles": 126,
+      "last_sample_seconds": 296,
+      "early_RSS_change_bytes": -17661952,
+      "steady_interval_started": false,
+      "last_window_spread_bytes": 2035712,
+      "existing_spread_limit_bytes": 524288,
+      "finding": "Observed working set oscillates105to130MB and ends112MB below129MB cold baseline. Strict300s setup did not establish a plateau; this is not a measured steady-state pass or proof of a retained-object leak.",
+      "diagnosis_status": "Process private-byte/commit evidence not collected in this run; resident-paging/reclamation is a possible explanation, not proven for every change. No deadline or spread-budget increase is made by this artifact."
+    }
+  },
+  "source_identity": {
+    "emitted_mac_hashes": {
+      "scriptSha256": "181bfed0b22e2e14c439b2664ac6a66f9168aa879676753c27245cc7ab6093f6",
+      "browserHelperSha256": "d082e39a6ddeb04766ce60712e416b2be220391ebbcd7c0fa34a4106c7d01389",
+      "soakMetricsSha256": "d4c710f5714089567016d8e4cda2064b0ebdccd140fad6c9b0eefafee6844e54",
+      "coreSourceSha256": "7673a6c0ade9df1e4108a0a6078ef7eba488c507b824463c2cef5645f0e8706f"
+    },
+    "revision_derived_windows_CRLF_file_hashes": {
+      "desktop/scripts/live_e2e.mjs": "3f40adf356302de310307d4248076c47147caf3db393f7e0ea1132cc006eb4df",
+      "desktop/scripts/browser_e2e.mjs": "0ce0c5ffef02ca4425f2819b0d0f74b0652d2db7eec32ee3c129c6f1d389884d",
+      "desktop/scripts/soak_metrics.mjs": "caac07bc45efe9629c26a85b7fb1f36993a857059abd40aa6b461a35310ab290"
+    },
+    "limitation": "Failed Windowsrun did not reach finalsource-equality/report. CRLFhashes here derive from pinnedrevision; do not claim emittedfullreport. Earlier8eeWindowsreport was independently matched exactly to its Gitrevision throughLFtoCRLF conversion forCore+all3helpers."
+  },
+  "historical_failures_and_corrections": {
+    "792c_windows": {
+      "url": "https://github.com/JDeun/growwise/actions/runs/41666654909",
+      "failure": "Harness treated restored source child-count as completed restore before RAG rebuild and generation advance. A precompletion conversation read correctly returned503stale_data_generation.",
+      "reproduction": {
+        "source_count_visible_before_restore_response": true,
+        "request_started_before_restore_completed_status": 503,
+        "request_after_completed_restore_status": 200,
+        "classification": "expected maintenance fence; UI must await restore response before postconditions"
+      },
+      "correction": "Wait awaited UI restore-success response before postconditions; no retry or generation-fence relaxation. LocalactualCore21assertions and32maintenance/backup/conversation regressions passed."
+    },
+    "8ee_windows": {
+      "url": "https://github.com/JDeun/growwise/actions/runs/41669736206",
+      "functional_assertions_passed": 22,
+      "actual_sync_runtime": "CPython3.12.16",
+      "original_report_sha256": "c069032c8a37df8ff860fbab7b1ff833cef8bdddd8bb51a991ae87154e55119c",
+      "report": {
+        "passed": true,
+        "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+        "llm": false,
+        "fixture": "synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",
+        "scriptSha256": "f8557afd78fe4b27f17eb5309fee110f1671a080e0bd70e44b9f8ae9bbd8ff37",
+        "browserHelperSha256": "0ce0c5ffef02ca4425f2819b0d0f74b0652d2db7eec32ee3c129c6f1d389884d",
+        "soakMetricsSha256": "caac07bc45efe9629c26a85b7fb1f36993a857059abd40aa6b461a35310ab290",
+        "coreSourceSha256": "d6f0a28a209050c79933014a15b597bbc8a15bb8190deb8a8dd01370ed094aeb",
+        "nativeCsp": "default-src 'self'; connect-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+        "buildAssets": [
+          "/assets/index-D8nPbydi.js",
+          "/assets/index-o_Tz_q_5.css"
+        ],
+        "steps": [
+          "real Core starts and rejects unauthenticated access",
+          "UI first-run profile persists and enters materials",
+          "UI background generation saves template; explicit use passes real review gate",
+          "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+          "UI one-line result writes authoritative learning record",
+          "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+          "UI independent reading record preserves separate record kind",
+          "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+          "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+          "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+          "UI confirmed conversation deletion preserves another conversation and original source records",
+          "UI direct search returns actual child-scoped records without an LLM",
+          "UI reference library create/edit/detail/confirmed delete reaches real Core",
+          "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+          "UI actual PNG upload, parent confirmation and bounded JPEG thumbnails pass; original PNG remains byte-identical and UI never fetches full originals",
+          "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+          "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+          "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated",
+          "UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it",
+          "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+          "infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces",
+          "actual Core/UI navigation soak: 1000 added records, observed RSS plateau after 34s, then 48 cycles across 8 workspaces for 122s, bounded post-GC heap and Core RSS"
+        ],
+        "artifacts": "<isolated CI artifacts>",
+        "navigationSoak": {
+          "measurementVersion": 3,
+          "platform": "win32",
+          "coreRssMeasurement": "Get-Process.WorkingSet64",
+          "requestedSeconds": 120,
+          "seededRecords": 1000,
+          "views": [
+            "home",
+            "profile",
+            "learning",
+            "materials",
+            "photos",
+            "conversation",
+            "backup",
+            "help"
+          ],
+          "warmup": {
+            "policy": {
+              "maximumSeconds": 300,
+              "sampleIntervalSeconds": 15,
+              "minimumSpanSeconds": 30,
+              "maximumSpreadBytes": 524288,
+              "sampleCount": 3
+            },
+            "cycles": 13,
+            "samples": [
+              {
+                "elapsedSeconds": 0,
+                "cycles": 0,
+                "heapUsedBytes": 5201992,
+                "coreRssBytes": 4055040,
+                "Documents": 3,
+                "JSEventListeners": 167,
+                "Nodes": 305
+              },
+              {
+                "elapsedSeconds": 16,
+                "cycles": 6,
+                "heapUsedBytes": 5402360,
+                "coreRssBytes": 4055040,
+                "Documents": 3,
+                "JSEventListeners": 167,
+                "Nodes": 305
+              },
+              {
+                "elapsedSeconds": 34,
+                "cycles": 13,
+                "heapUsedBytes": 5488076,
+                "coreRssBytes": 4055040,
+                "Documents": 3,
+                "JSEventListeners": 167,
+                "Nodes": 305
+              }
+            ],
+            "assessment": {
+              "stable": true,
+              "spanSeconds": 34,
+              "spreadBytes": 0,
+              "sustainedGrowth": false
+            }
+          },
+          "coldBaseline": {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5201992,
+            "coreRssBytes": 4055040,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          "earlyCoreRssGrowthBytes": 0,
+          "totalElapsedSeconds": 155,
+          "samples": [
+            {
+              "elapsedSeconds": 0,
+              "cycles": 0,
+              "heapUsedBytes": 5488076,
+              "coreRssBytes": 4055040,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 31,
+              "cycles": 12,
+              "heapUsedBytes": 5683908,
+              "coreRssBytes": 4055040,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 64,
+              "cycles": 25,
+              "heapUsedBytes": 5884172,
+              "coreRssBytes": 4055040,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 96,
+              "cycles": 38,
+              "heapUsedBytes": 5863784,
+              "coreRssBytes": 4055040,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 122,
+              "cycles": 48,
+              "heapUsedBytes": 5930036,
+              "coreRssBytes": 4042752,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            }
+          ],
+          "cycles": 48
+        }
+      },
+      "memory_evidence_invalid": "OldmeasurementusedspawnedvenvredirectorPID (~4MB)ratherthanactualPythonserver. Onlyfunctionalresultsretained; notCorememorypass."
+    },
+    "8ee_intel_mac": {
+      "url": "https://github.com/JDeun/growwise/actions/runs/41669736206",
+      "actual_sync_runtime": "CPython3.12.16",
+      "failure": "Harness inspectedcollapsedworkflowdetailsbeforeapprovedcardfinishedrenderingafterAPIapproval.",
+      "correction": "Wait approvedcard+workflowdetails DOM readiness before print assertions. Current48baIntelpassesrealPDF/print assertions."
+    }
+  },
+  "followup_not_measured_in_this_run": {
+    "parent_watchdog": "One-line GROWWISE_PARENT_PID=NodehostPID enables existing Core parent watchdog for redirected child cleanup.12existingwatchdogtests pass.48barun predates this setting; no newOS result claimed here.",
+    "memory": "Version5 replaces unsupported RSSflatness with fixed>=60s AND>=3cycles representative warmup, max300setup; thenfull120s. Same32MiBactualRSS/8MiBbrowserbudgetsapplytoEVERYobservedsteadysample, plusWindowspositivePrivateMemorySize64withindependent32MiBgrowthguard. No thresholds/deadlines increase. Newactualversion5resultsrequired, notincludedhere."
+  },
+  "privacy_review": "Synthetic aggregate metrics/source hashes only. Rawlogs/screenshots,privatehostpaths,commandlines,environmentvalues,tokens and household records are not published."
+}

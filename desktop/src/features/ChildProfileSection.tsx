@@ -1,10 +1,9 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useState, type FormEvent } from "react";
 
 import type { ChildContextLoadState } from "../child-context-state";
 import { ChildAvatar, ViewStateNotice } from "../components";
 import {
   deleteChildAvatar,
-  getHealth,
   setChildAvatar,
   type ChildProfile,
   type GrowthMap,
@@ -12,12 +11,6 @@ import {
 } from "../api";
 import { stageLabel } from "../presentation";
 import "./ChildProfileSection.css";
-
-type ModelOnboardingState =
-  | { kind: "idle" }
-  | { kind: "checking" }
-  | { kind: "ready" }
-  | { kind: "optional"; configured: boolean };
 
 interface ChildProfileSectionProps {
   connected: boolean;
@@ -67,7 +60,6 @@ export function ChildProfileSection({
   onAvatarUpdated,
 }: ChildProfileSectionProps) {
   const firstRun = children.length === 0;
-  const [modelOnboarding, setModelOnboarding] = useState<ModelOnboardingState>({ kind: "idle" });
   const [avatarBusy, setAvatarBusy] = useState(false);
   const [avatarError, setAvatarError] = useState<string | null>(null);
 
@@ -122,94 +114,23 @@ export function ChildProfileSection({
     }
   }
 
-  useEffect(() => {
-    let cancelled = false;
-    if (!firstRun || !connected) {
-      setModelOnboarding({ kind: "idle" });
-      return () => { cancelled = true; };
-    }
-
-    setModelOnboarding({ kind: "checking" });
-    void getHealth()
-      .then((health) => {
-        if (cancelled) return;
-        setModelOnboarding(
-          health.llm_reachable
-            ? { kind: "ready" }
-            : { kind: "optional", configured: health.llm_configured },
-        );
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setModelOnboarding({ kind: "optional", configured: true });
-        }
-      });
-
-    return () => { cancelled = true; };
-  }, [connected, firstRun]);
-
   return (
-    <section className="child-profile-section" aria-labelledby="child-profile-title">
+    <section className={`child-profile-section${firstRun ? " is-first-run" : ""}`} aria-labelledby="child-profile-title">
       <div className="section-heading">
         <div>
-          <p className="eyebrow">아이 프로필</p>
-          <h2 id="child-profile-title">{firstRun ? "처음 설정을 마치면 바로 기록을 시작할 수 있습니다." : "아이의 기본 정보와 성장 맥락을 관리합니다."}</h2>
+          <h2 id="child-profile-title">{firstRun ? "첫 아이 프로필 만들기" : "아이의 기본 정보와 성장 맥락을 관리합니다."}</h2>
+          {firstRun && <p className="muted">닉네임과 교육 단계만 있으면 됩니다. 생년월일은 선택입니다.</p>}
         </div>
-        {firstRun && <span className="badge">처음 설정</span>}
       </div>
 
-      {firstRun && (
-        <section className="onboarding-panel" aria-label="GrowWise 첫 실행 설정">
-          <div className="onboarding-heading">
-            <div>
-              <p className="card-label">빠른 시작</p>
-              <h3>닉네임과 기본 정보만 입력하면 바로 첫 활동을 시작할 수 있습니다.</h3>
-            </div>
-            <span className="onboarding-optional-badge">AI는 선택 사항</span>
-          </div>
-          <ol className="onboarding-steps">
-            <li className={connected ? "is-complete" : "is-current"}>
-              <span className="onboarding-step-number">1</span>
-              <div>
-                <strong>앱 준비</strong>
-                <p>{connected ? "기록을 저장할 준비가 됐습니다." : "앱을 준비하고 있습니다. 잠시 후 자동으로 이어집니다."}</p>
-              </div>
-            </li>
-            <li className={connected ? "is-current" : ""}>
-              <span className="onboarding-step-number">2</span>
-              <div>
-                <strong>첫 아이 프로필 만들기</strong>
-                <p>닉네임과 교육 단계만 있으면 됩니다. 월령은 선택입니다.</p>
-              </div>
-            </li>
-            <li className={modelOnboarding.kind === "ready" ? "is-complete" : "is-optional"}>
-              <span className="onboarding-step-number">3</span>
-              <div>
-                <strong>AI 보조 기능 · 선택</strong>
-                {modelOnboarding.kind === "checking" ? (
-                  <p>AI 보조 기능을 사용할 수 있는지 확인하고 있습니다.</p>
-                ) : modelOnboarding.kind === "ready" ? (
-                  <p>AI 보조 기능을 사용할 수 있습니다. 기록 정리와 검색, 자료 만들기를 필요할 때 보조합니다.</p>
-                ) : (
-                  <p>
-                    {modelOnboarding.kind === "optional" && modelOnboarding.configured
-                      ? "AI 보조 기능이 아직 준비되지 않았습니다."
-                      : "AI 보조 기능을 지금 설정하지 않아도 됩니다."}
-                    {" "}관찰 기록, 검색, 성장 보기, 활동과 자료 관리는 그대로 사용할 수 있습니다. 나중에 설정에서 사용 가능 상태를 확인할 수 있습니다.
-                  </p>
-                )}
-              </div>
-            </li>
-          </ol>
-          <p className="onboarding-footnote muted">AI 단계는 건너뛰어도 됩니다. 첫 아이를 저장하면 바로 기록을 시작할 수 있습니다.</p>
-        </section>
+      {firstRun && !connected && (
+        <p className="muted" role="status">앱을 준비하고 있습니다. 연결되면 프로필을 저장할 수 있습니다.</p>
       )}
 
       {children.length > 0 && (
         <section className="child-roster" aria-labelledby="child-roster-title">
           <div className="child-roster__heading">
             <div>
-              <p className="card-label">아이 목록</p>
               <h3 id="child-roster-title">프로필을 선택해 기록 맥락을 바꿉니다.</h3>
             </div>
             <span>{children.length}명</span>
@@ -242,10 +163,10 @@ export function ChildProfileSection({
 
       <div className="skeleton-grid child-profile-layout">
         <form className="profile-form" onSubmit={onSubmit}>
-          <p className="card-label">{firstRun ? "첫 프로필" : "새 아이 추가"}</p>
+          {!firstRun && <p className="card-label">새 아이 추가</p>}
           <label>
             <span>아이 닉네임</span>
-            <input value={nickname} onChange={(event) => onNicknameChange(event.target.value)} placeholder="예: 샘플아이" maxLength={40} disabled={!connected || saving} />
+            <input required value={nickname} onChange={(event) => onNicknameChange(event.target.value)} placeholder="예: 샘플아이" maxLength={40} disabled={!connected || saving} />
           </label>
           <label>
             <span>생년월일(권장)</span>
@@ -287,9 +208,15 @@ export function ChildProfileSection({
             {saving ? "저장 중…" : firstRun ? "첫 프로필 저장" : "새 프로필 저장"}
           </button>
           {error && <p className="form-error" role="alert">{error}</p>}
+          {firstRun && (
+            <details className="onboarding-optional">
+              <summary>AI 보조 기능 · 선택</summary>
+              <p>AI 없이도 기록과 기본 활동 자료를 사용할 수 있습니다. 나중에 설정에서 AI 보조 기능을 준비할 수 있습니다.</p>
+            </details>
+          )}
         </form>
 
-        <article className="verification-card child-profile-card">
+        {!firstRun && <article className="verification-card child-profile-card">
           {activeChild ? (
             <>
               <div className="child-profile-card__identity">
@@ -310,7 +237,6 @@ export function ChildProfileSection({
                   </label>
                 </div>
                 <div>
-                  <p className="card-label">현재 아이</p>
                   <h3>{activeChild.nickname}</h3>
                   <p className="muted">{stageLabel(activeChild.stage)} · {activeChild.age_months ?? "—"}개월</p>
                   {activeChild.avatar_asset_id && (
@@ -334,12 +260,11 @@ export function ChildProfileSection({
             </>
           ) : (
             <>
-              <p className="card-label">첫 단계</p>
               <h3>첫 아이 프로필을 만들어 주세요.</h3>
               <p className="muted">개인 식별정보 대신 앱 안에서 구분할 닉네임만 사용해도 됩니다.</p>
             </>
           )}
-        </article>
+        </article>}
       </div>
 
       {!activeChild && connected && !firstRun && (

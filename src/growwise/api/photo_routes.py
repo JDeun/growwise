@@ -8,6 +8,7 @@ from typing import Annotated
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Header, HTTPException, status
+from PIL import Image
 from pydantic import BaseModel, Field
 from uuid6 import uuid7
 
@@ -36,6 +37,7 @@ from growwise.services.photo_image_validation import (
     validate_image_dimensions,
 )
 from growwise.services.photo_jobs import PhotoJobRunner
+from growwise.services.photo_thumbnail import photo_thumbnail
 from growwise.storage import EntityStore
 
 # This router is mounted under study_routes, whose prefix is already /v1.
@@ -80,10 +82,7 @@ def get_photo_text_provider() -> ModelProvider | None:
     settings = get_photo_settings()
     if not settings.llm_features_enabled:
         return None
-    if (
-        not is_loopback_endpoint(settings.model_base_url)
-        and not settings.photo_remote_text_allowed
-    ):
+    if not is_loopback_endpoint(settings.model_base_url) and not settings.photo_remote_text_allowed:
         return None
     photo_settings = settings.model_copy(
         update={"model_timeout_seconds": settings.photo_text_timeout_seconds}
@@ -285,15 +284,18 @@ def _finalize_photo_create(
 
     queue = SQLiteJobQueue(settings.jobs_path)
     job = queue.get(record.job_id) if record.job_id is not None else None
-    if (
-        job is None
-        and record.status
-        in {PhotoRecordStatus.QUEUED, PhotoRecordStatus.PROCESSING, PhotoRecordStatus.FAILED}
-    ):
+    if job is None and record.status in {
+        PhotoRecordStatus.QUEUED,
+        PhotoRecordStatus.PROCESSING,
+        PhotoRecordStatus.FAILED,
+    }:
         runner = get_photo_job_runner()
         try:
             with store.mutation_window():
                 runner.start()
+                # Startup recovery may have marked a record without a durable job interrupted.
+                # This explicit new submission is the point where it becomes queued again.
+                ai_service.mark_queued(str(record.id))
                 job = runner.submit(child_id=str(child_id), record_id=str(record.id))
                 record = ai_service.attach_job(record_id=str(record.id), job_id=job.id)
         except HTTPException:
@@ -344,9 +346,7 @@ def create_photo_record(
         effective_context = manual_text
 
     idempotency_store = (
-        SQLiteIdempotencyStore(settings.idempotency_path)
-        if idempotency_key is not None
-        else None
+        SQLiteIdempotencyStore(settings.idempotency_path) if idempotency_key is not None else None
     )
     request_hash = _photo_create_fingerprint(
         child_id=child_id,
@@ -509,8 +509,8 @@ def retry_photo_record(
 
     runner = get_photo_job_runner()
     with store.mutation_window():
-        service.mark_queued(str(record_id))
         runner.start()
+        service.mark_queued(str(record_id))
         job = runner.submit(child_id=str(record.child_id), record_id=str(record.id))
         record = service.attach_job(record_id=str(record.id), job_id=job.id)
     return {
@@ -566,3 +566,39 @@ def get_photo_asset(
         "asset": typed_asset.model_dump(mode="json"),
         "data_base64": base64.b64encode(data).decode("ascii"),
     }
+
+
+@router.get("/children/{child_id}/photo-assets/{asset_id}/thumbnail")
+def get_photo_thumbnail(
+    child_id: UUID,
+    asset_id: UUID,
+    settings: Annotated[Settings, Depends(get_photo_settings)],
+    store: Annotated[EntityStore, Depends(get_photo_store)],
+) -> dict[str, object]:
+    with store.mutation_window():
+        payload = store.index.get_entity(str(asset_id), entity_type="photo_asset")
+        # Authorize metadata before reading or decoding any private original bytes.
+        if payload is None or str(payload.get("child_id")) != str(child_id):
+            raise HTTPException(status_code=404, detail="photo_asset_not_found")
+        if store.index.get_entity(str(child_id), entity_type="child_profile") is None:
+            raise HTTPException(status_code=404, detail="child_not_found")
+        try:
+            asset = PhotoAsset.model_validate(payload)
+            original = PhotoAssetStore(
+                settings.assets_dir, max_file_bytes=settings.photo_max_file_bytes
+            )
+            image, width, height = photo_thumbnail(
+                lambda: original.read_verified(asset),
+                max_width=settings.photo_max_width,
+                max_height=settings.photo_max_height,
+                max_pixels=settings.photo_max_pixels,
+            )
+        except (Image.DecompressionBombError, OSError, ValueError) as exc:
+            raise HTTPException(status_code=409, detail="photo_thumbnail_unavailable") from exc
+        return {
+            "asset": asset.model_dump(mode="json"),
+            "mime_type": "image/jpeg",
+            "width": width,
+            "height": height,
+            "data_base64": base64.b64encode(image).decode("ascii"),
+        }

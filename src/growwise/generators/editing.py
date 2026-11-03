@@ -44,6 +44,7 @@ class MaterialEditService:
             ],
             curriculum_targets=curriculum_targets,
             generator_mode="parent_edit",
+            generator_version="growwise.parent-edit.v1",
             review_note=None,
             request_topic=material.request_topic,
             request_goal=material.request_goal,

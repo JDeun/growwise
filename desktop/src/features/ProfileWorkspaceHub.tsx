@@ -4,6 +4,7 @@ import { useActiveChild } from "../active-child-context";
 import { ChildAvatar } from "../components";
 import { stageLabel } from "../presentation";
 import type { WorkspaceView } from "../components/workspaceTypes";
+import { LearningWikiPanel } from "./LearningWikiPanel";
 import "./ProfileWorkspaceHub.css";
 
 type ProfileTab = "records" | "development" | "report";
@@ -38,14 +39,13 @@ export function ProfileWorkspaceHub({
     >
       <header className="profile-hub-heading">
         <div>
-          <p className="eyebrow">CHILD PROFILE</p>
           <h1 id="profile-hub-title">아이 프로필</h1>
           <p>우리 아이의 특별한 성장과 배움의 흐름을 한곳에서 살펴봅니다.</p>
         </div>
-        <button className="primary-button" type="button" onClick={() => onNavigate("learning")}>
+        {activeChild && <button className="primary-button" type="button" onClick={() => onNavigate("learning")}>
           <span aria-hidden="true">＋</span>
           새 기록 추가
-        </button>
+        </button>}
       </header>
 
       {showManage ? (
@@ -151,18 +151,18 @@ export function ProfileWorkspaceHub({
 
             {tab === "development" && (
               <div className="profile-tab-context">
-                <span>발달 분석</span>
                 <strong>최근 기록이 어떤 경험 축에 연결됐는지 살펴봅니다.</strong>
                 <p>기록의 분포를 보여주는 회고 도구이며 능력이나 발달 수준을 점수화하지 않습니다.</p>
               </div>
             )}
             {tab === "report" && (
               <div className="profile-tab-context">
-                <span>성장 리포트</span>
                 <strong>시간 순서로 쌓인 기록에서 변화와 반복되는 관심을 돌아봅니다.</strong>
                 <p>관찰 타임라인을 중심으로 실제 기록을 다시 확인합니다.</p>
               </div>
             )}
+
+            {tab === "report" && <LearningWikiPanel key={activeChild.id} childId={activeChild.id} />}
 
             <div className="profile-hub-core">
               {app}

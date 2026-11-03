@@ -1,0 +1,4261 @@
+{
+  "experiment_id": "EXP-LINUX-CORE-MEMORY-OBSERVED-20261103",
+  "recorded_at": "2026-11-03T14:49:33.991334+00:00",
+  "scope": "Actual successful Linux UI/Core soak plus preserved failed warmup and isolated Linux HTTP memory diagnostics. No production memory change and no guard/budget widening.",
+  "successful_linux_ci": {
+    "revision": "afaa98c14b6fc0ebe58f7114af29fa0d1dc80fb7",
+    "url": "https://github.com/JDeun/growwise/actions/runs/41654753604",
+    "report": {
+      "passed": true,
+      "transport": "browser IPC adapter -> authenticated actual Core; native runtime checked separately",
+      "llm": false,
+      "fixture": "synthetic children, observations and 2048x1536 PNG; isolated temporary data directory",
+      "scriptSha256": "3b724ae0c47771adf85b454a7f79d121f1745ffee40ef14cc8669d16e9db5707",
+      "browserHelperSha256": "d082e39a6ddeb04766ce60712e416b2be220391ebbcd7c0fa34a4106c7d01389",
+      "soakMetricsSha256": "8a5579f0b35a3b366bc739cde49e490dc08e1bffc92eaad5a536960c7bd7b415",
+      "coreSourceSha256": "1d6fac4c8b7710b8a64dd36cc71437b267efc7633f57cb37cdb8e26d519e58fc",
+      "nativeCsp": "default-src 'self'; connect-src 'self'; img-src 'self' asset: data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:",
+      "buildAssets": [
+        "/assets/index-CuQeaFzA.js",
+        "/assets/index-o_Tz_q_5.css"
+      ],
+      "steps": [
+        "real Core starts and rejects unauthenticated access",
+        "UI first-run profile persists and enters materials",
+        "UI background generation saves template; explicit use passes real review gate",
+        "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+        "UI one-line result writes authoritative learning record",
+        "UI creates two distinct materials and native selector changes primary document heading/content in both directions",
+        "UI independent reading record preserves separate record kind",
+        "UI profile Learning Wiki shows provenance-backed context and explicitly rebuilds from originals",
+        "UI opens a cited current original with title, event date and body through child-scoped evidence resolution",
+        "UI conversation retrieves real records with source refs; Learning Wiki grounded",
+        "UI confirmed conversation deletion preserves another conversation and original source records",
+        "UI direct search returns actual child-scoped records without an LLM",
+        "UI reference library create/edit/detail/confirmed delete reaches real Core",
+        "UI conversation proposal carries topic and visible book into composition; explicit parent generation saves an unapproved draft",
+        "UI actual PNG upload, parent confirmation and bounded JPEG thumbnails pass; original PNG remains byte-identical and UI never fetches full originals",
+        "UI creates second child, switches contexts, isolates private search/history, restores first-child view",
+        "real backup/restore removes newer child, preserves material result/conversation, UI reloads",
+        "real Core learning/study responses from child A are deliberately delivered after child B loads; current-child records remain isolated",
+        "UI child/date raw Markdown export downloads a real hashed ZIP containing only the chosen period and child; full backup restore rejects it",
+        "primary approved-material print opens required details, selects one document, renders a real PDF, restores collapsed UI after printing",
+        "infant activity preserves visible parent safety guidance and printable parent guide while excluding learner worksheets and writing spaces",
+        "actual Core/UI navigation soak: 1000 added records, observed RSS plateau after 99s, then 46 cycles across 8 workspaces for 121s, bounded post-GC heap and Core RSS"
+      ],
+      "navigationSoak": {
+        "measurementVersion": 2,
+        "requestedSeconds": 120,
+        "seededRecords": 1000,
+        "views": [
+          "home",
+          "profile",
+          "learning",
+          "materials",
+          "photos",
+          "conversation",
+          "backup",
+          "help"
+        ],
+        "warmup": {
+          "policy": {
+            "maximumSeconds": 120,
+            "sampleIntervalSeconds": 15,
+            "minimumSpanSeconds": 30,
+            "maximumSpreadBytes": 524288,
+            "sampleCount": 3
+          },
+          "cycles": 38,
+          "samples": [
+            {
+              "elapsedSeconds": 0,
+              "cycles": 0,
+              "heapUsedBytes": 5180564,
+              "coreRssBytes": 211996672,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 183087104,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 16,
+              "cycles": 6,
+              "heapUsedBytes": 5367232,
+              "coreRssBytes": 247300096,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 218390528,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 32,
+              "cycles": 12,
+              "heapUsedBytes": 5446848,
+              "coreRssBytes": 265187328,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 236277760,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 50,
+              "cycles": 19,
+              "heapUsedBytes": 5642960,
+              "coreRssBytes": 265523200,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 236613632,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 66,
+              "cycles": 25,
+              "heapUsedBytes": 5667544,
+              "coreRssBytes": 265588736,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 236679168,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 84,
+              "cycles": 32,
+              "heapUsedBytes": 5679024,
+              "coreRssBytes": 265592832,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 236683264,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            },
+            {
+              "elapsedSeconds": 99,
+              "cycles": 38,
+              "heapUsedBytes": 5874868,
+              "coreRssBytes": 265592832,
+              "coreThreads": 13,
+              "coreRssAnonBytes": 236683264,
+              "coreRssFileBytes": 28909568,
+              "coreRssShmemBytes": 0,
+              "Documents": 3,
+              "JSEventListeners": 167,
+              "Nodes": 305
+            }
+          ],
+          "assessment": {
+            "stable": true,
+            "spanSeconds": 33,
+            "spreadBytes": 4096,
+            "sustainedGrowth": false
+          }
+        },
+        "coldBaseline": {
+          "elapsedSeconds": 0,
+          "cycles": 0,
+          "heapUsedBytes": 5180564,
+          "coreRssBytes": 211996672,
+          "coreThreads": 13,
+          "coreRssAnonBytes": 183087104,
+          "coreRssFileBytes": 28909568,
+          "coreRssShmemBytes": 0,
+          "Documents": 3,
+          "JSEventListeners": 167,
+          "Nodes": 305
+        },
+        "earlyCoreRssGrowthBytes": 53596160,
+        "totalElapsedSeconds": 220,
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5874868,
+            "coreRssBytes": 265592832,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 236683264,
+            "coreRssFileBytes": 28909568,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 32,
+            "cycles": 12,
+            "heapUsedBytes": 5945776,
+            "coreRssBytes": 265592832,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 236683264,
+            "coreRssFileBytes": 28909568,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 63,
+            "cycles": 24,
+            "heapUsedBytes": 5982320,
+            "coreRssBytes": 265596928,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 236687360,
+            "coreRssFileBytes": 28909568,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 94,
+            "cycles": 36,
+            "heapUsedBytes": 6017148,
+            "coreRssBytes": 265601024,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 236691456,
+            "coreRssFileBytes": 28909568,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 121,
+            "cycles": 46,
+            "heapUsedBytes": 6049316,
+            "coreRssBytes": 265605120,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 236695552,
+            "coreRssFileBytes": 28909568,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          }
+        ],
+        "cycles": 46
+      }
+    }
+  },
+  "previous_failed_linux_ci": {
+    "revision": "de3cc074ff067f5e37d9e66afd0cb9a82cc68825",
+    "url": "https://github.com/JDeun/growwise/actions/runs/41650864448",
+    "reason": "No strict RSS plateau before120second bounded warmup; no steady interval claimed",
+    "trace": {
+      "measurementVersion": 2,
+      "requestedSeconds": 120,
+      "seededRecords": 1000,
+      "views": [
+        "home",
+        "profile",
+        "learning",
+        "materials",
+        "photos",
+        "conversation",
+        "backup",
+        "help"
+      ],
+      "warmup": {
+        "policy": {
+          "maximumSeconds": 120,
+          "sampleIntervalSeconds": 15,
+          "minimumSpanSeconds": 30,
+          "maximumSpreadBytes": 524288,
+          "sampleCount": 3
+        },
+        "cycles": 44,
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "cycles": 0,
+            "heapUsedBytes": 5183776,
+            "coreRssBytes": 210534400,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 180850688,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 15,
+            "cycles": 6,
+            "heapUsedBytes": 5365620,
+            "coreRssBytes": 244916224,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 215232512,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 30,
+            "cycles": 12,
+            "heapUsedBytes": 5425736,
+            "coreRssBytes": 247324672,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 217640960,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 46,
+            "cycles": 18,
+            "heapUsedBytes": 5636716,
+            "coreRssBytes": 261791744,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 232108032,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 64,
+            "cycles": 25,
+            "heapUsedBytes": 5682860,
+            "coreRssBytes": 262369280,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 232685568,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 81,
+            "cycles": 32,
+            "heapUsedBytes": 5678380,
+            "coreRssBytes": 262430720,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 232747008,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 96,
+            "cycles": 38,
+            "heapUsedBytes": 5876480,
+            "coreRssBytes": 263622656,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 233938944,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          },
+          {
+            "elapsedSeconds": 112,
+            "cycles": 44,
+            "heapUsedBytes": 5904932,
+            "coreRssBytes": 263626752,
+            "coreThreads": 13,
+            "coreRssAnonBytes": 233943040,
+            "coreRssFileBytes": 29683712,
+            "coreRssShmemBytes": 0,
+            "Documents": 3,
+            "JSEventListeners": 167,
+            "Nodes": 305
+          }
+        ],
+        "assessment": {
+          "stable": false,
+          "spanSeconds": 31,
+          "spreadBytes": 1196032,
+          "sustainedGrowth": true
+        }
+      },
+      "coldBaseline": {
+        "elapsedSeconds": 0,
+        "cycles": 0,
+        "heapUsedBytes": 5183776,
+        "coreRssBytes": 210534400,
+        "coreThreads": 13,
+        "coreRssAnonBytes": 180850688,
+        "coreRssFileBytes": 29683712,
+        "coreRssShmemBytes": 0,
+        "Documents": 3,
+        "JSEventListeners": 167,
+        "Nodes": 305
+      },
+      "earlyCoreRssGrowthBytes": 53092352,
+      "totalElapsedSeconds": 112,
+      "samples": []
+    }
+  },
+  "docker_image": {
+    "reference": "python:3.12.15-slim",
+    "digest": "sha256:a0f57064cbdcd6285fa45f51237ab0b35ea8ebaed06a1f5973e89e19dfb86704",
+    "os": "linux",
+    "architecture": "arm64",
+    "note": "Isolated diagnostic environment, not a final release runtime choice; CI is Linuxx64 and not the same machine/libc."
+  },
+  "diagnostic_dependency_versions_reported_by_locked_install": {
+    "fastapi": "0.141.1",
+    "starlette": "1.6.0",
+    "anyio": "4.15.1",
+    "pydantic": "2.13.5",
+    "uvicorn": "0.53.0",
+    "uvloop": "0.22.1",
+    "httpx": "0.28.1"
+  },
+  "diagnostic_runs": {
+    "traced_burst": {
+      "environment": {
+        "python": "3.12.15",
+        "machine": "aarch64",
+        "libc": [
+          "glibc",
+          "2.41"
+        ],
+        "platform": "Linux"
+      },
+      "total_successful_get_cycles": 153,
+      "baseline_after_cycles": 3,
+      "additional_cycles": 150,
+      "get_routes_per_cycle": 7,
+      "seeded_records": 1000,
+      "record_dates": "current date, all recent; larger growth-map cohort than UI soak",
+      "snapshots": [
+        {
+          "marker": 0,
+          "before_gc": {
+            "at": 1793716005.1485348,
+            "traced_current_bytes": 67758709,
+            "traced_peak_bytes": 78712638,
+            "VmRSS": 268775424,
+            "RssAnon": 243896320,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716005.1957295,
+            "traced_current_bytes": 67336272,
+            "traced_peak_bytes": 78712638,
+            "VmRSS": 268775424,
+            "RssAnon": 243896320,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 627,
+          "tracked_objects": 746151
+        },
+        {
+          "marker": 1,
+          "before_gc": {
+            "at": 1793716034.7002707,
+            "traced_current_bytes": 67532430,
+            "traced_peak_bytes": 80364261,
+            "VmRSS": 443637760,
+            "RssAnon": 418758656,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716034.7464204,
+            "traced_current_bytes": 67350928,
+            "traced_peak_bytes": 80364261,
+            "VmRSS": 443637760,
+            "RssAnon": 418758656,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 54,
+          "tracked_objects": 746422,
+          "net_traced_size_diff_bytes": 14656,
+          "top_growth": [
+            {
+              "location": "<python-stdlib>/pathlib.py:1013",
+              "bytes": 14809,
+              "count": 251
+            },
+            {
+              "location": "<frozen os>:1066",
+              "bytes": -11564,
+              "count": -196
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/api/learning_record_routes.py:233",
+              "bytes": 6850,
+              "count": 137
+            },
+            {
+              "location": "<python-stdlib>/email/utils.py:278",
+              "bytes": 1424,
+              "count": 30
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:293",
+              "bytes": 1250,
+              "count": 25
+            },
+            {
+              "location": "<frozen abc>:123",
+              "bytes": -1100,
+              "count": -20
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_core/_streams.py:51",
+              "bytes": 1071,
+              "count": 17
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:294",
+              "bytes": 1000,
+              "count": 20
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/maintenance.py:56",
+              "bytes": 640,
+              "count": 7
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/fastapi/routing.py:1521",
+              "bytes": -480,
+              "count": -4
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:558",
+              "bytes": 472,
+              "count": 8
+            },
+            {
+              "location": "<python-stdlib>/asyncio/runners.py:118",
+              "bytes": 363,
+              "count": 4
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:560",
+              "bytes": 312,
+              "count": 2
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:423",
+              "bytes": 312,
+              "count": 2
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1100",
+              "bytes": 240,
+              "count": 2
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/frontmatter/default_handlers.py:260",
+              "bytes": 240,
+              "count": 2
+            },
+            {
+              "location": "<python-stdlib>/tokenize.py:461",
+              "bytes": -236,
+              "count": -4
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/fastapi/routing.py:1794",
+              "bytes": -208,
+              "count": -1
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/starlette/routing.py:131",
+              "bytes": -188,
+              "count": -4
+            },
+            {
+              "location": "<frozen importlib._bootstrap_external>:1190",
+              "bytes": -180,
+              "count": -4
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/maintenance.py:53",
+              "bytes": -160,
+              "count": -1
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:944",
+              "bytes": -136,
+              "count": -1
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py:309",
+              "bytes": 136,
+              "count": 1
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/starlette/routing.py:252",
+              "bytes": 120,
+              "count": 1
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/fastapi/dependencies/utils.py:676",
+              "bytes": 120,
+              "count": 1
+            }
+          ]
+        },
+        {
+          "marker": 2,
+          "before_gc": {
+            "at": 1793716077.0766082,
+            "traced_current_bytes": 67513600,
+            "traced_peak_bytes": 86163143,
+            "VmRSS": 478281728,
+            "RssAnon": 453337088,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716077.1448865,
+            "traced_current_bytes": 67352129,
+            "traced_peak_bytes": 86163143,
+            "VmRSS": 478281728,
+            "RssAnon": 453337088,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "gc_collected": 15,
+          "tracked_objects": 746530,
+          "net_traced_size_diff_bytes": 15857,
+          "top_growth": [
+            {
+              "location": "<python-stdlib>/pathlib.py:1013",
+              "bytes": 14396,
+              "count": 244
+            },
+            {
+              "location": "<frozen os>:1066",
+              "bytes": -11977,
+              "count": -203
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/api/learning_record_routes.py:233",
+              "bytes": 9700,
+              "count": 194
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:293",
+              "bytes": 2450,
+              "count": 49
+            },
+            {
+              "location": "<python-stdlib>/email/utils.py:278",
+              "bytes": 2292,
+              "count": 49
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:294",
+              "bytes": 2050,
+              "count": 41
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_core/_streams.py:51",
+              "bytes": 1953,
+              "count": 31
+            },
+            {
+              "location": "<frozen abc>:123",
+              "bytes": -1375,
+              "count": -25
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/maintenance.py:56",
+              "bytes": 640,
+              "count": 7
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:558",
+              "bytes": 472,
+              "count": 8
+            },
+            {
+              "location": "<python-stdlib>/threading.py:935",
+              "bytes": -400,
+              "count": 0
+            },
+            {
+              "location": "<python-stdlib>/asyncio/runners.py:118",
+              "bytes": 363,
+              "count": 4
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/fastapi/dependencies/utils.py:676",
+              "bytes": 360,
+              "count": 3
+            },
+            {
+              "location": "<python-stdlib>/threading.py:589",
+              "bytes": -352,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:2678",
+              "bytes": -344,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:35",
+              "bytes": -336,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:18",
+              "bytes": -336,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py:107",
+              "bytes": -328,
+              "count": 0
+            },
+            {
+              "location": "<python-stdlib>/queue.py:46",
+              "bytes": -320,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/streams/memory.py:122",
+              "bytes": -315,
+              "count": -5
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:560",
+              "bytes": 312,
+              "count": 2
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:423",
+              "bytes": 312,
+              "count": 2
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:17",
+              "bytes": -286,
+              "count": -5
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/starlette/routing.py:131",
+              "bytes": -282,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:33",
+              "bytes": -280,
+              "count": -5
+            }
+          ]
+        },
+        {
+          "marker": 3,
+          "before_gc": {
+            "at": 1793716146.809937,
+            "traced_current_bytes": 67544302,
+            "traced_peak_bytes": 86163988,
+            "VmRSS": 486924288,
+            "RssAnon": 461979648,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716146.8764293,
+            "traced_current_bytes": 67358950,
+            "traced_peak_bytes": 86163988,
+            "VmRSS": 486924288,
+            "RssAnon": 461979648,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "gc_collected": 67,
+          "tracked_objects": 746673,
+          "net_traced_size_diff_bytes": 22678,
+          "top_growth": [
+            {
+              "location": "<python-stdlib>/pathlib.py:1013",
+              "bytes": 14455,
+              "count": 245
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/api/learning_record_routes.py:233",
+              "bytes": 13700,
+              "count": 274
+            },
+            {
+              "location": "<frozen os>:1066",
+              "bytes": -11977,
+              "count": -203
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:293",
+              "bytes": 3700,
+              "count": 74
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:294",
+              "bytes": 3550,
+              "count": 71
+            },
+            {
+              "location": "<python-stdlib>/email/utils.py:278",
+              "bytes": 3520,
+              "count": 76
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_core/_streams.py:51",
+              "bytes": 2205,
+              "count": 35
+            },
+            {
+              "location": "<frozen abc>:123",
+              "bytes": -2035,
+              "count": -37
+            },
+            {
+              "location": "<python-stdlib>/threading.py:935",
+              "bytes": -664,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py:107",
+              "bytes": -648,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/maintenance.py:56",
+              "bytes": 640,
+              "count": 7
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/starlette/routing.py:131",
+              "bytes": -517,
+              "count": -11
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1064",
+              "bytes": -496,
+              "count": 0
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:558",
+              "bytes": 472,
+              "count": 8
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:2678",
+              "bytes": -400,
+              "count": -7
+            },
+            {
+              "location": "<python-stdlib>/asyncio/runners.py:118",
+              "bytes": 363,
+              "count": 4
+            },
+            {
+              "location": "<frozen importlib._bootstrap_external>:1190",
+              "bytes": -360,
+              "count": -8
+            },
+            {
+              "location": "<python-stdlib>/threading.py:589",
+              "bytes": -352,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:33",
+              "bytes": -336,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:35",
+              "bytes": -336,
+              "count": -6
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/utils.py:18",
+              "bytes": -336,
+              "count": -6
+            },
+            {
+              "location": "<python-stdlib>/queue.py:46",
+              "bytes": -320,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/streams/memory.py:122",
+              "bytes": 315,
+              "count": 5
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:560",
+              "bytes": 312,
+              "count": 2
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:423",
+              "bytes": 312,
+              "count": 2
+            }
+          ]
+        },
+        {
+          "marker": 4,
+          "before_gc": {
+            "at": 1793716217.175378,
+            "traced_current_bytes": 67546752,
+            "traced_peak_bytes": 86174100,
+            "VmRSS": 500617216,
+            "RssAnon": 475672576,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716217.220305,
+            "traced_current_bytes": 67365699,
+            "traced_peak_bytes": 86174100,
+            "VmRSS": 500617216,
+            "RssAnon": 475672576,
+            "RssFile": 24944640,
+            "Threads": 13
+          },
+          "gc_collected": 72,
+          "tracked_objects": 746773,
+          "net_traced_size_diff_bytes": 29403,
+          "top_growth": [
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/api/learning_record_routes.py:233",
+              "bytes": 15400,
+              "count": 308
+            },
+            {
+              "location": "<python-stdlib>/pathlib.py:1013",
+              "bytes": 15150,
+              "count": 257
+            },
+            {
+              "location": "<frozen os>:1066",
+              "bytes": -11977,
+              "count": -203
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:294",
+              "bytes": 4893,
+              "count": 96
+            },
+            {
+              "location": "<python-stdlib>/email/utils.py:278",
+              "bytes": 4860,
+              "count": 105
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:293",
+              "bytes": 4823,
+              "count": 96
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_core/_streams.py:51",
+              "bytes": 2709,
+              "count": 43
+            },
+            {
+              "location": "<frozen abc>:123",
+              "bytes": -2200,
+              "count": -40
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/uvicorn/protocols/http/httptools_impl.py:107",
+              "bytes": -968,
+              "count": 0
+            },
+            {
+              "location": "<python-stdlib>/threading.py:935",
+              "bytes": -960,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:1064",
+              "bytes": -792,
+              "count": 0
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/maintenance.py:56",
+              "bytes": 640,
+              "count": 7
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/streams/memory.py:122",
+              "bytes": -567,
+              "count": -9
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/starlette/routing.py:131",
+              "bytes": -564,
+              "count": -12
+            },
+            {
+              "location": "<frozen importlib._bootstrap_external>:1190",
+              "bytes": -540,
+              "count": -12
+            },
+            {
+              "location": "<python-stdlib>/_weakrefset.py:88",
+              "bytes": 512,
+              "count": 0
+            },
+            {
+              "location": "<python-stdlib>/threading.py:1056",
+              "bytes": -512,
+              "count": -1
+            },
+            {
+              "location": "<python-stdlib>/tracemalloc.py:558",
+              "bytes": 472,
+              "count": 8
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:96",
+              "bytes": 472,
+              "count": 8
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/growwise/jobs.py:94",
+              "bytes": 432,
+              "count": 5
+            },
+            {
+              "location": "<python-stdlib>/functools.py:523",
+              "bytes": 400,
+              "count": 4
+            },
+            {
+              "location": "<venv>/lib/python3.12/site-packages/anyio/_backends/_asyncio.py:2678",
+              "bytes": -400,
+              "count": -7
+            },
+            {
+              "location": "<python-stdlib>/asyncio/runners.py:118",
+              "bytes": 363,
+              "count": 4
+            },
+            {
+              "location": "<python-stdlib>/threading.py:589",
+              "bytes": -352,
+              "count": 0
+            },
+            {
+              "location": "<frozen importlib._bootstrap>:488",
+              "bytes": -345,
+              "count": -7
+            }
+          ]
+        }
+      ],
+      "periodic_samples": [
+        {
+          "at": 1793715932.412252,
+          "traced_current_bytes": 20492,
+          "traced_peak_bytes": 30570,
+          "VmRSS": 13578240,
+          "RssAnon": 7417856,
+          "RssFile": 6160384,
+          "Threads": 2
+        },
+        {
+          "at": 1793715942.4401035,
+          "traced_current_bytes": 19736803,
+          "traced_peak_bytes": 26125529,
+          "VmRSS": 81469440,
+          "RssAnon": 65089536,
+          "RssFile": 16379904,
+          "Threads": 2
+        },
+        {
+          "at": 1793715952.5268004,
+          "traced_current_bytes": 34065010,
+          "traced_peak_bytes": 40618898,
+          "VmRSS": 128081920,
+          "RssAnon": 109268992,
+          "RssFile": 18812928,
+          "Threads": 2
+        },
+        {
+          "at": 1793715962.5806863,
+          "traced_current_bytes": 48097656,
+          "traced_peak_bytes": 56111416,
+          "VmRSS": 169975808,
+          "RssAnon": 149491712,
+          "RssFile": 20484096,
+          "Threads": 2
+        },
+        {
+          "at": 1793715972.6066594,
+          "traced_current_bytes": 59924370,
+          "traced_peak_bytes": 63293754,
+          "VmRSS": 203206656,
+          "RssAnon": 182251520,
+          "RssFile": 20955136,
+          "Threads": 2
+        },
+        {
+          "at": 1793715982.6224408,
+          "traced_current_bytes": 67598064,
+          "traced_peak_bytes": 71505431,
+          "VmRSS": 236683264,
+          "RssAnon": 211869696,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793715992.6366916,
+          "traced_current_bytes": 67555480,
+          "traced_peak_bytes": 71505431,
+          "VmRSS": 236748800,
+          "RssAnon": 211935232,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716002.6926873,
+          "traced_current_bytes": 73235111,
+          "traced_peak_bytes": 77713653,
+          "VmRSS": 267427840,
+          "RssAnon": 242548736,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716012.705285,
+          "traced_current_bytes": 68897122,
+          "traced_peak_bytes": 79553095,
+          "VmRSS": 438427648,
+          "RssAnon": 413548544,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716022.7717063,
+          "traced_current_bytes": 74099980,
+          "traced_peak_bytes": 80364261,
+          "VmRSS": 441667584,
+          "RssAnon": 416788480,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716032.7865644,
+          "traced_current_bytes": 71492957,
+          "traced_peak_bytes": 80364261,
+          "VmRSS": 443637760,
+          "RssAnon": 418758656,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716042.8475213,
+          "traced_current_bytes": 76253520,
+          "traced_peak_bytes": 80364261,
+          "VmRSS": 534573056,
+          "RssAnon": 509693952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716052.9200275,
+          "traced_current_bytes": 67892785,
+          "traced_peak_bytes": 86163143,
+          "VmRSS": 482705408,
+          "RssAnon": 457760768,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716062.954499,
+          "traced_current_bytes": 67749503,
+          "traced_peak_bytes": 86163143,
+          "VmRSS": 476991488,
+          "RssAnon": 452046848,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716072.9624941,
+          "traced_current_bytes": 68081553,
+          "traced_peak_bytes": 86163143,
+          "VmRSS": 478228480,
+          "RssAnon": 453283840,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716083.000822,
+          "traced_current_bytes": 79104326,
+          "traced_peak_bytes": 86163143,
+          "VmRSS": 543371264,
+          "RssAnon": 518426624,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716093.0855374,
+          "traced_current_bytes": 74091642,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 497213440,
+          "RssAnon": 472268800,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716103.1451569,
+          "traced_current_bytes": 73217963,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 494116864,
+          "RssAnon": 469172224,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716113.2065275,
+          "traced_current_bytes": 72852145,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 490991616,
+          "RssAnon": 466046976,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716123.2438927,
+          "traced_current_bytes": 69882674,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 488951808,
+          "RssAnon": 464007168,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716133.276908,
+          "traced_current_bytes": 70756715,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 486895616,
+          "RssAnon": 461950976,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716143.3439505,
+          "traced_current_bytes": 73162095,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 486920192,
+          "RssAnon": 461975552,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716153.4002929,
+          "traced_current_bytes": 73953414,
+          "traced_peak_bytes": 86163988,
+          "VmRSS": 544501760,
+          "RssAnon": 519557120,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716163.4189565,
+          "traced_current_bytes": 67912023,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 501616640,
+          "RssAnon": 476672000,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716173.4428425,
+          "traced_current_bytes": 67831879,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 500600832,
+          "RssAnon": 475656192,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716183.4559252,
+          "traced_current_bytes": 67938272,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 499568640,
+          "RssAnon": 474624000,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716193.4877353,
+          "traced_current_bytes": 73185557,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 499597312,
+          "RssAnon": 474652672,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716203.5389333,
+          "traced_current_bytes": 72575179,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 499601408,
+          "RssAnon": 474656768,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716213.68764,
+          "traced_current_bytes": 75969138,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 500617216,
+          "RssAnon": 475672576,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        {
+          "at": 1793716223.745626,
+          "traced_current_bytes": 79778901,
+          "traced_peak_bytes": 86174100,
+          "VmRSS": 545386496,
+          "RssAnon": 520441856,
+          "RssFile": 24944640,
+          "Threads": 13
+        }
+      ],
+      "diagnostic_only_malloc_trim": {
+        "before": {
+          "at": 1793716230.7405872,
+          "traced_current_bytes": 67628197,
+          "traced_peak_bytes": 86175872,
+          "VmRSS": 517369856,
+          "RssAnon": 492425216,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        "after": {
+          "at": 1793716230.752582,
+          "traced_current_bytes": 67631800,
+          "traced_peak_bytes": 86175872,
+          "VmRSS": 407429120,
+          "RssAnon": 382484480,
+          "RssFile": 24944640,
+          "Threads": 13
+        },
+        "return": 1
+      },
+      "released_rss_bytes": 109940736
+    },
+    "untraced_burst": {
+      "environment": {
+        "python": "3.12.15",
+        "machine": "aarch64",
+        "libc": [
+          "glibc",
+          "2.41"
+        ],
+        "platform": "Linux"
+      },
+      "total_successful_get_cycles": 153,
+      "baseline_after_cycles": 3,
+      "additional_cycles": 150,
+      "get_routes_per_cycle": 7,
+      "seeded_records": 1000,
+      "record_dates": "current date, all recent; larger growth-map cohort than UI soak",
+      "snapshots": [
+        {
+          "marker": 0,
+          "before_gc": {
+            "at": 1793716325.1657443,
+            "VmRSS": 146219008,
+            "RssAnon": 121335808,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716325.2273152,
+            "VmRSS": 146219008,
+            "RssAnon": 121335808,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "gc_collected": 609,
+          "tracked_objects": 153219
+        },
+        {
+          "marker": 1,
+          "before_gc": {
+            "at": 1793716328.766315,
+            "VmRSS": 161841152,
+            "RssAnon": 136957952,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716328.8246942,
+            "VmRSS": 161841152,
+            "RssAnon": 136957952,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "gc_collected": 318,
+          "tracked_objects": 153228
+        },
+        {
+          "marker": 2,
+          "before_gc": {
+            "at": 1793716332.3095026,
+            "VmRSS": 162127872,
+            "RssAnon": 137244672,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716332.3765197,
+            "VmRSS": 162127872,
+            "RssAnon": 137244672,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "gc_collected": 395,
+          "tracked_objects": 153220
+        },
+        {
+          "marker": 3,
+          "before_gc": {
+            "at": 1793716339.2364388,
+            "VmRSS": 162328576,
+            "RssAnon": 137445376,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716339.3011699,
+            "VmRSS": 162328576,
+            "RssAnon": 137445376,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "gc_collected": 318,
+          "tracked_objects": 153221
+        },
+        {
+          "marker": 4,
+          "before_gc": {
+            "at": 1793716345.8153675,
+            "VmRSS": 162914304,
+            "RssAnon": 138031104,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716345.8657544,
+            "VmRSS": 162914304,
+            "RssAnon": 138031104,
+            "RssFile": 24883200,
+            "Threads": 13
+          },
+          "gc_collected": 281,
+          "tracked_objects": 153220
+        }
+      ],
+      "periodic_samples": [
+        {
+          "at": 1793716313.5801125,
+          "VmRSS": 13615104,
+          "RssAnon": 7450624,
+          "RssFile": 6164480,
+          "Threads": 2
+        },
+        {
+          "at": 1793716314.584459,
+          "VmRSS": 64614400,
+          "RssAnon": 46256128,
+          "RssFile": 18358272,
+          "Threads": 2
+        },
+        {
+          "at": 1793716315.5872242,
+          "VmRSS": 98566144,
+          "RssAnon": 77619200,
+          "RssFile": 20946944,
+          "Threads": 2
+        },
+        {
+          "at": 1793716316.5926578,
+          "VmRSS": 116805632,
+          "RssAnon": 91987968,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716317.596233,
+          "VmRSS": 118767616,
+          "RssAnon": 93949952,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716318.597795,
+          "VmRSS": 118841344,
+          "RssAnon": 94023680,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716319.598963,
+          "VmRSS": 118857728,
+          "RssAnon": 94040064,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716320.6019897,
+          "VmRSS": 118890496,
+          "RssAnon": 94072832,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716321.6029315,
+          "VmRSS": 118902784,
+          "RssAnon": 94085120,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716322.6037316,
+          "VmRSS": 118927360,
+          "RssAnon": 94109696,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716323.604821,
+          "VmRSS": 118935552,
+          "RssAnon": 94117888,
+          "RssFile": 24817664,
+          "Threads": 10
+        },
+        {
+          "at": 1793716324.6079316,
+          "VmRSS": 146202624,
+          "RssAnon": 121319424,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716325.6125991,
+          "VmRSS": 152752128,
+          "RssAnon": 127868928,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716326.6143074,
+          "VmRSS": 160882688,
+          "RssAnon": 135999488,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716327.621835,
+          "VmRSS": 161779712,
+          "RssAnon": 136896512,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716328.6253312,
+          "VmRSS": 161841152,
+          "RssAnon": 136957952,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716329.6423366,
+          "VmRSS": 161890304,
+          "RssAnon": 137007104,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716330.6462333,
+          "VmRSS": 161955840,
+          "RssAnon": 137072640,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716331.6491694,
+          "VmRSS": 162119680,
+          "RssAnon": 137236480,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716332.6536539,
+          "VmRSS": 162131968,
+          "RssAnon": 137248768,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716333.6676111,
+          "VmRSS": 162177024,
+          "RssAnon": 137293824,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716334.6762578,
+          "VmRSS": 162193408,
+          "RssAnon": 137310208,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716335.6793838,
+          "VmRSS": 162254848,
+          "RssAnon": 137371648,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716336.6844263,
+          "VmRSS": 162279424,
+          "RssAnon": 137396224,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716337.6873162,
+          "VmRSS": 162295808,
+          "RssAnon": 137412608,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716338.6922452,
+          "VmRSS": 162328576,
+          "RssAnon": 137445376,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716339.7037096,
+          "VmRSS": 162332672,
+          "RssAnon": 137449472,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716340.7097633,
+          "VmRSS": 162369536,
+          "RssAnon": 137486336,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716341.7142239,
+          "VmRSS": 162873344,
+          "RssAnon": 137990144,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716342.716386,
+          "VmRSS": 162881536,
+          "RssAnon": 137998336,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716343.7183933,
+          "VmRSS": 162893824,
+          "RssAnon": 138010624,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716344.7214468,
+          "VmRSS": 162902016,
+          "RssAnon": 138018816,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716345.7231898,
+          "VmRSS": 162914304,
+          "RssAnon": 138031104,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716346.7281644,
+          "VmRSS": 132771840,
+          "RssAnon": 107888640,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        {
+          "at": 1793716347.7310743,
+          "VmRSS": 132771840,
+          "RssAnon": 107888640,
+          "RssFile": 24883200,
+          "Threads": 13
+        }
+      ],
+      "diagnostic_only_malloc_trim": {
+        "before": {
+          "at": 1793716345.928813,
+          "VmRSS": 162914304,
+          "RssAnon": 138031104,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        "after": {
+          "at": 1793716345.9307415,
+          "VmRSS": 132636672,
+          "RssAnon": 107753472,
+          "RssFile": 24883200,
+          "Threads": 13
+        },
+        "return": 1
+      },
+      "released_rss_bytes": 30277632
+    },
+    "untraced_paced": {
+      "environment": {
+        "python": "3.12.15",
+        "machine": "aarch64",
+        "libc": [
+          "glibc",
+          "2.41"
+        ],
+        "platform": "Linux"
+      },
+      "total_successful_get_cycles": 153,
+      "baseline_after_cycles": 3,
+      "additional_cycles": 150,
+      "get_routes_per_cycle": 7,
+      "seeded_records": 1000,
+      "record_dates": "n%365day distribution like UI soak",
+      "snapshots": [
+        {
+          "marker": 0,
+          "before_gc": {
+            "at": 1793716634.6454263,
+            "VmRSS": 151183360,
+            "RssAnon": 126304256,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716634.7074091,
+            "VmRSS": 151183360,
+            "RssAnon": 126304256,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 571,
+          "tracked_objects": 153220
+        },
+        {
+          "marker": 1,
+          "before_gc": {
+            "at": 1793716685.329987,
+            "VmRSS": 165527552,
+            "RssAnon": 140648448,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716685.3869092,
+            "VmRSS": 165527552,
+            "RssAnon": 140648448,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 266,
+          "tracked_objects": 153221
+        },
+        {
+          "marker": 2,
+          "before_gc": {
+            "at": 1793716736.0245137,
+            "VmRSS": 165793792,
+            "RssAnon": 140914688,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716736.081026,
+            "VmRSS": 165793792,
+            "RssAnon": 140914688,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 281,
+          "tracked_objects": 153221
+        },
+        {
+          "marker": 3,
+          "before_gc": {
+            "at": 1793716836.7958827,
+            "VmRSS": 165875712,
+            "RssAnon": 140996608,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716836.8536434,
+            "VmRSS": 165875712,
+            "RssAnon": 140996608,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 188,
+          "tracked_objects": 153221
+        },
+        {
+          "marker": 4,
+          "before_gc": {
+            "at": 1793716937.6029248,
+            "VmRSS": 165949440,
+            "RssAnon": 141070336,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "after_gc": {
+            "at": 1793716937.6533384,
+            "VmRSS": 165949440,
+            "RssAnon": 141070336,
+            "RssFile": 24879104,
+            "Threads": 13
+          },
+          "gc_collected": 188,
+          "tracked_objects": 153221
+        }
+      ],
+      "periodic_samples": [
+        {
+          "at": 1793716618.793174,
+          "VmRSS": 13611008,
+          "RssAnon": 7450624,
+          "RssFile": 6160384,
+          "Threads": 2
+        },
+        {
+          "at": 1793716619.8061872,
+          "VmRSS": 66539520,
+          "RssAnon": 48185344,
+          "RssFile": 18354176,
+          "Threads": 2
+        },
+        {
+          "at": 1793716620.814748,
+          "VmRSS": 98992128,
+          "RssAnon": 78049280,
+          "RssFile": 20942848,
+          "Threads": 2
+        },
+        {
+          "at": 1793716621.8154733,
+          "VmRSS": 120754176,
+          "RssAnon": 95940608,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716622.8168607,
+          "VmRSS": 120766464,
+          "RssAnon": 95952896,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716623.8177981,
+          "VmRSS": 120791040,
+          "RssAnon": 95977472,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716624.818759,
+          "VmRSS": 120823808,
+          "RssAnon": 96010240,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716625.8196497,
+          "VmRSS": 120872960,
+          "RssAnon": 96059392,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716626.8204517,
+          "VmRSS": 120885248,
+          "RssAnon": 96071680,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716627.8219109,
+          "VmRSS": 120893440,
+          "RssAnon": 96079872,
+          "RssFile": 24813568,
+          "Threads": 10
+        },
+        {
+          "at": 1793716628.825004,
+          "VmRSS": 137027584,
+          "RssAnon": 112148480,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716629.8329835,
+          "VmRSS": 137043968,
+          "RssAnon": 112164864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716630.8369424,
+          "VmRSS": 147795968,
+          "RssAnon": 122916864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716631.8424864,
+          "VmRSS": 147800064,
+          "RssAnon": 122920960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716632.8447049,
+          "VmRSS": 151183360,
+          "RssAnon": 126304256,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716633.848943,
+          "VmRSS": 151183360,
+          "RssAnon": 126304256,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716634.8512752,
+          "VmRSS": 156995584,
+          "RssAnon": 132116480,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716635.8549445,
+          "VmRSS": 156999680,
+          "RssAnon": 132120576,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716636.857857,
+          "VmRSS": 158486528,
+          "RssAnon": 133607424,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716637.8651097,
+          "VmRSS": 158486528,
+          "RssAnon": 133607424,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716638.8704658,
+          "VmRSS": 159600640,
+          "RssAnon": 134721536,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716639.8751318,
+          "VmRSS": 159600640,
+          "RssAnon": 134721536,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716640.8787248,
+          "VmRSS": 161771520,
+          "RssAnon": 136892416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716641.8816957,
+          "VmRSS": 161771520,
+          "RssAnon": 136892416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716642.8845387,
+          "VmRSS": 164425728,
+          "RssAnon": 139546624,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716643.8866765,
+          "VmRSS": 164425728,
+          "RssAnon": 139546624,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716644.8885825,
+          "VmRSS": 164450304,
+          "RssAnon": 139571200,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716645.8922763,
+          "VmRSS": 164450304,
+          "RssAnon": 139571200,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716646.8952875,
+          "VmRSS": 164478976,
+          "RssAnon": 139599872,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716647.897796,
+          "VmRSS": 164478976,
+          "RssAnon": 139599872,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716648.899765,
+          "VmRSS": 164511744,
+          "RssAnon": 139632640,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716649.9032466,
+          "VmRSS": 164511744,
+          "RssAnon": 139632640,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716650.9056706,
+          "VmRSS": 164515840,
+          "RssAnon": 139636736,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716651.9086661,
+          "VmRSS": 164515840,
+          "RssAnon": 139636736,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716652.9110508,
+          "VmRSS": 164528128,
+          "RssAnon": 139649024,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716653.914175,
+          "VmRSS": 164528128,
+          "RssAnon": 139649024,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716654.9164484,
+          "VmRSS": 164556800,
+          "RssAnon": 139677696,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716655.9197576,
+          "VmRSS": 164556800,
+          "RssAnon": 139677696,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716656.9223423,
+          "VmRSS": 164573184,
+          "RssAnon": 139694080,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716657.9259856,
+          "VmRSS": 164573184,
+          "RssAnon": 139694080,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716658.928645,
+          "VmRSS": 164593664,
+          "RssAnon": 139714560,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716659.9321327,
+          "VmRSS": 164593664,
+          "RssAnon": 139714560,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716660.9338498,
+          "VmRSS": 164610048,
+          "RssAnon": 139730944,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716661.9379606,
+          "VmRSS": 164610048,
+          "RssAnon": 139730944,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716662.9453764,
+          "VmRSS": 164614144,
+          "RssAnon": 139735040,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716663.9512436,
+          "VmRSS": 164614144,
+          "RssAnon": 139735040,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716664.9564843,
+          "VmRSS": 164651008,
+          "RssAnon": 139771904,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716665.9632156,
+          "VmRSS": 164651008,
+          "RssAnon": 139771904,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716666.9693367,
+          "VmRSS": 164691968,
+          "RssAnon": 139812864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716667.9722273,
+          "VmRSS": 164691968,
+          "RssAnon": 139812864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716668.9793453,
+          "VmRSS": 164691968,
+          "RssAnon": 139812864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716669.9858568,
+          "VmRSS": 164691968,
+          "RssAnon": 139812864,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716670.9893727,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716671.9962683,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716673.0020175,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716674.009444,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716675.010621,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716676.0139716,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716677.0202985,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716678.0256007,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716679.0279222,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716680.0348766,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716681.039569,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716682.0453043,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716683.0514205,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716684.0583024,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716685.064214,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716686.07054,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716687.0736194,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716688.0811467,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716689.0869558,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716690.0938668,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716691.0965042,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716692.1041214,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716693.107152,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716694.1124642,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716695.1195016,
+          "VmRSS": 165527552,
+          "RssAnon": 140648448,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716696.125483,
+          "VmRSS": 165531648,
+          "RssAnon": 140652544,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716697.1311414,
+          "VmRSS": 165531648,
+          "RssAnon": 140652544,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716698.1384103,
+          "VmRSS": 165531648,
+          "RssAnon": 140652544,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716699.1425178,
+          "VmRSS": 165531648,
+          "RssAnon": 140652544,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716700.1454968,
+          "VmRSS": 165711872,
+          "RssAnon": 140832768,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716701.1493607,
+          "VmRSS": 165711872,
+          "RssAnon": 140832768,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716702.1548238,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716703.1602924,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716704.1678357,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716705.1707542,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716706.1749213,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716707.182856,
+          "VmRSS": 165720064,
+          "RssAnon": 140840960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716708.184891,
+          "VmRSS": 165752832,
+          "RssAnon": 140873728,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716709.1926036,
+          "VmRSS": 165752832,
+          "RssAnon": 140873728,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716710.1998146,
+          "VmRSS": 165752832,
+          "RssAnon": 140873728,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716711.201728,
+          "VmRSS": 165752832,
+          "RssAnon": 140873728,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716712.2053673,
+          "VmRSS": 165761024,
+          "RssAnon": 140881920,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716713.2127697,
+          "VmRSS": 165761024,
+          "RssAnon": 140881920,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716714.214979,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716715.2206419,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716716.2243323,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716717.2318347,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716718.2358608,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716719.2407997,
+          "VmRSS": 165773312,
+          "RssAnon": 140894208,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716720.2450323,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716721.2522838,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716722.257755,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716723.2603428,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716724.266089,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716725.2727456,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716726.2753673,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716727.2783952,
+          "VmRSS": 165777408,
+          "RssAnon": 140898304,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716728.281092,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716729.2894137,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716730.2974184,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716731.3042705,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716732.3065953,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716733.310386,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716734.3134258,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716735.3169436,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716736.3233109,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716737.3275824,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716738.334353,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716739.3413837,
+          "VmRSS": 165793792,
+          "RssAnon": 140914688,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716740.3441556,
+          "VmRSS": 165801984,
+          "RssAnon": 140922880,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716741.3511386,
+          "VmRSS": 165801984,
+          "RssAnon": 140922880,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716742.353986,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716743.3580644,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716744.3641841,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716745.3687248,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716746.3711858,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716747.375746,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716748.377594,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716749.3816504,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716750.384387,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716751.387671,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716752.390014,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716753.3927438,
+          "VmRSS": 165806080,
+          "RssAnon": 140926976,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716754.395156,
+          "VmRSS": 165818368,
+          "RssAnon": 140939264,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716755.4004273,
+          "VmRSS": 165818368,
+          "RssAnon": 140939264,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716756.4018145,
+          "VmRSS": 165818368,
+          "RssAnon": 140939264,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716757.4060924,
+          "VmRSS": 165818368,
+          "RssAnon": 140939264,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716758.407645,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716759.4113672,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716760.4148803,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716761.420059,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716762.4242518,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716763.427992,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716764.429562,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716765.4329994,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716766.4351141,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716767.4386928,
+          "VmRSS": 165822464,
+          "RssAnon": 140943360,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716768.4436579,
+          "VmRSS": 165826560,
+          "RssAnon": 140947456,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716769.4457114,
+          "VmRSS": 165826560,
+          "RssAnon": 140947456,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716770.4474814,
+          "VmRSS": 165830656,
+          "RssAnon": 140951552,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716771.4512959,
+          "VmRSS": 165830656,
+          "RssAnon": 140951552,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716772.457664,
+          "VmRSS": 165834752,
+          "RssAnon": 140955648,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716773.4640768,
+          "VmRSS": 165834752,
+          "RssAnon": 140955648,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716774.4696374,
+          "VmRSS": 165834752,
+          "RssAnon": 140955648,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716775.4724836,
+          "VmRSS": 165834752,
+          "RssAnon": 140955648,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716776.4754572,
+          "VmRSS": 165838848,
+          "RssAnon": 140959744,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716777.480632,
+          "VmRSS": 165838848,
+          "RssAnon": 140959744,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716778.4835455,
+          "VmRSS": 165842944,
+          "RssAnon": 140963840,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716779.4874814,
+          "VmRSS": 165842944,
+          "RssAnon": 140963840,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716780.4919097,
+          "VmRSS": 165847040,
+          "RssAnon": 140967936,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716781.496142,
+          "VmRSS": 165847040,
+          "RssAnon": 140967936,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716782.498385,
+          "VmRSS": 165847040,
+          "RssAnon": 140967936,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716783.5005505,
+          "VmRSS": 165847040,
+          "RssAnon": 140967936,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716784.5061507,
+          "VmRSS": 165855232,
+          "RssAnon": 140976128,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716785.5094676,
+          "VmRSS": 165855232,
+          "RssAnon": 140976128,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716786.5161695,
+          "VmRSS": 165855232,
+          "RssAnon": 140976128,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716787.521395,
+          "VmRSS": 165855232,
+          "RssAnon": 140976128,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716788.5247874,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716789.531029,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716790.5331097,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716791.5355453,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716792.5378878,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716793.5403326,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716794.5448625,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716795.5478287,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716796.5492592,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716797.5519168,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716798.5547335,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716799.5599961,
+          "VmRSS": 165867520,
+          "RssAnon": 140988416,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716800.5660417,
+          "VmRSS": 165871616,
+          "RssAnon": 140992512,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716801.5711114,
+          "VmRSS": 165871616,
+          "RssAnon": 140992512,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716802.5777087,
+          "VmRSS": 165871616,
+          "RssAnon": 140992512,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716803.5812962,
+          "VmRSS": 165871616,
+          "RssAnon": 140992512,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716804.5883076,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716805.5905104,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716806.5972981,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716807.5994174,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716808.6036491,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716809.6074617,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716810.611451,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716811.619114,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716812.6253817,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716813.6311758,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716814.6332242,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716815.6387622,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716816.6432354,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716817.6460004,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716818.651237,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716819.6552846,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716820.6583447,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716821.6641972,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716822.6730335,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716823.6793523,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716824.6820667,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716825.6838605,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716826.6884937,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716827.692172,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716828.6991575,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716829.7028174,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716830.7072845,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716831.7134352,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716832.7161658,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716833.7190697,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716834.7243567,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716835.7269633,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716836.7291625,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716837.7313397,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716838.7341292,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716839.740526,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716840.7460995,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716841.749159,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716842.754515,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716843.7580779,
+          "VmRSS": 165875712,
+          "RssAnon": 140996608,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716844.7609303,
+          "VmRSS": 165879808,
+          "RssAnon": 141000704,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716845.7661035,
+          "VmRSS": 165879808,
+          "RssAnon": 141000704,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716846.768078,
+          "VmRSS": 165879808,
+          "RssAnon": 141000704,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716847.7731338,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716848.7764518,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716849.7835717,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716850.7866087,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716851.7890947,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716852.7924733,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716853.7948964,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716854.7981935,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716855.8016238,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716856.8055656,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716857.8074765,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716858.810244,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716859.8126502,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716860.8159082,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716861.8185103,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716862.8227754,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716863.8261344,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716864.8321989,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716865.8362305,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716866.8414166,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716867.844776,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716868.8484635,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716869.8539658,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716870.8583555,
+          "VmRSS": 165888000,
+          "RssAnon": 141008896,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716871.8627508,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716872.869219,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716873.8727527,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716874.8764796,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716875.8813229,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716876.8886716,
+          "VmRSS": 165896192,
+          "RssAnon": 141017088,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716877.8933668,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716878.8980377,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716879.9012678,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716880.903998,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716881.906973,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716882.910601,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716883.9131896,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716884.9155257,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716885.9181483,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716886.9218142,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716887.9249125,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716888.9272556,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716889.9327002,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716890.9358456,
+          "VmRSS": 165920768,
+          "RssAnon": 141041664,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716891.942792,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716892.9457352,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716893.9477932,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716894.9550717,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716895.9588966,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716896.96098,
+          "VmRSS": 165928960,
+          "RssAnon": 141049856,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716897.965723,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716898.971692,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716899.9743445,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716900.981802,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716901.9891338,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716902.9923441,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716903.9979036,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716905.000884,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716906.0025785,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716907.0053847,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716908.0127947,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716909.0178134,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716910.0237534,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716911.0266936,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716912.0291793,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716913.0313838,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716914.0507684,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716915.051897,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716916.056034,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716917.063568,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716918.0662801,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716919.0701776,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716920.0824113,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716921.0847769,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716922.086165,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716923.0881858,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716924.091809,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716925.0942717,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716926.0996327,
+          "VmRSS": 165933056,
+          "RssAnon": 141053952,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716927.101291,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716928.1072156,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716929.189025,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716930.1926615,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716931.1986742,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716932.200908,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716933.204733,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716934.2109625,
+          "VmRSS": 165941248,
+          "RssAnon": 141062144,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716935.2140386,
+          "VmRSS": 165949440,
+          "RssAnon": 141070336,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716936.2174613,
+          "VmRSS": 165949440,
+          "RssAnon": 141070336,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716937.2195005,
+          "VmRSS": 165949440,
+          "RssAnon": 141070336,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716938.2209725,
+          "VmRSS": 135000064,
+          "RssAnon": 110120960,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        {
+          "at": 1793716939.2239037,
+          "VmRSS": 135000064,
+          "RssAnon": 110120960,
+          "RssFile": 24879104,
+          "Threads": 13
+        }
+      ],
+      "diagnostic_only_malloc_trim": {
+        "before": {
+          "at": 1793716937.7119813,
+          "VmRSS": 165949440,
+          "RssAnon": 141070336,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        "after": {
+          "at": 1793716937.717753,
+          "VmRSS": 134860800,
+          "RssAnon": 109981696,
+          "RssFile": 24879104,
+          "Threads": 13
+        },
+        "return": 1
+      },
+      "released_rss_bytes": 31088640,
+      "wall_seconds_reported_by_client": 309.5822870731354,
+      "strict_helper_replay": {
+        "scope": "Replay current unchanged RSS helper on15second downsampled periodic Linux HTTP diagnostic samples, not actual UI or a new live test",
+        "firstPlateau": {
+          "elapsedSeconds": 75,
+          "assessment": {
+            "stable": true,
+            "spanSeconds": 30,
+            "spreadBytes": 225280,
+            "sustainedGrowth": false
+          }
+        },
+        "samples": [
+          {
+            "elapsedSeconds": 0,
+            "coreRssBytes": 151183360
+          },
+          {
+            "elapsedSeconds": 15,
+            "coreRssBytes": 164511744
+          },
+          {
+            "elapsedSeconds": 30,
+            "coreRssBytes": 164651008
+          },
+          {
+            "elapsedSeconds": 45,
+            "coreRssBytes": 165527552
+          },
+          {
+            "elapsedSeconds": 60,
+            "coreRssBytes": 165527552
+          },
+          {
+            "elapsedSeconds": 75,
+            "coreRssBytes": 165752832
+          },
+          {
+            "elapsedSeconds": 91,
+            "coreRssBytes": 165777408
+          },
+          {
+            "elapsedSeconds": 106,
+            "coreRssBytes": 165801984
+          },
+          {
+            "elapsedSeconds": 121,
+            "coreRssBytes": 165818368
+          },
+          {
+            "elapsedSeconds": 136,
+            "coreRssBytes": 165830656
+          },
+          {
+            "elapsedSeconds": 151,
+            "coreRssBytes": 165855232
+          },
+          {
+            "elapsedSeconds": 166,
+            "coreRssBytes": 165871616
+          },
+          {
+            "elapsedSeconds": 181,
+            "coreRssBytes": 165875712
+          },
+          {
+            "elapsedSeconds": 196,
+            "coreRssBytes": 165875712
+          },
+          {
+            "elapsedSeconds": 210,
+            "coreRssBytes": 165879808
+          },
+          {
+            "elapsedSeconds": 225,
+            "coreRssBytes": 165888000
+          },
+          {
+            "elapsedSeconds": 240,
+            "coreRssBytes": 165896192
+          },
+          {
+            "elapsedSeconds": 255,
+            "coreRssBytes": 165920768
+          },
+          {
+            "elapsedSeconds": 270,
+            "coreRssBytes": 165933056
+          },
+          {
+            "elapsedSeconds": 285,
+            "coreRssBytes": 165933056
+          },
+          {
+            "elapsedSeconds": 301,
+            "coreRssBytes": 165949440
+          }
+        ]
+      }
+    }
+  },
+  "probe_sources": {
+    "core_probe.py": {
+      "sha256": "df76bd51e7d43daf275df509d1fffc1a5fe3cdd82bf6d60f6d3c1b29b9f03a85",
+      "source": "from __future__ import annotations\nimport ctypes,gc,json,os,platform,signal,threading,time,tracemalloc\nfrom collections import Counter\nfrom pathlib import Path\nOUT=Path('/diag');lock=threading.Lock();baseline=None;marker_count=0\ntracemalloc.start(5)\ndef metrics():\n fields={}\n for line in Path('/proc/self/status').read_text().splitlines():\n  key,_,value=line.partition(':')\n  if key in ['VmRSS','RssAnon','RssFile','Threads']:fields[key]=int(value.strip().split()[0])*(1 if key=='Threads' else 1024)\n current,peak=tracemalloc.get_traced_memory()\n return {'at':time.time(),'traced_current_bytes':current,'traced_peak_bytes':peak,**fields}\ndef snapshot(_sig=None,_frame=None):\n global baseline,marker_count\n with lock:\n  before=metrics();collected=gc.collect();after=metrics();snap=tracemalloc.take_snapshot()\n  result={'marker':marker_count,'before_gc':before,'after_gc':after,'gc_collected':collected,'tracked_objects':len(gc.get_objects())}\n  if baseline is None:baseline=snap\n  else:\n   differences=snap.compare_to(baseline,'lineno')\n   result['net_traced_size_diff_bytes']=sum(s.size_diff for s in differences)\n   result['top_growth']=[{'location':str(s.traceback[0]).replace('/tmp/venv','<venv>').replace('/repo','<repository>'),'bytes':s.size_diff,'count':s.count_diff} for s in differences[:25]]\n  (OUT/f'snapshot-{marker_count:02d}.json').write_text(json.dumps(result,indent=2));marker_count+=1\n\ndef trim(_sig=None,_frame=None):\n before=metrics();libc=ctypes.CDLL(None);fn=libc.malloc_trim;fn.argtypes=[ctypes.c_size_t];fn.restype=ctypes.c_int\n code=fn(0);after=metrics();(OUT/'malloc-trim.json').write_text(json.dumps({'before':before,'after':after,'return':code},indent=2))\nsignal.signal(signal.SIGUSR1,snapshot);signal.signal(signal.SIGUSR2,trim)\n(OUT/'environment.json').write_text(json.dumps({'python':platform.python_version(),'machine':platform.machine(),'libc':platform.libc_ver(),'platform':platform.system()},indent=2))\ndef monitor():\n while True:\n  with (OUT/'periodic.jsonl').open('a') as f:f.write(json.dumps(metrics())+'\\n')\n  time.sleep(10)\nthreading.Thread(target=monitor,daemon=True).start()\nfrom growwise.api.secure_entry import run\nrun()\n"
+    },
+    "http_probe.py": {
+      "sha256": "8bd49b651e078df37d0795c0fa664e04a2bfe605c589b00bacf0d36599ed9db0",
+      "source": "from __future__ import annotations\nimport concurrent.futures,json,os,secrets,signal,socket,subprocess,time\nfrom pathlib import Path\nimport httpx\nOUT=Path('/diag');port=19581;token=secrets.token_hex(32)\nenv={**os.environ,'GROWWISE_DATA_DIR':'/tmp/probe-data','GROWWISE_API_HOST':'127.0.0.1','GROWWISE_API_PORT':str(port),'GROWWISE_SESSION_TOKEN':token,'GROWWISE_LLM_FEATURES_ENABLED':'false','GROWWISE_VISION_FEATURES_ENABLED':'false','GROWWISE_EMBEDDING_FEATURES_ENABLED':'false','GROWWISE_PUBLIC_ENRICHMENT_ENABLED':'false'}\ncore=subprocess.Popen(['/tmp/venv/bin/python','/diag/core_probe.py'],env=env,cwd='/diag',stdout=subprocess.DEVNULL,stderr=(OUT/'core.stderr').open('w'))\nclient=httpx.Client(base_url=f'http://127.0.0.1:{port}',headers={'Authorization':'Bearer '+token},timeout=60)\ndef req(path,body=None):\n response=client.get(path) if body is None else client.post(path,json=body)\n response.raise_for_status();return response.json()\ndef mark(n):\n os.kill(core.pid,signal.SIGUSR1)\n deadline=time.time()+30\n while not (OUT/f'snapshot-{n:02d}.json').exists():\n  if time.time()>deadline:raise TimeoutError('snapshot')\n  time.sleep(.1)\n print(json.dumps({'event':'snapshot','number':n,**json.loads((OUT/f'snapshot-{n:02d}.json').read_text())}),flush=True)\ntry:\n deadline=time.time()+120\n while True:\n  try:req('/health');break\n  except Exception:\n   if core.poll() is not None:raise RuntimeError('Core exited: '+(OUT/'core.stderr').read_text()[-3000:])\n   if time.time()>deadline:raise TimeoutError('Core startup')\n   time.sleep(.2)\n child=req('/v1/children',{'nickname':'합성아이','stage':'elementary'})['id']\n with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:\n  futures=[pool.submit(req,f'/v1/children/{child}/learning-records',{'kind':'other','title':f'합성 기록 {n}','summary':'민들레 씨앗의 모양과 움직임을 함께 살펴본 가상 관찰입니다. '*4,'experience_axes':['exploration']}) for n in range(1000)]\n  for f in futures:f.result()\n routes=[f'/v1/children/{child}/learning-records',f'/v1/resources?child_id={child}',f'/v1/children/{child}/photo-records',f'/v1/children/{child}/conversations','/v1/admin/backups',f'/v1/children/{child}/growth-map',f'/v1/children/{child}/learning-wiki']\n start=time.time()\n with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:\n  for cycle in range(153):\n   for f in [pool.submit(req,path) for path in routes]:f.result()\n   if cycle in [2,27,52,102,152]:\n    time.sleep(.5);mark([2,27,52,102,152].index(cycle))\n    print(json.dumps({'event':'progress','cycles':cycle+1,'seconds':time.time()-start}),flush=True)\n os.kill(core.pid,signal.SIGUSR2);time.sleep(2)\n print('TRIM', (OUT/'malloc-trim.json').read_text(),flush=True)\nfinally:\n core.terminate()\n try:core.wait(timeout=10)\n except subprocess.TimeoutExpired:core.kill();core.wait()\n client.close()\n"
+    },
+    "core_probe_plain.py": {
+      "sha256": "d3e2aae6bcafa431e859ba7ffb2b4fbe3fba84210ec66e15df9da8317c01c77e",
+      "source": "from __future__ import annotations\nimport ctypes,gc,json,os,platform,signal,threading,time,tracemalloc\nfrom collections import Counter\nfrom pathlib import Path\nOUT=Path('/diag/plain');lock=threading.Lock();baseline=None;marker_count=0\n\ndef metrics():\n fields={}\n for line in Path('/proc/self/status').read_text().splitlines():\n  key,_,value=line.partition(':')\n  if key in ['VmRSS','RssAnon','RssFile','Threads']:fields[key]=int(value.strip().split()[0])*(1 if key=='Threads' else 1024)\n current,peak=0,0\n return {'at':time.time(),'traced_current_bytes':current,'traced_peak_bytes':peak,**fields}\ndef snapshot(_sig=None,_frame=None):\n global baseline,marker_count\n with lock:\n  before=metrics();collected=gc.collect();after=metrics()\n  result={'marker':marker_count,'before_gc':before,'after_gc':after,'gc_collected':collected,'tracked_objects':len(gc.get_objects())}\n  (OUT/f'snapshot-{marker_count:02d}.json').write_text(json.dumps(result,indent=2));marker_count+=1\n\ndef trim(_sig=None,_frame=None):\n before=metrics();libc=ctypes.CDLL(None);fn=libc.malloc_trim;fn.argtypes=[ctypes.c_size_t];fn.restype=ctypes.c_int\n code=fn(0);after=metrics();(OUT/'malloc-trim.json').write_text(json.dumps({'before':before,'after':after,'return':code},indent=2))\nsignal.signal(signal.SIGUSR1,snapshot);signal.signal(signal.SIGUSR2,trim)\n(OUT/'environment.json').write_text(json.dumps({'python':platform.python_version(),'machine':platform.machine(),'libc':platform.libc_ver(),'platform':platform.system()},indent=2))\ndef monitor():\n while True:\n  with (OUT/'periodic.jsonl').open('a') as f:f.write(json.dumps(metrics())+'\\n')\n  time.sleep(1)\nthreading.Thread(target=monitor,daemon=True).start()\nfrom growwise.api.secure_entry import run\nrun()\n"
+    },
+    "http_probe_plain.py": {
+      "sha256": "9fcd893d5125621aec24cb80b902102bff132c5dab6b2ebf735b070ef4499a0b",
+      "source": "from __future__ import annotations\nimport concurrent.futures,json,os,secrets,signal,socket,subprocess,time\nfrom pathlib import Path\nimport httpx\nOUT=Path('/diag/plain');port=19581;token=secrets.token_hex(32)\nenv={**os.environ,'GROWWISE_DATA_DIR':'/tmp/probe-plain-data','GROWWISE_API_HOST':'127.0.0.1','GROWWISE_API_PORT':str(port),'GROWWISE_SESSION_TOKEN':token,'GROWWISE_LLM_FEATURES_ENABLED':'false','GROWWISE_VISION_FEATURES_ENABLED':'false','GROWWISE_EMBEDDING_FEATURES_ENABLED':'false','GROWWISE_PUBLIC_ENRICHMENT_ENABLED':'false'}\ncore=subprocess.Popen(['/tmp/venv/bin/python','/diag/core_probe_plain.py'],env=env,cwd='/diag',stdout=subprocess.DEVNULL,stderr=(OUT/'core.stderr').open('w'))\nclient=httpx.Client(base_url=f'http://127.0.0.1:{port}',headers={'Authorization':'Bearer '+token},timeout=60)\ndef req(path,body=None):\n response=client.get(path) if body is None else client.post(path,json=body)\n response.raise_for_status();return response.json()\ndef mark(n):\n os.kill(core.pid,signal.SIGUSR1)\n deadline=time.time()+30\n while not (OUT/f'snapshot-{n:02d}.json').exists():\n  if time.time()>deadline:raise TimeoutError('snapshot')\n  time.sleep(.1)\n print(json.dumps({'event':'snapshot','number':n,**json.loads((OUT/f'snapshot-{n:02d}.json').read_text())}),flush=True)\ntry:\n deadline=time.time()+120\n while True:\n  try:req('/health');break\n  except Exception:\n   if core.poll() is not None:raise RuntimeError('Core exited: '+(OUT/'core.stderr').read_text()[-3000:])\n   if time.time()>deadline:raise TimeoutError('Core startup')\n   time.sleep(.2)\n child=req('/v1/children',{'nickname':'합성아이','stage':'elementary'})['id']\n with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:\n  futures=[pool.submit(req,f'/v1/children/{child}/learning-records',{'kind':'other','title':f'합성 기록 {n}','summary':'민들레 씨앗의 모양과 움직임을 함께 살펴본 가상 관찰입니다. '*4,'experience_axes':['exploration']}) for n in range(1000)]\n  for f in futures:f.result()\n routes=[f'/v1/children/{child}/learning-records',f'/v1/resources?child_id={child}',f'/v1/children/{child}/photo-records',f'/v1/children/{child}/conversations','/v1/admin/backups',f'/v1/children/{child}/growth-map',f'/v1/children/{child}/learning-wiki']\n start=time.time()\n with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:\n  for cycle in range(153):\n   for f in [pool.submit(req,path) for path in routes]:f.result()\n   if cycle in [2,27,52,102,152]:\n    time.sleep(.5);mark([2,27,52,102,152].index(cycle))\n    print(json.dumps({'event':'progress','cycles':cycle+1,'seconds':time.time()-start}),flush=True)\n os.kill(core.pid,signal.SIGUSR2);time.sleep(2)\n print('TRIM', (OUT/'malloc-trim.json').read_text(),flush=True)\nfinally:\n core.terminate()\n try:core.wait(timeout=10)\n except subprocess.TimeoutExpired:core.kill();core.wait()\n client.close()\n"
+    },
+    "core_probe_paced.py": {
+      "sha256": "8cc702da58b2190e52d13ea20fa6a75d0a44f7ccd381d2937efd2fbd3fd929c1",
+      "source": "from __future__ import annotations\nimport ctypes,gc,json,os,platform,signal,threading,time,tracemalloc\nfrom collections import Counter\nfrom pathlib import Path\nOUT=Path('/diag/paced');lock=threading.Lock();baseline=None;marker_count=0\n\ndef metrics():\n fields={}\n for line in Path('/proc/self/status').read_text().splitlines():\n  key,_,value=line.partition(':')\n  if key in ['VmRSS','RssAnon','RssFile','Threads']:fields[key]=int(value.strip().split()[0])*(1 if key=='Threads' else 1024)\n current,peak=0,0\n return {'at':time.time(),'traced_current_bytes':current,'traced_peak_bytes':peak,**fields}\ndef snapshot(_sig=None,_frame=None):\n global baseline,marker_count\n with lock:\n  before=metrics();collected=gc.collect();after=metrics()\n  result={'marker':marker_count,'before_gc':before,'after_gc':after,'gc_collected':collected,'tracked_objects':len(gc.get_objects())}\n  (OUT/f'snapshot-{marker_count:02d}.json').write_text(json.dumps(result,indent=2));marker_count+=1\n\ndef trim(_sig=None,_frame=None):\n before=metrics();libc=ctypes.CDLL(None);fn=libc.malloc_trim;fn.argtypes=[ctypes.c_size_t];fn.restype=ctypes.c_int\n code=fn(0);after=metrics();(OUT/'malloc-trim.json').write_text(json.dumps({'before':before,'after':after,'return':code},indent=2))\nsignal.signal(signal.SIGUSR1,snapshot);signal.signal(signal.SIGUSR2,trim)\n(OUT/'environment.json').write_text(json.dumps({'python':platform.python_version(),'machine':platform.machine(),'libc':platform.libc_ver(),'platform':platform.system()},indent=2))\ndef monitor():\n while True:\n  with (OUT/'periodic.jsonl').open('a') as f:f.write(json.dumps(metrics())+'\\n')\n  time.sleep(1)\nthreading.Thread(target=monitor,daemon=True).start()\nfrom growwise.api.secure_entry import run\nrun()\n"
+    },
+    "http_probe_paced.py": {
+      "sha256": "309a33143f82e08c25e0b56e26b270d807461cdc19cc1506033e45ef05653035",
+      "source": "from __future__ import annotations\nimport concurrent.futures,json,os,secrets,signal,socket,subprocess,time\nfrom pathlib import Path\nimport httpx\nfrom datetime import datetime,UTC,timedelta\nOUT=Path('/diag/paced');port=19581;token=secrets.token_hex(32)\nenv={**os.environ,'GROWWISE_DATA_DIR':'/tmp/probe-paced-data','GROWWISE_API_HOST':'127.0.0.1','GROWWISE_API_PORT':str(port),'GROWWISE_SESSION_TOKEN':token,'GROWWISE_LLM_FEATURES_ENABLED':'false','GROWWISE_VISION_FEATURES_ENABLED':'false','GROWWISE_EMBEDDING_FEATURES_ENABLED':'false','GROWWISE_PUBLIC_ENRICHMENT_ENABLED':'false'}\ncore=subprocess.Popen(['/tmp/venv/bin/python','/diag/core_probe_paced.py'],env=env,cwd='/diag',stdout=subprocess.DEVNULL,stderr=(OUT/'core.stderr').open('w'))\nclient=httpx.Client(base_url=f'http://127.0.0.1:{port}',headers={'Authorization':'Bearer '+token},timeout=60)\ndef req(path,body=None):\n response=client.get(path) if body is None else client.post(path,json=body)\n response.raise_for_status();return response.json()\ndef mark(n):\n os.kill(core.pid,signal.SIGUSR1)\n deadline=time.time()+30\n while not (OUT/f'snapshot-{n:02d}.json').exists():\n  if time.time()>deadline:raise TimeoutError('snapshot')\n  time.sleep(.1)\n print(json.dumps({'event':'snapshot','number':n,**json.loads((OUT/f'snapshot-{n:02d}.json').read_text())}),flush=True)\ntry:\n deadline=time.time()+120\n while True:\n  try:req('/health');break\n  except Exception:\n   if core.poll() is not None:raise RuntimeError('Core exited: '+(OUT/'core.stderr').read_text()[-3000:])\n   if time.time()>deadline:raise TimeoutError('Core startup')\n   time.sleep(.2)\n child=req('/v1/children',{'nickname':'합성아이','stage':'elementary'})['id']\n with concurrent.futures.ThreadPoolExecutor(max_workers=4) as pool:\n  futures=[pool.submit(req,f'/v1/children/{child}/learning-records',{'kind':'other','title':f'장기 사용 합성 기록 {n}','summary':'민들레 씨앗의 모양과 움직임을 함께 살펴본 가상 관찰입니다. '*4,'experience_axes':['exploration'],'occurred_at':(datetime.now(UTC)-timedelta(days=n%365)).isoformat()}) for n in range(1000)]\n  for f in futures:f.result()\n routes=[f'/v1/children/{child}/learning-records',f'/v1/resources?child_id={child}',f'/v1/children/{child}/photo-records',f'/v1/children/{child}/conversations','/v1/admin/backups',f'/v1/children/{child}/growth-map',f'/v1/children/{child}/learning-wiki']\n start=time.time()\n with concurrent.futures.ThreadPoolExecutor(max_workers=6) as pool:\n  for cycle in range(153):\n   cycle_started=time.perf_counter()\n   for f in [pool.submit(req,path) for path in routes]:f.result()\n   time.sleep(max(0,2-(time.perf_counter()-cycle_started)))\n   if cycle in [2,27,52,102,152]:\n    time.sleep(.5);mark([2,27,52,102,152].index(cycle))\n    print(json.dumps({'event':'progress','cycles':cycle+1,'seconds':time.time()-start}),flush=True)\n os.kill(core.pid,signal.SIGUSR2);time.sleep(2)\n print('TRIM', (OUT/'malloc-trim.json').read_text(),flush=True)\nfinally:\n core.terminate()\n try:core.wait(timeout=10)\n except subprocess.TimeoutExpired:core.kill();core.wait()\n client.close()\n"
+    }
+  },
+  "method_notes": [
+    "Random session token generated only inside isolated container, never printed. Repository mounted read-only, data temporary, models/enrichment disabled, no user containers altered.",
+    "All requests use actual secure_entry/production service/router/storage paths over authenticated localhost HTTP. Seven-route API cycles are a targeted backend diagnostic, not eight-view browser navigation equivalence.",
+    "Each run seeds1000synthetic records, uses four writer/six reader client workers, three initial query cycles followed by150additional cycles; server thread count includes the diagnostic monitor.",
+    "Traced run starts tracemalloc5frames before imports. Snapshot metadata heavily inflates RSS and GC object counts; absolute traced RSS is not production capacity evidence. Net retained allocation differences are compared only within that run.",
+    "GC runs at fixed diagnostic checkpoints, after requests finish; periodic samples may occur during requests. malloc_trim(0) runs once after workload, only in isolated diagnostic wrapper. Neither GC nor trimming was added to production Core.",
+    "Plain-run tracing fields are omitted because tracing was disabled; private common-collector zero placeholders do not mean zero heap.",
+    "The paced case runs153cycles at2second minimum cadence (~309.58s with checkpoint overhead). Its helper result is an offline replay on15second downsampled periodic metrics, not an actual UI assertion.",
+    "Released RSS after malloc_trim demonstrates allocator-held free pages in these reproductions; it does not prove every CI RSS increment has that cause or exclude all untracked native/slow/late leaks.",
+    "No memory threshold or warmup deadline changes were made after the failed de3 run. Current strict120second warmup and full requested120second measurement passed actual afaa CI.",
+    "The isolated Python3.12.15 diagnostic is historical evidence, not a recommendation for the final packaged interpreter; later release-runtime security changes require their own CI proof."
+  ]
+}

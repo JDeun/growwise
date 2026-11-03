@@ -9,6 +9,8 @@ from pydantic import BaseModel, Field
 from growwise.domain import ExperienceAxis, Stage
 from growwise.storage import SQLiteProjection
 
+from .record_time import record_time
+
 WHOLE_PERSON_AXES: tuple[ExperienceAxis, ...] = (
     ExperienceAxis.PHYSICAL,
     ExperienceAxis.EMOTIONAL_CHARACTER,
@@ -114,25 +116,23 @@ class GrowthMapService:
 
         in_period: list[dict] = []
         for log in logs:
-            created_at = self._parse_datetime(log.get("created_at"))
-            if created_at is not None and created_at >= cutoff:
+            event_time = record_time(log)
+            if event_time is not None and cutoff <= event_time <= reference:
                 in_period.append(log)
 
         counts: Counter[ExperienceAxis] = Counter()
-        moments: dict[ExperienceAxis, list[datetime]] = {
-            axis: [] for axis in ExperienceAxis
-        }
+        moments: dict[ExperienceAxis, list[datetime]] = {axis: [] for axis in ExperienceAxis}
         tagged_logs = 0
 
         for log in in_period:
             axes = self._parse_axes(log.get("experience_axes", []))
             if axes:
                 tagged_logs += 1
-            created_at = self._parse_datetime(log.get("created_at"))
+            event_time = record_time(log)
             for axis in set(axes):
                 counts[axis] += 1
-                if created_at is not None:
-                    moments[axis].append(created_at)
+                if event_time is not None:
+                    moments[axis].append(event_time)
 
         axis_results = [
             AxisCoverage(
@@ -195,9 +195,7 @@ class GrowthMapService:
             if axes:
                 per_log.append(axes)
 
-        counts: Counter[ExperienceAxis] = Counter(
-            axis for axes in per_log for axis in axes
-        )
+        counts: Counter[ExperienceAxis] = Counter(axis for axes in per_log for axis in axes)
         observed = len(counts)
         if len(per_log) < 5:
             return CoverageDiversity(
@@ -254,15 +252,3 @@ class GrowthMapService:
             except ValueError:
                 continue
         return result
-
-    @staticmethod
-    def _parse_datetime(value: object) -> datetime | None:
-        if not isinstance(value, str):
-            return None
-        try:
-            parsed = datetime.fromisoformat(value)
-        except ValueError:
-            return None
-        if parsed.tzinfo is None:
-            return parsed.replace(tzinfo=UTC)
-        return parsed.astimezone(UTC)

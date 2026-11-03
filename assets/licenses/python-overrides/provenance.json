@@ -1,0 +1,38 @@
+[
+  {
+    "name": "langchain-text-splitters",
+    "version": "1.1.2",
+    "file": "langchain-text-splitters-1.1.2/LICENSE",
+    "source_url": "https://github.com/langchain-ai/langchain/blob/58c4e5bbdd9d18d7fe7ec83b5a05477d06fe2a8e/LICENSE",
+    "revision": "58c4e5bbdd9d18d7fe7ec83b5a05477d06fe2a8e",
+    "sha256": "4ec67e4ca6e6721dba849b2ca82261597c86a61ee214bbf21416006b7b2d0478",
+    "reason": "Installed official wheel omits license texts; copied verbatim from corresponding official version tag"
+  },
+  {
+    "name": "langsmith",
+    "version": "0.12.4",
+    "file": "langsmith-0.12.4/LICENSE",
+    "source_url": "https://github.com/langchain-ai/langsmith-sdk/blob/7bb930874ab88cd4791c463ee0f4d51a5e451fd3/LICENSE",
+    "revision": "7bb930874ab88cd4791c463ee0f4d51a5e451fd3",
+    "sha256": "34e0b9842c7a31d34e53bc7eb224e81e07a34996106e029bbc72dea2d449f496",
+    "reason": "Installed official wheel omits license texts; copied verbatim from corresponding official version tag"
+  },
+  {
+    "name": "sqlite-vec",
+    "version": "0.1.9",
+    "file": "sqlite-vec-0.1.9/LICENSE-MIT",
+    "source_url": "https://github.com/asg017/sqlite-vec/blob/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-MIT",
+    "revision": "e9f598abfa0c06b328d8fe5da9c3760cce74be10",
+    "sha256": "6ce72bbe12d975bd5286e5ab0a064c069693300c47bccbc57bec18485f1621ea",
+    "reason": "Installed official wheel omits license texts; copied verbatim from corresponding official version tag"
+  },
+  {
+    "name": "sqlite-vec",
+    "version": "0.1.9",
+    "file": "sqlite-vec-0.1.9/LICENSE-APACHE",
+    "source_url": "https://github.com/asg017/sqlite-vec/blob/e9f598abfa0c06b328d8fe5da9c3760cce74be10/LICENSE-APACHE",
+    "revision": "e9f598abfa0c06b328d8fe5da9c3760cce74be10",
+    "sha256": "a38070a94d4afd9cd710e3ce67bd1de78097cfe1784c1f0109ac95d3c196bfdc",
+    "reason": "Installed official wheel omits license texts; copied verbatim from corresponding official version tag"
+  }
+]

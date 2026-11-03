@@ -6,6 +6,7 @@ on:
     paths:
       - ".github/workflows/package.yml"
       - "assets/brand/**"
+      - "assets/licenses/**"
       - "desktop/**"
       - "src/**"
       - "pyproject.toml"
@@ -58,6 +59,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+      - name: Isolate managed Python installation
+        shell: bash
+        run: echo "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" >> "$GITHUB_ENV"
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
           python-version: "3.12"
@@ -70,6 +74,8 @@ jobs:
       - name: Verify desktop release metadata
         run: python desktop/scripts/check_release_readiness.py
       - name: Verify tagged release readiness
+        id: tagged-readiness
+        shell: bash
         if: startsWith(github.ref, 'refs/tags/')
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -83,15 +89,35 @@ jobs:
           WINDOWS_TIMESTAMP_URL: ${{ secrets.WINDOWS_TIMESTAMP_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-        run: python desktop/scripts/check_release_readiness.py --tag "${{ github.ref_name }}" --platform "${{ matrix.platform }}"
+        run: python desktop/scripts/check_release_readiness.py --tag "${{ github.ref_name }}" --platform "${{ matrix.platform }}" --github-output "$GITHUB_OUTPUT"
       - name: Install pinned Rust toolchain
         run: |
           rustup toolchain install 1.98.1 --profile minimal --component rustfmt,clippy
           rustup default 1.98.1
       - name: Install uv
         run: python -m pip install "uv==0.12.13"
+      - name: Install exact reviewed Python distribution
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
       - name: Sync locked sidecar build environment
-        run: uv sync --locked --extra desktop-build
+        run: uv sync --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}"
+      - name: Validate native updater feature compiles
+        run: cargo check --locked --manifest-path desktop/src-tauri/Cargo.toml --features updater
+      - name: Verify updater signature and interrupted-download guards
+        if: matrix.platform != 'windows'
+        run: cargo test --locked --manifest-path desktop/src-tauri/Cargo.toml --features updater --lib updater_commands::tests
+      - name: Verify Windows updater guards and diagnose loader failures
+        if: matrix.platform == 'windows'
+        shell: pwsh
+        run: ./desktop/scripts/test_windows_updater.ps1
+      - name: Upload Windows updater loader diagnostics
+        if: always() && matrix.platform == 'windows'
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+        with:
+          name: ci-windows-updater-loader
+          path: desktop/artifacts/updater-loader
+          if-no-files-found: ignore
+          retention-days: 7
       - name: Pin npm
         run: npm install --global npm@11.6.2
       - name: Install locked frontend dependencies
@@ -101,15 +127,17 @@ jobs:
         working-directory: desktop
         run: npm run tauri -- icon ../assets/brand/growwise-symbol.svg
       - name: Build Core sidecar
-        run: uv run python desktop/scripts/build_core_sidecar.py
+        run: uv run --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}" python desktop/scripts/build_core_sidecar.py
+      - name: Verify bundled Python license texts
+        run: uv run --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}" python desktop/scripts/build_license_bundle.py --check
       - name: Smoke Core sidecar
-        run: uv run python desktop/scripts/smoke_core_sidecar.py
+        run: uv run --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}" python desktop/scripts/smoke_core_sidecar.py
       - name: Configure ad-hoc macOS signing for validation builds
-        if: matrix.platform == 'macos' && (!startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-'))
+        if: matrix.platform == 'macos' && steps.tagged-readiness.outputs.stable != 'true'
         shell: bash
         run: echo "APPLE_SIGNING_IDENTITY=${{ matrix.apple_signing_identity }}" >> "$GITHUB_ENV"
       - name: Import Developer ID certificate
-        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        if: matrix.platform == 'macos' && steps.tagged-readiness.outputs.stable == 'true'
         shell: bash
         env:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -128,7 +156,7 @@ jobs:
           test -n "$CERT_ID"
           echo "APPLE_SIGNING_IDENTITY=$CERT_ID" >> "$GITHUB_ENV"
       - name: Import Windows signing certificate
-        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        if: matrix.platform == 'windows' && steps.tagged-readiness.outputs.stable == 'true'
         shell: pwsh
         env:
           WINDOWS_CERTIFICATE: ${{ secrets.WINDOWS_CERTIFICATE }}
@@ -151,18 +179,18 @@ jobs:
           }
           $config | ConvertTo-Json -Depth 6 | Set-Content -Encoding utf8 desktop/src-tauri/tauri.windows.conf.json
       - name: Build validation or prerelease desktop bundle
-        if: ${{ !startsWith(github.ref, 'refs/tags/v') || contains(github.ref_name, '-') }}
+        if: steps.tagged-readiness.outputs.stable != 'true'
         working-directory: desktop
         run: npm run tauri -- build --bundles ${{ matrix.bundles }}
       - name: Build stable Windows bundle
-        if: matrix.platform == 'windows' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        if: matrix.platform == 'windows' && steps.tagged-readiness.outputs.stable == 'true'
         working-directory: desktop
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri -- build --bundles ${{ matrix.bundles }} --config src-tauri/tauri.release.conf.json
       - name: Build signed and notarized stable macOS bundle
-        if: matrix.platform == 'macos' && startsWith(github.ref, 'refs/tags/v') && !contains(github.ref_name, '-')
+        if: matrix.platform == 'macos' && steps.tagged-readiness.outputs.stable == 'true'
         working-directory: desktop
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -171,6 +199,28 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: npm run tauri -- build --bundles ${{ matrix.bundles }} --config src-tauri/tauri.release.conf.json
+      - name: Verify stable macOS signature and notarization ticket
+        if: matrix.platform == 'macos' && steps.tagged-readiness.outputs.stable == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          for app in desktop/src-tauri/target/release/bundle/macos/*.app; do
+            codesign --verify --deep --strict --verbose=2 "$app"
+            spctl --assess --type execute --verbose=2 "$app"
+            xcrun stapler validate "$app"
+          done
+      - name: Verify stable Windows Authenticode signature and timestamp
+        if: matrix.platform == 'windows' && steps.tagged-readiness.outputs.stable == 'true'
+        shell: pwsh
+        run: |
+          $files = @(Get-ChildItem desktop/src-tauri/target/release/bundle/nsis/*.exe)
+          if ($files.Count -eq 0) { throw "No Windows installer was produced" }
+          foreach ($file in $files) {
+            $signature = Get-AuthenticodeSignature $file.FullName
+            if ($signature.Status -ne 'Valid' -or -not $signature.SignerCertificate -or -not $signature.TimeStamperCertificate) {
+              throw "Windows installer signature or timestamp verification failed"
+            }
+          }
       - name: Upload installer artifact
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -244,7 +294,7 @@ jobs:
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
             args=(release create "$GITHUB_REF_NAME" --title "GrowWise ${GITHUB_REF_NAME#v}" --generate-notes)
-            if [[ "$GITHUB_REF_NAME" == *-* ]]; then
+            if [[ "${GITHUB_REF_NAME%%+*}" == *-* ]]; then
               args+=(--prerelease)
             fi
             gh "${args[@]}"

@@ -3,8 +3,13 @@
 GrowWise repository work is intended to stop at the boundary where a real person, real device, or
 long-lived secret is required. The repository must not fabricate those inputs or commit them.
 
-Everything below is therefore **operator-only**. Code changes, validation harnesses, packaging
-workflows, updater asset generation, and safety checks are already automated in the repository.
+The initial public scope is unsigned GitHub prerelease installers and source. Certificates,
+notarization and a durable updater key are later signed-stable requirements; they are not blockers
+for that authorized prerelease. The updater remains `notconfigured` until its trust root is supplied.
+
+The device/household/secret inputs below require operator participation. Current package, native
+Windows execution and Linux memory-regression failures remain repository implementation/validation
+work; they must receive corrected successful CI runs before the prerelease is described as ready.
 
 ## 1. Household dogfooding
 
@@ -70,9 +75,11 @@ python desktop/scripts/configure_updater.py \
   --public-key-file ~/.tauri/growwise-updater.key.pub
 ```
 
-The configurator prepares the release-only Tauri updater config, adds `tauri-plugin-updater` to the
-Rust shell, wires the plugin into the Tauri builder, updates `Cargo.lock` through `cargo check`, and
-uses the default GitHub Release endpoint unless `--endpoint` is supplied.
+The configurator validates the public-key format, prepares the release-only overlay with the
+committed native `updater` feature, and runs `cargo check --locked --features updater`. The plugin,
+explicit Settings check/install controls and restart handling are already implemented. A failed
+compile rolls back the overlay; activation does not edit Cargo dependencies or generate keys.
+It uses the default GitHub Release endpoint unless `--endpoint` is supplied.
 
 After reviewing and committing those generated public/code files, store these GitHub Actions secrets:
 
