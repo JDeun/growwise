@@ -570,6 +570,27 @@ async function main() {
         await waitForWorkspace(cdp, view);
       }
       await assertLayoutHealth(cdp, view);
+      if (view === "photos") {
+        // A saved draft must open its parent confirmation even after the first
+        // gallery record arrives. Hidden details must not pass via JS .click().
+        const reviewPoint = await evaluate(cdp, `(() => {
+          const button=[...document.querySelectorAll('.photo-gallery-actions button')]
+            .find(node=>node.textContent.trim()==='초안 검토');
+          if(!button) return null;
+          button.scrollIntoView({block:'center',behavior:'instant'});
+          const box=button.getBoundingClientRect();
+          return {x:box.left+box.width/2,y:box.top+box.height/2};
+        })()`);
+        invariant(reviewPoint, "saved photo draft review action is missing");
+        await cdp.send("Input.dispatchMouseEvent", {type:"mousePressed",...reviewPoint,button:"left",clickCount:1});
+        await cdp.send("Input.dispatchMouseEvent", {type:"mouseReleased",...reviewPoint,button:"left",clickCount:1});
+        await waitFor(() => evaluate(cdp, `(() => {
+          const details=document.querySelector('.photo-workspace-card');
+          const confirm=[...details.querySelectorAll('button')]
+            .find(node=>node.textContent.trim()==='확인하고 관찰 기록으로 저장');
+          return details.open && confirm?.checkVisibility() && !confirm.disabled;
+        })()`), {label:"saved photo draft opens visible parent confirmation"});
+      }
       if (view === "settings") {
         await waitFor(() => evaluate(cdp, 'document.querySelector(".updater-settings")?.innerText.includes("설정되지 않았습니다")'),
           { label: "unconfigured updater state" });

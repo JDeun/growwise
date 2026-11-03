@@ -194,7 +194,7 @@ async function fill(selector, value) {
 
 async function clickText(text, selector = "button") {
   await waitFor(async () => evaluateWithArguments(cdp, (selector,text) => {
-    const button = [...document.querySelectorAll(selector)].find((node) => (node.textContent.trim() === text || node.querySelector("strong")?.textContent.trim() === text) && node.getBoundingClientRect().height > 0 && !node.disabled);
+    const button = [...document.querySelectorAll(selector)].find((node) => (node.textContent.trim() === text || node.querySelector("strong")?.textContent.trim() === text) && node.checkVisibility() && node.getBoundingClientRect().height > 0 && !node.disabled);
     if (!button) return false; button.click(); return true;
   },selector,text), {label:`click ${text}`});
 }
@@ -205,7 +205,7 @@ async function clickResourceAction(title, action) {
       .find(node=>node.querySelector(".resource-card-heading strong")?.textContent === title);
     const button=card && [...card.querySelectorAll("button")]
       .find(node=>node.textContent.trim() === action && !node.disabled);
-    if(!button || button.getBoundingClientRect().height === 0) return false;
+    if(!button || !button.checkVisibility() || button.getBoundingClientRect().height === 0) return false;
     button.click();return true;
   },title,action),{label:`${action} on ${title}`});
 }

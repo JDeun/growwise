@@ -522,7 +522,8 @@ function ChildPhotoWorkspace({ active, currentChildId, thumbnailLoader, pollInFl
         )}
       </section>
 
-      <details className="workspace photo-workspace-card" open={records.length === 0}>
+      <details className="workspace photo-workspace-card"
+        open={records.length === 0 || draft !== null || pendingRecordId !== null}>
         <summary className="photo-create-summary">
           <span>
             <strong>새 사진 기록</strong>
