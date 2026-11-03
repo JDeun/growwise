@@ -48,7 +48,9 @@ def test_packaging_photo_probe_uses_real_create_envelope_and_thumbnail_codecs(
         path = urlsplit(request.full_url).path
         paths.append(path)
         response = client.request(
-            request.method, path, content=request.data,
+            request.method,
+            path,
+            content=request.data,
             headers={"Content-Type": "application/json"},
         )
         assert 200 <= response.status_code < 300, response.text
@@ -65,10 +67,13 @@ def test_packaging_photo_probe_uses_real_create_envelope_and_thumbnail_codecs(
 def test_sidecar_ci_has_clean_pinned_runtime_and_offline_attribution_inputs():
     workflow = (SCRIPT.parents[2] / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     job = workflow.split("  core-sidecar-smoke:", 1)[1]
-    assert "--extra desktop-build --managed-python --python 3.12.13" in job
+    assert (
+        '--extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}"'
+        in job
+    )
     assert "npm ci --prefix desktop --omit=dev" in job
     assert "cargo fetch --locked" in job
     assert "build_license_bundle.py --check" in job
     assert "uv run --no-sync python desktop/scripts/smoke_core_sidecar.py" in job
     assert "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" in job
-    assert "--python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/" in job
+    assert "install_packaging_python.py --github-env" in job

@@ -20,6 +20,18 @@ namespace GrowWiseNativeToken {
         public bool AdministratorsEnabled;
     }
 
+    public sealed class LaunchDiagnostics {
+        public string Source;
+        public int WithTokenError;
+        public string WithTokenMessage;
+        public int? AsUserError;
+        public string AsUserMessage;
+        public Dictionary<string, string> BootstrapPrivileges;
+        public string FilteredIntegritySid;
+        public bool FilteredIsElevated;
+        public bool FilteredAdministratorsEnabled;
+    }
+
     public sealed class LaunchedProcess : IDisposable {
         internal IntPtr Handle;
         public uint ProcessId;
@@ -52,6 +64,8 @@ namespace GrowWiseNativeToken {
     internal static class Native {
         [StructLayout(LayoutKind.Sequential)] internal struct SidAttributes { public IntPtr Sid; public uint Attributes; }
         [StructLayout(LayoutKind.Sequential)] internal struct Groups { public uint Count; public SidAttributes First; }
+        [StructLayout(LayoutKind.Sequential)] internal struct Luid { public uint Low; public int High; }
+        [StructLayout(LayoutKind.Sequential)] internal struct LuidAttributes { public Luid Value; public uint Attributes; }
         [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)] internal struct StartupInfo {
             public uint cb; public string reserved; public string desktop; public string title;
             public uint x, y, xSize, ySize, xChars, yChars, fillAttribute, flags;
@@ -70,6 +84,7 @@ namespace GrowWiseNativeToken {
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr data, uint size, out uint needed);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SetTokenInformation(IntPtr token, int kind, ref SidAttributes data, uint size);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool DuplicateTokenEx(IntPtr token, uint access, IntPtr attributes, int impersonation, int kind, out IntPtr copy);
+        [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] internal static extern bool LookupPrivilegeValue(string system, string name, out Luid value);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SaferCreateLevel(uint scope, uint level, uint flags, out IntPtr handle, IntPtr reserved);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SaferComputeTokenFromLevel(IntPtr level, IntPtr input, out IntPtr output, uint flags, IntPtr reserved);
         [DllImport("advapi32.dll")] internal static extern bool SaferCloseLevel(IntPtr level);
@@ -83,6 +98,7 @@ namespace GrowWiseNativeToken {
 
     public static class FilteredProcess {
         const uint Query = 8, Duplicate = 2, Assign = 1, AdjustDefault = 128;
+        public static LaunchDiagnostics LastLaunchDiagnostics;
 
         static IntPtr Information(IntPtr token, int kind) {
             uint size;
@@ -175,7 +191,30 @@ namespace GrowWiseNativeToken {
             entries.Sort(StringComparer.OrdinalIgnoreCase);
             return Marshal.StringToHGlobalUni(String.Join("\0", entries.ToArray()) + "\0\0");
         }
+        static Dictionary<string, string> Privileges(IntPtr token) {
+            Dictionary<string, string> result = new Dictionary<string, string>();
+            IntPtr data = Information(token, 3);
+            try {
+                int count = Marshal.ReadInt32(data);
+                int stride = Marshal.SizeOf(typeof(Native.LuidAttributes));
+                foreach (string name in new[] { "SeImpersonatePrivilege", "SeIncreaseQuotaPrivilege", "SeAssignPrimaryTokenPrivilege" }) {
+                    Native.Luid wanted;
+                    if (!Native.LookupPrivilegeValue(null, name, out wanted)) throw new Win32Exception();
+                    string state = "absent";
+                    for (int index = 0; index < count; index++) {
+                        Native.LuidAttributes entry = (Native.LuidAttributes)Marshal.PtrToStructure(IntPtr.Add(data, 4 + index * stride), typeof(Native.LuidAttributes));
+                        if (entry.Value.Low == wanted.Low && entry.Value.High == wanted.High) {
+                            state = (entry.Attributes & 2) != 0 ? "present-enabled" : "present-disabled";
+                            break;
+                        }
+                    }
+                    result.Add(name, state);
+                }
+            } finally { Marshal.FreeHGlobal(data); }
+            return result;
+        }
         public static LaunchedProcess LaunchFiltered(string executable, string commandLine, string workingDirectory) {
+            LastLaunchDiagnostics = null;
             if (!Path.IsPathRooted(executable) || !File.Exists(executable) || !Directory.Exists(workingDirectory))
                 throw new ArgumentException("Expected an existing absolute executable and working directory.");
             IntPtr original;
@@ -206,12 +245,27 @@ namespace GrowWiseNativeToken {
                     // NULL desktop inherits the actual interactive station and its same-user ACL.
                     bool started = Native.CreateProcessWithTokenW(selected, 0, executable, new StringBuilder(commandLine), 0x400 | 4, environment, workingDirectory, ref startup, out process);
                     int launchError = started ? 0 : Marshal.GetLastWin32Error();
+                    TokenInfo filtered = Inspect(selected);
+                    LaunchDiagnostics diagnostics = new LaunchDiagnostics {
+                        Source = source, WithTokenError = launchError,
+                        WithTokenMessage = launchError == 0 ? "success" : new Win32Exception(launchError).Message,
+                        FilteredIntegritySid = filtered.IntegritySid,
+                        FilteredIsElevated = filtered.IsElevated,
+                        FilteredAdministratorsEnabled = filtered.AdministratorsEnabled
+                    };
+                    LastLaunchDiagnostics = diagnostics;
+                    try { diagnostics.BootstrapPrivileges = Privileges(original); }
+                    catch (Exception error) {
+                        diagnostics.BootstrapPrivileges = new Dictionary<string, string> { { "inspection-error", error.Message } };
+                    }
                     if (!started && launchError == 1314) {
                         started = Native.CreateProcessAsUserW(selected, executable, new StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, false, 0x400 | 4, environment, workingDirectory, ref startup, out process);
                         if (!started) launchError = Marshal.GetLastWin32Error();
                         else source += "/CreateProcessAsUser";
+                        diagnostics.AsUserError = started ? 0 : launchError;
+                        diagnostics.AsUserMessage = started ? "success" : new Win32Exception(launchError).Message;
                     }
-                    if (!started) throw new Win32Exception(launchError, "Cannot launch the verified filtered worker.");
+                    if (!started) throw new Win32Exception(launchError, "Filtered worker launch failed: source=" + source + "; CreateProcessWithTokenW=" + diagnostics.WithTokenError + " (" + diagnostics.WithTokenMessage + "); CreateProcessAsUserW=" + (diagnostics.AsUserError.HasValue ? diagnostics.AsUserError.Value.ToString() + " (" + diagnostics.AsUserMessage + ")" : "not attempted"));
                     IntPtr childToken;
                     if (!Native.OpenProcessToken(process.Process, Query, out childToken)) throw new Win32Exception();
                     TokenInfo child;

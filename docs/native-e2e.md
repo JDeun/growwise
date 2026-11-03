@@ -56,8 +56,9 @@ Windows에 WebView2·Rust 1.98.1·Node 22·Python 3.12가 준비된 환경에서
 ```powershell
 python -m pip install uv==0.12.13
 $env:UV_PYTHON_INSTALL_DIR = Join-Path $env:TEMP 'growwise-native-python'
-uv python install --no-bin --no-registry --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
-uv sync --locked --no-dev --managed-python --python 3.12.13
+python desktop/scripts/install_packaging_python.py
+$growwiseNativePython = python desktop/scripts/install_packaging_python.py --print-version
+uv sync --locked --no-dev --managed-python --python $growwiseNativePython
 npm ci --prefix desktop
 cargo install tauri-driver --version 2.1.0 --locked
 ./desktop/scripts/install_edge_webdriver.ps1 -Destination "$env:TEMP/growwise-edge-driver"

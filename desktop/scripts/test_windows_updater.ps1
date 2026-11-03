@@ -27,7 +27,10 @@ if ($LASTEXITCODE -ne 0) { throw 'Cannot verify the embedded library-test manife
 [xml]$verifiedManifest = Get-Content -Raw $embeddedManifest
 $commonControls = $verifiedManifest.SelectSingleNode("//*[local-name()='assemblyIdentity' and @name='Microsoft.Windows.Common-Controls' and @version='6.0.0.0']")
 if (-not $commonControls) { throw 'The library-test executable is missing Common Controls v6.' }
-& cargo @arguments
+# Cargo reruns Tauri's build script on a second invocation and relinks this test,
+# discarding the post-link manifest. Run the exact no-run-produced Rust harness
+# with the same module filter Cargo would pass; all test assertions still gate.
+& $binary 'updater_commands::tests'
 $testResult = $LASTEXITCODE
 if ($testResult -eq 0) { exit 0 }
 try {

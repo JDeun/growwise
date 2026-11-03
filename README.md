@@ -332,6 +332,7 @@ GrowWise는 현재 **pre-1.0** 단계입니다.
 - 업데이트 서명 키와 실제 업데이트 복구 테스트
 
 현재 GitHub Releases에는 정식 signed installer가 아직 공개되어 있지 않습니다. 개발 빌드와 소스 실행 방법은 **[기술 가이드](docs/technical-guide.md)**에 분리되어 있습니다.
+소스 실행에는 **Python 3.12.16 이상**이 필요합니다. 사용하는 Python 계열의 최신 보안 패치를 적용하세요.
 
 ---
 

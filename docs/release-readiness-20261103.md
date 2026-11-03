@@ -1,9 +1,10 @@
 # Release readiness assessment — 2026-11-03
 
 Current scope: **unsigned GitHub prerelease installers and source for `0.1.0-alpha.0`**.
-Local V7 Core validation has passed. Three-platform package CI, actual Windows WebView execution
-and the Linux navigation-soak memory finding still require a successful final run. This assessment
-covers `974e512` plus the current working-tree corrections; it does not claim that all remote checks
+Local V7 Core validation has passed. The release interpreter is now Python3.12.16/build20261026
+(OpenSSL3.5.9/Expat2.9.0), with fresh clean Core build,376-row attribution verification and real
+authentication/PNG smoke passed. Updated package CI and actual Windows WebView execution remain pending. This assessment
+covers historical CI revisions and the current Python3.12.16 working-tree corrections; it does not claim that all remote checks
 have passed or that a release has already been published.
 
 The user explicitly chose an unsigned initial public prerelease. Platform certificates, notarization
@@ -39,7 +40,9 @@ notices remain outside the child-key boundary. The actual authenticated-Core bro
 21steps after this correction, including restoration/reload, child isolation, original citation
 reading, selected raw export and infant guide printing. Its subsequent local navigation soak passed
 34cycles over2minutes. The earlier15minute macOS soak is separate evidence; it does not prove Linux
-memory stability, where a new CI measurement remains under investigation.
+memory stability, where the later afaa98c run passed its full121second steady interval with12KiB growth.
+That [Linux/allocator follow-up](knowledge/experiments/linux-core-memory-20261103.md) is separate
+from the upcoming Python3.12.16 CI measurement.
 
 Search ordering and material-request intent parsing now use linear scans instead of repeated
 wildcard searches.20,000character hostile-prefix regressions pass. Low-level photo store/delete
@@ -62,9 +65,11 @@ builds without a durable public trust root expose `notconfigured` rather than a 
   regression and fresh local frozen-Core handshake/authentication/PNG-to-JPEG checks pass.
 - The latest macOS arm64/x64 packages and Ubuntu sidecar job stopped at the strict interpreter
   notice guard. uv0.12.13 selected Python3.12.13+20260807, whereas the reviewed interpreter and native
-  notices were3.12.13+20260623. CI now installs from official commit-pinned download metadata into an
-  isolated managed directory before syncing. An actual fresh download using uv0.12.13 reproduced the
-  intended June23build and OpenSSL3.5.7. The guard stays strict and reports the actual runtime on mismatch.
+  notices were3.12.13+20260623. The corrected de3jobs passed for both Macs and Ubuntu. Their
+  [immutable package evidence](knowledge/experiments/package-validation-20261103.md) remains historical: 3.12.13
+  release security suitability was superseded by the later official ZIP/TLS/XML review. The current
+  pipeline uses SHA-verified official metadata for3.12.16+20261026 in an isolated directory; the guard
+  stays strict. See [runtime security evidence](knowledge/experiments/python-runtime-security-20261103.md).
 - The latest Windows package compiled the updater test binary but its loader exited with
   `0xc0000139` before the harness started. This remains unresolved until the loader diagnosis and
   corrected Windows package run succeed. The separate default-feature Windows Rust tests passed.
@@ -81,11 +86,11 @@ copy full LICENSE/NOTICE/copyright texts verbatim. Reviewed official version/com
 packages that omit their own license files. The complete local bundle verifies376rows:57Python,
 2bootloader-support,4Node,311Rust packages, one native-interpreter component group and one Rust
 standard-library credit group. The Rust standard-library file is the installed toolchain's full
-`COPYRIGHT-library.html`. Python's group includes8distributor component notices and the exact
-OpenSSL3.5.7 LICENSE/AUTHORS texts. Every copied file has SHA-256 and source provenance. This preserves
+`COPYRIGHT-library.html`. Python's current group includes11distributor component notices (including the statically built
+readline/curses/UUID dependencies) and the exact OpenSSL3.5.9 LICENSE/AUTHORS texts. Every copied file has SHA-256 and source provenance. This preserves
 provided terms technically; it is not a complete legal opinion.
 
-The clean V7 PyInstaller build and complete376-row bundle verification passed. Its actual frozen
+The clean Python3.12.16 V7 PyInstaller build and complete376-row bundle verification passed. Its actual frozen
 Core then passed protocol1handshake, rejection of unauthenticated requests, core-only health and
 synthetic PNG-to-bounded-JPEG conversion. Windows/macOS installer success still depends on the final
 package CI; local sidecar success is not relabeled as cross-platform installation evidence.

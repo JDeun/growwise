@@ -160,7 +160,8 @@ def interpreter_components(output: Path) -> dict:
         or metadata["build_date"] not in build_description
     ):
         raise RuntimeError(
-            "interpreter notices require uv-managed Python 3.12.13 build 20260623; "
+            f"interpreter notices require uv-managed Python {metadata['python_version']} "
+            f"build {metadata['build_release']}; "
             "review native component notices before changing the packaging interpreter; "
             f"actual interpreter: {build_description}"
         )

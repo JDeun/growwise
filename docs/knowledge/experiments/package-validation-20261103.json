@@ -1,0 +1,98 @@
+{
+  "experiment_id": "EXP-PACKAGE-VALIDATION-OBSERVED-20261103",
+  "observed_on": "2026-11-03",
+  "status": "observed",
+  "source_revision": "de3cc074ff067f5e37d9e66afd0cb9a82cc68825",
+  "scope": "Unsigned prerelease packaging and bounded synthetic Core smoke; no signed stable release, household data, learning effectiveness or universal OS/hardware certification.",
+  "ci": [
+    {
+      "platform": "macos-x86_64",
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41650864548/job/125968326558",
+      "conclusion": "success",
+      "duration_seconds": 1065,
+      "checks": [
+        "reviewed Python distribution",
+        "updater feature compile and signature/transport guard tests",
+        "full attribution resource checks",
+        "fresh frozen Core authentication and PNG thumbnail smoke",
+        "validation DMG build",
+        "installer artifact upload"
+      ]
+    },
+    {
+      "platform": "macos-aarch64",
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41650864548/job/125968326601",
+      "conclusion": "success",
+      "duration_seconds": 692,
+      "checks": [
+        "reviewed Python distribution",
+        "updater feature compile and signature/transport guard tests",
+        "full attribution resource checks",
+        "fresh frozen Core authentication and PNG thumbnail smoke",
+        "validation DMG build",
+        "installer artifact upload"
+      ]
+    },
+    {
+      "platform": "linux-x86_64",
+      "job_url": "https://github.com/JDeun/growwise/actions/runs/41650864491/job/125968325528",
+      "conclusion": "success",
+      "duration_seconds": 77,
+      "checks": [
+        "clean locked runtime/build dependencies",
+        "production Node and Cargo attribution sources",
+        "fresh frozen Core build",
+        "full attribution hash/inventory verification",
+        "Core handshake and unauthenticated rejection",
+        "synthetic PNG to bounded JPEG thumbnail"
+      ]
+    }
+  ],
+  "actual_downloaded_arm_dmg": {
+    "artifact_name": "growwise-macos-arm64",
+    "filename": "GrowWise_0.1.0-alpha.0_aarch64.dmg",
+    "sha256": "36ed9b80da60263a94849361a8573ff89ee04db6c92ce5e88e839aea18df2f3e",
+    "hash_independently_rechecked": true,
+    "mount": "read-only; detached successfully after verification",
+    "code_signature": {
+      "command": "codesign --verify --deep --strict GrowWise.app",
+      "exit_code": 0,
+      "kind": "ad-hoc; no Developer ID or notarization certification"
+    },
+    "license_bundle": {
+      "command": "build_license_bundle.py --check --output GrowWise.app/Contents/Resources/licenses",
+      "exit_code": 0,
+      "verified_rows": 376,
+      "separate_manifest_sha256_recorded": false
+    },
+    "actual_bundled_core_smoke": {
+      "command": "smoke_core_sidecar.py GrowWise.app/Contents/Resources/binaries/growwise-core",
+      "exit_code": 0,
+      "protocol_version": 1,
+      "unauthenticated_requests_rejected": true,
+      "health": "core_only",
+      "ai_features_enabled": false,
+      "photo_conversion": "synthetic 1x1 PNG to bounded JPEG",
+      "separate_binary_sha256_recorded": false
+    },
+    "observer": "Coordinator executed the mounted-artifact checks; research agent read the retained smoke log and independently rehashed the downloaded DMG. The DMG hash anchors the verified bytes; separate Core/license-manifest hashes were not retained."
+  },
+  "verification_source_sha256": {
+    "desktop/scripts/smoke_core_sidecar.py": "b6dee811558fe8f72c11312e78440a9a7ce54f7ecee81eeed371aead07ce405f",
+    "desktop/scripts/build_license_bundle.py": "b11514b0de767cecb1544e9c5c6314838ba76d696d0f5f4e4cec40a261bd3256"
+  },
+  "packaging_interpreter": {
+    "python_version": "3.12.13",
+    "python_build_standalone_release": "20260623",
+    "uv_version": "0.12.13",
+    "download_metadata_revision": "901092ee11a89ba287f274e3c6e3a2e18ec2fba2",
+    "selection": "official commit-pinned metadata and archive checksums; isolated managed directory; license guard unchanged"
+  },
+  "not_closed_by_this_experiment": [
+    "Windows package updater test previously failed before the harness at TaskDialogIndirect/CommonControls activation; correction and actual next CI are separate evidence.",
+    "Native Windows GUI previously failed WebView creation before its journey; filtered-token correction is awaiting its own actual CI.",
+    "Separate Linux navigation memory run failed its warmup plateau; packaging/thumbnail smoke does not establish steady-state UI/Core memory stability.",
+    "No actual paid remote AI credential/API call, household usage, physical Windows device, signed stable installer or production-key update chain was tested."
+  ],
+  "privacy": "Synthetic temporary records only. Public source/build hashes and workflow URLs; no personal credentials, account SID, host path, household child data or device identifiers."
+}

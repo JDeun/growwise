@@ -194,6 +194,14 @@ def test_interactive_worker_uses_a_filtered_child_and_keeps_os_security_policies
     assert "-not $token.IsElevated -and -not $token.AdministratorsEnabled" in source
     assert "LowerToMedium" not in source
     assert "--no-sandbox" not in source
+    assert "[switch]$ProbeOnly" in source
+    assert "probe_only = [bool]$ProbeOnly" in source
+    assert "if ($payload.probe_only)" in source
+    workflow = (SCRIPT.parents[2] / ".github/workflows/native-e2e.yml").read_text(encoding="utf-8")
+    assert workflow.index("Verify actual filtered process launch") < workflow.index(
+        "Install pinned Rust"
+    )
+    assert "native-token-preflight" in workflow
 
 
 def test_integrity_reads_this_process_token_and_releases_handles(

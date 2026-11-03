@@ -8,7 +8,8 @@ param(
     [string]$Artifacts,
     [string]$Parameters,
     [switch]$Worker,
-    [switch]$FilteredWorker
+    [switch]$FilteredWorker,
+    [switch]$ProbeOnly
 )
 $ErrorActionPreference = 'Stop'
 $repoRoot = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
@@ -52,12 +53,22 @@ if ($Worker) {
             foreach ($entry in $payload.environment.psobject.Properties) {
                 [Environment]::SetEnvironmentVariable($entry.Name, [string]$entry.Value, 'Process')
             }
-            $arguments = @($payload.arguments)
-            & $payload.python @arguments > $payload.log 2>&1
-            $result = $LASTEXITCODE
+            if ($payload.probe_only) {
+                'Verified actual non-elevated Medium worker with disabled Administrators membership.' |
+                    Set-Content -Encoding utf8 -LiteralPath $payload.log
+                $result = 0
+            } else {
+                $arguments = @($payload.arguments)
+                & $payload.python @arguments > $payload.log 2>&1
+                $result = $LASTEXITCODE
+            }
         }
     } catch {
         $ownsResult = $true
+        if (('GrowWiseNativeToken.FilteredProcess' -as [type]) -and $null -ne [GrowWiseNativeToken.FilteredProcess]::LastLaunchDiagnostics) {
+            [GrowWiseNativeToken.FilteredProcess]::LastLaunchDiagnostics | ConvertTo-Json -Depth 4 |
+                Set-Content -Encoding utf8 -LiteralPath ($payload.log + '.launch-failure.json')
+        }
         $_ | Out-String | Set-Content -Encoding utf8 -LiteralPath $payload.log
     } finally {
         if ($null -ne $launched) { $launched.Dispose() }
@@ -69,7 +80,7 @@ if ($Worker) {
     }
     exit $result
 }
-foreach ($required in @($Python, $App, $NativeDriver, $Artifacts)) {
+foreach ($required in $(if ($ProbeOnly) { @($Artifacts) } else { @($Python, $App, $NativeDriver, $Artifacts) })) {
     if (-not $required) { throw 'Python, App, NativeDriver and Artifacts are required.' }
 }
 $artifactsPath = [IO.Path]::GetFullPath($Artifacts)
@@ -93,12 +104,13 @@ $inputFile = Join-Path $temporary 'parameters.json'
 $statusFile = Join-Path $temporary 'exit-code.txt'
 $logFile = Join-Path $artifactsPath 'launcher.log'
 @{
-    python = [IO.Path]::GetFullPath($Python)
+    python = $(if ($ProbeOnly) { '' } else { [IO.Path]::GetFullPath($Python) })
     cwd = $repoRoot
-    arguments = @(
+    arguments = $(if ($ProbeOnly) { @() } else { @(
         (Join-Path $PSScriptRoot 'native_e2e.py'), '--app', [IO.Path]::GetFullPath($App),
         '--native-driver', [IO.Path]::GetFullPath($NativeDriver), '--artifacts', $artifactsPath
-    )
+    ) })
+    probe_only = [bool]$ProbeOnly
     environment = $environment
     status = $statusFile
     log = $logFile
@@ -107,7 +119,9 @@ $taskName = 'GrowWise-Native-E2E-' + [guid]::NewGuid().ToString('N')
 try {
     if ($elevated) {
         # Grant this same account, not Everyone/Users, access under its filtered token.
-        foreach ($directory in @($repoRoot, $temporary, (Split-Path $NativeDriver -Parent))) {
+        $accessDirectories = @($repoRoot, $temporary)
+        if ($NativeDriver) { $accessDirectories += Split-Path $NativeDriver -Parent }
+        foreach ($directory in $accessDirectories) {
             & icacls.exe $directory /grant "*$($identity.User.Value):(OI)(CI)M" /Q
             if ($LASTEXITCODE -ne 0) { throw 'Cannot grant the current limited user E2E access.' }
         }

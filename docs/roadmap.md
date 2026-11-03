@@ -50,7 +50,7 @@ GrowWise는 작은 MVP에서 멈추는 프로젝트가 아니다. **0세부터 �
 - 개인용 홈스쿨링 데스크탑 앱 우선
 - Windows + macOS 동시 지원
 - Tauri 2 + React/TypeScript UI
-- Python 3.12+ sidecar
+- Python 3.12.16+ sidecar
 - **LangChain + LangGraph 공식 채택**
 - LangGraph는 상태 머신·human-in-the-loop·checkpoint/recovery 실행 하네스로 사용
 - Markdown = Source of Truth, SQLite = 재생성 가능한 projection/index

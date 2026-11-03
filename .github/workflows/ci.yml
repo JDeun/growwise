@@ -217,10 +217,12 @@ jobs:
           rustup toolchain install 1.98.1 --profile minimal
           rustup default 1.98.1
           npm install --global npm@11.6.2
+      - name: Install exact reviewed Python distribution
+        shell: bash
+        run: python desktop/scripts/install_packaging_python.py --github-env "$GITHUB_ENV"
       - name: Install locked clean sidecar and attribution sources
         run: |
-          uv python install --no-bin --no-registry --python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json 3.12.13
-          uv sync --locked --no-dev --extra desktop-build --managed-python --python 3.12.13
+          uv sync --locked --no-dev --extra desktop-build --managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}"
           npm ci --prefix desktop --omit=dev --no-audit --no-fund
           cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
       - name: Build Core executable

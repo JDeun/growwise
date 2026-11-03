@@ -1,5 +1,11 @@
 # Pure token-policy regressions, independent of whether the runner is elevated.
 $ErrorActionPreference = 'Stop'
+foreach ($script in @('run_native_e2e.ps1', 'test_windows_updater.ps1')) {
+    $tokens = $null
+    $parseErrors = $null
+    [Management.Automation.Language.Parser]::ParseFile((Join-Path $PSScriptRoot $script), [ref]$tokens, [ref]$parseErrors) | Out-Null
+    if ($parseErrors.Count -ne 0) { throw ($parseErrors | Out-String) }
+}
 Add-Type -Path (Join-Path $PSScriptRoot 'windows_filtered_process.cs')
 $guard = [GrowWiseNativeToken.FilteredProcess].GetMethod('Validate', [Reflection.BindingFlags]'NonPublic,Static')
 if (-not $guard) { throw 'Filtered-token guard is unavailable.' }

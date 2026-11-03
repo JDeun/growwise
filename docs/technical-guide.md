@@ -46,7 +46,7 @@ Domain / Storage / RAG / Workflow / Model adapters
 | 영역 | 기술 |
 | --- | --- |
 | Desktop | Tauri 2, React, TypeScript, Vite |
-| Core | Python 3.12+, FastAPI, Pydantic v2 |
+| Core | Python 3.12.16+, FastAPI, Pydantic v2 |
 | Workflow | LangChain, LangGraph |
 | Storage | Markdown + SQLite |
 | RAG | lexical baseline + optional embeddings |
@@ -63,7 +63,7 @@ Domain / Storage / RAG / Workflow / Model adapters
 
 권장 도구:
 
-- Python 3.12+
+- Python 3.12.16+
 - uv
 - Node.js 22+
 - Rust stable

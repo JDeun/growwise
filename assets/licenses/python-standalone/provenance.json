@@ -1,71 +1,118 @@
 {
-  "python_version": "3.12.13",
-  "build_release": "20260623",
-  "build_date": "Jun 23 2026",
-  "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+  "python_version": "3.12.16",
+  "build_release": "20261026",
+  "build_date": "Oct 26 2026",
+  "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
   "files": [
     {
       "file": "LICENSE.bzip2.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.bzip2.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.bzip2.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "1f38bbc7caacafd65169276d759c0d88c991b753b643ce35d0e45ea1971dd441"
     },
     {
       "file": "LICENSE.expat.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.expat.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.expat.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "122f2c27000472a201d337b9b31f7eb2b52d091b02857061a8880371612d9534"
     },
     {
       "file": "LICENSE.libffi.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.libffi.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.libffi.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "deaf3a42effb551a5b140fa9afefed183a27f1341c6d1bf430d106a5e6931fc0"
     },
     {
       "file": "LICENSE.liblzma.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.liblzma.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.liblzma.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "9a4062de0a2c388a98cf35a35d348b62fa97c838a71c3c28ee1a2d7d0a565b02"
     },
     {
       "file": "LICENSE.mpdecimal.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.mpdecimal.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.mpdecimal.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "669512af7219f58be03a398766d7c9da11a3b3df9d3f05cb74c5ceca25c8da3b"
     },
     {
       "file": "LICENSE.openssl-3.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.openssl-3.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.openssl-3.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
     },
     {
       "file": "LICENSE.sqlite.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.sqlite.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.sqlite.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "38bef3d28b24f145ea293bd3b6eb4b20396982abc8303128fb493986ea5bc719"
     },
     {
       "file": "LICENSE.zlib.txt",
-      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/7f93a7d443d97f08e3afc6e24a3c675e9994b6aa/LICENSE.zlib.txt",
-      "revision": "7f93a7d443d97f08e3afc6e24a3c675e9994b6aa",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.zlib.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
       "sha256": "818922b2620f12801a12bf78e399644a30990e66824abd8ca8ec24d451d6f92c"
     },
     {
-      "file": "openssl-3.5.7/LICENSE.txt",
-      "source_url": "https://github.com/openssl/openssl/blob/8cf17aaeb4599f8af87fefd810b5b5fee90fe69e/LICENSE.txt",
-      "revision": "8cf17aaeb4599f8af87fefd810b5b5fee90fe69e",
+      "file": "LICENSE.libedit.txt",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.libedit.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+      "sha256": "29cea33c32bbc9785142386377915612a2fa786482c46843383384aded2e09b1"
+    },
+    {
+      "file": "LICENSE.ncurses.txt",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.ncurses.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+      "sha256": "87a4c4442337b8968ef956031c406b74f9cb7149b7ba87311bdaba534816201c"
+    },
+    {
+      "file": "LICENSE.libuuid.txt",
+      "source_url": "https://github.com/astral-sh/python-build-standalone/blob/fa506e0858ac9f2cc5b289c137b888a2aa24d1ee/LICENSE.libuuid.txt",
+      "revision": "fa506e0858ac9f2cc5b289c137b888a2aa24d1ee",
+      "sha256": "122ee1f7e258f2c3c0e538a75c037684f420454bf3850ddc74ce750bbf5fe86b"
+    },
+    {
+      "file": "openssl-3.5.9/LICENSE.txt",
+      "source_url": "https://github.com/openssl/openssl/blob/45e844fa2a14ec92d146bd8f5778ac130b6625fb/LICENSE.txt",
+      "revision": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
       "sha256": "7d5450cb2d142651b8afa315b5f238efc805dad827d91ba367d8516bc9d49e7a"
     },
     {
-      "file": "openssl-3.5.7/AUTHORS.md",
-      "source_url": "https://github.com/openssl/openssl/blob/8cf17aaeb4599f8af87fefd810b5b5fee90fe69e/AUTHORS.md",
-      "revision": "8cf17aaeb4599f8af87fefd810b5b5fee90fe69e",
+      "file": "openssl-3.5.9/AUTHORS.md",
+      "source_url": "https://github.com/openssl/openssl/blob/45e844fa2a14ec92d146bd8f5778ac130b6625fb/AUTHORS.md",
+      "revision": "45e844fa2a14ec92d146bd8f5778ac130b6625fb",
       "sha256": "b9f638dfc06b59c2d3b808186c3b30f713805a5db390f5b77b1703ac58acb83e"
     }
   ],
   "scope": "Distributor-provided notices for native components of the pinned interpreter; conservative cross-platform superset, not a claim that every component is loaded.",
-  "download_metadata_url": "https://raw.githubusercontent.com/astral-sh/uv/901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json",
-  "download_metadata_revision": "901092ee11a89ba287f274e3c6e3a2e18ec2fba2"
+  "download_metadata_url": "https://raw.githubusercontent.com/astral-sh/uv/acee8d938b52225be3e90ccfcbe69fa4eb8ed215/crates/uv-python-managed/download-metadata.json",
+  "download_metadata_revision": "acee8d938b52225be3e90ccfcbe69fa4eb8ed215",
+  "download_metadata_sha256": "81372e1cbff3dd87a786674ef00e01b3743638e3d8e58117d73e32a8e11eae05",
+  "observed_component_versions_macos_arm64": {
+    "openssl": "OpenSSL 3.5.9 29 Sep 2026",
+    "expat": "expat_2.9.0",
+    "mpdecimal": "4.0.0",
+    "zlib": "1.2.12"
+  },
+  "archives": [
+    {
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-aarch64-apple-darwin-install_only_stripped.tar.gz",
+      "digest": "sha256:353d5f1b4fd2715e7053f12f068435d5bbad16b91e057006b5d01e0925709a7e",
+      "name": "cpython-3.12.16+20261026-aarch64-apple-darwin-install_only_stripped.tar.gz"
+    },
+    {
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-apple-darwin-install_only_stripped.tar.gz",
+      "digest": "sha256:37c38fda76fec1fbf310adcbafb7f0d96af13b5511bf8ea954c3aa8eec185734",
+      "name": "cpython-3.12.16+20261026-x86_64-apple-darwin-install_only_stripped.tar.gz"
+    },
+    {
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz",
+      "digest": "sha256:1f2ab53880fc67ea323398c6388e05af28addc99a8e389209f08a51fdff4b149",
+      "name": "cpython-3.12.16+20261026-x86_64-pc-windows-msvc-install_only_stripped.tar.gz"
+    },
+    {
+      "browser_download_url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261026/cpython-3.12.16%2B20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz",
+      "digest": "sha256:ce4f6d0a6cfdb3bed6e44c2f9affd85943c76a42e25ad3a259002f31d6fb8a20",
+      "name": "cpython-3.12.16+20261026-x86_64-unknown-linux-gnu-install_only_stripped.tar.gz"
+    }
+  ]
 }

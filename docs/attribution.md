@@ -43,9 +43,9 @@ wheel LICENSE에 포함된 이미지 라이브러리 저작권과 조건, reques
 Python interpreter와 PyInstaller bootloader/runtime-hook의 제공된 license/exception 원문은 별도
 범주로 기록한다. 개발 도구가 설치된 환경에서 Core 실행 파일을 만들면 실패한다.
 
-패키징 interpreter는 uv-managed Python3.12.13, python-build-standalone20260623으로 고정한다.
+패키징 interpreter는 uv-managed Python3.12.16, python-build-standalone20261026으로 고정한다.
 해당 배포자의 commit-pinned OpenSSL·libffi·liblzma·bzip2·expat·mpdecimal·SQLite·zlib
-고지문과 실제 OpenSSL3.5.7의 LICENSE/AUTHORS 원문도 보존한다. 정적으로 interpreter에
+고지문과 정적 readline/curses/UUID 구성요소의 libedit·ncurses·libuuid 고지문, 실제 OpenSSL3.5.9의 LICENSE/AUTHORS 원문도 보존한다. 정적으로 interpreter에
 들어간 구성요소를 빠뜨리지 않도록 배포자의 플랫폼 공통 고지문을 보수적으로 포함하며,
 모든 구성요소가 매 실행에서 로드된다는 뜻은 아니다. 다른 interpreter build는 고지문을
 다시 검토하기 전까지 패키징을 거절한다.

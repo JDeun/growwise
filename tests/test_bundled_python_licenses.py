@@ -155,13 +155,9 @@ def test_package_resources_and_ci_include_license_verification():
     workflow = (root / ".github/workflows/package.yml").read_text(encoding="utf-8")
     assert "build_license_bundle.py --check" in workflow
     assert "uv sync --locked --no-dev --extra desktop-build" in workflow
-    assert "--managed-python --python 3.12.13" in workflow
+    assert '--managed-python --python "${{ env.GROWWISE_PACKAGING_PYTHON }}"' in workflow
     assert "UV_PYTHON_INSTALL_DIR=$RUNNER_TEMP/growwise-packaging-python" in workflow
-    assert "--python-downloads-json-url https://raw.githubusercontent.com/astral-sh/uv/" in workflow
-    assert (
-        "901092ee11a89ba287f274e3c6e3a2e18ec2fba2/crates/uv-python/download-metadata.json"
-        in workflow
-    )
+    assert "install_packaging_python.py --github-env" in workflow
 
 
 @pytest.mark.parametrize("name", ["ci.yml", "package.yml", "native-e2e.yml"])
@@ -187,7 +183,11 @@ def test_generator_does_not_clear_an_unrelated_existing_output(tmp_path):
 
 def test_native_interpreter_notices_are_pinned_and_verbatim(tmp_path, monkeypatch):
     metadata = json.loads((MODULE.INTERPRETER_NOTICES / "provenance.json").read_text())
-    monkeypatch.setattr(MODULE.sys, "version", "3.12.13 (main, Jun 23 2026, 15:44:24)")
+    monkeypatch.setattr(
+        MODULE.sys,
+        "version",
+        f"{metadata['python_version']} (main, {metadata['build_date']}, 13:59:40)",
+    )
     row = MODULE.interpreter_components(tmp_path)
     assert row["category"] == "interpreter-native-components"
     assert len(row["files"]) >= 8
@@ -200,8 +200,10 @@ def test_native_interpreter_notices_are_pinned_and_verbatim(tmp_path, monkeypatc
         ).read_bytes()
         assert item["sha256"] == provenance["sha256"]
         assert f"/blob/{item['revision']}/" in item["source_url"]
-    monkeypatch.setattr(MODULE.sys, "version", "3.12.13 (different distributor build)")
-    with pytest.raises(RuntimeError, match="build 20260623"):
+    monkeypatch.setattr(
+        MODULE.sys, "version", f"{metadata['python_version']} (different distributor build)"
+    )
+    with pytest.raises(RuntimeError, match=f"build {metadata['build_release']}"):
         MODULE.interpreter_components(tmp_path)
 
 

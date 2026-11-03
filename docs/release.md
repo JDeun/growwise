@@ -120,39 +120,71 @@ publish a stable release. Tauri CLI2.12+ is required and the locked CLI version 
 
 ## Local package check
 
-From the repository root, install Python 3.12+, Node.js 22+, Rust stable, and the locked project
-dependencies. Then:
+Run from the repository root with Node.js22/npm11.6.2, Rust1.98.1 and Python3.12.16 or a newer
+supported security-patched Python available. Use a fresh private interpreter/build environment;
+shared development environments are deliberately rejected. The installer reads the authoritative
+version, build, official catalog URL and SHA from
+`assets/licenses/python-standalone/provenance.json`. It verifies the catalog bytes and lets uv
+verify the archive checksum. `--no-bin --no-registry` keeps the managed installation from changing
+host Python shortcuts or Windows registry entries.
+
+macOS/Linux, using **Bash**:
 
 ```bash
-python -m pip install "uv==0.12.13"
-uv sync --locked --extra desktop-build
-python desktop/scripts/check_release_readiness.py
+set -euo pipefail
+growwise_package_dir="$(mktemp -d "${TMPDIR:-/tmp}/growwise-package.XXXXXX")"
+export UV_PYTHON_INSTALL_DIR="$growwise_package_dir/python"
+export UV_PROJECT_ENVIRONMENT="$growwise_package_dir/venv"
+python3 -m pip install "uv==0.12.13"
+python3 desktop/scripts/install_packaging_python.py
+growwise_package_python="$(python3 desktop/scripts/install_packaging_python.py --print-version)"
+uv sync --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python"
+rustup toolchain install 1.98.1 --profile minimal
+cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
+npm ci --prefix desktop --no-audit --no-fund
+python3 desktop/scripts/check_release_readiness.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/build_core_sidecar.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/build_license_bundle.py --check
+uv run --locked --no-dev --extra desktop-build --managed-python --python "$growwise_package_python" python desktop/scripts/smoke_core_sidecar.py
 cd desktop
-npm ci
 npm run tauri -- icon ../assets/brand/growwise-symbol.svg
-cd ..
-uv run python desktop/scripts/build_core_sidecar.py
-uv run python desktop/scripts/smoke_core_sidecar.py
-```
-
-Build the ordinary validation package from `desktop/`:
-
-```bash
-# Windows
-npm run tauri -- build --bundles nsis
-
-# macOS
 npm run tauri -- build --bundles dmg
 ```
 
-To reproduce the stable overlay locally after signing credentials are available, append:
+The final DMG command is for macOS; Linux CI validates the frozen Core without a desktop installer.
 
-```bash
---config src-tauri/tauri.release.conf.json
+Windows, using **PowerShell7.4+**:
+
+```powershell
+$ErrorActionPreference = 'Stop'
+$PSNativeCommandUseErrorActionPreference = $true
+$growwisePackageDir = Join-Path $env:TEMP ('growwise-package-' + [guid]::NewGuid().ToString('N'))
+$env:UV_PYTHON_INSTALL_DIR = Join-Path $growwisePackageDir 'python'
+$env:UV_PROJECT_ENVIRONMENT = Join-Path $growwisePackageDir 'venv'
+python -m pip install "uv==0.12.13"
+python desktop/scripts/install_packaging_python.py
+$growwisePackagePython = python desktop/scripts/install_packaging_python.py --print-version
+uv sync --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython
+rustup toolchain install 1.98.1 --profile minimal
+cargo fetch --locked --manifest-path desktop/src-tauri/Cargo.toml
+npm ci --prefix desktop --no-audit --no-fund
+python desktop/scripts/check_release_readiness.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/build_core_sidecar.py
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/build_license_bundle.py --check
+uv run --locked --no-dev --extra desktop-build --managed-python --python $growwisePackagePython python desktop/scripts/smoke_core_sidecar.py
+Push-Location desktop
+npm run tauri -- icon ../assets/brand/growwise-symbol.svg
+npm run tauri -- build --bundles nsis
+Pop-Location
 ```
 
-The application is local-first and the packaged Core smoke test explicitly verifies that startup
-does not require an LLM provider.
+Node packages and Cargo source must be installed **before** building Core because its bundled
+attribution resource includes the production frontend/native dependency graph. Every uv run keeps
+the locked `desktop-build` extra; an implicit sync must not remove PyInstaller before the build.
+These ordinary validation packages do not require a signing key or activate automatic updates.
+For a later stable build with credentials prepared, add
+`--config src-tauri/tauri.release.conf.json` to the Tauri build command. The packaged Core smoke
+verifies authenticated startup and a real synthetic PNG-to-JPEG thumbnail without an LLM provider.
 
 ## Updater activation
 
