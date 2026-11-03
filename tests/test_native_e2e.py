@@ -5,12 +5,15 @@ from __future__ import annotations
 import importlib.util
 import io
 import json
+import os
 from pathlib import Path
 from unittest.mock import Mock
 from urllib.error import HTTPError
 
 import pytest
 from PIL import Image
+
+from growwise.runtime_lock import DataDirectoryLock
 
 SCRIPT = Path(__file__).resolve().parents[1] / "desktop/scripts/native_e2e.py"
 spec = importlib.util.spec_from_file_location("native_e2e", SCRIPT)
@@ -91,6 +94,40 @@ def test_native_bridge_never_appearing_fails_closed(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
     with pytest.raises(AssertionError, match="original Tauri IPC bridge"):
         driver.wait_for_native_bridge()
+
+
+def test_native_reads_actual_server_pid_while_writer_lock_is_held(tmp_path: Path):
+    with DataDirectoryLock(tmp_path):
+        assert native.core_lock_pid(tmp_path) == os.getpid()
+
+
+@pytest.mark.parametrize("metadata", [b"pid=0\n", b"pid=4294967296\n", b"pid=4\nextra", b"bad"])
+def test_native_rejects_invalid_core_owner_metadata(tmp_path: Path, metadata: bytes):
+    (tmp_path / ".core.lock").write_bytes(metadata)
+    with pytest.raises(AssertionError, match="Invalid Core lock owner"):
+        native.core_lock_pid(tmp_path)
+
+
+@pytest.mark.parametrize(("status", "stdout"), [(0, "owned"), (0, "unowned"), (4, "")])
+def test_native_verifies_exact_lock_owner_ancestry_without_commandline_enumeration(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, status: int, stdout: str
+):
+    (tmp_path / ".core.lock").write_bytes(b"pid=1234\n")
+
+    def run(command, **options):
+        query = command[-1]
+        assert "CommandLine" not in query
+        assert "-Filter ('ProcessId = '+$current)" in query
+        assert options["env"]["GROWWISE_E2E_CORE_PID"] == "1234"
+        assert options["env"]["GROWWISE_E2E_DRIVER_PID"] == "5678"
+        return native.subprocess.CompletedProcess(command, status, stdout, "owned-tree check")
+
+    monkeypatch.setattr(native.subprocess, "run", run)
+    if status == 0 and stdout == "owned":
+        assert native.owned_core_pid(5678, tmp_path) == 1234
+    else:
+        with pytest.raises(AssertionError, match="not verified in the owned driver tree"):
+            native.owned_core_pid(5678, tmp_path)
 
 
 def test_webdriver_response_size_is_bounded_before_json_decode(

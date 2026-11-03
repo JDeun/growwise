@@ -374,41 +374,55 @@ def process_alive(pid: int) -> bool:
         kernel.CloseHandle(handle)
 
 
-def owned_core_pid(driver_pid: int) -> int:
-    # Windows byte-range locks can prevent reading .core.lock while the writer owns it.
-    # Inspect only the driver descendant tree and return a PID, never other process details.
+def core_lock_pid(data_dir: Path) -> int:
+    # Core writes its own server PID after taking the data-directory writer lock.
+    # msvcrt locks byte0; read only its unlocked owner suffix, as the live harness does.
+    with (data_dir / ".core.lock").open("rb") as lock:
+        lock.seek(1)
+        metadata = b"p" + lock.read(33)
+    match = re.fullmatch(rb"pid=([1-9][0-9]{0,9})\n", metadata)
+    if not match or int(match[1]) > 0xFFFFFFFF:
+        raise AssertionError("Invalid Core lock owner PID")
+    return int(match[1])
+
+
+def owned_core_pid(driver_pid: int, data_dir: Path) -> int:
+    pid = core_lock_pid(data_dir)
+    # Do not enumerate unrelated process command lines: a filtered user cannot
+    # rely on that property being visible. Verify only this exact lock owner's ancestry.
     query = r"""
         $ErrorActionPreference='Stop'
-        $root=[uint32]$env:GROWWISE_E2E_DRIVER_PID
-        $processes=@(Get-CimInstance Win32_Process)
-        $parents=@{}
-        foreach($process in $processes){$parents[[uint32]$process.ProcessId]=$process}
-        $found=@(foreach($process in $processes){
-          if($process.CommandLine -match '(^|\s)-m\s+growwise\.api\.secure_entry(\s|$)'){
-            $ancestor=[uint32]$process.ParentProcessId
-            $visited=@{}
-            while($ancestor -ne 0 -and -not $visited.ContainsKey($ancestor)){
-              if($ancestor -eq $root){[uint32]$process.ProcessId;break}
-              $visited[$ancestor]=$true
-              if(-not $parents.ContainsKey($ancestor)){break}
-              $ancestor=[uint32]$parents[$ancestor].ParentProcessId
-            }
-          }
-        })
-        if($found.Count -ne 1){throw 'Expected one Core in the owned driver process tree'}
-        Write-Output $found[0]
+        $current=[uint32]$env:GROWWISE_E2E_CORE_PID
+        $expected=[uint32]$env:GROWWISE_E2E_DRIVER_PID
+        $seen=@{}
+        for($depth=0; $depth -lt 16; $depth++){
+          if($current -eq $expected){[Console]::Out.Write('owned'); exit 0}
+          if($seen.ContainsKey($current)){exit 2}
+          $seen[$current]=$true
+          $owner=Get-CimInstance Win32_Process -Filter ('ProcessId = '+$current) -ErrorAction Stop
+          if($null -eq $owner){exit 3}
+          $current=[uint32]$owner.ParentProcessId
+        }
+        exit 4
     """
     result = subprocess.run(
         ["powershell.exe", "-NoProfile", "-NonInteractive", "-Command", query],
-        env={**os.environ, "GROWWISE_E2E_DRIVER_PID": str(driver_pid)},
-        check=True,
+        env={
+            **os.environ,
+            "GROWWISE_E2E_DRIVER_PID": str(driver_pid),
+            "GROWWISE_E2E_CORE_PID": str(pid),
+        },
+        check=False,
         capture_output=True,
-        text=True,
+        encoding="utf-8",
+        errors="replace",
         timeout=15,
     )
-    pid = int(result.stdout.strip())
-    if pid <= 0:
-        raise AssertionError("Invalid owned Core PID")
+    if result.returncode != 0 or result.stdout.strip() != "owned":
+        raise AssertionError(
+            "Core lock owner is not verified in the owned driver tree "
+            f"(status={result.returncode}): {result.stderr[-2000:]}"
+        )
     return pid
 
 
@@ -673,8 +687,8 @@ def main() -> int:
             wait_for(lambda: driver.request("GET", "/status"), "tauri-driver startup", timeout=30)
             driver.start(application)
             driver.wait_for_native_bridge()
-            isolated_data_dir(driver.invoke("get_storage_location"))
-            core_pid = owned_core_pid(process.pid)
+            native_data_dir = isolated_data_dir(driver.invoke("get_storage_location"))
+            core_pid = owned_core_pid(process.pid, native_data_dir)
             run_journey(driver, artifacts, report)
             report["passed"] = True
             exit_code = 0
