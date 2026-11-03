@@ -1,46 +1,44 @@
 import { describe, expect, it } from "vitest";
-import { assessRssPlateau, parseLinuxMemoryStatus, RSS_WARMUP } from "./soak_metrics.mjs";
+import { assessMemoryGrowth, assessMemoryWarmup, MEMORY_WARMUP, parseLinuxMemoryStatus } from "./soak_metrics.mjs";
 
-const sample = (elapsedSeconds, coreRssBytes) => ({elapsedSeconds,coreRssBytes});
 const mib = 1024 * 1024;
+const sample = (elapsedSeconds, coreRssBytes, extra = {}) => ({elapsedSeconds, coreRssBytes,
+  heapUsedBytes:6*mib, ...extra});
 
-describe("Core RSS observation before the steady soak", () => {
-  it("retains the original cold rise but requires the observed late plateau", () => {
-    const trace = [sample(0,212758528),sample(30,263020544),sample(61,265023488),
-      sample(93,265035776),sample(121,265035776)];
-    expect(assessRssPlateau(trace.slice(0,3)).stable).toBe(false);
-    expect(assessRssPlateau(trace).stable).toBe(true);
-    expect(trace.at(-1).coreRssBytes - trace[0].coreRssBytes).toBe(52277248);
+describe("Representative warmup and bounded memory growth", () => {
+  it("requires both a full minute and three complete workspace cycles, with a bounded setup", () => {
+    expect(assessMemoryWarmup([sample(0,120*mib),sample(59,120*mib)],3).ready).toBe(false);
+    expect(assessMemoryWarmup([sample(0,120*mib),sample(60,120*mib)],2).ready).toBe(false);
+    expect(assessMemoryWarmup([sample(0,120*mib),sample(60,120*mib)],3).ready).toBe(true);
+    expect(assessMemoryWarmup([sample(0,120*mib),sample(301,120*mib)],30))
+      .toMatchObject({ready:false,expired:true});
+    expect(MEMORY_WARMUP.maximumSeconds).toBe(300);
   });
 
-  it("rejects sustained slow growth even below the permitted window spread", () => {
-    const slow = [sample(0,200*mib),sample(15,200*mib+4096),sample(30,200*mib+8192)];
-    expect(assessRssPlateau(slow)).toMatchObject({stable:false,sustainedGrowth:true});
-    expect(assessRssPlateau([sample(0,200*mib),sample(15,210*mib),sample(30,220*mib)]).stable).toBe(false);
+  it("accepts the actual Windows resident oscillation as exercised warmup, without claiming a plateau", () => {
+    const trace = [sample(0,129810432),sample(17,125739008),sample(33,125820928),
+      sample(50,124645376),sample(66,123527168)];
+    expect(assessMemoryWarmup(trace,28).ready).toBe(true);
+    expect(assessMemoryWarmup([sample(0,null),sample(60,120*mib)],3).ready).toBe(false);
   });
 
-  it("does not accept missing metrics, a short window or an unstable large oscillation", () => {
-    expect(assessRssPlateau([sample(0,200*mib),sample(15,null),sample(30,200*mib)]).stable).toBe(false);
-    expect(assessRssPlateau([sample(0,200*mib),sample(5,200*mib),sample(10,200*mib)]).stable).toBe(false);
-    expect(assessRssPlateau([sample(0,200*mib),sample(15,202*mib),sample(30,200*mib)]).stable).toBe(false);
-    expect(RSS_WARMUP.maximumSeconds).toBe(300);
+  it("rejects sustained growth beyond the same32MiB budget even if the last sample returns to baseline", () => {
+    const trace = [sample(0,100*mib),sample(30,116*mib),sample(60,132*mib+1),sample(120,100*mib)];
+    expect(assessMemoryGrowth(trace)).toMatchObject({valid:true,withinBudget:false,coreRssGrowthBytes:32*mib+1});
+    expect(assessMemoryGrowth([sample(0,100*mib),sample(120,100*mib,{heapUsedBytes:14*mib+1})]).withinBudget).toBe(false);
   });
 
-  it("keeps the late Linux allocation step failed until a full unchanged window is observed", () => {
-    // Actual Python3.12.16 CI: a late1.18MiB step prevented the old120s setup deadline.
-    const failed = [sample(78,263110656),sample(96,264290304),sample(111,264290304)];
-    expect(assessRssPlateau(failed)).toMatchObject({stable:false,spreadBytes:1179648});
-    // This is a synthetic decision regression, not a claimed later sample from that failed run.
-    expect(assessRssPlateau([...failed,sample(126,264290304)]))
-      .toMatchObject({stable:true,spanSeconds:30,spreadBytes:0});
-    const ongoing = Array.from({length:21},(_,index)=>sample(index*15,200*mib+index*4096));
-    expect(assessRssPlateau(ongoing)).toMatchObject({stable:false,sustainedGrowth:true});
-    expect(RSS_WARMUP.minimumSpanSeconds).toBe(30);
-    expect(RSS_WARMUP.maximumSpreadBytes).toBe(512*1024);
-    expect(RSS_WARMUP.sampleCount).toBe(3);
+  it("requires valid private bytes on Windows and checks committed growth independently of falling RSS", () => {
+    const trace = [sample(0,130*mib,{corePrivateBytes:100*mib}),sample(120,110*mib,{corePrivateBytes:132*mib+1})];
+    expect(assessMemoryGrowth(trace,{requirePrivate:true}))
+      .toMatchObject({valid:true,withinBudget:false,coreRssGrowthBytes:0,corePrivateGrowthBytes:32*mib+1});
+    expect(assessMemoryGrowth([sample(0,130*mib),sample(120,110*mib)],{requirePrivate:true}).valid).toBe(false);
+    expect(assessMemoryGrowth([sample(0,130*mib),sample(120,null)]).valid).toBe(false);
+    expect(assessMemoryGrowth([sample(0,130*mib)]).valid).toBe(false);
+    expect(assessMemoryGrowth([sample(0,130*mib),sample(120,110*mib)]).withinBudget).toBe(true);
   });
 
-  it("records only allowlisted Linux memory/thread metrics", () => {
+  it("records only allowlisted optional Linux diagnostics", () => {
     expect(parseLinuxMemoryStatus("Name:\tpython\nUid:\t123\nThreads:\t8\nRssAnon:\t100 kB\nRssFile:\t20 kB\nRssShmem:\t0 kB\n"))
       .toEqual({coreThreads:8,coreRssAnonBytes:102400,coreRssFileBytes:20480,coreRssShmemBytes:0});
   });

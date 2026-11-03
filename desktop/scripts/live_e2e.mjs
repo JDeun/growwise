@@ -9,7 +9,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 import { Cdp, evaluate, evaluateWithArguments, findChrome, startStaticServer, waitFor, waitForWorkspace } from "./browser_e2e.mjs";
-import { assessRssPlateau, parseLinuxMemoryStatus, RSS_WARMUP } from "./soak_metrics.mjs";
+import { assessMemoryGrowth, assessMemoryWarmup, MEMORY_GROWTH_LIMITS, MEMORY_WARMUP, parseLinuxMemoryStatus } from "./soak_metrics.mjs";
 
 const root = fileURLToPath(new URL("../../", import.meta.url));
 function fingerprintCoreSource() {
@@ -45,6 +45,7 @@ const core = spawn(python, ["-m", "growwise.api.secure_entry"], {
     GROWWISE_API_HOST: "127.0.0.1",
     GROWWISE_API_PORT: String(port),
     GROWWISE_SESSION_TOKEN: token,
+    GROWWISE_PARENT_PID: String(process.pid),
     GROWWISE_LLM_FEATURES_ENABLED: "false",
     GROWWISE_EMBEDDING_FEATURES_ENABLED: "false",
     GROWWISE_VISION_FEATURES_ENABLED: "false",
@@ -228,18 +229,27 @@ async function navigate(view) {
   await waitForWorkspace(cdp, view);
 }
 
-function readProcessRssBytes(pid) {
+function readProcessMemory(pid) {
   assert(Number.isSafeInteger(pid) && pid > 0, "invalid measured process PID");
   const windows = process.platform === "win32";
   const result = windows
     ? spawnSync("powershell.exe", ["-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-      `$ErrorActionPreference='Stop'; (Get-Process -Id ${pid} -ErrorAction Stop).WorkingSet64.ToString([Globalization.CultureInfo]::InvariantCulture)`],
+      `$ErrorActionPreference='Stop'; $owner=Get-Process -Id ${pid} -ErrorAction Stop; `
+      + "@{coreRssBytes=$owner.WorkingSet64;corePrivateBytes=$owner.PrivateMemorySize64} | ConvertTo-Json -Compress"],
     {encoding:"utf8", timeout:5000})
     : spawnSync("ps", ["-o", "rss=", "-p", String(pid)], {encoding:"utf8", timeout:2000});
   const text = result.stdout?.trim() ?? "";
-  if (result.status !== 0 || !/^\d+$/.test(text)) return null;
-  const bytes = Number(text) * (windows ? 1 : 1024);
-  return Number.isSafeInteger(bytes) && bytes > 0 ? bytes : null;
+  const missing = {coreRssBytes:null,...(windows ? {corePrivateBytes:null} : {})};
+  if (result.status !== 0) return missing;
+  if (windows) {
+    try {
+      const memory = JSON.parse(text);
+      return [memory.coreRssBytes,memory.corePrivateBytes].every(value=>Number.isSafeInteger(value) && value > 0)
+        ? {coreRssBytes:memory.coreRssBytes,corePrivateBytes:memory.corePrivateBytes} : missing;
+    } catch { return missing; }
+  }
+  const bytes = /^\d+$/.test(text) ? Number(text) * 1024 : null;
+  return {coreRssBytes:Number.isSafeInteger(bytes) && bytes > 0 ? bytes : null};
 }
 
 function identifyCoreServerPid() {
@@ -277,7 +287,7 @@ async function verifyNavigationSoak(childId) {
   const seconds = Number(process.env.GROWWISE_E2E_SOAK_SECONDS ?? 0);
   assert(Number.isFinite(seconds) && seconds >= 0 && seconds <= 3600, "invalid soak duration");
   if (!seconds) return null;
-  assert(readProcessRssBytes(process.pid) > 0, "process RSS measurement unavailable on this platform");
+  assert(readProcessMemory(process.pid).coreRssBytes > 0, "process memory measurement unavailable on this platform");
   const seededRecords = Number(process.env.GROWWISE_E2E_SOAK_RECORDS ?? 1000);
   assert(Number.isInteger(seededRecords) && seededRecords >= 0 && seededRecords <= 5000, "invalid soak dataset");
   let nextRecord = 0;
@@ -303,55 +313,60 @@ async function verifyNavigationSoak(childId) {
     await navigate("home");
     await waitFor(() => evaluate(cdp, "(globalThis.__LIVE_INFLIGHT__ ?? 0) === 0"), {label:"settled home requests"});
   };
-  // Exercise every route first, then separately observe whether Core RSS has actually settled.
-  for (let index = 0; index < 3; index += 1) await cycle();
   await cdp.send("Performance.enable", {});
   const samples = [];
-  const warmup = {policy:RSS_WARMUP, cycles:0, samples:[], assessment:{stable:false}};
+  const warmup = {policy:MEMORY_WARMUP, cycles:0, samples:[], assessment:{ready:false}};
+  let steadyAssessment = null;
   const warmupStarted = Date.now();
-  const report = () => ({measurementVersion:4, platform:process.platform,
+  const report = () => ({measurementVersion:5, measurementProtocol:"fixed representative warmup then bounded observed growth",
+    platform:process.platform,
     coreRssMeasurement:process.platform === "win32" ? "Get-Process.WorkingSet64" : "ps.rss_kib",
+    corePrivateMeasurement:process.platform === "win32" ? "Get-Process.PrivateMemorySize64" : null,
     coreProcessIdentity:{source:"isolated .core.lock owner", spawnedProcess:coreServerPid === core.pid,
       ownershipVerified:true},
     requestedSeconds:seconds, seededRecords, views,
     warmup, coldBaseline:warmup.samples[0],
     earlyCoreRssGrowthBytes:warmup.samples.length
       ? warmup.samples.at(-1).coreRssBytes - warmup.samples[0].coreRssBytes : null,
-    totalElapsedSeconds:Math.round((Date.now()-warmupStarted)/1000), samples});
+    totalElapsedSeconds:Math.round((Date.now()-warmupStarted)/1000), samples,
+    growthLimits:MEMORY_GROWTH_LIMITS, steadyAssessment});
   let cycles = 0;
   const sample = async (target, started, completedCycles) => {
     await cdp.send("HeapProfiler.collectGarbage", {});
     const heap = await cdp.send("Runtime.getHeapUsage", {});
     const {metrics} = await cdp.send("Performance.getMetrics", {});
-    const coreRssBytes = readProcessRssBytes(coreServerPid);
+    const memory = readProcessMemory(coreServerPid);
+    const {coreRssBytes} = memory;
     let linuxMemory = {};
     if (process.platform === "linux") {
       try { linuxMemory = parseLinuxMemoryStatus(readFileSync(`/proc/${coreServerPid}/status`,"utf8")); }
       catch { /* RSS availability is checked independently; optional Linux detail may be absent. */ }
     }
     target.push({elapsedSeconds:Math.round((Date.now()-started)/1000), cycles:completedCycles,
-      heapUsedBytes:heap.usedSize, coreRssBytes,
+      heapUsedBytes:heap.usedSize, ...memory,
       ...linuxMemory,
       ...Object.fromEntries(metrics.filter(item=>["Nodes","Documents","JSEventListeners"].includes(item.name)).map(item=>[item.name,item.value]))});
     writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify(report(),null,2));
     assert(Number.isSafeInteger(coreRssBytes) && coreRssBytes > 0,
       "Core RSS unavailable; every warmup and steady sample must be valid");
+    if (process.platform === "win32") assert(Number.isSafeInteger(memory.corePrivateBytes) && memory.corePrivateBytes > 0,
+      "Core private bytes unavailable; every Windows memory sample must be valid");
   };
   await sample(warmup.samples,warmupStarted,0);
-  while (!warmup.assessment.stable) {
-    assert(Date.now()-warmupStarted < RSS_WARMUP.maximumSeconds * 1000,
-      "Core RSS did not reach an observed plateau within the bounded warmup");
+  while (!warmup.assessment.ready) {
+    assert(Date.now()-warmupStarted < MEMORY_WARMUP.maximumSeconds * 1000,
+      "representative memory warmup exceeded its bounded setup time");
     await cycle();
     warmup.cycles += 1;
     if (Date.now()-warmupStarted >= warmup.samples.at(-1).elapsedSeconds * 1000
-        + RSS_WARMUP.sampleIntervalSeconds * 1000) {
+        + MEMORY_WARMUP.sampleIntervalSeconds * 1000) {
       await sample(warmup.samples,warmupStarted,warmup.cycles);
-      warmup.assessment = assessRssPlateau(warmup.samples);
+      warmup.assessment = assessMemoryWarmup(warmup.samples,warmup.cycles);
       writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify(report(),null,2));
-      console.log(`RSS stability warmup: ${warmup.samples.at(-1).elapsedSeconds}s, plateau=${warmup.assessment.stable}`);
+      console.log(`Representative memory warmup: ${warmup.samples.at(-1).elapsedSeconds}s, ${warmup.cycles} cycles, ready=${warmup.assessment.ready}`);
     }
   }
-  // Keep the full requested steady interval and the original growth limits after the plateau.
+  // Measure the entire requested interval after the fixed representative workload.
   const started = Date.now();
   await sample(samples,started,0);
   while (Date.now() - started < seconds * 1000) {
@@ -364,14 +379,12 @@ async function verifyNavigationSoak(childId) {
   }
   await sample(samples,started,cycles);
   assert(cycles > 0);
-  assert(samples.at(-1).heapUsedBytes < samples[0].heapUsedBytes + 8 * 1024 * 1024,
-    "post-GC browser heap grew beyond the bounded smoke allowance");
-  assert(samples.length > 1 && samples.every(item=>Number.isSafeInteger(item.coreRssBytes) && item.coreRssBytes > 0),
-    "Core RSS unavailable in steady samples; cannot validate memory soak");
-  assert(samples.at(-1).coreRssBytes < samples[0].coreRssBytes + 32 * 1024 * 1024,
-    "Core RSS grew beyond the bounded smoke allowance");
+  steadyAssessment = assessMemoryGrowth(samples,{requirePrivate:process.platform === "win32"});
+  writeFileSync(join(artifacts,"navigation-soak.json"),JSON.stringify(report(),null,2));
+  assert(steadyAssessment.valid && steadyAssessment.withinBudget,
+    `observed process/browser memory exceeded the bounded allowance or was unavailable: ${JSON.stringify(steadyAssessment)}`);
   assert.deepEqual(await evaluate(cdp,"globalThis.__LIVE_TRANSPORT_ERRORS__ ?? []"),[]);
-  steps.push(`actual Core/UI navigation soak: ${seededRecords} added records, observed RSS plateau after ${warmup.samples.at(-1).elapsedSeconds}s, then ${cycles} cycles across ${views.length} workspaces for ${samples.at(-1).elapsedSeconds}s, bounded post-GC heap and Core RSS`);
+  steps.push(`actual Core/UI navigation soak: ${seededRecords} added records, representative warmup ${warmup.samples.at(-1).elapsedSeconds}s/${warmup.cycles} cycles, then ${cycles} cycles across ${views.length} workspaces for ${samples.at(-1).elapsedSeconds}s, bounded post-GC heap and actual Core memory`);
   return {...report(), cycles};
 }
 

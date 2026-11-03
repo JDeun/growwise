@@ -1,26 +1,40 @@
-export const RSS_WARMUP = Object.freeze({
+export const MEMORY_WARMUP = Object.freeze({
   maximumSeconds: 300,
+  minimumSeconds: 60,
+  minimumCycles: 3,
   sampleIntervalSeconds: 15,
-  minimumSpanSeconds: 30,
-  maximumSpreadBytes: 512 * 1024,
-  sampleCount: 3,
 });
 
-// RSS alone cannot identify an allocator or prove absence of every slow leak. Require an observed
-// plateau, rejecting even small sustained increases, before starting the separate steady interval.
-export function assessRssPlateau(samples) {
-  const window = samples.slice(-RSS_WARMUP.sampleCount);
-  if (window.length < RSS_WARMUP.sampleCount
-      || window.some(item => !Number.isFinite(item.coreRssBytes) || item.coreRssBytes <= 0)) {
-    return {stable:false, reason:"insufficient_valid_samples"};
-  }
-  const spanSeconds = window.at(-1).elapsedSeconds - window[0].elapsedSeconds;
-  const values = window.map(item => item.coreRssBytes);
-  const spreadBytes = Math.max(...values) - Math.min(...values);
-  const sustainedGrowth = values.slice(1).every((value,index) => value > values[index]);
-  return {stable:spanSeconds >= RSS_WARMUP.minimumSpanSeconds
-      && spreadBytes <= RSS_WARMUP.maximumSpreadBytes && !sustainedGrowth,
-    spanSeconds, spreadBytes, sustainedGrowth};
+export const MEMORY_GROWTH_LIMITS = Object.freeze({
+  coreBytes: 32 * 1024 * 1024,
+  browserBytes: 8 * 1024 * 1024,
+});
+
+const positiveBytes = value => Number.isSafeInteger(value) && value > 0;
+
+// Resident pages can be reclaimed or faulted back in by the OS. Exercise a fixed representative
+// workload before measuring growth; an RSS plateau is not evidence of allocation stability.
+export function assessMemoryWarmup(samples, cycles) {
+  const valid = samples.length > 0 && samples.every(item => positiveBytes(item.coreRssBytes));
+  const elapsedSeconds = samples.at(-1)?.elapsedSeconds;
+  const expired = Number.isFinite(elapsedSeconds) && elapsedSeconds > MEMORY_WARMUP.maximumSeconds;
+  return {ready:valid && Number.isInteger(cycles) && cycles >= MEMORY_WARMUP.minimumCycles
+      && Number.isFinite(elapsedSeconds) && elapsedSeconds >= MEMORY_WARMUP.minimumSeconds && !expired,
+    valid, expired, elapsedSeconds, cycles};
+}
+
+export function assessMemoryGrowth(samples, {requirePrivate = false} = {}) {
+  const valid = samples.length > 1 && samples.every(item => positiveBytes(item.coreRssBytes)
+    && positiveBytes(item.heapUsedBytes) && (!requirePrivate || positiveBytes(item.corePrivateBytes)));
+  if (!valid) return {valid:false, withinBudget:false};
+  const growth = field => Math.max(...samples.map(item=>item[field])) - samples[0][field];
+  const coreRssGrowthBytes = growth("coreRssBytes");
+  const browserHeapGrowthBytes = growth("heapUsedBytes");
+  const corePrivateGrowthBytes = requirePrivate ? growth("corePrivateBytes") : null;
+  return {valid:true, withinBudget:coreRssGrowthBytes <= MEMORY_GROWTH_LIMITS.coreBytes
+      && browserHeapGrowthBytes <= MEMORY_GROWTH_LIMITS.browserBytes
+      && (!requirePrivate || corePrivateGrowthBytes <= MEMORY_GROWTH_LIMITS.coreBytes),
+    coreRssGrowthBytes, browserHeapGrowthBytes, corePrivateGrowthBytes};
 }
 
 export function parseLinuxMemoryStatus(text) {
