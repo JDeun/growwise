@@ -258,7 +258,12 @@ namespace GrowWiseNativeToken {
                     catch (Exception error) {
                         diagnostics.BootstrapPrivileges = new Dictionary<string, string> { { "inspection-error", error.Message } };
                     }
-                    if (!started && launchError == 1314) {
+                    // The hosted runner rejects this verified restricted-LUA token with error 5.
+                    // CreateProcessAsUser explicitly supports restricted versions of the caller's
+                    // primary token without SeAssignPrimaryToken, enabling held quota privileges
+                    // only for the call. Reuse the same token and retain the suspended-child check.
+                    // https://learn.microsoft.com/windows/win32/api/processthreadsapi/nf-processthreadsapi-createprocessasuserw
+                    if (!started && (launchError == 5 || launchError == 1314)) {
                         started = Native.CreateProcessAsUserW(selected, executable, new StringBuilder(commandLine), IntPtr.Zero, IntPtr.Zero, false, 0x400 | 4, environment, workingDirectory, ref startup, out process);
                         if (!started) launchError = Marshal.GetLastWin32Error();
                         else source += "/CreateProcessAsUser";

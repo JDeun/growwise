@@ -4,6 +4,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 
@@ -35,7 +36,7 @@ def node_project(root: Path) -> None:
     )
     lock = {}
     for name in ("renderer", "scheduler", "react", "test-only"):
-        package = {"name": name, "version": "1.0.0", "license": "MIT"}
+        package: dict[str, Any] = {"name": name, "version": "1.0.0", "license": "MIT"}
         if name == "renderer":
             package.update(
                 dependencies={"scheduler": "1.0.0", "missing-optional": "1"},
@@ -55,7 +56,7 @@ def node_project(root: Path) -> None:
 
 def rust_graph(root: Path) -> dict:
     packages = []
-    nodes = []
+    nodes: list[dict[str, Any]] = []
     for name in ("app", "runtime", "build-support", "dev-only", "unrelated-target"):
         directory = root / "sources" / name
         directory.mkdir(parents=True)
@@ -133,6 +134,25 @@ def test_rust_nondev_reachable_graph_is_deterministic_and_preserves_real_notices
         tmp_path, output, metadata=metadata, target="synthetic-host", include_standard_library=False
     )
     assert all((output / row["files"][0]["path"]).read_bytes() == TERMS for row in rows)
+
+
+def test_cargo_metadata_uses_utf8_under_a_legacy_windows_locale(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    metadata = rust_graph(tmp_path)
+    metadata["packages"][1]["description"] = "ひらがな와 공개 라이선스"
+    raw = json.dumps(metadata, ensure_ascii=False).encode("utf-8")
+
+    def cargo_output(args: list[str], **kwargs: object) -> str:
+        # Reproduce Windows cp1252 failure unless the collector specifies Cargo's UTF-8 output.
+        return raw.decode(str(kwargs.get("encoding", "cp1252")))
+
+    monkeypatch.setattr(collector, "_tool", lambda name: name)
+    monkeypatch.setattr(collector.subprocess, "check_output", cargo_output)
+    rows = collector.collect_rust_licenses(
+        tmp_path, tmp_path / "bundle", target="synthetic-host", include_standard_library=False
+    )
+    assert [row["name"] for row in rows] == ["build-support", "runtime"]
 
 
 def test_rust_reviewed_override_requires_matching_version_commit_and_hash(tmp_path: Path) -> None:

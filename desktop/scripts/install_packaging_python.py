@@ -72,9 +72,18 @@ def main() -> None:
     if args.print_version:
         print(spec["python_version"])
         return
+    if args.github_env and not os.environ.get("UV_PYTHON_INSTALL_DIR"):
+        temporary = Path(os.environ.get("RUNNER_TEMP", ""))
+        if not temporary.is_absolute() or not temporary.is_dir():
+            raise RuntimeError("GitHub runtime installation requires an absolute RUNNER_TEMP")
+        os.environ["UV_PYTHON_INSTALL_DIR"] = str(temporary / "growwise-reviewed-python")
     install(spec)
     if args.github_env:
+        directory = os.environ["UV_PYTHON_INSTALL_DIR"]
+        if "\n" in directory or "\r" in directory:
+            raise RuntimeError("invalid private interpreter directory")
         with args.github_env.open("a", encoding="utf-8") as output:
+            output.write(f"UV_PYTHON_INSTALL_DIR={directory}\n")
             output.write(f"GROWWISE_PACKAGING_PYTHON={spec['python_version']}\n")
     print(f"Reviewed Python {spec['python_version']} / {spec['build_release']} installed")
 

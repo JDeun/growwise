@@ -22,6 +22,7 @@ def test_reviewed_packaging_runtime_matches_source_floor_and_security_release():
     project = tomllib.loads((SCRIPT.parents[2] / "pyproject.toml").read_text(encoding="utf-8"))
     assert project["project"]["requires-python"] == ">=3.12.16"
     assert spec["python_version"] == "3.12.16"
+    assert (SCRIPT.parents[2] / ".python-version").read_text().strip() == spec["python_version"]
     assert spec["build_release"] == "20261026"
     assert len(spec["archives"]) == 4
 
@@ -81,3 +82,44 @@ def test_installer_rejects_unpinned_source(tmp_path, monkeypatch):
     monkeypatch.setattr(module, "SPEC", path)
     with pytest.raises(RuntimeError, match="invalid reviewed"):
         module.reviewed_runtime()
+
+
+def test_ci_bootstrap_persists_private_interpreter_without_a_job_runner_expression(
+    tmp_path,
+    monkeypatch,
+):
+    output = tmp_path / "github-env"
+    monkeypatch.setenv("UV_PYTHON_INSTALL_DIR", "")
+    monkeypatch.setenv("RUNNER_TEMP", str(tmp_path))
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            str(SCRIPT),
+            "--github-env",
+            str(output),
+        ],
+    )
+    installed = []
+    monkeypatch.setattr(module, "install", lambda spec: installed.append(spec["python_version"]))
+    module.main()
+    assert installed == ["3.12.16"]
+    assert output.read_text(encoding="utf-8").splitlines() == [
+        f"UV_PYTHON_INSTALL_DIR={tmp_path / 'growwise-reviewed-python'}",
+        "GROWWISE_PACKAGING_PYTHON=3.12.16",
+    ]
+
+
+def test_all_implicit_uv_ci_jobs_install_the_reviewed_runtime_first():
+    import yaml
+
+    for name in ("ci.yml", "live-e2e.yml", "research-wiki.yml", "curriculum-watch.yml"):
+        workflow = yaml.safe_load(
+            (SCRIPT.parents[2] / ".github/workflows" / name).read_text(encoding="utf-8")
+        )
+        for job in workflow["jobs"].values():
+            installed = False
+            for step in job.get("steps", []):
+                run = step.get("run", "")
+                installed |= "install_packaging_python.py --github-env" in run
+                if "uv sync" in run or "uv run" in run:
+                    assert installed, f"{name}: {step.get('name', '')}"

@@ -225,7 +225,9 @@ def _tool(name: str) -> str:
 
 
 def host_target() -> str:
-    info = subprocess.check_output([_tool("rustc"), "-vV"], text=True, timeout=30)
+    info = subprocess.check_output(
+        [_tool("rustc"), "-vV"], text=True, encoding="utf-8", timeout=30
+    )
     target = os.environ.get("CARGO_BUILD_TARGET") or next(
         (line.removeprefix("host: ") for line in info.splitlines() if line.startswith("host: ")), ""
     )
@@ -259,7 +261,9 @@ def _rust_packages(metadata: dict) -> list[dict]:
 
 def collect_rust_standard_library(root: Path, output: Path) -> dict:
     compiler = _tool("rustc")
-    info = subprocess.check_output([compiler, "-vV"], text=True, cwd=root, timeout=30)
+    info = subprocess.check_output(
+        [compiler, "-vV"], text=True, encoding="utf-8", cwd=root, timeout=30
+    )
     fields = dict(line.split(": ", 1) for line in info.splitlines() if ": " in line)
     version, revision, host = (fields.get(key, "") for key in ("release", "commit-hash", "host"))
     if (
@@ -270,7 +274,7 @@ def collect_rust_standard_library(root: Path, output: Path) -> dict:
         raise RuntimeError("cannot identify the exact stable Rust standard-library toolchain")
     sysroot = Path(
         subprocess.check_output(
-            [compiler, "--print", "sysroot"], text=True, cwd=root, timeout=30
+            [compiler, "--print", "sysroot"], text=True, encoding="utf-8", cwd=root, timeout=30
         ).strip()
     )
     source = sysroot / "share/doc/rust/COPYRIGHT-library.html"
@@ -326,6 +330,7 @@ def collect_rust_licenses(
                     str(root / "desktop/src-tauri/Cargo.toml"),
                 ],
                 text=True,
+                encoding="utf-8",
                 timeout=120,
             )
         )

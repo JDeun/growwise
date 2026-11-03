@@ -3,7 +3,7 @@ from __future__ import annotations
 import html
 import re
 from datetime import date
-from typing import Annotated
+from typing import Annotated, cast
 
 from pydantic import BaseModel, Field, ValidationError
 
@@ -227,7 +227,7 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
 
         if self.provider is not None and allow_provider:
             try:
-                response = self.provider.generate_structured(
+                provider_result = self.provider.generate_structured(
                     system=(
                         f"{self.SYSTEM}\n\n대상: {self._stage_label(effective_stage)}\n"
                         f"학습자 수행 기준: {self._stage_learning_standard(effective_stage)}\n"
@@ -285,6 +285,7 @@ private generation metadata이며 결과에 인용·요약·노출하지 않습�
                     ),
                     schema=ActivityCoreDraft,
                 )
+                response = cast(ActivityCoreDraft | MaterialDraft, provider_result)
                 if isinstance(response, MaterialDraft):
                     # Existing custom providers may already return the public Markdown draft.
                     # Revalidate it and apply the same guards as a typed model response.

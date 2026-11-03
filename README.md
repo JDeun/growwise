@@ -348,6 +348,10 @@ GrowWise는 현재 **pre-1.0** 단계입니다.
 
 ### 개발자·운영자
 
+소스 실행은 Python3.12.16 이상의 보안 패치 버전이 필요합니다. 저장소 기본 버전을 아직
+설치하지 않았다면 [기술 가이드의 관리형 Python 설치](docs/technical-guide.md#개발-환경-준비)를
+먼저 따르세요. uv의 기본 카탈로그에 없는 버전도 공식 배포물과 SHA를 고정해 설치합니다.
+
 - **[기술 가이드](docs/technical-guide.md)** — 개발 실행, 구조, 모델 설정, 테스트
 - **[기술 문서 목차](docs/README.md)** — 아키텍처·데이터·보안·평가·ADR
 - **[릴리스 가이드](docs/release.md)** — 패키징, 서명, notarization, updater
