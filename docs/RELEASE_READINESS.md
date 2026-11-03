@@ -1,7 +1,14 @@
 # Release readiness
 
 The current public scope is an unsigned GitHub prerelease (`0.1.0-alpha.0`) and source.
-GrowWise can validate and package Windows and macOS installers in CI without production credentials.
+The [792c283 package workflow](https://github.com/JDeun/growwise/actions/runs/41666654868) passed for
+Windows x64, macOS Apple Silicon and macOS Intel with reviewed Python3.12.16/build20261026. Its
+production inputs remain unchanged; [downloaded-artifact and actual Core checks](knowledge/experiments/package-three-platform-792c283-20261104.md)
+preserve the exact verification scope. [Version5 supported-OS Core/browser and memory validation](knowledge/experiments/supported-os-memory-v5-20261104.md)
+also passed. Native Tauri/WebView awaits its final PR run in the
+[Native Windows E2E workflow](https://github.com/JDeun/growwise/actions/workflows/native-e2e.yml),
+and **no GitHub Release has been published**.
+
 Public **stable** distribution has an additional trust boundary enforced by
 `.github/workflows/package.yml`.
 
@@ -89,18 +96,28 @@ The [contract trace](FEATURE_TRACE_AUDIT.md) closes the original nine missing be
 later findings separately. Selective child/date raw-record export is implemented and regression-tested;
 its [actual production UI ZIP-saving check](knowledge/experiments/live-core-browser-20261103-verified.md) now passes, including scope/hash checks and rejection by full restore. Infant parent-guide print and worksheet exclusion also pass. The bounded contract trace has no remaining confirmed implementation gap; this does not assert universal absence of defects.
 
-Build, package, Windows execution and Linux memory-regression failures remain repository work until
-their corrected CI runs pass. Later operator-owned evidence includes production signing/notarization on a real stable
+The historical Windows loader/package failures are resolved by the successful three-platform runs.
+The supported Windows/macOS version5 memory runs passed; older Linux-flatness failures are retained as
+historical evidence, not an outstanding release gate for those shipped platforms. Browser-adapter
+validation does not replace the pending native WebView result. Later operator-owned evidence includes production signing/notarization on a real stable
 release, updater trust-root activation and packaged-client update testing, representative model and
 hardware measurements, and household dogfooding. See `docs/operator-handoff.md` for the exact handoff.
 
 
-## Current release gate (2026-11-03)
+Recorded completed runs include Python CI2364passed/1optional denylist skip and frontend303tests.
+Those counts are historical execution records, not a newly rerun aggregate for this documentation
+update. Two Rust upstream warnings remain on Linux-only dependency paths (`glib0.18.5` and
+`proc-macro-error1.0.4`), outside the shipped Windows/macOS closures. The complete cross-target graph is
+not described as universally warning-free, secure or commercially certified.
+
+## Current release gate (updated 2026-11-04)
 
 The repository remains on `0.1.0-alpha.0`; its updater overlay is intentionally disabled until an
 operator supplies a durable public trust root. The user authorized unsigned prerelease installers
 and source; absent certificates or updater activation do not block that initial scope. They remain
 requirements for a later signed stable release. No production private key was generated to make
-validation green. Corrected package/native-Windows/Linux-soak CI still needs to pass before the
-prerelease is called ready. See [the dated readiness assessment](release-readiness-20261103.md) for audit
-resolutions, evidence scope and outstanding physical Windows/signed-update verification.
+validation green. Three-platform package and supported-OS version5 live/memory verification have
+passed. The pending native Windows execution and final PR checks still need their actual outcomes
+before the prerelease is called ready; publication has not occurred. See
+[the dated readiness assessment](release-readiness-20261103.md) for current evidence, historical links
+and the limits on physical-device, educational and stable-update claims.

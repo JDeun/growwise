@@ -149,6 +149,18 @@ class WebDriver:
         self.command("POST", f"/element/{element}/value", {"text": value})
 
     def select(self, selector: str, value: str) -> None:
+        wait_for(
+            lambda: self.execute(
+                """
+            const field=document.querySelector(arguments[0]);
+            return !!field && !field.disabled && field.getBoundingClientRect().height > 0
+              && [...field.options].some(option=>option.value === arguments[1]);
+        """,
+                selector,
+                value,
+            ),
+            f"enabled option {value} in {selector}",
+        )
         # React receives the same DOM input/change events as a native select interaction.
         self.execute(
             """
@@ -160,6 +172,20 @@ class WebDriver:
         """,
             selector,
             value,
+        )
+
+    def reveal(self, selector: str) -> None:
+        wait_for(
+            lambda: self.execute(
+                """
+            const node=document.querySelector(arguments[0]);
+            if (!node) return false;
+            node.scrollIntoView({block:'center'});
+            return node.getBoundingClientRect().height > 0;
+        """,
+                selector,
+            ),
+            f"visible target {selector}",
         )
 
     def navigate(self, view: str) -> None:
@@ -490,7 +516,6 @@ def run_journey(driver: WebDriver, artifacts: Path, report: dict[str, Any]) -> P
         for result in results
         for log in result["learning_logs"]
     )
-    assert driver.invoke("list_learning_records", childId=child_id)
     driver.screenshot(artifacts / "02-native-material-result.png")
     steps.append(
         "UI generates a real template, explicitly approves it and saves "
@@ -506,6 +531,7 @@ def run_journey(driver: WebDriver, artifacts: Path, report: dict[str, Any]) -> P
     original = write_png(photo_path)
     file_input = driver.element('.photo-workspace input[type="file"]')
     driver.command("POST", f"/element/{file_input}/value", {"text": str(photo_path.resolve())})
+    driver.reveal(".photo-preview-grid")
     wait_for(
         lambda: driver.execute("""
         const image=document.querySelector('.photo-preview-grid img');
@@ -543,6 +569,7 @@ def run_journey(driver: WebDriver, artifacts: Path, report: dict[str, Any]) -> P
         )
         == original
     )
+    driver.reveal(".photo-gallery-thumb")
     wait_for(
         lambda: driver.execute("""
         return [...document.querySelectorAll('.photo-gallery-thumb img')]

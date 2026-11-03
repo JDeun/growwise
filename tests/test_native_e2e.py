@@ -97,6 +97,32 @@ def test_native_navigation_reads_the_canonical_shell_panel(monkeypatch: pytest.M
     assert view == "profile"
 
 
+def test_native_select_waits_for_the_new_child_option_before_one_change(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.execute = Mock(side_effect=[False, False, True, None])
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    driver.select(".profile-child-switcher select", "second-child")
+    assert driver.execute.call_count == 4
+    for call in driver.execute.call_args_list[:3]:
+        assert "field.options" in call.args[0]
+        assert call.args[1:] == (".profile-child-switcher select", "second-child")
+    assert "dispatchEvent" in driver.execute.call_args_list[-1].args[0]
+
+
+def test_native_reveals_lazy_preview_after_its_container_is_rendered(
+    monkeypatch: pytest.MonkeyPatch,
+):
+    driver = native.WebDriver("http://127.0.0.1:4444")
+    driver.execute = Mock(side_effect=[False, True])
+    monkeypatch.setattr(native.time, "sleep", lambda _seconds: None)
+    driver.reveal(".photo-gallery-thumb")
+    assert driver.execute.call_count == 2
+    assert "scrollIntoView" in driver.execute.call_args.args[0]
+    assert driver.execute.call_args.args[1] == ".photo-gallery-thumb"
+
+
 def test_native_bridge_never_appearing_fails_closed(monkeypatch: pytest.MonkeyPatch):
     driver = native.WebDriver("http://127.0.0.1:4444")
     driver.execute = Mock(return_value=False)
