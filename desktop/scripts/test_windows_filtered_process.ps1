@@ -34,3 +34,42 @@ foreach ($case in $cases) {
     if ($accepted -ne $case.accept) { throw "Incorrect filtered-token decision for RID=$($case.rid)." }
 }
 Write-Host 'Eight filtered-token policy regressions passed.'
+$defaultAcl = [GrowWiseNativeToken.FilteredProcess].GetMethod('AddSameUserDefaultDacl', [Reflection.BindingFlags]'NonPublic,Static')
+if (-not $defaultAcl) { throw 'Owned-object ACL builder is unavailable.' }
+# S-1-5-1000 is a synthetic user; the existing deny ACE for S-1-5-18 must survive.
+[byte[]]$sameUserSid = @(1, 1, 0, 0, 0, 0, 0, 5, 232, 3, 0, 0)
+[byte[]]$existingAcl = @(
+    2, 0, 28, 0, 1, 0, 0, 0,
+    1, 0, 20, 0, 0, 0, 0, 16,
+    1, 1, 0, 0, 0, 0, 0, 5, 18, 0, 0, 0
+)
+[byte[]]$before = $existingAcl.Clone()
+[byte[]]$updated = $defaultAcl.Invoke($null, @($existingAcl, $sameUserSid))
+if ([Convert]::ToHexString($existingAcl) -cne [Convert]::ToHexString($before)) {
+    throw 'The existing default ACL was mutated.'
+}
+if ($updated.Length -ne 48 -or [BitConverter]::ToUInt16($updated, 2) -ne 48 -or
+    [BitConverter]::ToUInt16($updated, 4) -ne 2 -or
+    [Convert]::ToHexString($updated[8..27]) -cne [Convert]::ToHexString($before[8..27])) {
+    throw 'An existing ACE was removed or changed.'
+}
+if ($updated[28] -ne 0 -or $updated[29] -ne 0 -or
+    [BitConverter]::ToUInt16($updated, 30) -ne 20 -or
+    [BitConverter]::ToUInt32($updated, 32) -ne 0x10000000 -or
+    [Convert]::ToHexString($updated[36..47]) -cne [Convert]::ToHexString($sameUserSid)) {
+    throw 'The added ACE must grant only the same user access to future owned objects.'
+}
+foreach ($invalid in @(
+    [byte[]]@(2, 0, 8, 0, 1, 0, 0, 0), # count overflows actual ACL
+    [byte[]]@(2, 0, 7, 0, 0, 0, 0, 0), # incorrect ACL size
+    [byte[]]@(2, 0, 12, 0, 1, 0, 0, 0, 0, 0, 40, 0) # truncated ACE
+)) {
+    $rejected = $false
+    try { $null = $defaultAcl.Invoke($null, @($invalid, $sameUserSid)) }
+    catch {
+        if ($_.Exception.GetBaseException() -isnot [ArgumentException]) { throw }
+        $rejected = $true
+    }
+    if (-not $rejected) { throw 'Malformed ACL was accepted.' }
+}
+Write-Host 'Same-user default ACL grant preserves existing denies and rejects malformed ACLs.'

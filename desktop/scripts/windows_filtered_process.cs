@@ -87,6 +87,7 @@ namespace GrowWiseNativeToken {
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool OpenProcessToken(IntPtr process, uint access, out IntPtr token);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool GetTokenInformation(IntPtr token, int kind, IntPtr data, uint size, out uint needed);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SetTokenInformation(IntPtr token, int kind, ref SidAttributes data, uint size);
+        [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SetTokenInformation(IntPtr token, int kind, ref IntPtr data, uint size);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool DuplicateTokenEx(IntPtr token, uint access, IntPtr attributes, int impersonation, int kind, out IntPtr copy);
         [DllImport("advapi32.dll", CharSet=CharSet.Unicode, SetLastError=true)] internal static extern bool LookupPrivilegeValue(string system, string name, out Luid value);
         [DllImport("advapi32.dll", SetLastError=true)] internal static extern bool SaferCreateLevel(uint scope, uint level, uint flags, out IntPtr handle, IntPtr reserved);
@@ -191,6 +192,65 @@ namespace GrowWiseNativeToken {
             if (info.UserSid != user || info.IsElevated || info.AdministratorsEnabled || info.IntegrityRid < 8192 || info.IntegrityRid >= 12288)
                 throw new InvalidOperationException("Refusing non-filtered token: sameUser=" + (info.UserSid == user) + ", integrity=" + info.IntegritySid + ", elevated=" + info.IsElevated + ", adminEnabled=" + info.AdministratorsEnabled);
         }
+        // Preserve every inherited ACE. Add only the selected token's own user to
+        // future objects: an administrator-only default DACL prevents CreatePipe
+        // after Administrators has correctly become deny-only. No existing object
+        // or machine ACL is modified. Chromium's restricted-token builder does the
+        // same user-SID grant in its token default DACL.
+        static byte[] AddSameUserDefaultDacl(byte[] acl, byte[] userSid) {
+            if (acl == null || acl.Length < 8 || (acl[0] != 2 && acl[0] != 4) ||
+                BitConverter.ToUInt16(acl, 2) != acl.Length || userSid == null ||
+                userSid.Length < 8 || userSid[0] != 1 || userSid.Length != 8 + 4 * userSid[1])
+                throw new ArgumentException("Expected a complete default ACL and user SID.");
+            int count = BitConverter.ToUInt16(acl, 4);
+            int used = 8;
+            for (int index = 0; index < count; index++) {
+                if (used + 4 > acl.Length) throw new ArgumentException("Truncated default ACL.");
+                int size = BitConverter.ToUInt16(acl, used + 2);
+                if (size < 4 || used + size > acl.Length) throw new ArgumentException("Invalid default ACL entry.");
+                used += size;
+            }
+            int aceSize = 8 + userSid.Length;
+            int length = Math.Max(acl.Length, checked(used + aceSize));
+            if (length > UInt16.MaxValue || count == UInt16.MaxValue)
+                throw new ArgumentException("Default ACL is too large.");
+            byte[] updated = new byte[length];
+            Array.Copy(acl, updated, acl.Length);
+            Array.Copy(BitConverter.GetBytes((ushort)length), 0, updated, 2, 2);
+            Array.Copy(BitConverter.GetBytes((ushort)(count + 1)), 0, updated, 4, 2);
+            updated[used] = 0; // ACCESS_ALLOWED_ACE_TYPE, no inheritance flags.
+            updated[used + 1] = 0;
+            Array.Copy(BitConverter.GetBytes((ushort)aceSize), 0, updated, used + 2, 2);
+            Array.Copy(BitConverter.GetBytes(0x10000000u), 0, updated, used + 4, 4); // GENERIC_ALL
+            Array.Copy(userSid, 0, updated, used + 8, userSid.Length);
+            return updated;
+        }
+        static void EnsureOwnObjectAccess(IntPtr token) {
+            IntPtr data = Information(token, 6); // TOKEN_DEFAULT_DACL
+            IntPtr updated = IntPtr.Zero;
+            try {
+                IntPtr acl = Marshal.ReadIntPtr(data);
+                if (acl == IntPtr.Zero) throw new InvalidOperationException("Refusing an unrestricted null default DACL.");
+                int size = (ushort)Marshal.ReadInt16(acl, 2);
+                byte[] original = new byte[size];
+                Marshal.Copy(acl, original, 0, size);
+                IntPtr user = Information(token, 1);
+                byte[] sid;
+                try {
+                    IntPtr address = Marshal.ReadIntPtr(user);
+                    sid = new byte[Native.GetLengthSid(address)];
+                    Marshal.Copy(address, sid, 0, sid.Length);
+                } finally { Marshal.FreeHGlobal(user); }
+                byte[] bytes = AddSameUserDefaultDacl(original, sid);
+                updated = Marshal.AllocHGlobal(bytes.Length);
+                Marshal.Copy(bytes, 0, updated, bytes.Length);
+                if (!Native.SetTokenInformation(token, 6, ref updated, (uint)IntPtr.Size))
+                    throw new Win32Exception(Marshal.GetLastWin32Error());
+            } finally {
+                if (updated != IntPtr.Zero) Marshal.FreeHGlobal(updated);
+                Marshal.FreeHGlobal(data);
+            }
+        }
         static void Medium(IntPtr token) {
             if (Inspect(token).IntegrityRid < 12288) return;
             IntPtr sid;
@@ -273,6 +333,7 @@ namespace GrowWiseNativeToken {
                         selected = Candidate(original, index);
                         Medium(selected);
                         Validate(Inspect(selected), user);
+                        EnsureOwnObjectAccess(selected);
                         source = methods[index]; break;
                     } catch (Exception error) {
                         failures.Add(methods[index] + ": " + error.Message);
