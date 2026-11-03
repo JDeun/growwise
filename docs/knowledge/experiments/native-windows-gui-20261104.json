@@ -1,0 +1,123 @@
+{
+  "experiment_id": "EXP-NATIVE-WINDOWS-GUI-OBSERVED-20261104",
+  "recorded_on": "2026-11-04",
+  "revision": "66ce275ce625cd45050efd8221e6955c94bd8d3d",
+  "workflow_url": "https://github.com/JDeun/growwise/actions/runs/41685029534",
+  "job_url": "https://github.com/JDeun/growwise/actions/runs/41685029534/job/126088391773",
+  "report_sha256": "4774fa1b43026a6e69b91c0f29426c26bbb89a6546afab2cf018f3acbb32ac52",
+  "report": {
+    "passed": true,
+    "transport": "actual Windows WebView2 -> original Rust IPC -> authenticated managed Core",
+    "steps": [
+      "actual WebView calls original Rust IPC; Desktop starts and authenticates a real AI-disabled Core in isolated E2E storage",
+      "UI first profile persists through real Rust -> Core IPC",
+      "UI generates a real template, explicitly approves it and saves an authoritative one-line learning result",
+      "real native file selection/upload/confirmation/thumbnail IPC succeeds; 2048x1536 PNG original remains byte-identical",
+      "UI child switching isolates real private search, materials, learning records and photo thumbnails",
+      "UI creates a real local backup; authoritative Markdown is durable on disk and no unhandled renderer errors occurred"
+    ],
+    "script_sha256": "4510c5d63f02e9e6b52222b65434877535131b85f2603e2c55647779b686ead9",
+    "ai_enabled": false,
+    "commit": "66ce275ce625cd45050efd8221e6955c94bd8d3d",
+    "integrity_level": "S-1-16-8192",
+    "token_elevation": {
+      "token_is_elevated": false,
+      "administrator_group_enabled": false
+    },
+    "application_sha256": "117d3b4bff976cd1104bc8a40a25dcc77586775a7d330c51c436c17a97ddff00",
+    "data_identifier": "io.github.jdeun.growwise.e2e",
+    "core_exited": true
+  },
+  "filtered_worker": {
+    "token_is_elevated": false,
+    "administrators_enabled": false,
+    "filtered_worker": true,
+    "final_integrity_sid": "S-1-16-8192",
+    "elevation_type": 1,
+    "execution_context": {
+      "session_id": 2,
+      "window_station": "WinSta0",
+      "desktop": "Default",
+      "default_dacl_is_null": false,
+      "default_dacl_allows_same_user": true
+    },
+    "requested_task_runlevel": "Limited"
+  },
+  "token_launch": {
+    "source": "restricted-lua-token/CreateProcessAsUser",
+    "filtered_token_is_elevated": false,
+    "initial_token_is_elevated": true,
+    "filtered_administrators_enabled": false,
+    "initial_administrators_enabled": true,
+    "initial_integrity_sid": "S-1-16-12288",
+    "filtered_integrity_sid": "S-1-16-8192"
+  },
+  "webdriver_provenance": {
+    "runtime_version": "156.0.4314.50",
+    "driver_version": "156.0.4314.50",
+    "archive_sha256": "DFB627983FCDAA076266619E5CFDA0C654093CE1B320165574C4A08D5FDCA357",
+    "authenticode": "Valid",
+    "driver_sha256": "DD728C934E491ABE7E8A07FA366AAD135EA15D934CBBA99192AD872DA59C39D3",
+    "download_url": "https://msedgedriver.microsoft.com/156.0.4314.50/edgedriver_win64.zip"
+  },
+  "screenshots": [
+    {
+      "name": "01-native-empty-home.png",
+      "bytes": 52841,
+      "sha256": "2f40a5dfa5ba842621aaf3447ddadb9135a3c6b5349e49fbc914b2fab4c3e011"
+    },
+    {
+      "name": "02-native-material-result.png",
+      "bytes": 68868,
+      "sha256": "cc3511be1484547b6bd33f80b044885646a400f9f7f3ee250482d18eee45f6c4"
+    },
+    {
+      "name": "03-native-photo-thumbnail.png",
+      "bytes": 66220,
+      "sha256": "17eb8cf550ae6c1cf2c46b96cea62c5df4d90ca25bf50431149fa21e83ef863d"
+    },
+    {
+      "name": "04-native-private-sibling.png",
+      "bytes": 77799,
+      "sha256": "d8199399e2bf059169e813f641e97cdff3a8786fd4b1e8cf6fb774279aa5b5fe"
+    },
+    {
+      "name": "05-native-backup.png",
+      "bytes": 93418,
+      "sha256": "513d1b271fcd8c44dfbc07a8b4b91b078545f2d7c8e1a953d9694b78fd3a6bfb"
+    }
+  ],
+  "visual_review": [
+    {
+      "name": "01-native-empty-home.png",
+      "observed": "Actual downloaded screenshot inspected; synthetic product state visible."
+    },
+    {
+      "name": "02-native-material-result.png",
+      "observed": "Actual downloaded screenshot inspected; synthetic product state visible."
+    },
+    {
+      "name": "03-native-photo-thumbnail.png",
+      "observed": "Actual downloaded screenshot inspected; synthetic product state visible."
+    },
+    {
+      "name": "04-native-private-sibling.png",
+      "observed": "Actual downloaded screenshot inspected; synthetic product state visible."
+    },
+    {
+      "name": "05-native-backup.png",
+      "observed": "Actual downloaded screenshot inspected; synthetic product state visible."
+    }
+  ],
+  "scope": "Actual hosted Windows debug app with production frontend and original Rust handlers, isolated E2E identifier, real authenticated source Core. No business IPC/API replacement.",
+  "limits": [
+    "Not a physical Windows household trial",
+    "AI, vision, embeddings and external enrichment disabled",
+    "Not a model-quality, learning-efficacy, signed installer or real paid remote API test",
+    "Packaged Core/installer evidence is separate"
+  ],
+  "workflow_head_revision": "f733bfc649859b2ee65d0f4b55f5ff791793df94",
+  "workflow_conclusion": "success",
+  "job_duration_seconds": 452,
+  "visual_review_note": "All five screenshots inspected. Material-result capture still shows transient save-busy styling after the authoritative observation already persisted; final backup screenshot shows completed UI notice and archive. No claim of a full visual/accessibility audit."
+}

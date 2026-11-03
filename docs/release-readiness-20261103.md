@@ -1,11 +1,15 @@
 # Release readiness assessment — 2026-11-03
 
 Updated **2026-11-04**. The agreed scope is **unsigned GitHub prerelease installers and source for
-`0.1.0-alpha.0`**. All three installer jobs and supported-OS actual Core/browser validation have
-passed. The native Tauri/WebView journey awaits its final PR run in the
-[Native Windows E2E workflow](https://github.com/JDeun/growwise/actions/workflows/native-e2e.yml).
-**No GitHub Release has been published.** Native execution and the final PR checks must be assessed
-before the prerelease is called ready.
+`0.1.0-alpha.0`**. Revision `f733bfc` fixes a real first-photo workflow bug: saving a draft collapsed
+the section containing parent confirmation. Draft review and pending progress now keep that section
+open. A production-browser regression uses a real pointer to reopen a saved draft; the live harness
+also refuses hidden buttons. The [actual Windows native journey](knowledge/experiments/native-windows-gui-20261104.md)
+and [Windows/macOS live runs](https://github.com/JDeun/growwise/actions/runs/41685029397) passed on this
+correction. [General CI](https://github.com/JDeun/growwise/actions/runs/41685029503) passed all11jobs.
+[Fresh installers](https://github.com/JDeun/growwise/actions/runs/41685029489) passed on all three
+platforms; earlier installers are not its release artifacts. Publication and downloads are recorded on the
+[GitHub prerelease page](https://github.com/JDeun/growwise/releases/tag/v0.1.0-alpha.0).
 
 Platform certificates, notarization and a durable updater signing key are requirements for a later
 signed stable release. They do not block the explicitly authorized unsigned prerelease. The updater
@@ -17,8 +21,16 @@ Existing stable-tag signing and trust-root checks remain enforced.
 The [792c283 package workflow](https://github.com/JDeun/growwise/actions/runs/41666654868) passed for
 Windows x64, macOS Apple Silicon and macOS Intel, including three actual updater security tests per
 platform, Core build, authentication/photo smoke, attribution checks and NSIS/DMG upload. The reviewed
-runtime is **Python3.12.16 / build20261026**. The production inputs remain unchanged from that tested
-revision; subsequent native/browser harness changes have separate execution evidence.
+runtime is **Python3.12.16 / build20261026**. Its production inputs matched through `661a38a`, whose
+[three-platform package run](https://github.com/JDeun/growwise/actions/runs/41679826972) also passed.
+The later `f733bfc` frontend correction has its own successful
+[three-platform installer and SBOM run](https://github.com/JDeun/growwise/actions/runs/41685029489).
+
+The initial unsigned prerelease promotes those exact `f733bfc` installer artifacts. The final source
+tag adds only release/evidence documentation; all846tracked non-documentation files, including README
+metadata, product sources, locks and build inputs, match the tested revision. The source SBOM describes
+the `f733bfc` snapshot. Published asset bytes are identified by `SHA256SUMS` and build provenance in the
+release notes. This is artifact promotion, not a claim that independent rebuilds produce identical bytes.
 
 The [three-platform record](knowledge/experiments/package-three-platform-792c283-20261104.md) preserves
 all downloaded installer sizes and SHA-256 values. Windows has374aggregate attribution rows, ARM376
@@ -49,8 +61,9 @@ server, not its small venv launcher, within a separate +32MiB retention budget. 
 warmup and steady traces and earlier failures are preserved in that record. This is bounded observed
 memory behavior, not proof of the absence of every leak.
 
-These runs use the production frontend and an IPC transport adapter. They do not replace the pending
-native WebView journey. AI was disabled. The earlier
+These runs use the production frontend and an IPC transport adapter. The separate
+[successful native Windows journey](knowledge/experiments/native-windows-gui-20261104.md) exercises
+the original Rust IPC and verifies the actual managed Core exits. AI was disabled. The earlier
 [Linux allocator investigation](knowledge/experiments/linux-core-memory-20261103.md) and
 [supported-OS version4 failures](knowledge/experiments/supported-os-live-20261104.md) remain historical
 evidence; the old Linux-flatness assumption is not an unresolved gate for the shipped Windows/macOS
@@ -69,9 +82,10 @@ scope.
 | Embedding changes synchronously reembedded the corpus | One background worker,32-row pages, generation fences and lexical fallback | Worker/model-change regressions |
 | Recovery shared limits across job types | Job-specific photo and AI recovery limits | Recovery regressions |
 
-The recorded Python CI run passed **2364tests with1optional denylist skip**; the recorded frontend run
-passed **303tests**. These are completed-run counts, not a newly executed aggregate for this document
-update. Production build and lint checks passed. Child selection has a single provider with stale
+The `f733bfc` Python CI passed **2380tests with1skip on Ubuntu/macOS** and **2378tests with3skips on
+Windows**; the frontend passed **304tests**. Coverage was81%. These are completed-run counts, with
+platform/optional skips and the third-party warning retained in CI. Production build and lint passed.
+Child selection has a single provider with stale
 response fences and child-keyed controllers. Updater failure, signature, interrupted-download and
 operation-serialization guards are covered by actual test runs, using public/synthetic fixtures rather
 than a production updater key.
@@ -84,9 +98,11 @@ make the complete cross-target Rust graph warning-free or establish universal se
 
 ## Remaining acceptance and operational limits
 
-The remaining current execution result is the native Windows Tauri/WebView journey linked above.
-Package success and browser-adapter validation are not relabeled as its success. Release publication
-has not occurred.
+The native Windows journey completed all six stages with original W3C pointer clicks, including
+photo confirmation after the first draft, child isolation and a real backup. Its report records
+`core_exited=true` for the verified lock-owner process and no renderer errors. General CI passed all11
+jobs, and all three fresh installer jobs plus SBOM passed. The agreed unsigned-prerelease engineering
+acceptance is complete; the operational limits below remain distinct.
 
 The [repeated model experiment](knowledge/experiments/model-repeat-quality-20261103.md) retains51actual
 calls and distinguishes later saved-response replay from new inference. Its final24-call observed

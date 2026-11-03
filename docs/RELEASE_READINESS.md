@@ -3,11 +3,14 @@
 The current public scope is an unsigned GitHub prerelease (`0.1.0-alpha.0`) and source.
 The [792c283 package workflow](https://github.com/JDeun/growwise/actions/runs/41666654868) passed for
 Windows x64, macOS Apple Silicon and macOS Intel with reviewed Python3.12.16/build20261026. Its
-production inputs remain unchanged; [downloaded-artifact and actual Core checks](knowledge/experiments/package-three-platform-792c283-20261104.md)
+production inputs matched through `661a38a`; [downloaded-artifact and actual Core checks](knowledge/experiments/package-three-platform-792c283-20261104.md)
 preserve the exact verification scope. [Version5 supported-OS Core/browser and memory validation](knowledge/experiments/supported-os-memory-v5-20261104.md)
-also passed. Native Tauri/WebView awaits its final PR run in the
-[Native Windows E2E workflow](https://github.com/JDeun/growwise/actions/workflows/native-e2e.yml),
-and **no GitHub Release has been published**.
+also passed. Revision `f733bfc` subsequently fixes the photo draft confirmation section collapsing
+after the first saved photo. Its production-pointer regression, [original native Windows journey](knowledge/experiments/native-windows-gui-20261104.md)
+and [both supported-OS live checks](https://github.com/JDeun/growwise/actions/runs/41685029397) passed.
+General CI passed all11jobs, and [fresh installers plus SBOM](https://github.com/JDeun/growwise/actions/runs/41685029489)
+passed for all three platforms. Publication status is shown on the
+[GitHub prerelease page](https://github.com/JDeun/growwise/releases/tag/v0.1.0-alpha.0).
 
 Public **stable** distribution has an additional trust boundary enforced by
 `.github/workflows/package.yml`.
@@ -99,14 +102,14 @@ its [actual production UI ZIP-saving check](knowledge/experiments/live-core-brow
 The historical Windows loader/package failures are resolved by the successful three-platform runs.
 The supported Windows/macOS version5 memory runs passed; older Linux-flatness failures are retained as
 historical evidence, not an outstanding release gate for those shipped platforms. Browser-adapter
-validation does not replace the pending native WebView result. Later operator-owned evidence includes production signing/notarization on a real stable
+validation is complemented by the separately successful original native WebView journey. Later operator-owned evidence includes production signing/notarization on a real stable
 release, updater trust-root activation and packaged-client update testing, representative model and
 hardware measurements, and household dogfooding. See `docs/operator-handoff.md` for the exact handoff.
 
 
-Recorded completed runs include Python CI2364passed/1optional denylist skip and frontend303tests.
-Those counts are historical execution records, not a newly rerun aggregate for this documentation
-update. Two Rust upstream warnings remain on Linux-only dependency paths (`glib0.18.5` and
+The `f733bfc` CI completed all11jobs: Python2380passed/1skip on Ubuntu/macOS,2378passed/3skips on
+Windows, frontend304tests and81%coverage. These are actual recorded counts. Two Rust upstream warnings
+remain on Linux-only dependency paths (`glib0.18.5` and
 `proc-macro-error1.0.4`), outside the shipped Windows/macOS closures. The complete cross-target graph is
 not described as universally warning-free, secure or commercially certified.
 
@@ -117,7 +120,9 @@ operator supplies a durable public trust root. The user authorized unsigned prer
 and source; absent certificates or updater activation do not block that initial scope. They remain
 requirements for a later signed stable release. No production private key was generated to make
 validation green. Three-platform package and supported-OS version5 live/memory verification have
-passed. The pending native Windows execution and final PR checks still need their actual outcomes
-before the prerelease is called ready; publication has not occurred. See
+passed, including the final native Windows execution and both supported-OS live runs after the photo
+correction. General CI and the fresh three-platform package run are complete. The initial prerelease
+promotes the exact verified `f733bfc` installer artifacts; the final tag adds evidence/release docs only.
+The source SBOM remains explicitly attached to the `f733bfc` snapshot. See
 [the dated readiness assessment](release-readiness-20261103.md) for current evidence, historical links
 and the limits on physical-device, educational and stable-update claims.

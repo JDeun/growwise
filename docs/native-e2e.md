@@ -25,10 +25,20 @@ Python harness도 자신의 토큰에서 이 조건을 독립적으로 확인한
 계정, 앱 배포 설정, 브라우저 sandbox는 변경하지 않는다. 테스트 파일 접근은 현재 사용자에게만
 부여한다.
 
-이전 Windows 실행은 Medium SID 확인 뒤 WebView 생성 중 `0x80010108`로 중단되어 실제 UI
-단계에 진입하지 못했다. 필터링된 토큰 방식은 로컬 C# 컴파일·8개 순수 권한 조건 검사와
-Python harness 회귀 검사를 통과했으며, 실제 Win32 토큰 생성과 GUI 성공은 다음 Windows CI로
-검증해야 한다. 권한 보강만으로 이전 HRESULT의 원인이 확정되거나 해결이 입증된 것은 아니다.
+2026-11-04 [실제 Windows CI](https://github.com/JDeun/growwise/actions/runs/41685029534)가
+전체 여정에 성공했다. 실제 worker는 `WinSta0\\Default`의 Medium 토큰이며 상승 권한과
+활성 Administrators 그룹이 없었다. 제한된 토큰의 기본 ACL에는 자기 계정이 새로 만드는
+객체에 접근할 수 있는 항목을 추가해 출력 파이프를 사용할 수 있게 한다. 기존 ACE·거부 항목,
+머신 정책과 기존 파일 권한은 이 토큰 수정으로 변경하지 않는다.
+
+원래 Rust IPC와 Desktop이 인증한 실제 Core를 통해 프로필, 자료 생성·명시적 사용·결과 저장,
+사진 업로드·부모 확정·썸네일과 원본 보존, 다자녀 격리, 백업과 Markdown 저장을 확인했다.
+앱 종료 후 실제 lock-owner Core PID가 종료되는 검사도 통과했다. 이전 `0x80010108`와
+출력 파이프 오류를 겪은 실행은 이 성공의 근거로 재해석하지 않는다. 저장 후 접히던 사진 초안
+확인 영역은 실제 UI에서 수정했고, 숨겨지거나 가려진 버튼을 JS 클릭으로 우회하지 않는다.
+[커밋·해시·여섯 단계·스크린샷 검토·제한 범위](knowledge/experiments/native-windows-gui-20261104.md)는
+별도의 변경하지 않는 관측 기록에 남겼다. hosted Windows debug 앱의 성공이며 물리 기기의
+가정 실사용, 모델 품질, 서명된 배포 설치 프로그램의 검증을 대신하지 않는다.
 근거: [Microsoft의 권한 권고](https://learn.microsoft.com/microsoft-edge/webview2/concepts/security#recommended-privilege-level-for-webview2-host-applications),
 [Tauri Wry 추적 이슈](https://github.com/tauri-apps/wry/issues/1782),
 [Windows 제한 권한 task principal](https://learn.microsoft.com/powershell/module/scheduledtasks/new-scheduledtaskprincipal).
