@@ -294,7 +294,7 @@ jobs:
         run: |
           set -euo pipefail
           if ! gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
-            args=(release create "$GITHUB_REF_NAME" --title "GrowWise ${GITHUB_REF_NAME#v}" --generate-notes)
+            args=(release create "$GITHUB_REF_NAME" --title "GrowWise ${GITHUB_REF_NAME#v}" --generate-notes --draft --verify-tag)
             if [[ "${GITHUB_REF_NAME%%+*}" == *-* ]]; then
               args+=(--prerelease)
             fi
@@ -322,3 +322,30 @@ jobs:
             fi
             gh release upload "$GITHUB_REF_NAME" "$file"
           done < <(find release-assets -maxdepth 1 -type f -print0)
+      - name: Verify every uploaded release asset before publication
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          for attempt in 1 2 3 4 5; do
+            gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" > release-metadata.json
+            if python desktop/scripts/verify_release_asset_digests.py \
+              --assets-dir release-assets \
+              --metadata release-metadata.json \
+              --tag "$GITHUB_REF_NAME"; then
+              break
+            fi
+            if [[ "$attempt" == 5 ]]; then
+              echo "::error::Release asset digest verification failed; draft not published" >&2
+              exit 1
+            fi
+            sleep 4
+          done
+      - name: Publish fully verified draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [[ "$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME" --jq .draft)" == "true" ]]; then
+            gh release edit "$GITHUB_REF_NAME" --draft=false
+          fi
