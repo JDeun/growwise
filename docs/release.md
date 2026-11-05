@@ -254,3 +254,36 @@ Stable jobs additionally verify macOS codesign/Gatekeeper/stapled notarization a
 Authenticode/timestamp after building. The packaged Core smoke uploads a synthetic PNG and requests
 a JPEG thumbnail, exercising frozen Pillow plugins as well as authenticated startup/parent-watchdog
 imports. Source-level tests alone are not claimed as a packaged-platform runtime pass.
+
+## Tagged release retries and immutable published assets
+
+Release tags must not use the PR concurrency policy. The Desktop Package workflow
+automatically cancels older **pull-request** runs for the same ref, but a tag
+publication must finish unless it is explicitly cancelled by an operator or GitHub.
+
+A release rerun is **non-destructive**:
+
+- The publishing job requests the release's existing asset metadata first.
+- Each existing asset must match the freshly produced asset's **SHA-256**
+  (assets[].digest from GitHub Releases versus a local sha256sum).
+- Matching assets are kept unchanged. Any mismatched or missing digest **fails
+  closed**; the workflow does not delete, replace or overwrite the file.
+- Only missing release assets are uploaded. Do not add --clobber to the
+  normal publishing path. A deliberate replacement requires an independent
+  operator review of provenance and checksums.
+
+**Historical 0.1.0-alpha.0:** the tag-triggered Desktop Package run
+[#41689142245](https://github.com/JDeun/growwise/actions/runs/41689142245)
+was cancelled on 2026-11-03. Its Linux SBOM steps succeeded, while platform
+packaging was cancelled before meaningful build steps. The GitHub Actions API
+does not identify the cancellation initiator in this record. This is **not**
+evidence of a compiler or test failure. The published installers were instead
+promoted from the fully successful three-platform run
+[#41685029489](https://github.com/JDeun/growwise/actions/runs/41685029489).
+On 2026-11-05 the three published installer GitHub release-asset SHA-256
+digests and the source SBOM digest were compared with the bytes extracted from
+that verified run's artifact ZIPs; all four values matched.
+
+The cancelled historical run remains cancelled. This retry protection only
+affects workflow definitions included in **future** tags; do not move an
+existing release tag or overwrite its assets to make an old run green.
