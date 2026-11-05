@@ -18,7 +18,8 @@ on:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  # Only supersede stale PR packaging; never auto-cancel a tag publication.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -299,6 +300,25 @@ jobs:
             fi
             gh "${args[@]}"
           fi
+          # A rerun must never silently replace previously verified release bytes.
+          release_metadata="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$GITHUB_REF_NAME")"
           while IFS= read -r -d '' file; do
-            gh release upload "$GITHUB_REF_NAME" "$file" --clobber
+            asset_name="${file##*/}"
+            existing_assets="$(jq -c --arg name "$asset_name" '[.assets[] | select(.name == $name)]' <<< "$release_metadata")"
+            asset_count="$(jq 'length' <<< "$existing_assets")"
+            if (( asset_count > 1 )); then
+              echo "::error::Multiple existing release assets named $asset_name" >&2
+              exit 1
+            fi
+            if (( asset_count == 1 )); then
+              expected_digest="sha256:$(sha256sum "$file" | awk '{print $1}')"
+              published_digest="$(jq -r '.[0].digest // empty' <<< "$existing_assets")"
+              if [[ "$published_digest" != "$expected_digest" ]]; then
+                echo "::error::Refusing to overwrite $asset_name: published digest ${published_digest:-missing} differs from $expected_digest" >&2
+                exit 1
+              fi
+              echo "Already published and SHA-256 verified: $asset_name"
+              continue
+            fi
+            gh release upload "$GITHUB_REF_NAME" "$file"
           done < <(find release-assets -maxdepth 1 -type f -print0)
