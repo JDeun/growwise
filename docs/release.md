@@ -287,3 +287,21 @@ that verified run's artifact ZIPs; all four values matched.
 The cancelled historical run remains cancelled. This retry protection only
 affects workflow definitions included in **future** tags; do not move an
 existing release tag or overwrite its assets to make an old run green.
+
+### Staged release publication and verification gate
+
+New tags create a **draft** GitHub Release, upload assets, and only publish
+after verifying **every** local prepared asset against the GitHub release's
+SHA-256 digest and the generated SHA256SUMS contents. The verifier rejects
+missing or extra assets, duplicate names, mismatched tags, absent digests,
+corrupted checksums, and changed installers. A brief retry allows GitHub's
+release digest metadata to become available.
+
+If a release upload or integrity gate fails, the new release **remains a
+draft** and must not be linked as a complete public release. Rerunning a
+matching draft may complete the upload; any mismatched existing file fails
+without overwrite, so operator review is required for mismatches.
+
+Previously published releases remain published; retries never automatically
+convert them into drafts or replace their assets. This change only affects
+future release attempts. Tests cover digest verification and workflow staging.
