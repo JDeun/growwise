@@ -54,7 +54,9 @@ def verify_release_assets(assets_dir: Path, metadata_path: Path, tag: str) -> in
     if set(remote) != set(by_name):
         missing = sorted(set(by_name) - set(remote))
         unexpected = sorted(set(remote) - set(by_name))
-        raise RuntimeError(f"release asset set mismatch; missing={missing}, unexpected={unexpected}")
+        raise RuntimeError(
+            f"release asset set mismatch; missing={missing}, unexpected={unexpected}"
+        )
 
     for name, path in by_name.items():
         expected_digest = f"sha256:{_sha256(path)}"
